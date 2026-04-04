@@ -93,7 +93,7 @@ const e164Phone = z
         return false;
       }
     },
-    { message: "رقم الهاتف غير صحيح — يجب أن يكون بصيغة E.164 مثل +966512345678" },
+    { message: "رقم الهاتف غير صحيح — يجب أن يكون بصيغة E.164 مثل +963912345678" },
   )
   .transform((phone) => {
     const parsed = parsePhoneNumber(phone);

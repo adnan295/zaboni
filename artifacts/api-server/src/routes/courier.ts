@@ -76,8 +76,8 @@ router.patch("/courier/location", requireCourier, async (req, res) => {
 });
 
 const NEARBY_RADIUS_KM = 30;
-const RIYADH_LAT = 24.7136;
-const RIYADH_LON = 46.6753;
+const DAMASCUS_LAT = 33.5138;
+const DAMASCUS_LON = 36.2765;
 
 router.get("/courier/orders/available", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
@@ -88,8 +88,8 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
     .where(eq(usersTable.id, courierId))
     .limit(1);
 
-  const courierLat = courierUser[0]?.lat ?? RIYADH_LAT;
-  const courierLon = courierUser[0]?.lon ?? RIYADH_LON;
+  const courierLat = courierUser[0]?.lat ?? DAMASCUS_LAT;
+  const courierLon = courierUser[0]?.lon ?? DAMASCUS_LON;
 
   const rows = await db
     .select()
@@ -100,8 +100,8 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
   const withDistance = rows
     .filter((o) => o.userId !== courierId)
     .map((o) => {
-      const destLat = o.destinationLat ?? RIYADH_LAT;
-      const destLon = o.destinationLon ?? RIYADH_LON;
+      const destLat = o.destinationLat ?? DAMASCUS_LAT;
+      const destLon = o.destinationLon ?? DAMASCUS_LON;
       return {
         ...o,
         distanceKm: Number(haversineKm(courierLat, courierLon, destLat, destLon).toFixed(1)),

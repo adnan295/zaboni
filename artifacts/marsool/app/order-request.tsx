@@ -121,6 +121,14 @@ export default function OrderRequestScreen() {
           </TouchableOpacity>
         </View>
 
+        <View style={[styles.addressRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <MaterialIcons name="payments" size={20} color={colors.primary} />
+          <View style={styles.addrInfo}>
+            <Text style={[styles.addrLabel, { color: colors.mutedForeground }]}>{t("payment.method")}</Text>
+            <Text style={[styles.addrText, { color: colors.foreground }]}>{t("payment.cashOnDelivery")}</Text>
+          </View>
+        </View>
+
         <View style={[styles.howCard, { backgroundColor: colors.secondary }]}>
           <Text style={[styles.howTitle, { color: colors.foreground }]}>{t("orderRequest.howItWorks")}</Text>
           {steps.map((step, i) => (

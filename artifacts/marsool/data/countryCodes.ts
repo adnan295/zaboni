@@ -7,6 +7,7 @@ export interface CountryCode {
 }
 
 export const COUNTRY_CODES: CountryCode[] = [
+  { flag: "🇸🇾", code: "+963", country: "SY", nameAr: "سوريا",        nameEn: "Syria" },
   { flag: "🇸🇦", code: "+966", country: "SA", nameAr: "السعودية",     nameEn: "Saudi Arabia" },
   { flag: "🇦🇪", code: "+971", country: "AE", nameAr: "الإمارات",     nameEn: "UAE" },
   { flag: "🇪🇬", code: "+20",  country: "EG", nameAr: "مصر",          nameEn: "Egypt" },
@@ -17,7 +18,6 @@ export const COUNTRY_CODES: CountryCode[] = [
   { flag: "🇴🇲", code: "+968", country: "OM", nameAr: "عُمان",        nameEn: "Oman" },
   { flag: "🇾🇪", code: "+967", country: "YE", nameAr: "اليمن",        nameEn: "Yemen" },
   { flag: "🇮🇶", code: "+964", country: "IQ", nameAr: "العراق",       nameEn: "Iraq" },
-  { flag: "🇸🇾", code: "+963", country: "SY", nameAr: "سوريا",        nameEn: "Syria" },
   { flag: "🇱🇧", code: "+961", country: "LB", nameAr: "لبنان",        nameEn: "Lebanon" },
   { flag: "🇵🇸", code: "+970", country: "PS", nameAr: "فلسطين",       nameEn: "Palestine" },
   { flag: "🇱🇾", code: "+218", country: "LY", nameAr: "ليبيا",        nameEn: "Libya" },

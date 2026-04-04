@@ -3,15 +3,15 @@ import { db, ordersTable, orderStatusHistoryTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
-const RIYADH_CENTER_LAT = 24.7136;
-const RIYADH_CENTER_LON = 46.6753;
+const DAMASCUS_CENTER_LAT = 33.5138;
+const DAMASCUS_CENTER_LON = 36.2765;
 
-function randomRiyadhCoord(): { lat: number; lon: number } {
+function randomDamascusCoord(): { lat: number; lon: number } {
   const latSpread = 0.12;
   const lonSpread = 0.15;
   return {
-    lat: RIYADH_CENTER_LAT + (Math.random() - 0.5) * latSpread * 2,
-    lon: RIYADH_CENTER_LON + (Math.random() - 0.5) * lonSpread * 2,
+    lat: DAMASCUS_CENTER_LAT + (Math.random() - 0.5) * latSpread * 2,
+    lon: DAMASCUS_CENTER_LON + (Math.random() - 0.5) * lonSpread * 2,
   };
 }
 
@@ -47,7 +47,7 @@ router.post("/orders", async (req, res) => {
   const userId = resolveUserId(req);
   const id = `${Date.now()}${Math.random().toString(36).slice(2, 9)}`;
   const estimatedMinutes = Math.floor(Math.random() * 15) + 30;
-  const destination = randomRiyadhCoord();
+  const destination = randomDamascusCoord();
 
   const newOrder = {
     id,

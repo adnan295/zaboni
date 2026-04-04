@@ -66,7 +66,7 @@ function LiveCourierMarker({ coords }: { coords: Coords }) {
 }
 
 export function DeliveryMap({ userCoords, courierCoords, isSearching, etaMinutes, height = 220 }: DeliveryMapProps) {
-  const center = userCoords ?? { latitude: 24.7136, longitude: 46.6753 };
+  const center = userCoords ?? { latitude: 33.5138, longitude: 36.2765 };
 
   return (
     <View style={{ height, overflow: "hidden" }}>

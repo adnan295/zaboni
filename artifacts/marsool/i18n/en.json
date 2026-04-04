@@ -202,7 +202,7 @@
       "welcome1Title": "Welcome to Marsool!",
       "welcome1Body": "Use code WELCOME for 25% off your first order",
       "welcome2Title": "Limited offer: Free delivery",
-      "welcome2Body": "Order now and enjoy free delivery on orders over 50 SAR"
+      "welcome2Body": "Order now and enjoy free delivery on all your orders"
     }
   },
   "tabs": {
@@ -266,7 +266,7 @@
     "orderNow": "Order Now",
     "closed": "Closed",
     "freeDelivery": "Free Delivery",
-    "currency": "SAR",
+    "currency": "SYP",
     "popular": "Most Ordered"
   },
   "orderRequest": {
@@ -286,6 +286,10 @@
     ],
     "sendOrder": "Send Order",
     "sending": "Sending..."
+  },
+  "payment": {
+    "cashOnDelivery": "Cash on Delivery 💵",
+    "method": "Payment Method"
   },
   "orderTracking": {
     "notFound": "Order not found",

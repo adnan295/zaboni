@@ -12,8 +12,8 @@ export const ORDER_STATUSES = [
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
-const RIYADH_CENTER_LAT = 24.7136;
-const RIYADH_CENTER_LON = 46.6753;
+const DAMASCUS_CENTER_LAT = 33.5138;
+const DAMASCUS_CENTER_LON = 36.2765;
 
 export const ordersTable = pgTable("orders", {
   id: text("id").primaryKey(),
@@ -30,8 +30,9 @@ export const ordersTable = pgTable("orders", {
   courierRating: real("courier_rating").notNull().default(0),
   courierId: text("courier_id").notNull().default(""),
   address: text("address").notNull().default(""),
-  destinationLat: doublePrecision("destination_lat").default(RIYADH_CENTER_LAT),
-  destinationLon: doublePrecision("destination_lon").default(RIYADH_CENTER_LON),
+  destinationLat: doublePrecision("destination_lat").default(DAMASCUS_CENTER_LAT),
+  destinationLon: doublePrecision("destination_lon").default(DAMASCUS_CENTER_LON),
+  paymentMethod: text("payment_method").notNull().default("cash"),
   estimatedMinutes: integer("estimated_minutes").notNull().default(30),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
