@@ -1,8 +1,17 @@
 import React, { useEffect, useRef } from "react";
-import { View, StyleSheet, Animated, Easing } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
+import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import { Coords } from "@/utils/geo";
+
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+});
 
 interface DeliveryMapProps {
   userCoords: Coords | null;
@@ -12,60 +21,77 @@ interface DeliveryMapProps {
   height?: number;
 }
 
-export function DeliveryMap({ userCoords, courierCoords, isSearching, etaMinutes, height = 220 }: DeliveryMapProps) {
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+const userIcon = L.divIcon({
+  className: "",
+  html: `<div style="width:32px;height:32px;border-radius:50%;background:rgba(59,130,246,0.25);border:2.5px solid #3b82f6;display:flex;align-items:center;justify-content:center;"><div style="width:14px;height:14px;border-radius:50%;background:#3b82f6;"></div></div>`,
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
+});
+
+const courierIcon = L.divIcon({
+  className: "",
+  html: `<div style="width:44px;height:44px;border-radius:50%;background:#FF6B00;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(255,107,0,0.45);font-size:22px;transition:all 0.5s ease;">🛵</div>`,
+  iconSize: [44, 44],
+  iconAnchor: [22, 22],
+});
+
+function MapPanner({ center }: { center: Coords }) {
+  const map = useMap();
+  const prev = useRef<string>("");
+  useEffect(() => {
+    const key = `${center.latitude},${center.longitude}`;
+    if (key === prev.current) return;
+    prev.current = key;
+    map.panTo([center.latitude, center.longitude], { animate: true, duration: 0.5 });
+  });
+  return null;
+}
+
+function LiveCourierMarker({ coords }: { coords: Coords }) {
+  const markerRef = useRef<L.Marker | null>(null);
 
   useEffect(() => {
-    const anim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.3, duration: 900, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 900, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-      ])
-    );
-    anim.start();
-    return () => anim.stop();
-  }, []);
+    if (markerRef.current) {
+      markerRef.current.setLatLng([coords.latitude, coords.longitude]);
+    }
+  }, [coords.latitude, coords.longitude]);
 
   return (
-    <View style={[styles.container, { height }]}>
-      <View style={styles.gridBg}>
-        {Array.from({ length: 8 }).map((_, i) => (
-          <View key={`h${i}`} style={[styles.gridLineH, { top: `${(i + 1) * 11}%` as unknown as number }]} />
-        ))}
-        {Array.from({ length: 8 }).map((_, i) => (
-          <View key={`v${i}`} style={[styles.gridLineV, { left: `${(i + 1) * 11}%` as unknown as number }]} />
-        ))}
-      </View>
+    <Marker
+      ref={markerRef}
+      position={[coords.latitude, coords.longitude]}
+      icon={courierIcon}
+    />
+  );
+}
 
-      <View style={styles.streetH} />
-      <View style={styles.streetV} />
+export function DeliveryMap({ userCoords, courierCoords, isSearching, etaMinutes, height = 220 }: DeliveryMapProps) {
+  const center = userCoords ?? { latitude: 24.7136, longitude: 46.6753 };
 
-      {courierCoords && !isSearching && (
-        <Animated.View style={[styles.courierPin, { transform: [{ scale: pulseAnim }] }]}>
-          <View style={styles.courierPinInner}>
-            <MaterialIcons name="delivery-dining" size={20} color="#fff" />
-          </View>
-        </Animated.View>
-      )}
+  return (
+    <View style={{ height, overflow: "hidden" }}>
+      <MapContainer
+        center={[center.latitude, center.longitude]}
+        zoom={14}
+        style={{ width: "100%", height: "100%" }}
+        zoomControl={false}
+        attributionControl={false}
+      >
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-      <View style={styles.userPin}>
-        <View style={styles.userPinOuter}>
-          <View style={styles.userPinInner} />
-        </View>
-      </View>
+        {userCoords && (
+          <Marker position={[userCoords.latitude, userCoords.longitude]} icon={userIcon} />
+        )}
 
-      {etaMinutes && !isSearching && (
-        <View style={styles.etaBadge}>
+        {courierCoords && !isSearching && (
+          <LiveCourierMarker coords={courierCoords} />
+        )}
+      </MapContainer>
+
+      {etaMinutes != null && !isSearching && (
+        <View style={styles.etaBadge} pointerEvents="none">
           <MaterialIcons name="access-time" size={12} color="#fff" />
-          <Text style={styles.etaText}>{etaMinutes} min</Text>
-        </View>
-      )}
-
-      {userCoords && (
-        <View style={styles.coordsOverlay}>
-          <Text style={styles.coordsText}>
-            {userCoords.latitude.toFixed(4)}, {userCoords.longitude.toFixed(4)}
-          </Text>
+          <Text style={styles.etaText}>{etaMinutes} د</Text>
         </View>
       )}
     </View>
@@ -73,84 +99,6 @@ export function DeliveryMap({ userCoords, courierCoords, isSearching, etaMinutes
 }
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: "#e8f0e0",
-    overflow: "hidden",
-    position: "relative",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  gridBg: { ...StyleSheet.absoluteFillObject },
-  gridLineH: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: "rgba(180,200,160,0.5)",
-  },
-  gridLineV: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    width: 1,
-    backgroundColor: "rgba(180,200,160,0.5)",
-  },
-  streetH: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: "60%",
-    height: 14,
-    backgroundColor: "rgba(200,215,185,0.8)",
-  },
-  streetV: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: "40%",
-    width: 14,
-    backgroundColor: "rgba(200,215,185,0.8)",
-  },
-  courierPin: {
-    position: "absolute",
-    top: "30%",
-    left: "25%",
-  },
-  courierPinInner: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#FF6B00",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#FF6B00",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  userPin: {
-    position: "absolute",
-    top: "50%",
-    left: "50%",
-    transform: [{ translateX: -16 }, { translateY: -16 }],
-  },
-  userPinOuter: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(59,130,246,0.2)",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#3b82f6",
-  },
-  userPinInner: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: "#3b82f6",
-  },
   etaBadge: {
     position: "absolute",
     top: 12,
@@ -162,16 +110,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
+    zIndex: 1000,
   },
   etaText: { color: "#fff", fontSize: 12, fontWeight: "700" },
-  coordsOverlay: {
-    position: "absolute",
-    bottom: 8,
-    left: 8,
-    backgroundColor: "rgba(255,255,255,0.7)",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  coordsText: { fontSize: 10, color: "#555" },
 });

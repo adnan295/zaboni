@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -12,6 +12,22 @@ import * as Location from "expo-location";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { Coords, RIYADH_CENTER } from "@/utils/geo";
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-leaflet";
+import L, { LatLng } from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+});
+
+const pinIcon = L.divIcon({
+  className: "",
+  html: `<div style="font-size:42px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3));">📍</div>`,
+  iconSize: [42, 42],
+  iconAnchor: [21, 42],
+});
 
 interface AddressMapPickerProps {
   visible: boolean;
@@ -20,12 +36,49 @@ interface AddressMapPickerProps {
   initialAddress?: string;
 }
 
+function MapClickCapture({ onPress }: { onPress: (c: Coords) => void }) {
+  useMapEvents({
+    click(e) {
+      onPress({ latitude: e.latlng.lat, longitude: e.latlng.lng });
+    },
+  });
+  return null;
+}
+
+function DraggablePin({ coords, onMove }: { coords: Coords; onMove: (c: Coords) => void }) {
+  const markerRef = useRef<L.Marker | null>(null);
+  const map = useMap();
+
+  useEffect(() => {
+    if (markerRef.current) {
+      markerRef.current.setLatLng([coords.latitude, coords.longitude]);
+      map.panTo([coords.latitude, coords.longitude], { animate: true, duration: 0.4 });
+    }
+  }, [coords.latitude, coords.longitude]);
+
+  return (
+    <Marker
+      ref={markerRef}
+      position={[coords.latitude, coords.longitude]}
+      icon={pinIcon}
+      draggable
+      eventHandlers={{
+        dragend(e) {
+          const ll: LatLng = (e.target as L.Marker).getLatLng();
+          onMove({ latitude: ll.lat, longitude: ll.lng });
+        },
+      }}
+    />
+  );
+}
+
 export function AddressMapPicker({ visible, onClose, onSelect, initialAddress }: AddressMapPickerProps) {
   const { t } = useTranslation();
   const colors = useColors();
   const [selectedCoords, setSelectedCoords] = useState<Coords>(RIYADH_CENTER);
   const [resolvedAddress, setResolvedAddress] = useState<string>(initialAddress ?? "");
   const [geocoding, setGeocoding] = useState(false);
+  const geocodeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!visible) return;
@@ -37,26 +90,55 @@ export function AddressMapPicker({ visible, onClose, onSelect, initialAddress }:
           const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
           setSelectedCoords(coords);
           await reverseGeocode(coords);
+        } else {
+          await reverseGeocode(RIYADH_CENTER);
         }
-      } catch {}
+      } catch {
+        await reverseGeocode(RIYADH_CENTER);
+      }
     })();
   }, [visible]);
 
   const reverseGeocode = async (coords: Coords) => {
     setGeocoding(true);
     try {
-      const result = await Location.reverseGeocodeAsync(coords);
-      if (result && result.length > 0) {
-        const r = result[0];
-        const parts = [r.street, r.district, r.subregion ?? r.city].filter(Boolean);
-        const addr = parts.join("، ") || r.formattedAddress || `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`;
-        setResolvedAddress(addr);
+      const resp = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json`,
+        { headers: { "Accept-Language": "ar,en" } }
+      );
+      const data = await resp.json() as { display_name?: string; address?: Record<string, string> };
+      if (data?.address) {
+        const parts = [
+          data.address.road,
+          data.address.suburb || data.address.neighbourhood,
+          data.address.city || data.address.town,
+        ].filter(Boolean);
+        setResolvedAddress(parts.join("، ") || data.display_name || "");
+      } else if (data?.display_name) {
+        setResolvedAddress(data.display_name);
       }
     } catch {
       setResolvedAddress(`${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`);
     } finally {
       setGeocoding(false);
     }
+  };
+
+  const handleMapPress = (coords: Coords) => {
+    setSelectedCoords(coords);
+    if (geocodeTimer.current) clearTimeout(geocodeTimer.current);
+    geocodeTimer.current = setTimeout(() => reverseGeocode(coords), 600);
+  };
+
+  const handleMyLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") return;
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+      setSelectedCoords(coords);
+      await reverseGeocode(coords);
+    } catch {}
   };
 
   const handleConfirm = () => {
@@ -75,19 +157,22 @@ export function AddressMapPicker({ visible, onClose, onSelect, initialAddress }:
           <View style={{ width: 40 }} />
         </View>
 
-        <View style={styles.webMapContainer}>
-          <View style={styles.webMapGrid}>
-            {Array.from({ length: 6 }).map((_, i) => (
-              <View key={`h${i}`} style={[styles.gridH, { top: `${(i + 1) * 14.28}%` as unknown as number }]} />
-            ))}
-            {Array.from({ length: 6 }).map((_, i) => (
-              <View key={`v${i}`} style={[styles.gridV, { left: `${(i + 1) * 14.28}%` as unknown as number }]} />
-            ))}
-          </View>
-          <View style={styles.webPinCenter}>
-            <MaterialIcons name="location-pin" size={64} color="#FF6B00" />
-          </View>
-          <Text style={styles.webMapHint}>{t("map.webFallback")}</Text>
+        <View style={styles.mapWrapper}>
+          <MapContainer
+            center={[selectedCoords.latitude, selectedCoords.longitude]}
+            zoom={14}
+            style={{ width: "100%", height: "100%" }}
+            zoomControl
+            attributionControl={false}
+          >
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <MapClickCapture onPress={handleMapPress} />
+            <DraggablePin coords={selectedCoords} onMove={handleMapPress} />
+          </MapContainer>
+
+          <TouchableOpacity style={styles.myLocationBtn} onPress={handleMyLocation}>
+            <MaterialIcons name="my-location" size={20} color="#FF6B00" />
+          </TouchableOpacity>
         </View>
 
         <View style={[styles.bottomSheet, { backgroundColor: colors.card }]}>
@@ -132,35 +217,23 @@ const styles = StyleSheet.create({
   },
   headerBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   headerTitle: { flex: 1, textAlign: "center", fontSize: 17, fontWeight: "700", color: "#fff" },
-  webMapContainer: {
-    flex: 1,
-    backgroundColor: "#e8f0e0",
+  mapWrapper: { flex: 1, position: "relative" },
+  myLocationBtn: {
+    position: "absolute",
+    bottom: 16,
+    right: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
-    position: "relative",
-  },
-  webMapGrid: { ...StyleSheet.absoluteFillObject },
-  gridH: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: "rgba(180,200,160,0.5)",
-  },
-  gridV: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    width: 1,
-    backgroundColor: "rgba(180,200,160,0.5)",
-  },
-  webPinCenter: { alignItems: "center", justifyContent: "center" },
-  webMapHint: {
-    marginTop: 12,
-    fontSize: 13,
-    color: "#666",
-    textAlign: "center",
-    paddingHorizontal: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+    zIndex: 1000,
   },
   bottomSheet: {
     padding: 20,
