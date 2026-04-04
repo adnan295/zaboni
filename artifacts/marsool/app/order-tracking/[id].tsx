@@ -34,11 +34,17 @@ export default function OrderTrackingScreen() {
   const { getOrder } = useOrders();
   const { hasRated } = useRatings();
   const [, forceUpdate] = useState(0);
+  const initialOrder = getOrder(id ?? "");
+  const isAlreadyDelivered = initialOrder?.status === "delivered";
   const prevStatus = useRef<OrderStatus | null>(null);
-  const deliveredHapticFired = useRef(false);
-  const ratePromptShown = useRef(false);
+  const deliveredHapticFired = useRef(isAlreadyDelivered);
+  const ratePromptShown = useRef(
+    isAlreadyDelivered && hasRated(initialOrder?.id ?? "")
+  );
   const ratePromptTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const celebrateScale = useRef(new Animated.Value(0)).current;
+  const celebrateScale = useRef(
+    new Animated.Value(isAlreadyDelivered ? 1 : 0)
+  ).current;
 
   useEffect(() => {
     const interval = setInterval(() => forceUpdate((n) => n + 1), 1000);
