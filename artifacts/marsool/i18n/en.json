@@ -10,21 +10,28 @@
       "termsPrefix": "By continuing, you agree to our",
       "termsLink": "Terms of Service",
       "termsAnd": " and ",
-      "privacyLink": "Privacy Policy"
+      "privacyLink": "Privacy Policy",
+      "placeholder": "Phone number",
+      "errorTitle": "Error",
+      "errorMsg": "Failed to send verification code. Please try again."
     },
     "otp": {
       "title": "Verification Code",
       "subtitle": "Enter the code sent to",
-      "hint": "Demo: Enter any 6 digits",
+      "hint": "You will receive a 6-digit code via SMS",
       "noCode": "Didn't receive the code?",
-      "resend": "Resend"
+      "resend": "Resend",
+      "errorTitle": "Invalid Code",
+      "errorMsg": "The code is incorrect or has expired. Please try again."
     },
     "name": {
       "title": "What's your name?",
       "subtitle": "We'll use it to address you in the app",
       "placeholder": "Full name",
       "loading": "Signing in...",
-      "start": "Start Ordering"
+      "start": "Start Ordering",
+      "errorTitle": "Error",
+      "errorMsg": "Failed to save name. Please try again."
     }
   },
   "home": {
@@ -129,7 +136,13 @@
       "deleteCancel": "Cancel",
       "deleteConfirm": "Delete"
     },
-    "labelSuggestions": ["Home", "Work", "Café", "Gym", "Other"]
+    "labelSuggestions": [
+      "Home",
+      "Work",
+      "Café",
+      "Gym",
+      "Other"
+    ]
   },
   "search": {
     "placeholder": "Search for a restaurant or food...",
@@ -151,7 +164,14 @@
     "resultsCount": "result(s)",
     "activeFilters": "filter(s) active",
     "suggestions": "Popular suggestions",
-    "suggestionsList": ["Burger", "Pizza", "Shawarma", "Coffee", "Chicken", "Snacks"]
+    "suggestionsList": [
+      "Burger",
+      "Pizza",
+      "Shawarma",
+      "Coffee",
+      "Chicken",
+      "Snacks"
+    ]
   },
   "notifications": {
     "title": "Notifications",
@@ -253,7 +273,13 @@
     "subtitle": "Your rating helps us improve",
     "restaurant": "Restaurant",
     "courier": "Courier",
-    "quickComments": ["Food was delicious", "Delivery was fast", "Packaging was excellent", "High quality", "Will order again"],
+    "quickComments": [
+      "Food was delicious",
+      "Delivery was fast",
+      "Packaging was excellent",
+      "High quality",
+      "Will order again"
+    ],
     "stars": {
       "1": "Poor",
       "2": "Fair",

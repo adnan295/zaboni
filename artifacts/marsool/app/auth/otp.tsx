@@ -6,6 +6,8 @@ import {
   TextInput,
   Platform,
   ScrollView,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -15,6 +17,8 @@ import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
+import { useAuth } from "@/context/AuthContext";
+import { getApiBaseUrl } from "@/lib/apiClient";
 
 const OTP_LENGTH = 6;
 
@@ -25,42 +29,77 @@ export default function OtpScreen() {
   const { t } = useTranslation();
   const backIcon = useBackIcon();
   const { phone } = useLocalSearchParams<{ phone: string }>();
+  const { signIn } = useAuth();
   const [otp, setOtp] = useState("");
   const [countdown, setCountdown] = useState(60);
   const [canResend, setCanResend] = useState(false);
+  const [loading, setLoading] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
-    if (countdown === 0) {
-      setCanResend(true);
-      return;
-    }
+    if (countdown === 0) { setCanResend(true); return; }
     const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
     return () => clearTimeout(timer);
   }, [countdown]);
+
+  const verifyOtp = async (code: string) => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const base = getApiBaseUrl();
+      const res = await fetch(`${base}/api/auth/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, code }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert(t("auth.otp.errorTitle"), data.error ?? t("auth.otp.errorMsg"));
+        setOtp("");
+        return;
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (data.isNewUser) {
+        router.push({
+          pathname: "/auth/name",
+          params: { phone, token: data.token, userId: data.user.id },
+        });
+      } else {
+        await signIn(data.token, data.user);
+        router.replace("/(tabs)");
+      }
+    } catch {
+      Alert.alert(t("auth.otp.errorTitle"), t("auth.otp.errorMsg"));
+      setOtp("");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleOtpChange = (text: string) => {
     const digits = text.replace(/\D/g, "").slice(0, OTP_LENGTH);
     setOtp(digits);
     if (digits.length === OTP_LENGTH) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setTimeout(() => {
-        router.push({ pathname: "/auth/name", params: { phone } });
-      }, 200);
+      verifyOtp(digits);
     }
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
     if (!canResend) return;
     setCountdown(60);
     setCanResend(false);
     setOtp("");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      const base = getApiBaseUrl();
+      await fetch(`${base}/api/auth/send-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
+      });
+    } catch {}
   };
-
-  const displayPhone = phone
-    ? `+966 ${phone.slice(0, 2)} ${phone.slice(2, 5)} ${phone.slice(5)}`
-    : "";
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
@@ -83,15 +122,9 @@ export default function OtpScreen() {
           <MaterialIcons name="sms" size={36} color={colors.primary} />
         </View>
 
-        <Text style={[styles.title, { color: colors.foreground }]}>
-          {t("auth.otp.title")}
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          {t("auth.otp.subtitle")}
-        </Text>
-        <Text style={[styles.phone, { color: colors.foreground }]}>
-          {displayPhone}
-        </Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>{t("auth.otp.title")}</Text>
+        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>{t("auth.otp.subtitle")}</Text>
+        <Text style={[styles.phone, { color: colors.foreground }]}>{phone}</Text>
 
         <TextInput
           ref={inputRef}
@@ -101,6 +134,7 @@ export default function OtpScreen() {
           maxLength={OTP_LENGTH}
           style={styles.hiddenInput}
           autoFocus
+          editable={!loading}
         />
 
         <TouchableOpacity
@@ -110,7 +144,7 @@ export default function OtpScreen() {
         >
           {Array.from({ length: OTP_LENGTH }).map((_, idx) => {
             const char = otp[idx] ?? "";
-            const isFocused = idx === otp.length && otp.length < OTP_LENGTH;
+            const isFocused = idx === otp.length && otp.length < OTP_LENGTH && !loading;
             return (
               <View
                 key={idx}
@@ -118,18 +152,16 @@ export default function OtpScreen() {
                   styles.otpBox,
                   {
                     backgroundColor: colors.card,
-                    borderColor: char
-                      ? colors.primary
-                      : isFocused
-                      ? colors.primary
-                      : colors.border,
+                    borderColor: loading ? colors.border : char ? colors.primary : isFocused ? colors.primary : colors.border,
                     borderWidth: isFocused || char ? 2 : 1.5,
                   },
                 ]}
               >
-                <Text style={[styles.otpChar, { color: colors.foreground }]}>
-                  {char}
-                </Text>
+                {loading && idx === 0 ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Text style={[styles.otpChar, { color: colors.foreground }]}>{char}</Text>
+                )}
               </View>
             );
           })}
@@ -137,25 +169,17 @@ export default function OtpScreen() {
 
         <View style={[styles.hintBox, { backgroundColor: colors.secondary }]}>
           <MaterialIcons name="info-outline" size={14} color={colors.primary} />
-          <Text style={[styles.hint, { color: colors.primary }]}>
-            {t("auth.otp.hint")}
-          </Text>
+          <Text style={[styles.hint, { color: colors.primary }]}>{t("auth.otp.hint")}</Text>
         </View>
 
         <View style={styles.resendRow}>
-          <Text style={[styles.resendLabel, { color: colors.mutedForeground }]}>
-            {t("auth.otp.noCode")}
-          </Text>
+          <Text style={[styles.resendLabel, { color: colors.mutedForeground }]}>{t("auth.otp.noCode")}</Text>
           {canResend ? (
             <TouchableOpacity onPress={handleResend}>
-              <Text style={[styles.resendBtn, { color: colors.primary }]}>
-                {t("auth.otp.resend")}
-              </Text>
+              <Text style={[styles.resendBtn, { color: colors.primary }]}>{t("auth.otp.resend")}</Text>
             </TouchableOpacity>
           ) : (
-            <Text style={[styles.resendTimer, { color: colors.mutedForeground }]}>
-              {countdown}s
-            </Text>
+            <Text style={[styles.resendTimer, { color: colors.mutedForeground }]}>{countdown}s</Text>
           )}
         </View>
       </View>
@@ -165,64 +189,20 @@ export default function OtpScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  inner: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 32,
-  },
+  inner: { paddingHorizontal: 24, paddingBottom: 40 },
+  backBtn: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", marginBottom: 32 },
   content: { alignItems: "center" },
-  iconBox: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 24,
-  },
+  iconBox: { width: 80, height: 80, borderRadius: 24, alignItems: "center", justifyContent: "center", marginBottom: 24 },
   title: { fontSize: 24, fontWeight: "800", marginBottom: 8 },
   subtitle: { fontSize: 14, marginBottom: 4 },
   phone: { fontSize: 16, fontWeight: "700", marginBottom: 32 },
-  hiddenInput: {
-    position: "absolute",
-    opacity: 0,
-    width: 1,
-    height: 1,
-  },
-  otpRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 20,
-  },
-  otpBox: {
-    width: 48,
-    height: 56,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  hiddenInput: { position: "absolute", opacity: 0, width: 1, height: 1 },
+  otpRow: { flexDirection: "row", gap: 10, marginBottom: 20 },
+  otpBox: { width: 48, height: 56, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   otpChar: { fontSize: 22, fontWeight: "700" },
-  hintBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
-    marginBottom: 28,
-  },
+  hintBox: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, marginBottom: 28 },
   hint: { fontSize: 12, fontWeight: "500" },
-  resendRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
+  resendRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   resendLabel: { fontSize: 14 },
   resendBtn: { fontSize: 14, fontWeight: "700" },
   resendTimer: { fontSize: 14, fontWeight: "600" },

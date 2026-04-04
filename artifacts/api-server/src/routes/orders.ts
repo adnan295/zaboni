@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { db, ordersTable, orderStatusHistoryTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
@@ -18,7 +18,7 @@ const createOrderSchema = z.object({
   orderText: z.string().min(1),
   restaurantName: z.string().default(""),
   address: z.string().default(""),
-  userId: z.string().default("guest"),
+  userId: z.string().optional(),
 });
 
 const updateStatusSchema = z.object({
@@ -26,12 +26,12 @@ const updateStatusSchema = z.object({
   userId: z.string().optional(),
 });
 
-function getUserId(req: { query: Record<string, unknown> }): string {
-  return (req.query["userId"] as string) || "guest";
+function resolveUserId(req: Request, fallback?: string): string {
+  return req.auth?.userId ?? (req.query["userId"] as string) ?? fallback ?? "guest";
 }
 
 router.get("/orders", async (req, res) => {
-  const userId = getUserId(req);
+  const userId = resolveUserId(req);
   const rows = await db
     .select()
     .from(ordersTable)
@@ -47,13 +47,14 @@ router.post("/orders", async (req, res) => {
     return;
   }
 
+  const userId = resolveUserId(req, body.data.userId);
   const courier = MOCK_COURIERS[Math.floor(Math.random() * MOCK_COURIERS.length)];
   const id = `${Date.now()}${Math.random().toString(36).slice(2, 9)}`;
   const estimatedMinutes = Math.floor(Math.random() * 15) + 20;
 
   const newOrder = {
     id,
-    userId: body.data.userId,
+    userId,
     orderText: body.data.orderText,
     restaurantName: body.data.restaurantName,
     status: "searching" as const,
@@ -77,7 +78,7 @@ router.post("/orders", async (req, res) => {
 });
 
 router.get("/orders/:id", async (req, res) => {
-  const userId = getUserId(req);
+  const userId = resolveUserId(req);
   const { id } = req.params;
   const rows = await db
     .select()
@@ -98,7 +99,7 @@ router.patch("/orders/:id/status", async (req, res) => {
     return;
   }
 
-  const userId = body.data.userId ?? getUserId(req);
+  const userId = resolveUserId(req, body.data.userId);
 
   const rows = await db
     .update(ordersTable)

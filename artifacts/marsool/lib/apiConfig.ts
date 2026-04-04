@@ -12,3 +12,9 @@ export function initApiClient() {
     setBaseUrl(host ? PROD : LOCAL_DEV);
   }
 }
+
+export function getApiBaseUrl(): string {
+  if (Platform.OS === "web") return "";
+  const host = process.env.EXPO_PUBLIC_API_HOST;
+  return host ? PROD : LOCAL_DEV;
+}
