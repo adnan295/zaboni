@@ -10,7 +10,6 @@ import { Platform } from "react-native";
 import { io, Socket } from "socket.io-client";
 import {
   createOrder as apiCreateOrder,
-  updateOrderStatus,
   getOrders as apiFetchOrders,
 } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
