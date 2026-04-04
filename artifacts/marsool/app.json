@@ -28,7 +28,16 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "يحتاج مرسول إلى موقعك لتحديد موقع التوصيل والمندوب القريب",
+          "locationWhenInUsePermission": "يحتاج مرسول إلى موقعك لتحديد موقع التوصيل والمندوب القريب",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

@@ -257,7 +257,10 @@
       "address": "Address"
     },
     "rate": "Rate your experience",
-    "reorder": "Order Again"
+    "reorder": "Order Again",
+    "eta": "ETA: {{minutes}} min",
+    "onWayLabel": "On the way",
+    "comingLabel": "Coming to you"
   },
   "chat": {
     "notFound": "Order not found",
@@ -312,6 +315,15 @@
       "title": "Delivered successfully",
       "body": "Your order arrived. Enjoy! Don't forget to rate your experience"
     }
+  },
+  "map": {
+    "pickerTitle": "Pick Your Location",
+    "pickFromMap": "Pick from Map",
+    "confirmLocation": "Confirm Location",
+    "locating": "Locating...",
+    "pickLocation": "Tap to pick a location",
+    "searchPlaceholder": "Search for a neighborhood or street...",
+    "webFallback": "Type your address manually or search above"
   },
   "common": {
     "back": "Back",
