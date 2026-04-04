@@ -6,13 +6,17 @@ import {
   ScrollView,
   TouchableOpacity,
   Platform,
+  Alert,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
+import { useAuth } from "@/context/AuthContext";
+import { useOrders } from "@/context/OrderContext";
 
-interface MenuItem {
+interface MenuItemDef {
   icon: keyof typeof MaterialIcons.glyphMap;
   label: string;
   onPress: () => void;
@@ -23,10 +27,30 @@ export default function ProfileScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { user, signOut } = useAuth();
+  const { orders } = useOrders();
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
 
-  const menuItems: MenuItem[] = [
+  const displayPhone = user?.phone
+    ? `+966 ${user.phone.slice(0, 2)} ${user.phone.slice(2, 5)} ${user.phone.slice(5)}`
+    : "";
+
+  const handleSignOut = () => {
+    Alert.alert("تسجيل الخروج", "هل تريد تسجيل الخروج؟", [
+      { text: "إلغاء", style: "cancel" },
+      {
+        text: "خروج",
+        style: "destructive",
+        onPress: async () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          await signOut();
+        },
+      },
+    ]);
+  };
+
+  const menuItems: MenuItemDef[] = [
     { icon: "receipt-long", label: "طلباتي", onPress: () => router.push("/orders") },
     { icon: "location-on", label: "عناويني", onPress: () => {} },
     { icon: "payment", label: "طرق الدفع", onPress: () => {} },
@@ -40,11 +64,13 @@ export default function ProfileScreen() {
       <View style={[styles.header, { paddingTop: topPadding + 16, backgroundColor: colors.primary }]}>
         <View style={styles.avatarContainer}>
           <View style={styles.avatar}>
-            <MaterialIcons name="person" size={40} color="#fff" />
+            <Text style={styles.avatarInitial}>
+              {user?.name ? user.name.charAt(0) : "؟"}
+            </Text>
           </View>
         </View>
-        <Text style={styles.name}>أحمد محمد</Text>
-        <Text style={styles.phone}>+966 50 123 4567</Text>
+        <Text style={styles.name}>{user?.name ?? "المستخدم"}</Text>
+        <Text style={styles.phone}>{displayPhone}</Text>
       </View>
 
       <ScrollView
@@ -54,7 +80,7 @@ export default function ProfileScreen() {
         {/* Stats */}
         <View style={[styles.statsRow, { backgroundColor: colors.card }]}>
           <View style={styles.stat}>
-            <Text style={[styles.statNum, { color: colors.primary }]}>12</Text>
+            <Text style={[styles.statNum, { color: colors.primary }]}>{orders.length}</Text>
             <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>طلب</Text>
           </View>
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
@@ -64,7 +90,7 @@ export default function ProfileScreen() {
           </View>
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
           <View style={styles.stat}>
-            <Text style={[styles.statNum, { color: colors.primary }]}>3</Text>
+            <Text style={[styles.statNum, { color: colors.primary }]}>0</Text>
             <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>مفضلة</Text>
           </View>
         </View>
@@ -97,6 +123,18 @@ export default function ProfileScreen() {
           ))}
         </View>
 
+        {/* Sign Out */}
+        <TouchableOpacity
+          style={[styles.signOutBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={handleSignOut}
+          activeOpacity={0.7}
+        >
+          <MaterialIcons name="logout" size={20} color={colors.destructive} />
+          <Text style={[styles.signOutText, { color: colors.destructive }]}>
+            تسجيل الخروج
+          </Text>
+        </TouchableOpacity>
+
         <Text style={[styles.version, { color: colors.mutedForeground }]}>
           مرسول · الإصدار 1.0.0
         </Text>
@@ -112,9 +150,7 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
     paddingHorizontal: 16,
   },
-  avatarContainer: {
-    marginBottom: 12,
-  },
+  avatarContainer: { marginBottom: 12 },
   avatar: {
     width: 80,
     height: 80,
@@ -122,6 +158,11 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.25)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  avatarInitial: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#fff",
   },
   name: { fontSize: 20, fontWeight: "800", color: "#fff" },
   phone: { fontSize: 14, color: "rgba(255,255,255,0.8)", marginTop: 4 },
@@ -163,6 +204,18 @@ const styles = StyleSheet.create({
   },
   menuLabel: { flex: 1, fontSize: 15, fontWeight: "500" },
   divider: { height: 1, marginHorizontal: 16 },
+  signOutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+  },
+  signOutText: { fontSize: 15, fontWeight: "700" },
   version: {
     textAlign: "center",
     fontSize: 12,
