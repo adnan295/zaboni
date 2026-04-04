@@ -12,6 +12,7 @@ import {
   deleteAddress as apiDeleteAddress,
   setDefaultAddress as apiSetDefaultAddress,
 } from "@workspace/api-client-react";
+import { useAuth } from "@/context/AuthContext";
 
 export interface Address {
   id: string;
@@ -37,39 +38,51 @@ const DEFAULT_ADDRESSES: Address[] = [
   { id: "a2", label: "العمل", address: "طريق الملك فهد، برج المملكة، الرياض", isDefault: false },
 ];
 
-const USER_ID = "guest";
-
 function apiToLocal(a: { id: string; label: string; address: string; isDefault: boolean }): Address {
   return { id: a.id, label: a.label, address: a.address, isDefault: a.isDefault };
 }
 
 export function AddressProvider({ children }: { children: React.ReactNode }) {
+  const { user, isLoading: authLoading } = useAuth();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading) return;
+
+    if (!user) {
+      setAddresses([]);
+      setIsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
     (async () => {
+      setIsLoading(true);
       try {
-        const data = await getAddresses({ userId: USER_ID });
+        const data = await getAddresses({});
+        if (cancelled) return;
         if (data.length === 0) {
           for (const addr of DEFAULT_ADDRESSES) {
             await apiCreateAddress(
               { label: addr.label, address: addr.address, isDefault: addr.isDefault },
-              { userId: USER_ID }
+              {}
             );
           }
-          const seeded = await getAddresses({ userId: USER_ID });
-          setAddresses(seeded.map(apiToLocal));
+          const seeded = await getAddresses({});
+          if (!cancelled) setAddresses(seeded.map(apiToLocal));
         } else {
           setAddresses(data.map(apiToLocal));
         }
       } catch {
-        setAddresses(DEFAULT_ADDRESSES);
+        if (!cancelled) setAddresses(DEFAULT_ADDRESSES);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     })();
-  }, []);
+
+    return () => { cancelled = true; };
+  }, [user?.id, authLoading]);
 
   const defaultAddress = addresses.find((a) => a.isDefault) ?? addresses[0] ?? null;
 
@@ -77,7 +90,7 @@ export function AddressProvider({ children }: { children: React.ReactNode }) {
     try {
       const result = await apiCreateAddress(
         { label, address, isDefault: false },
-        { userId: USER_ID }
+        {}
       );
       setAddresses((prev) => [...prev, apiToLocal(result)]);
     } catch {
@@ -96,7 +109,7 @@ export function AddressProvider({ children }: { children: React.ReactNode }) {
       const result = await apiUpdateAddress(
         id,
         { label, address },
-        { userId: USER_ID }
+        {}
       );
       setAddresses((prev) => prev.map((a) => (a.id === id ? apiToLocal(result) : a)));
     } catch {
@@ -108,7 +121,7 @@ export function AddressProvider({ children }: { children: React.ReactNode }) {
 
   const deleteAddress = useCallback(async (id: string): Promise<void> => {
     try {
-      await apiDeleteAddress(id, { userId: USER_ID });
+      await apiDeleteAddress(id, {});
     } catch {}
     setAddresses((prev) => {
       let updated = prev.filter((a) => a.id !== id);
@@ -121,7 +134,7 @@ export function AddressProvider({ children }: { children: React.ReactNode }) {
 
   const setDefault = useCallback(async (id: string): Promise<void> => {
     try {
-      await apiSetDefaultAddress(id, { userId: USER_ID });
+      await apiSetDefaultAddress(id, {});
     } catch {}
     setAddresses((prev) => prev.map((a) => ({ ...a, isDefault: a.id === id })));
   }, []);

@@ -11,6 +11,7 @@ import {
   updateOrderStatus,
   getOrders as apiFetchOrders,
 } from "@workspace/api-client-react";
+import { useAuth } from "@/context/AuthContext";
 
 export type OrderStatus = "searching" | "accepted" | "on_way" | "delivered";
 
@@ -75,20 +76,31 @@ const FALLBACK_COURIERS = [
 ];
 
 export function OrderProvider({ children }: { children: React.ReactNode }) {
+  const { user, isLoading: authLoading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const statusChangeHandler = useRef<((order: Order, newStatus: OrderStatus) => void) | null>(null);
 
   useEffect(() => {
+    if (authLoading) return;
+
+    if (!user) {
+      setOrders([]);
+      return;
+    }
+
+    let cancelled = false;
     (async () => {
       try {
-        const fetched = await apiFetchOrders({ userId: "guest" });
-        if (fetched && fetched.length > 0) {
+        const fetched = await apiFetchOrders({});
+        if (!cancelled && fetched && fetched.length > 0) {
           setOrders(fetched.map(apiOrderToLocal));
         }
       } catch {
       }
     })();
-  }, []);
+
+    return () => { cancelled = true; };
+  }, [user?.id, authLoading]);
 
   const setStatusChangeHandler = useCallback(
     (handler: (order: Order, newStatus: OrderStatus) => void) => {
