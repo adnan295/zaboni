@@ -367,6 +367,10 @@
       "title": "Courier accepted your order!",
       "body": "A chat with the courier has opened to coordinate details"
     },
+    "picked_up": {
+      "title": "Courier picked up your order",
+      "body": "The courier has collected your order from the restaurant"
+    },
     "on_way": {
       "title": "Courier is on the way",
       "body": "Get ready to receive your order!"
