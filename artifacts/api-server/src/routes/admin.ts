@@ -208,7 +208,15 @@ router.put("/admin/restaurants/:restaurantId/menu/:itemId", async (req, res) => 
 
 router.delete("/admin/restaurants/:restaurantId/menu/:itemId", async (req, res) => {
   const itemId = String(req.params["itemId"]);
-  await db.delete(menuItemsTable).where(eq(menuItemsTable.id, itemId));
+  const restaurantId = String(req.params["restaurantId"]);
+  await db
+    .delete(menuItemsTable)
+    .where(
+      and(
+        eq(menuItemsTable.id, itemId),
+        eq(menuItemsTable.restaurantId, restaurantId),
+      ),
+    );
   res.status(204).end();
 });
 
