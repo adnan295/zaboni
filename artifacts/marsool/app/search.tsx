@@ -80,8 +80,10 @@ export default function SearchScreen() {
   const filtered = RESTAURANTS.filter((r) => {
     if (!query.trim()) return false;
     const q = query.trim().toLowerCase();
-    const matchName = r.nameAr.includes(q) || r.name.toLowerCase().includes(q) ||
-      r.tags.some((t) => t.includes(q));
+    const matchName =
+      r.nameAr.includes(q) ||
+      r.name.toLowerCase().includes(q) ||
+      r.tags.some((t) => t.toLowerCase().includes(q));
     const matchRating = minRating === null || r.rating >= minRating;
     const matchFree = !freeDeliveryOnly || r.deliveryFee === 0;
     return matchName && matchRating && matchFree;

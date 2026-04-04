@@ -27,7 +27,7 @@ export default function CartScreen() {
   const { items, totalItems, totalPrice, restaurantName, updateQuantity, clearCart } = useCart();
   const { placeOrder, orders } = useOrders();
   const { addresses, defaultAddress } = useAddresses();
-  const completedOrderCount = orders.filter((o) => o.status === "delivered").length;
+  const completedOrderCount = orders.length;
   const { appliedCoupon, couponError, discountAmount, applyCoupon, removeCoupon } = useCoupons();
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(
     defaultAddress?.id ?? null
