@@ -1,10 +1,17 @@
+import "@/i18n";
 import {
   Tajawal_400Regular,
   Tajawal_500Medium,
   Tajawal_700Bold,
   Tajawal_800ExtraBold,
-  useFonts,
+  useFonts as useTajawalFonts,
 } from "@expo-google-fonts/tajawal";
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_700Bold,
+  useFonts as useInterFonts,
+} from "@expo-google-fonts/inter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -21,6 +28,7 @@ import { FavoritesProvider } from "@/context/FavoritesContext";
 import { AddressProvider } from "@/context/AddressContext";
 import { RatingsProvider } from "@/context/RatingsContext";
 import { NotificationsProvider } from "@/context/NotificationsContext";
+import { LanguageProvider } from "@/context/LanguageContext";
 import OrderNotificationBridge from "@/components/OrderNotificationBridge";
 import ToastBanner from "@/components/ToastBanner";
 
@@ -85,12 +93,20 @@ const layoutStyles = StyleSheet.create({
 });
 
 export default function RootLayout() {
-  const [fontsLoaded, fontError] = useFonts({
+  const [tajawalLoaded, tajawalError] = useTajawalFonts({
     Tajawal_400Regular,
     Tajawal_500Medium,
     Tajawal_700Bold,
     Tajawal_800ExtraBold,
   });
+  const [interLoaded, interError] = useInterFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_700Bold,
+  });
+
+  const fontsLoaded = tajawalLoaded && interLoaded;
+  const fontError = tajawalError || interError;
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
@@ -104,26 +120,28 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            <NotificationsProvider>
-              <RatingsProvider>
-                <FavoritesProvider>
-                  <AddressProvider>
-                    <OrderProvider>
-                      <ChatProvider>
-                        <GestureHandlerRootView>
-                          <KeyboardProvider>
-                            <OrderNotificationBridge />
-                            <RootLayoutNav />
-                          </KeyboardProvider>
-                        </GestureHandlerRootView>
-                      </ChatProvider>
-                    </OrderProvider>
-                  </AddressProvider>
-                </FavoritesProvider>
-              </RatingsProvider>
-            </NotificationsProvider>
-          </AuthProvider>
+          <LanguageProvider>
+            <AuthProvider>
+              <NotificationsProvider>
+                <RatingsProvider>
+                  <FavoritesProvider>
+                    <AddressProvider>
+                      <OrderProvider>
+                        <ChatProvider>
+                          <GestureHandlerRootView>
+                            <KeyboardProvider>
+                              <OrderNotificationBridge />
+                              <RootLayoutNav />
+                            </KeyboardProvider>
+                          </GestureHandlerRootView>
+                        </ChatProvider>
+                      </OrderProvider>
+                    </AddressProvider>
+                  </FavoritesProvider>
+                </RatingsProvider>
+              </NotificationsProvider>
+            </AuthProvider>
+          </LanguageProvider>
         </QueryClientProvider>
       </ErrorBoundary>
     </SafeAreaProvider>

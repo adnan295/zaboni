@@ -13,6 +13,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
+import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import MenuItemCard from "@/components/MenuItemCard";
 import { RESTAURANTS, getRestaurantMenu, getMenuCategories } from "@/data/restaurants";
@@ -23,6 +24,7 @@ export default function RestaurantScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { isFavorite, toggleFavorite } = useFavorites();
 
   const restaurant = RESTAURANTS.find((r) => r.id === id);
@@ -50,7 +52,7 @@ export default function RestaurantScreen() {
   if (!restaurant) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }]}>
-        <Text style={{ color: colors.foreground }}>المطعم غير موجود</Text>
+        <Text style={{ color: colors.foreground }}>{t("restaurant.notFound")}</Text>
       </View>
     );
   }
@@ -61,7 +63,6 @@ export default function RestaurantScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
-        {/* Hero Image */}
         <View style={styles.heroContainer}>
           <Image source={{ uri: restaurant.image }} style={styles.heroImage} resizeMode="cover" />
           <View style={[styles.heroOverlay, { paddingTop: topPadding + 8 }]}>
@@ -95,7 +96,6 @@ export default function RestaurantScreen() {
           </View>
         </View>
 
-        {/* Restaurant Info */}
         <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
           <View style={styles.infoTop}>
             <View style={styles.infoMain}>
@@ -120,25 +120,24 @@ export default function RestaurantScreen() {
           <View style={[styles.statsRow, { borderTopColor: colors.border }]}>
             <View style={styles.statItem}>
               <MaterialIcons name="access-time" size={16} color={colors.primary} />
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>وقت التوصيل</Text>
-              <Text style={[styles.statValue, { color: colors.foreground }]}>{restaurant.deliveryTime} د</Text>
+              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{t("restaurant.deliveryTime")}</Text>
+              <Text style={[styles.statValue, { color: colors.foreground }]}>{restaurant.deliveryTime} {t("restaurant.minutes")}</Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
             <View style={styles.statItem}>
               <MaterialIcons name="location-on" size={16} color={colors.primary} />
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>المسافة</Text>
-              <Text style={[styles.statValue, { color: colors.foreground }]}>قريب منك</Text>
+              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{t("restaurant.distance")}</Text>
+              <Text style={[styles.statValue, { color: colors.foreground }]}>{t("restaurant.nearby")}</Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
             <View style={styles.statItem}>
               <MaterialIcons name="star" size={16} color={colors.primary} />
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>التقييم</Text>
+              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{t("restaurant.rating")}</Text>
               <Text style={[styles.statValue, { color: colors.foreground }]}>{restaurant.rating}</Text>
             </View>
           </View>
         </View>
 
-        {/* Categories Filter */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -156,7 +155,7 @@ export default function RestaurantScreen() {
             onPress={() => setSelectedCategory(null)}
           >
             <Text style={[styles.catText, { color: !selectedCategory ? "#fff" : colors.foreground }]}>
-              الكل
+              {t("restaurant.all")}
             </Text>
           </TouchableOpacity>
           {categories.map((cat) => (
@@ -178,16 +177,14 @@ export default function RestaurantScreen() {
           ))}
         </ScrollView>
 
-        {/* Menu Items */}
         <View style={styles.menuSection}>
-          <Text style={[styles.menuTitle, { color: colors.foreground }]}>المنيو</Text>
+          <Text style={[styles.menuTitle, { color: colors.foreground }]}>{t("restaurant.menu")}</Text>
           {filteredItems.map((item) => (
             <MenuItemCard key={item.id} item={item} />
           ))}
         </View>
       </ScrollView>
 
-      {/* Order CTA */}
       <View style={[styles.orderFooter, { backgroundColor: colors.background, paddingBottom: bottomPadding + 12, borderTopColor: colors.border }]}>
         <TouchableOpacity
           style={[styles.orderBtn, { backgroundColor: colors.primary }]}
@@ -201,7 +198,7 @@ export default function RestaurantScreen() {
           activeOpacity={0.85}
         >
           <MaterialIcons name="edit-note" size={22} color="#fff" />
-          <Text style={styles.orderBtnText}>اطلب الآن</Text>
+          <Text style={styles.orderBtnText}>{t("restaurant.orderNow")}</Text>
         </TouchableOpacity>
       </View>
     </View>

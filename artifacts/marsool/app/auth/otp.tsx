@@ -12,6 +12,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
+import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 
 const OTP_LENGTH = 6;
@@ -20,6 +21,7 @@ export default function OtpScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { phone } = useLocalSearchParams<{ phone: string }>();
   const [otp, setOtp] = useState("");
   const [countdown, setCountdown] = useState(60);
@@ -67,7 +69,6 @@ export default function OtpScreen() {
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
-      {/* Back */}
       <TouchableOpacity
         style={[styles.backBtn, { backgroundColor: colors.card }]}
         onPress={() => router.back()}
@@ -81,16 +82,15 @@ export default function OtpScreen() {
         </View>
 
         <Text style={[styles.title, { color: colors.foreground }]}>
-          رمز التحقق
+          {t("auth.otp.title")}
         </Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          أدخل الرمز المرسل إلى
+          {t("auth.otp.subtitle")}
         </Text>
         <Text style={[styles.phone, { color: colors.foreground }]}>
           {displayPhone}
         </Text>
 
-        {/* Hidden real input */}
         <TextInput
           ref={inputRef}
           value={otp}
@@ -101,7 +101,6 @@ export default function OtpScreen() {
           autoFocus
         />
 
-        {/* OTP boxes */}
         <TouchableOpacity
           style={styles.otpRow}
           onPress={() => inputRef.current?.focus()}
@@ -134,23 +133,21 @@ export default function OtpScreen() {
           })}
         </TouchableOpacity>
 
-        {/* Hint */}
         <View style={[styles.hintBox, { backgroundColor: colors.secondary }]}>
           <MaterialIcons name="info-outline" size={14} color={colors.primary} />
           <Text style={[styles.hint, { color: colors.primary }]}>
-            للتجربة: أدخل أي 6 أرقام
+            {t("auth.otp.hint")}
           </Text>
         </View>
 
-        {/* Resend */}
         <View style={styles.resendRow}>
           <Text style={[styles.resendLabel, { color: colors.mutedForeground }]}>
-            لم يصلك الرمز؟
+            {t("auth.otp.noCode")}
           </Text>
           {canResend ? (
             <TouchableOpacity onPress={handleResend}>
               <Text style={[styles.resendBtn, { color: colors.primary }]}>
-                إعادة الإرسال
+                {t("auth.otp.resend")}
               </Text>
             </TouchableOpacity>
           ) : (

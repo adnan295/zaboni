@@ -16,6 +16,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
+import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useAddresses, Address } from "@/context/AddressContext";
 
@@ -25,12 +26,15 @@ export default function AddressesScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { addresses, addAddress, updateAddress, deleteAddress, setDefault } = useAddresses();
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editing, setEditing] = useState<EditingAddress>({ label: "", address: "" });
+
+  const labelSuggestions = t("addresses.labelSuggestions", { returnObjects: true }) as string[];
 
   const openAdd = () => {
     setEditing({ label: "", address: "" });
@@ -44,7 +48,7 @@ export default function AddressesScreen() {
 
   const handleSave = () => {
     if (!editing.label.trim() || !editing.address.trim()) {
-      Alert.alert("تنبيه", "يرجى تعبئة الاسم والعنوان");
+      Alert.alert(t("addresses.alerts.missing"), t("addresses.alerts.missingMsg"));
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -57,10 +61,10 @@ export default function AddressesScreen() {
   };
 
   const handleDelete = (addr: Address) => {
-    Alert.alert("حذف العنوان", `هل تريد حذف "${addr.label}"؟`, [
-      { text: "إلغاء", style: "cancel" },
+    Alert.alert(t("addresses.alerts.deleteTitle"), `${addr.label}؟`, [
+      { text: t("addresses.alerts.deleteCancel"), style: "cancel" },
       {
-        text: "حذف",
+        text: t("addresses.alerts.deleteConfirm"),
         style: "destructive",
         onPress: () => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -75,8 +79,6 @@ export default function AddressesScreen() {
     setDefault(id);
   };
 
-  const LABEL_SUGGESTIONS = ["المنزل", "العمل", "المقهى", "الصالة الرياضية", "آخر"];
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPadding + 12, borderBottomColor: colors.border }]}>
@@ -86,7 +88,7 @@ export default function AddressesScreen() {
         >
           <MaterialIcons name="arrow-forward" size={22} color={colors.foreground} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.foreground }]}>عناويني</Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>{t("addresses.title")}</Text>
         <TouchableOpacity
           style={[styles.addHeaderBtn, { backgroundColor: colors.primary }]}
           onPress={openAdd}
@@ -106,18 +108,24 @@ export default function AddressesScreen() {
               <MaterialIcons name="location-off" size={48} color={colors.primary} />
             </View>
             <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-              لا توجد عناوين محفوظة
+              {t("addresses.empty.title")}
             </Text>
             <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
-              أضف عنواناً لتسريع عملية الطلب
+              {t("addresses.empty.subtitle")}
             </Text>
+            <TouchableOpacity
+              style={[styles.addEmptyBtn, { backgroundColor: colors.primary }]}
+              onPress={openAdd}
+            >
+              <Text style={styles.addEmptyBtnText}>{t("addresses.empty.add")}</Text>
+            </TouchableOpacity>
           </View>
         }
         renderItem={({ item: addr }) => (
           <View style={[styles.addrCard, { backgroundColor: colors.card, borderColor: addr.isDefault ? colors.primary : colors.border }]}>
             <View style={[styles.addrIconBox, { backgroundColor: addr.isDefault ? colors.secondary : colors.muted }]}>
               <MaterialIcons
-                name={addr.label === "المنزل" ? "home" : addr.label === "العمل" ? "business" : "location-on"}
+                name={addr.label === "المنزل" || addr.label === "Home" ? "home" : addr.label === "العمل" || addr.label === "Work" ? "business" : "location-on"}
                 size={22}
                 color={addr.isDefault ? colors.primary : colors.mutedForeground}
               />
@@ -127,7 +135,7 @@ export default function AddressesScreen() {
                 <Text style={[styles.addrLabel, { color: colors.foreground }]}>{addr.label}</Text>
                 {addr.isDefault && (
                   <View style={[styles.defaultBadge, { backgroundColor: colors.secondary }]}>
-                    <Text style={[styles.defaultBadgeText, { color: colors.primary }]}>افتراضي</Text>
+                    <Text style={[styles.defaultBadgeText, { color: colors.primary }]}>{t("addresses.default")}</Text>
                   </View>
                 )}
               </View>
@@ -161,7 +169,6 @@ export default function AddressesScreen() {
         )}
       />
 
-      {/* Add Address FAB */}
       {addresses.length > 0 && (
         <TouchableOpacity
           style={[styles.fab, { backgroundColor: colors.primary, bottom: bottomPadding + 24 }]}
@@ -169,11 +176,10 @@ export default function AddressesScreen() {
           activeOpacity={0.85}
         >
           <MaterialIcons name="add" size={24} color="#fff" />
-          <Text style={styles.fabText}>إضافة عنوان</Text>
+          <Text style={styles.fabText}>{t("addresses.empty.add")}</Text>
         </TouchableOpacity>
       )}
 
-      {/* Modal: Add / Edit */}
       <Modal
         visible={modalVisible}
         animationType="slide"
@@ -192,16 +198,15 @@ export default function AddressesScreen() {
           <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
             <View style={[styles.modalHandle, { backgroundColor: colors.border }]} />
             <Text style={[styles.modalTitle, { color: colors.foreground }]}>
-              {editing.id ? "تعديل العنوان" : "إضافة عنوان جديد"}
+              {editing.id ? t("addresses.modal.editTitle") : t("addresses.modal.addTitle")}
             </Text>
 
-            {/* Label suggestions */}
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.suggestionsRow}
             >
-              {LABEL_SUGGESTIONS.map((s) => (
+              {labelSuggestions.map((s) => (
                 <TouchableOpacity
                   key={s}
                   style={[
@@ -224,24 +229,22 @@ export default function AddressesScreen() {
               ))}
             </ScrollView>
 
-            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>الاسم</Text>
             <TextInput
               style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
-              placeholder="مثال: المنزل، العمل..."
+              placeholder={t("addresses.modal.labelPlaceholder")}
               placeholderTextColor={colors.mutedForeground}
               value={editing.label}
-              onChangeText={(t) => setEditing((e) => ({ ...e, label: t }))}
+              onChangeText={(text) => setEditing((e) => ({ ...e, label: text }))}
               textAlign="right"
               maxLength={30}
             />
 
-            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>العنوان</Text>
             <TextInput
               style={[styles.input, styles.inputMultiline, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
-              placeholder="أدخل العنوان بالتفصيل..."
+              placeholder={t("addresses.modal.addressPlaceholder")}
               placeholderTextColor={colors.mutedForeground}
               value={editing.address}
-              onChangeText={(t) => setEditing((e) => ({ ...e, address: t }))}
+              onChangeText={(text) => setEditing((e) => ({ ...e, address: text }))}
               textAlign="right"
               multiline
               numberOfLines={3}
@@ -254,13 +257,13 @@ export default function AddressesScreen() {
                 style={[styles.cancelBtn, { borderColor: colors.border }]}
                 onPress={() => setModalVisible(false)}
               >
-                <Text style={[styles.cancelBtnText, { color: colors.mutedForeground }]}>إلغاء</Text>
+                <Text style={[styles.cancelBtnText, { color: colors.mutedForeground }]}>{t("addresses.modal.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.saveBtn, { backgroundColor: colors.primary }]}
                 onPress={handleSave}
               >
-                <Text style={styles.saveBtnText}>حفظ</Text>
+                <Text style={styles.saveBtnText}>{t("addresses.modal.save")}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -312,6 +315,13 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontSize: 20, fontWeight: "800" },
   emptySubtitle: { fontSize: 14, textAlign: "center" },
+  addEmptyBtn: {
+    marginTop: 8,
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  addEmptyBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
   addrCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -392,7 +402,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   suggestionText: { fontSize: 13, fontWeight: "600" },
-  fieldLabel: { fontSize: 12, fontWeight: "600", marginBottom: -4 },
   input: {
     borderRadius: 12,
     borderWidth: 1,

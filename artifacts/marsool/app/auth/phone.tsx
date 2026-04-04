@@ -13,12 +13,14 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
+import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 
 export default function PhoneScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [phone, setPhone] = useState("");
   const inputRef = useRef<TextInput>(null);
 
@@ -50,19 +52,17 @@ export default function PhoneScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Logo / Brand */}
         <View style={[styles.logoBox, { backgroundColor: colors.primary }]}>
           <MaterialIcons name="delivery-dining" size={48} color="#fff" />
         </View>
 
         <Text style={[styles.title, { color: colors.foreground }]}>
-          مرحباً بك في مرسول
+          {t("auth.phone.title")}
         </Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          أدخل رقم جوالك للمتابعة
+          {t("auth.phone.subtitle")}
         </Text>
 
-        {/* Phone input */}
         <View style={[styles.inputWrapper, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={[styles.prefix, { borderRightColor: colors.border }]}>
             <Text style={[styles.prefixFlag, { color: colors.foreground }]}>🇸🇦</Text>
@@ -97,7 +97,7 @@ export default function PhoneScreen() {
               { color: isValid ? "#fff" : colors.mutedForeground },
             ]}
           >
-            متابعة
+            {t("auth.phone.continue")}
           </Text>
           <MaterialIcons
             name="arrow-back"
@@ -107,10 +107,10 @@ export default function PhoneScreen() {
         </TouchableOpacity>
 
         <Text style={[styles.terms, { color: colors.mutedForeground }]}>
-          بالمتابعة، أنت توافق على{" "}
-          <Text style={{ color: colors.primary }}>شروط الاستخدام</Text>
-          {" و"}
-          <Text style={{ color: colors.primary }}>سياسة الخصوصية</Text>
+          {t("auth.phone.termsPrefix")}{" "}
+          <Text style={{ color: colors.primary }}>{t("auth.phone.termsLink")}</Text>
+          {t("auth.phone.termsAnd")}
+          <Text style={{ color: colors.primary }}>{t("auth.phone.privacyLink")}</Text>
         </Text>
       </ScrollView>
     </KeyboardAvoidingView>

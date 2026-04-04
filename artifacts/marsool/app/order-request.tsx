@@ -13,6 +13,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
+import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useOrders } from "@/context/OrderContext";
 import { useAddresses } from "@/context/AddressContext";
@@ -21,11 +22,12 @@ export default function OrderRequestScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { restaurantName } = useLocalSearchParams<{ restaurantName?: string }>();
   const { placeOrder } = useOrders();
   const { defaultAddress } = useAddresses();
 
-  const prefix = restaurantName ? `من ${restaurantName}: ` : "";
+  const prefix = restaurantName ? `${t("orderRequest.from")} ${restaurantName}: ` : "";
   const [orderText, setOrderText] = useState(prefix);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -33,12 +35,16 @@ export default function OrderRequestScreen() {
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
 
+  const steps = t("orderRequest.steps", { returnObjects: true }) as string[];
+
+  const stepIcons: Array<keyof typeof MaterialIcons.glyphMap> = ["send", "check-circle", "chat"];
+
   const handleSubmit = () => {
     if (!isValid || isSubmitting) return;
     setIsSubmitting(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const address = defaultAddress?.label ?? "الموقع الحالي";
-    const order = placeOrder(orderText.trim(), restaurantName ?? "طلب عام", address);
+    const address = defaultAddress?.label ?? t("orderRequest.currentLocation");
+    const order = placeOrder(orderText.trim(), restaurantName ?? t("orderRequest.title"), address);
     router.replace({
       pathname: "/order-tracking/[id]",
       params: { id: order.id },
@@ -50,12 +56,11 @@ export default function OrderRequestScreen() {
       style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      {/* Header */}
       <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <MaterialIcons name="arrow-forward" size={22} color={colors.foreground} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.foreground }]}>اكتب طلبك</Text>
+        <Text style={[styles.headerTitle, { color: colors.foreground }]}>{t("orderRequest.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -64,7 +69,6 @@ export default function OrderRequestScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Restaurant badge */}
         {restaurantName ? (
           <View style={[styles.restaurantBadge, { backgroundColor: colors.secondary }]}>
             <MaterialIcons name="restaurant" size={16} color={colors.primary} />
@@ -74,16 +78,15 @@ export default function OrderRequestScreen() {
           </View>
         ) : null}
 
-        <Text style={[styles.label, { color: colors.foreground }]}>تفاصيل طلبك</Text>
+        <Text style={[styles.label, { color: colors.foreground }]}>{t("orderRequest.label")}</Text>
         <Text style={[styles.hint, { color: colors.mutedForeground }]}>
-          مثال: بدي كولا وشاورما دجاج من عند الشاطر حسن
+          {t("orderRequest.hint")}
         </Text>
 
-        {/* Text area */}
         <View style={[styles.inputCard, { backgroundColor: colors.card, borderColor: isValid ? colors.primary : colors.border }]}>
           <TextInput
             style={[styles.textArea, { color: colors.foreground }]}
-            placeholder="اكتب ما تريد طلبه بالتفصيل..."
+            placeholder={t("orderRequest.placeholder")}
             placeholderTextColor={colors.mutedForeground}
             value={orderText}
             onChangeText={setOrderText}
@@ -99,37 +102,30 @@ export default function OrderRequestScreen() {
           </Text>
         </View>
 
-        {/* Address row */}
         <View style={[styles.addressRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <MaterialIcons name="location-on" size={20} color={colors.primary} />
           <View style={styles.addrInfo}>
-            <Text style={[styles.addrLabel, { color: colors.mutedForeground }]}>عنوان التوصيل</Text>
+            <Text style={[styles.addrLabel, { color: colors.mutedForeground }]}>{t("orderRequest.deliveryAddress")}</Text>
             <Text style={[styles.addrText, { color: colors.foreground }]}>
-              {defaultAddress?.label ?? "أضف عنواناً"}
+              {defaultAddress?.label ?? t("home.addAddress")}
             </Text>
           </View>
           <TouchableOpacity onPress={() => router.push("/addresses")}>
-            <Text style={[styles.changeAddr, { color: colors.primary }]}>تغيير</Text>
+            <Text style={[styles.changeAddr, { color: colors.primary }]}>{t("orderRequest.changeAddress")}</Text>
           </TouchableOpacity>
         </View>
 
-        {/* How it works */}
         <View style={[styles.howCard, { backgroundColor: colors.secondary }]}>
-          <Text style={[styles.howTitle, { color: colors.foreground }]}>كيف يعمل؟</Text>
-          {[
-            { icon: "send" as const, text: "يُرسل طلبك للمندوبين القريبين" },
-            { icon: "check-circle" as const, text: "مندوب يقبل ويذهب لإحضار طلبك" },
-            { icon: "chat" as const, text: "تفتح دردشة لتنسيق التفاصيل معه" },
-          ].map((row, i) => (
+          <Text style={[styles.howTitle, { color: colors.foreground }]}>{t("orderRequest.howItWorks")}</Text>
+          {steps.map((step, i) => (
             <View key={i} style={styles.howRow}>
-              <MaterialIcons name={row.icon} size={16} color={colors.primary} />
-              <Text style={[styles.howText, { color: colors.mutedForeground }]}>{row.text}</Text>
+              <MaterialIcons name={stepIcons[i]} size={16} color={colors.primary} />
+              <Text style={[styles.howText, { color: colors.mutedForeground }]}>{step}</Text>
             </View>
           ))}
         </View>
       </ScrollView>
 
-      {/* Footer */}
       <View style={[styles.footer, { paddingBottom: bottomPadding + 16, backgroundColor: colors.background, borderTopColor: colors.border }]}>
         <TouchableOpacity
           style={[styles.submitBtn, { backgroundColor: isValid ? colors.primary : colors.muted }]}
@@ -139,7 +135,7 @@ export default function OrderRequestScreen() {
         >
           <MaterialIcons name="send" size={20} color={isValid ? "#fff" : colors.mutedForeground} />
           <Text style={[styles.submitText, { color: isValid ? "#fff" : colors.mutedForeground }]}>
-            {isSubmitting ? "جاري الإرسال..." : "أرسل الطلب"}
+            {isSubmitting ? t("orderRequest.sending") : t("orderRequest.sendOrder")}
           </Text>
         </TouchableOpacity>
       </View>
@@ -158,63 +154,58 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 4, width: 40 },
   headerTitle: { flex: 1, textAlign: "center", fontSize: 18, fontWeight: "800" },
-  content: { padding: 16, gap: 16, paddingBottom: 20 },
+  content: { padding: 16, gap: 16 },
   restaurantBadge: {
     flexDirection: "row",
     alignItems: "center",
-    alignSelf: "flex-end",
-    gap: 6,
-    paddingHorizontal: 14,
+    gap: 8,
+    alignSelf: "center",
+    paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
   },
   restaurantBadgeText: { fontSize: 14, fontWeight: "700" },
-  label: { fontSize: 17, fontWeight: "800", textAlign: "right" },
-  hint: { fontSize: 13, lineHeight: 20, textAlign: "right", marginTop: -8 },
+  label: { fontSize: 16, fontWeight: "800" },
+  hint: { fontSize: 13, lineHeight: 18, marginTop: -8 },
   inputCard: {
     borderRadius: 16,
     borderWidth: 1.5,
-    padding: 14,
-    minHeight: 150,
+    padding: 16,
+    gap: 8,
   },
-  textArea: {
-    fontSize: 15,
-    lineHeight: 24,
-    minHeight: 110,
-  },
-  charCount: { fontSize: 11, textAlign: "left", marginTop: 8 },
+  textArea: { fontSize: 15, lineHeight: 24, minHeight: 120 },
+  charCount: { textAlign: "left", fontSize: 12 },
   addressRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    padding: 14,
     borderRadius: 14,
     borderWidth: 1,
+    padding: 14,
   },
   addrInfo: { flex: 1 },
-  addrLabel: { fontSize: 11, marginBottom: 2 },
+  addrLabel: { fontSize: 11, fontWeight: "600", marginBottom: 2 },
   addrText: { fontSize: 14, fontWeight: "600" },
   changeAddr: { fontSize: 13, fontWeight: "700" },
   howCard: {
     borderRadius: 14,
-    padding: 14,
-    gap: 8,
+    padding: 16,
+    gap: 10,
   },
-  howTitle: { fontSize: 14, fontWeight: "700", marginBottom: 4, textAlign: "right" },
-  howRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  howText: { fontSize: 13 },
+  howTitle: { fontSize: 14, fontWeight: "800", marginBottom: 4 },
+  howRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  howText: { flex: 1, fontSize: 13, lineHeight: 18 },
   footer: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
+    padding: 16,
     borderTopWidth: 1,
   },
   submitBtn: {
-    height: 56,
-    borderRadius: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
+    gap: 8,
+    height: 56,
+    borderRadius: 16,
   },
   submitText: { fontSize: 17, fontWeight: "700" },
 });

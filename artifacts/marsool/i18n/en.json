@@ -1,0 +1,265 @@
+{
+  "app": {
+    "name": "Marsool"
+  },
+  "auth": {
+    "phone": {
+      "title": "Welcome to Marsool",
+      "subtitle": "Enter your phone number to continue",
+      "continue": "Continue",
+      "termsPrefix": "By continuing, you agree to our",
+      "termsLink": "Terms of Service",
+      "termsAnd": " and ",
+      "privacyLink": "Privacy Policy"
+    },
+    "otp": {
+      "title": "Verification Code",
+      "subtitle": "Enter the code sent to",
+      "hint": "Demo: Enter any 6 digits",
+      "noCode": "Didn't receive the code?",
+      "resend": "Resend"
+    },
+    "name": {
+      "title": "What's your name?",
+      "subtitle": "We'll use it to address you in the app",
+      "placeholder": "Full name",
+      "loading": "Signing in...",
+      "start": "Start Ordering"
+    }
+  },
+  "home": {
+    "addAddress": "Add an address",
+    "discoverTitle": "Discover",
+    "discoverSub": "what your heart desires",
+    "searchPlaceholder": "Search for a restaurant or food...",
+    "allRestaurants": "All Restaurants",
+    "noResults": "No results",
+    "order": {
+      "searching": "Looking for a courier...",
+      "accepted": "accepted your order",
+      "onWay": "Courier is on the way",
+      "delivered": "Delivered"
+    }
+  },
+  "profile": {
+    "defaultUser": "User",
+    "stats": {
+      "orders": "Orders",
+      "favorites": "Favorites",
+      "avgRating": "Avg. Rating"
+    },
+    "menu": {
+      "orders": "My Orders",
+      "favorites": "Favorites",
+      "addresses": "My Addresses",
+      "notifications": "Notifications",
+      "payments": "Payment Methods",
+      "support": "Help & Support",
+      "about": "About App",
+      "language": "Language"
+    },
+    "signOut": "Sign Out",
+    "signOutTitle": "Sign Out",
+    "signOutMessage": "Do you want to sign out?",
+    "signOutCancel": "Cancel",
+    "signOutConfirm": "Sign Out",
+    "version": "Marsool · Version 1.0.0",
+    "language": {
+      "title": "Choose Language",
+      "arabic": "العربية",
+      "english": "English",
+      "restartMsg": "The app will restart to apply the language change",
+      "restartBtn": "OK",
+      "cancel": "Cancel"
+    }
+  },
+  "orders": {
+    "title": "My Orders",
+    "empty": {
+      "title": "No orders yet",
+      "body": "Order from your favorite restaurants and they'll appear here",
+      "browse": "Browse Restaurants"
+    },
+    "status": {
+      "searching": "Looking for courier",
+      "accepted": "Accepted",
+      "on_way": "On the way",
+      "delivered": "Delivered"
+    },
+    "courier": "Courier",
+    "track": "Track Order",
+    "chat": "Chat",
+    "rate": "Rate Order",
+    "reorder": "Order Again"
+  },
+  "favorites": {
+    "title": "Favorites",
+    "empty": {
+      "title": "No favorite restaurants",
+      "subtitle": "Tap the heart on any restaurant to add it here",
+      "browse": "Browse Restaurants"
+    }
+  },
+  "addresses": {
+    "title": "My Addresses",
+    "empty": {
+      "title": "No saved addresses",
+      "subtitle": "Add your address to speed up delivery",
+      "add": "Add Address"
+    },
+    "default": "Default",
+    "setDefault": "Set as Default",
+    "edit": "Edit",
+    "delete": "Delete",
+    "modal": {
+      "addTitle": "Add Address",
+      "editTitle": "Edit Address",
+      "labelPlaceholder": "Address name",
+      "addressPlaceholder": "Full address details",
+      "suggestions": "Suggestions: ",
+      "cancel": "Cancel",
+      "save": "Save"
+    },
+    "alerts": {
+      "missing": "Notice",
+      "missingMsg": "Please fill in the name and address",
+      "deleteTitle": "Delete Address",
+      "deleteCancel": "Cancel",
+      "deleteConfirm": "Delete"
+    },
+    "labelSuggestions": ["Home", "Work", "Café", "Gym", "Other"]
+  },
+  "search": {
+    "placeholder": "Search for a restaurant or food...",
+    "sort": {
+      "fastest": "Fastest",
+      "rating": "Top Rated",
+      "fee": "Lowest Fee"
+    },
+    "filters": {
+      "freeDelivery": "Free Delivery",
+      "stars": "4+ Stars"
+    },
+    "history": {
+      "title": "Recent Searches",
+      "clearAll": "Clear All"
+    },
+    "noResults": "No results for",
+    "noResultsSub": "Try a different search or change filters",
+    "resultsCount": "result(s)",
+    "activeFilters": "filter(s) active",
+    "suggestions": "Popular suggestions",
+    "suggestionsList": ["Burger", "Pizza", "Shawarma", "Coffee", "Chicken", "Snacks"]
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all read",
+    "clearAll": "Clear all notifications",
+    "empty": {
+      "title": "No notifications",
+      "body": "Order updates and special offers will appear here"
+    },
+    "timeAgo": {
+      "justNow": "Just now",
+      "minutes": "{{count}} min ago",
+      "hours": "{{count}} hr ago"
+    }
+  },
+  "restaurant": {
+    "notFound": "Restaurant not found",
+    "deliveryTime": "Delivery Time",
+    "minutes": "min",
+    "distance": "Distance",
+    "nearby": "Nearby",
+    "rating": "Rating",
+    "all": "All",
+    "menu": "Menu",
+    "orderNow": "Order Now"
+  },
+  "orderRequest": {
+    "title": "Write Your Order",
+    "from": "from",
+    "label": "Order Details",
+    "hint": "Example: I want a cola and chicken shawarma from Al-Shater Hassan",
+    "placeholder": "Write what you want to order in detail...",
+    "deliveryAddress": "Delivery Address",
+    "currentLocation": "Current Location",
+    "changeAddress": "Change",
+    "howItWorks": "How does it work?",
+    "steps": [
+      "Your order is sent to nearby couriers",
+      "A courier accepts and goes to get your order",
+      "A chat opens to coordinate details with them"
+    ],
+    "sendOrder": "Send Order",
+    "sending": "Sending..."
+  },
+  "orderTracking": {
+    "notFound": "Order not found",
+    "status": {
+      "searching": "Finding Courier",
+      "accepted": "Accepted",
+      "on_way": "On the Way",
+      "delivered": "Delivered"
+    },
+    "searching": {
+      "title": "Looking for a courier near you",
+      "sub": "You'll get a notification when a courier accepts"
+    },
+    "courier": {
+      "acceptedBanner": "Accepted your order!",
+      "openChat": "Open Chat with Courier"
+    },
+    "statusSteps": {
+      "accepted": "Courier accepted your order",
+      "on_way": "Courier is on the way to you",
+      "delivered": "Order delivered"
+    },
+    "orderTitle": "Order Status",
+    "summary": {
+      "title": "Order Details",
+      "address": "Address"
+    },
+    "rate": "Rate your experience",
+    "reorder": "Order Again"
+  },
+  "chat": {
+    "notFound": "Order not found",
+    "onlineNow": "Online now",
+    "inputPlaceholder": "Type a message...",
+    "empty": {
+      "title": "Chat will start soon",
+      "sub": "The courier will contact you after accepting the order"
+    }
+  },
+  "rating": {
+    "title": "Rate Your Experience",
+    "subtitle": "Your rating helps us improve",
+    "restaurant": "Restaurant",
+    "courier": "Courier",
+    "quickComments": ["Food was delicious", "Delivery was fast", "Packaging was excellent", "High quality", "Will order again"],
+    "stars": {
+      "1": "Poor",
+      "2": "Fair",
+      "3": "Good",
+      "4": "Great",
+      "5": "Excellent!"
+    },
+    "commentPlaceholder": "Add a comment (optional)...",
+    "submit": "Submit Rating",
+    "submitting": "Submitting...",
+    "success": "Thank you for your rating!",
+    "successBody": "Your rating helps us improve the service",
+    "done": "Done",
+    "skip": "Skip"
+  },
+  "common": {
+    "back": "Back",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "retry": "Retry"
+  }
+}
