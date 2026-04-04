@@ -5,7 +5,8 @@ const STORAGE_KEY = "@marsool_ratings";
 
 export interface Rating {
   orderId: string;
-  stars: number;
+  restaurantStars: number;
+  courierStars: number;
   comment: string;
   restaurantName: string;
   createdAt: number;
@@ -13,7 +14,13 @@ export interface Rating {
 
 interface RatingsContextValue {
   ratings: Rating[];
-  rateOrder: (orderId: string, stars: number, comment: string, restaurantName: string) => Promise<void>;
+  rateOrder: (
+    orderId: string,
+    restaurantStars: number,
+    courierStars: number,
+    comment: string,
+    restaurantName: string
+  ) => Promise<void>;
   getRating: (orderId: string) => Rating | undefined;
   hasRated: (orderId: string) => boolean;
 }
@@ -30,8 +37,21 @@ export function RatingsProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const rateOrder = useCallback(
-    async (orderId: string, stars: number, comment: string, restaurantName: string) => {
-      const entry: Rating = { orderId, stars, comment, restaurantName, createdAt: Date.now() };
+    async (
+      orderId: string,
+      restaurantStars: number,
+      courierStars: number,
+      comment: string,
+      restaurantName: string
+    ) => {
+      const entry: Rating = {
+        orderId,
+        restaurantStars,
+        courierStars,
+        comment,
+        restaurantName,
+        createdAt: Date.now(),
+      };
       setRatings((prev) => {
         const next = [entry, ...prev.filter((r) => r.orderId !== orderId)];
         AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
@@ -41,8 +61,14 @@ export function RatingsProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
-  const getRating = useCallback((orderId: string) => ratings.find((r) => r.orderId === orderId), [ratings]);
-  const hasRated = useCallback((orderId: string) => ratings.some((r) => r.orderId === orderId), [ratings]);
+  const getRating = useCallback(
+    (orderId: string) => ratings.find((r) => r.orderId === orderId),
+    [ratings]
+  );
+  const hasRated = useCallback(
+    (orderId: string) => ratings.some((r) => r.orderId === orderId),
+    [ratings]
+  );
 
   return (
     <RatingsContext.Provider value={{ ratings, rateOrder, getRating, hasRated }}>

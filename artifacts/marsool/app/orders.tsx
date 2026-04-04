@@ -165,7 +165,10 @@ export default function OrdersScreen() {
 
                   {rated && rating && (
                     <View style={styles.ratedRow}>
-                      <StarRow stars={rating.stars} />
+                      <MaterialIcons name="restaurant" size={13} color={colors.mutedForeground} />
+                      <StarRow stars={rating.restaurantStars} />
+                      <MaterialIcons name="delivery-dining" size={13} color={colors.mutedForeground} />
+                      <StarRow stars={rating.courierStars} />
                       <Text style={[styles.ratedLabel, { color: colors.mutedForeground }]}>تم التقييم</Text>
                     </View>
                   )}
@@ -237,6 +240,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   rateBtnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
-  ratedRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  ratedRow: { flexDirection: "row", alignItems: "center", gap: 4, flexWrap: "wrap" },
   ratedLabel: { fontSize: 12 },
 });
