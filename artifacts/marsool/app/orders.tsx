@@ -11,111 +11,154 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { useOrders, Order, OrderStatus } from "@/context/OrderContext";
+import { useOrders, OrderStatus } from "@/context/OrderContext";
+import { useRatings } from "@/context/RatingsContext";
 
-const STATUS_LABELS: Record<OrderStatus, string> = {
+const STATUS_LABEL: Record<OrderStatus, string> = {
   pending: "في الانتظار",
-  confirmed: "مؤكد",
-  preparing: "جاري التحضير",
+  confirmed: "تم التأكيد",
+  preparing: "قيد التحضير",
   on_way: "في الطريق",
   delivered: "تم التوصيل",
 };
 
-const STATUS_COLORS: Record<OrderStatus, string> = {
-  pending: "#f59e0b",
-  confirmed: "#3b82f6",
-  preparing: "#8b5cf6",
-  on_way: "#FF6B00",
-  delivered: "#22c55e",
+const STATUS_COLOR: Record<OrderStatus, string> = {
+  pending: "#888",
+  confirmed: "#2563eb",
+  preparing: "#d97706",
+  on_way: "#059669",
+  delivered: "#16a34a",
 };
+
+const STATUS_ICON: Record<OrderStatus, keyof typeof MaterialIcons.glyphMap> = {
+  pending: "hourglass-empty",
+  confirmed: "check-circle",
+  preparing: "restaurant",
+  on_way: "delivery-dining",
+  delivered: "done-all",
+};
+
+function StarRow({ stars, size = 16 }: { stars: number; size?: number }) {
+  const colors = useColors();
+  return (
+    <View style={{ flexDirection: "row", gap: 2 }}>
+      {[1, 2, 3, 4, 5].map((s) => (
+        <MaterialIcons
+          key={s}
+          name={s <= stars ? "star" : "star-border"}
+          size={size}
+          color={s <= stars ? "#f59e0b" : colors.mutedForeground}
+        />
+      ))}
+    </View>
+  );
+}
 
 export default function OrdersScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { orders } = useOrders();
+  const { hasRated, getRating } = useRatings();
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
+  const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
+
+  const formatDate = (ts: number) =>
+    new Date(ts).toLocaleDateString("ar-SA", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+  const formatPrice = (p: number) =>
+    p.toLocaleString("ar-SA", { style: "currency", currency: "SAR", maximumFractionDigits: 0 });
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
-        <TouchableOpacity
-          style={[styles.backBtn, { backgroundColor: colors.card }]}
-          onPress={() => router.back()}
-        >
-          <MaterialIcons name="arrow-forward" size={22} color={colors.foreground} />
+      <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <MaterialIcons name="arrow-forward-ios" size={22} color={colors.foreground} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.foreground }]}>طلباتي</Text>
+        <Text style={[styles.headerTitle, { color: colors.foreground }]}>طلباتي</Text>
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
-        {orders.length === 0 ? (
-          <View style={styles.empty}>
-            <MaterialIcons name="receipt-long" size={64} color={colors.mutedForeground} />
-            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>لا توجد طلبات بعد</Text>
-            <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
-              ابدأ بطلب وجبتك المفضلة
-            </Text>
-            <TouchableOpacity
-              style={[styles.startBtn, { backgroundColor: colors.primary }]}
-              onPress={() => router.replace("/(tabs)")}
-            >
-              <Text style={styles.startBtnText}>اطلب الآن</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.list}>
-            {orders.map((order) => (
-              <TouchableOpacity
-                key={order.id}
-                style={[styles.orderCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                onPress={() => router.push(`/order-tracking/${order.id}`)}
-                activeOpacity={0.9}
-              >
-                <View style={styles.orderTop}>
-                  <Text style={[styles.restaurantName, { color: colors.foreground }]}>
+      {orders.length === 0 ? (
+        <View style={styles.empty}>
+          <MaterialIcons name="receipt-long" size={64} color={colors.mutedForeground} />
+          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>لا توجد طلبات بعد</Text>
+          <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
+            اطلب من مطاعمك المفضلة وستظهر هنا
+          </Text>
+          <TouchableOpacity
+            style={[styles.browseBtn, { backgroundColor: colors.primary }]}
+            onPress={() => router.replace("/(tabs)")}
+          >
+            <Text style={styles.browseBtnText}>تصفح المطاعم</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: bottomPadding + 20 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {orders.map((order) => {
+            const rated = hasRated(order.id);
+            const rating = getRating(order.id);
+            return (
+              <View key={order.id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={styles.cardHeader}>
+                  <Text style={[styles.restaurantName, { color: colors.foreground }]} numberOfLines={1}>
                     {order.restaurantName}
                   </Text>
-                  <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[order.status] + "20" }]}>
-                    <Text style={[styles.statusText, { color: STATUS_COLORS[order.status] }]}>
-                      {STATUS_LABELS[order.status]}
+                  <View style={[styles.statusBadge, { backgroundColor: STATUS_COLOR[order.status] + "22" }]}>
+                    <MaterialIcons name={STATUS_ICON[order.status]} size={14} color={STATUS_COLOR[order.status]} />
+                    <Text style={[styles.statusText, { color: STATUS_COLOR[order.status] }]}>
+                      {STATUS_LABEL[order.status]}
                     </Text>
                   </View>
                 </View>
 
-                <Text style={[styles.items, { color: colors.mutedForeground }]}>
-                  {order.items.map((i) => `${i.nameAr} ×${i.quantity}`).join(", ")}
+                <Text style={[styles.date, { color: colors.mutedForeground }]}>{formatDate(order.createdAt)}</Text>
+
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+                <Text style={[styles.itemsLabel, { color: colors.mutedForeground }]}>
+                  {order.items.map((i) => `${i.nameAr} ×${i.quantity}`).join("  ·  ")}
                 </Text>
 
-                <View style={[styles.orderBottom, { borderTopColor: colors.border }]}>
-                  <Text style={[styles.date, { color: colors.mutedForeground }]}>
-                    {new Date(order.createdAt).toLocaleDateString("ar-SA", {
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </Text>
-                  <Text style={[styles.total, { color: colors.primary }]}>
-                    {order.totalPrice} ر.س
-                  </Text>
-                </View>
+                <View style={styles.footer}>
+                  <Text style={[styles.total, { color: colors.primary }]}>{formatPrice(order.totalPrice)}</Text>
 
-                {order.status !== "delivered" && (
-                  <View style={[styles.trackRow, { backgroundColor: colors.secondary }]}>
-                    <MaterialIcons name="delivery-dining" size={14} color={colors.primary} />
-                    <Text style={[styles.trackText, { color: colors.primary }]}>
-                      تتبع الطلب
-                    </Text>
-                    <MaterialIcons name="chevron-left" size={16} color={colors.primary} />
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </ScrollView>
+                  {order.status === "delivered" && !rated && (
+                    <TouchableOpacity
+                      style={[styles.rateBtn, { backgroundColor: colors.primary }]}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/rate-order",
+                          params: { orderId: order.id, restaurantName: order.restaurantName },
+                        })
+                      }
+                    >
+                      <MaterialIcons name="star" size={16} color="#fff" />
+                      <Text style={styles.rateBtnText}>قيّم طلبك</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {rated && rating && (
+                    <View style={styles.ratedRow}>
+                      <StarRow stars={rating.stars} />
+                      <Text style={[styles.ratedLabel, { color: colors.mutedForeground }]}>تم التقييم</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            );
+          })}
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -126,67 +169,48 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
   },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  title: { flex: 1, textAlign: "center", fontSize: 17, fontWeight: "700" },
-  empty: {
-    alignItems: "center",
-    paddingTop: 80,
-    gap: 12,
-    paddingHorizontal: 32,
-  },
+  backBtn: { padding: 4, width: 40 },
+  headerTitle: { flex: 1, textAlign: "center", fontSize: 18, fontWeight: "800" },
+  empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, paddingHorizontal: 32 },
   emptyTitle: { fontSize: 20, fontWeight: "800" },
-  emptySubtitle: { fontSize: 14, textAlign: "center" },
-  startBtn: {
-    marginTop: 8,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 14,
-  },
-  startBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
-  list: { paddingHorizontal: 16, paddingTop: 12, gap: 12 },
-  orderCard: {
+  emptyBody: { fontSize: 14, textAlign: "center" },
+  browseBtn: { marginTop: 8, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
+  browseBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  card: {
     borderRadius: 16,
     borderWidth: 1,
-    overflow: "hidden",
-    padding: 14,
+    padding: 16,
+    marginBottom: 12,
     gap: 8,
   },
-  orderTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  restaurantName: { fontSize: 15, fontWeight: "700" },
+  cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  restaurantName: { fontSize: 16, fontWeight: "800", flex: 1 },
   statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 20,
   },
-  statusText: { fontSize: 11, fontWeight: "700" },
-  items: { fontSize: 12, lineHeight: 18 },
-  orderBottom: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingTop: 8,
-    borderTopWidth: 1,
-  },
+  statusText: { fontSize: 12, fontWeight: "700" },
   date: { fontSize: 12 },
-  total: { fontSize: 15, fontWeight: "700" },
-  trackRow: {
+  divider: { height: 1 },
+  itemsLabel: { fontSize: 13, lineHeight: 20 },
+  footer: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 4 },
+  total: { fontSize: 17, fontWeight: "800" },
+  rateBtn: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 8,
-    borderRadius: 8,
     gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
   },
-  trackText: { flex: 1, fontSize: 12, fontWeight: "600" },
+  rateBtnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
+  ratedRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  ratedLabel: { fontSize: 12 },
 });
