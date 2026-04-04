@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
+import { useBackIcon } from "@/hooks/useTypography";
 import MenuItemCard from "@/components/MenuItemCard";
 import { RESTAURANTS, getRestaurantMenu, getMenuCategories } from "@/data/restaurants";
 import { useFavorites } from "@/context/FavoritesContext";
@@ -25,6 +26,7 @@ export default function RestaurantScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const backIcon = useBackIcon();
   const { isFavorite, toggleFavorite } = useFavorites();
 
   const restaurant = RESTAURANTS.find((r) => r.id === id);
@@ -70,7 +72,7 @@ export default function RestaurantScreen() {
               style={[styles.backBtn, { backgroundColor: "rgba(255,255,255,0.9)" }]}
               onPress={() => router.back()}
             >
-              <MaterialIcons name="arrow-forward" size={22} color="#1a1a1a" />
+              <MaterialIcons name={backIcon} size={22} color="#1a1a1a" />
             </TouchableOpacity>
 
             <View style={styles.heroRight}>

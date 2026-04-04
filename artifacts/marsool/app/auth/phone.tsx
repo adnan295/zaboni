@@ -14,6 +14,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
+import { useForwardIcon } from "@/hooks/useTypography";
 import { useColors } from "@/hooks/useColors";
 
 export default function PhoneScreen() {
@@ -21,6 +22,7 @@ export default function PhoneScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const forwardIcon = useForwardIcon();
   const [phone, setPhone] = useState("");
   const inputRef = useRef<TextInput>(null);
 
@@ -100,7 +102,7 @@ export default function PhoneScreen() {
             {t("auth.phone.continue")}
           </Text>
           <MaterialIcons
-            name="arrow-back"
+            name={forwardIcon}
             size={20}
             color={isValid ? "#fff" : colors.mutedForeground}
           />

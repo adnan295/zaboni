@@ -1,3 +1,4 @@
+import { MaterialIcons } from "@expo/vector-icons";
 import { useLanguage } from "@/context/LanguageContext";
 
 export type FontWeight = "regular" | "medium" | "bold" | "extrabold";
@@ -27,4 +28,14 @@ export function useTypography() {
     fontExtraBold: fonts.extrabold,
     ff: (weight: FontWeight = "regular") => fonts[weight],
   };
+}
+
+export function useBackIcon(): keyof typeof MaterialIcons.glyphMap {
+  const { isRTL } = useLanguage();
+  return isRTL ? "arrow-forward" : "arrow-back";
+}
+
+export function useForwardIcon(): keyof typeof MaterialIcons.glyphMap {
+  const { isRTL } = useLanguage();
+  return isRTL ? "arrow-back" : "arrow-forward";
 }

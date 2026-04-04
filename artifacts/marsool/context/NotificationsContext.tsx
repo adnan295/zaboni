@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import i18n from "@/i18n";
 
 const STORAGE_KEY = "@marsool_notifications";
-const SEEDED_KEY = "@marsool_notifications_seeded";
+const SEEDED_LANG_KEY = "@marsool_notifications_seeded_lang";
 
 export type NotifType = "order_status" | "promo" | "rating_request" | "system";
 
@@ -37,42 +38,49 @@ interface NotificationsContextValue {
 
 const NotificationsContext = createContext<NotificationsContextValue | null>(null);
 
+function buildSeedNotifications(): AppNotification[] {
+  return [
+    {
+      id: "welcome-1",
+      type: "promo",
+      title: i18n.t("notifications.seed.welcome1Title"),
+      body: i18n.t("notifications.seed.welcome1Body"),
+      read: false,
+      createdAt: Date.now(),
+    },
+    {
+      id: "welcome-2",
+      type: "promo",
+      title: i18n.t("notifications.seed.welcome2Title"),
+      body: i18n.t("notifications.seed.welcome2Body"),
+      read: false,
+      createdAt: Date.now() - 600000,
+    },
+  ];
+}
+
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [toast, setToast] = useState<ToastPayload | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    const currentLang = i18n.language || "ar";
+
     Promise.all([
       AsyncStorage.getItem(STORAGE_KEY),
-      AsyncStorage.getItem(SEEDED_KEY),
-    ]).then(([raw, seeded]) => {
-      if (raw) {
+      AsyncStorage.getItem(SEEDED_LANG_KEY),
+    ]).then(([raw, seededLang]) => {
+      if (raw && seededLang === currentLang) {
         setNotifications(JSON.parse(raw));
-      } else if (!seeded) {
-        const welcome: AppNotification[] = [
-          {
-            id: "welcome-1",
-            type: "promo",
-            title: "مرحباً بك في مرسول!",
-            body: "استخدم كود WELCOME للحصول على خصم 25% على أول طلب",
-            read: false,
-            createdAt: Date.now(),
-          },
-          {
-            id: "welcome-2",
-            type: "promo",
-            title: "عرض محدود: توصيل مجاني",
-            body: "اطلب الآن واستمتع بتوصيل مجاني على طلبات فوق 50 ريال",
-            read: false,
-            createdAt: Date.now() - 600000,
-          },
-        ];
+      } else {
+        const welcome = buildSeedNotifications();
         setNotifications(welcome);
         AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(welcome));
-        AsyncStorage.setItem(SEEDED_KEY, "1");
+        AsyncStorage.setItem(SEEDED_LANG_KEY, currentLang);
       }
     });
+
     return () => {
       if (toastTimer.current) clearTimeout(toastTimer.current);
     };
