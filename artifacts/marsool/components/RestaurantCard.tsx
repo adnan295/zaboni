@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Image,
   Animated,
+  GestureResponderEvent,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -24,7 +25,7 @@ export default function RestaurantCard({ restaurant, onPress }: Props) {
   const fav = isFavorite(restaurant.id);
   const scale = React.useRef(new Animated.Value(1)).current;
 
-  const handleFav = (e: any) => {
+  const handleFav = (e: GestureResponderEvent) => {
     e.stopPropagation();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Animated.sequence([
