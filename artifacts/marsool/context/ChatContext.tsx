@@ -71,7 +71,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       };
       addMessage(msg);
 
-      const delay = Math.floor(Math.random() * 1500) + 1500;
+      const delay = Math.floor(Math.random() * 2000) + 2000;
       setTimeout(() => {
         const reply = COURIER_AUTO_REPLIES[Math.floor(Math.random() * COURIER_AUTO_REPLIES.length)];
         addMessage({
