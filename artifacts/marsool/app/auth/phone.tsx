@@ -1,7 +1,6 @@
 import React, { useState, useRef } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   TextInput,
@@ -9,6 +8,7 @@ import {
   Platform,
   ScrollView,
 } from "react-native";
+import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
