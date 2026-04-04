@@ -59,6 +59,7 @@ export default function NameScreen() {
         id: userId ?? "",
         phone: phone ?? "",
         name: trimmedName,
+        role: "customer",
       });
       router.replace("/(tabs)");
     } catch {

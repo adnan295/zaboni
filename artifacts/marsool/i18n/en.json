@@ -241,12 +241,15 @@
       "orderText": "Order Details",
       "openChat": "Open Chat with Customer",
       "statusTitle": "Update Status",
-      "markOnWay": "On the Way 🛵",
+      "markPickedUp": "Picked Up from Restaurant 📦",
+      "markOnWay": "On the Way to Customer 🛵",
       "markDelivered": "Mark Delivered ✅",
+      "updateStatus": "Update Status",
       "updating": "Updating...",
       "status": {
-        "accepted": "Accepted",
-        "on_way": "On the Way",
+        "accepted": "Accepted — Heading to Restaurant",
+        "picked_up": "Picked Up from Restaurant",
+        "on_way": "On the Way to Customer",
         "delivered": "Delivered"
       }
     }
@@ -288,8 +291,9 @@
     "notFound": "Order not found",
     "status": {
       "searching": "Finding Courier",
-      "accepted": "Accepted",
-      "on_way": "On the Way",
+      "accepted": "Accepted — Heading to Restaurant",
+      "picked_up": "Picked Up from Restaurant",
+      "on_way": "On the Way to You",
       "delivered": "Delivered"
     },
     "searching": {

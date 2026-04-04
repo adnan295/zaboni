@@ -94,7 +94,7 @@ export default function OrderTrackingScreen() {
 
     simulationInitialized.current = true;
     if (!courierStartRef.current) {
-      courierStartRef.current = simulateCourierStart(userCoords, currentOrder.status === "on_way" ? 1.2 : 2);
+      courierStartRef.current = simulateCourierStart(userCoords, (currentOrder.status === "on_way" || currentOrder.status === "picked_up") ? 1.2 : 2);
     }
     setCourierCoords(courierStartRef.current);
     const startDist = haversineDistance(courierStartRef.current, userCoords);
@@ -177,6 +177,8 @@ export default function OrderTrackingScreen() {
           setTimeout(() => {
             router.push({ pathname: "/chat/[orderId]", params: { orderId: order.id } });
           }, 1200);
+        } else if (current === "picked_up" || current === "on_way") {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         } else if (current === "delivered") {
           if (!deliveredHapticFired.current) {
             deliveredHapticFired.current = true;
@@ -215,21 +217,24 @@ export default function OrderTrackingScreen() {
   }
 
   const isDelivered = order.status === "delivered";
-  const isOnWay = order.status === "on_way";
+  const isOnWay = order.status === "on_way" || order.status === "picked_up";
   const isAccepted = order.status === "accepted";
   const isSearching = order.status === "searching";
   const rated = hasRated(order.id);
   const showMap = !isSearching && !isDelivered;
 
   const getStatusTitle = () => {
-    if (isSearching) return t("orderTracking.status.searching");
-    if (isAccepted) return t("orderTracking.status.accepted");
-    if (isOnWay) return t("orderTracking.status.on_way");
+    const statusKey = order.status as string;
+    if (statusKey === "searching") return t("orderTracking.status.searching");
+    if (statusKey === "accepted") return t("orderTracking.status.accepted");
+    if (statusKey === "picked_up") return t("orderTracking.status.picked_up");
+    if (statusKey === "on_way") return t("orderTracking.status.on_way");
     return t("orderTracking.status.delivered");
   };
 
-  const STATUS_STEPS: { key: OrderStatus; label: string; icon: keyof typeof MaterialIcons.glyphMap }[] = [
+  const STATUS_STEPS: { key: string; label: string; icon: keyof typeof MaterialIcons.glyphMap }[] = [
     { key: "accepted", label: t("orderTracking.statusSteps.accepted"), icon: "check-circle" },
+    { key: "picked_up", label: t("orderTracking.status.picked_up"), icon: "inventory" },
     { key: "on_way", label: t("orderTracking.statusSteps.on_way"), icon: "delivery-dining" },
     { key: "delivered", label: t("orderTracking.statusSteps.delivered"), icon: "home" },
   ];
@@ -326,8 +331,8 @@ export default function OrderTrackingScreen() {
             <View style={[styles.statusCard, { backgroundColor: colors.card }]}>
               <Text style={[styles.cardTitle, { color: colors.foreground }]}>{t("orderTracking.orderTitle")}</Text>
               {STATUS_STEPS.map((step, idx, arr) => {
-                const statusOrder: OrderStatus[] = ["accepted", "on_way", "delivered"];
-                const currentIdx = statusOrder.indexOf(order.status);
+                const statusOrder: string[] = ["accepted", "picked_up", "on_way", "delivered"];
+                const currentIdx = statusOrder.indexOf(order.status as string);
                 const stepIdx = statusOrder.indexOf(step.key);
                 const isDone = stepIdx <= currentIdx;
                 const isActive = stepIdx === currentIdx;

@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db, usersTable, ordersTable, orderStatusHistoryTable } from "@workspace/db";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
 
@@ -25,6 +25,18 @@ async function requireCourier(req: Request, res: Response, next: NextFunction): 
   next();
 }
 
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 router.post("/courier/register", async (req, res) => {
   const userId = resolveUserId(req);
 
@@ -42,15 +54,58 @@ router.post("/courier/register", async (req, res) => {
   res.json(rows[0]);
 });
 
+const locationSchema = z.object({
+  lat: z.number().min(-90).max(90),
+  lon: z.number().min(-180).max(180),
+});
+
+router.patch("/courier/location", requireCourier, async (req, res) => {
+  const body = locationSchema.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "Invalid location payload — lat and lon required" });
+    return;
+  }
+
+  const courierId = resolveUserId(req);
+  await db
+    .update(usersTable)
+    .set({ courierLat: body.data.lat, courierLon: body.data.lon })
+    .where(eq(usersTable.id, courierId));
+
+  res.json({ ok: true });
+});
+
+const NEARBY_RADIUS_KM = 30;
+const RIYADH_LAT = 24.7136;
+const RIYADH_LON = 46.6753;
+
 router.get("/courier/orders/available", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
+
+  const courierUser = await db
+    .select({ lat: usersTable.courierLat, lon: usersTable.courierLon })
+    .from(usersTable)
+    .where(eq(usersTable.id, courierId))
+    .limit(1);
+
+  const courierLat = courierUser[0]?.lat ?? RIYADH_LAT;
+  const courierLon = courierUser[0]?.lon ?? RIYADH_LON;
+
   const rows = await db
     .select()
     .from(ordersTable)
     .where(and(eq(ordersTable.status, "searching"), eq(ordersTable.courierId, "")))
     .orderBy(ordersTable.createdAt);
 
-  res.json(rows.filter((o) => o.userId !== courierId));
+  const withDistance = rows
+    .filter((o) => o.userId !== courierId)
+    .map((o) => ({
+      ...o,
+      distanceKm: Number(haversineKm(courierLat, courierLon, RIYADH_LAT, RIYADH_LON).toFixed(1)),
+    }))
+    .filter((o) => o.distanceKm <= NEARBY_RADIUS_KM);
+
+  res.json(withDistance);
 });
 
 router.get("/courier/orders/active", requireCourier, async (req, res) => {
@@ -61,7 +116,7 @@ router.get("/courier/orders/active", requireCourier, async (req, res) => {
     .where(eq(ordersTable.courierId, courierId))
     .orderBy(ordersTable.updatedAt);
 
-  res.json(rows.filter((o) => o.status === "accepted" || o.status === "on_way"));
+  res.json(rows.filter((o) => o.status !== "delivered" && o.status !== "searching"));
 });
 
 router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) => {
@@ -118,14 +173,26 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   });
 
   notifyOrderUpdate(order.userId, updated[0]);
-  await sendOrderPush(order.userId, `${courierName} قبل طلبك وفي الطريق إليك!`);
+  await sendOrderPush(order.userId, `${courierName} قبل طلبك وهو في الطريق لاستلامه!`);
 
   res.json(updated[0]);
 });
 
 const courierStatusSchema = z.object({
-  status: z.enum(["on_way", "delivered"]),
+  status: z.enum(["picked_up", "on_way", "delivered"]),
 });
+
+const STATUS_PUSH_MESSAGES: Record<string, string> = {
+  picked_up: "المندوب استلم طلبك من المطعم 📦",
+  on_way: "المندوب في الطريق إليك الآن 🛵",
+  delivered: "تم التوصيل بنجاح 🎉 بالعافية!",
+};
+
+const STATUS_TRANSITIONS: Record<string, string[]> = {
+  accepted: ["picked_up"],
+  picked_up: ["on_way"],
+  on_way: ["delivered"],
+};
 
 router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
@@ -133,7 +200,7 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
 
   const body = courierStatusSchema.safeParse(req.body);
   if (!body.success) {
-    res.status(400).json({ error: "Invalid status — must be on_way or delivered" });
+    res.status(400).json({ error: "Invalid status — must be picked_up, on_way, or delivered" });
     return;
   }
 
@@ -145,6 +212,15 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
 
   if (orders.length === 0) {
     res.status(404).json({ error: "Order not found or not your order" });
+    return;
+  }
+
+  const currentOrder = orders[0];
+  const allowedNext = STATUS_TRANSITIONS[currentOrder.status] ?? [];
+  if (!allowedNext.includes(body.data.status)) {
+    res.status(409).json({
+      error: `Cannot transition from ${currentOrder.status} to ${body.data.status}`,
+    });
     return;
   }
 
@@ -165,13 +241,10 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
     status: body.data.status,
   });
 
-  notifyOrderUpdate(orders[0].userId, updated[0]);
+  notifyOrderUpdate(currentOrder.userId, updated[0]);
 
-  const pushMsg =
-    body.data.status === "on_way"
-      ? "المندوب في الطريق إليك 🛵"
-      : "تم التوصيل بنجاح 🎉 بالعافية!";
-  await sendOrderPush(orders[0].userId, pushMsg);
+  const pushMsg = STATUS_PUSH_MESSAGES[body.data.status] ?? "تم تحديث طلبك";
+  await sendOrderPush(currentOrder.userId, pushMsg);
 
   res.json(updated[0]);
 });

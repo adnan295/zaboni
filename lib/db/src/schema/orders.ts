@@ -2,13 +2,23 @@ import { pgTable, text, real, integer, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
+export const ORDER_STATUSES = [
+  "searching",
+  "accepted",
+  "picked_up",
+  "on_way",
+  "delivered",
+] as const;
+
+export type OrderStatus = (typeof ORDER_STATUSES)[number];
+
 export const ordersTable = pgTable("orders", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull().default("guest"),
   orderText: text("order_text").notNull(),
   restaurantName: text("restaurant_name").notNull().default(""),
   status: text("status", {
-    enum: ["searching", "accepted", "on_way", "delivered"],
+    enum: ORDER_STATUSES,
   })
     .notNull()
     .default("searching"),
