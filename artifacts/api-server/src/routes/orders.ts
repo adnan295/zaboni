@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, ordersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, ordersTable, orderStatusHistoryTable } from "@workspace/db";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
 const router: IRouter = Router();
@@ -23,10 +23,15 @@ const createOrderSchema = z.object({
 
 const updateStatusSchema = z.object({
   status: z.enum(["searching", "accepted", "on_way", "delivered"]),
+  userId: z.string().optional(),
 });
 
+function getUserId(req: { query: Record<string, unknown> }): string {
+  return (req.query["userId"] as string) || "guest";
+}
+
 router.get("/orders", async (req, res) => {
-  const userId = (req.query["userId"] as string) || "guest";
+  const userId = getUserId(req);
   const rows = await db
     .select()
     .from(ordersTable)
@@ -61,15 +66,23 @@ router.post("/orders", async (req, res) => {
   };
 
   const rows = await db.insert(ordersTable).values(newOrder).returning();
+
+  await db.insert(orderStatusHistoryTable).values({
+    id: `${id}_searching`,
+    orderId: id,
+    status: "searching",
+  });
+
   res.status(201).json(rows[0]);
 });
 
 router.get("/orders/:id", async (req, res) => {
+  const userId = getUserId(req);
   const { id } = req.params;
   const rows = await db
     .select()
     .from(ordersTable)
-    .where(eq(ordersTable.id, id));
+    .where(and(eq(ordersTable.id, id), eq(ordersTable.userId, userId)));
   if (rows.length === 0) {
     res.status(404).json({ error: "Order not found" });
     return;
@@ -85,16 +98,25 @@ router.patch("/orders/:id/status", async (req, res) => {
     return;
   }
 
+  const userId = body.data.userId ?? getUserId(req);
+
   const rows = await db
     .update(ordersTable)
     .set({ status: body.data.status, updatedAt: new Date() })
-    .where(eq(ordersTable.id, id))
+    .where(and(eq(ordersTable.id, id), eq(ordersTable.userId, userId)))
     .returning();
 
   if (rows.length === 0) {
     res.status(404).json({ error: "Order not found" });
     return;
   }
+
+  await db.insert(orderStatusHistoryTable).values({
+    id: `${id}_${body.data.status}_${Date.now()}`,
+    orderId: id,
+    status: body.data.status,
+  });
+
   res.json(rows[0]);
 });
 
