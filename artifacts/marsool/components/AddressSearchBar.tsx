@@ -81,10 +81,15 @@ const GOOGLE_PLACES_KEY = typeof process !== "undefined"
   ? process.env?.["EXPO_PUBLIC_GOOGLE_MAPS_KEY"] ?? ""
   : "";
 
-async function fetchGooglePlaces(query: string, sessionToken: string): Promise<string[]> {
+interface Coords { latitude: number; longitude: number }
+
+async function fetchGooglePlaces(query: string, sessionToken: string, userCoords?: Coords): Promise<string[]> {
   if (!GOOGLE_PLACES_KEY) return [];
   try {
-    const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&key=${GOOGLE_PLACES_KEY}&language=ar&components=country:SA&sessiontoken=${sessionToken}`;
+    let url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&key=${GOOGLE_PLACES_KEY}&language=ar&components=country:SA&sessiontoken=${sessionToken}`;
+    if (userCoords) {
+      url += `&location=${userCoords.latitude},${userCoords.longitude}&radius=15000&strictbounds=false`;
+    }
     const res = await fetch(url);
     if (!res.ok) return [];
     const data = await res.json();
@@ -98,9 +103,10 @@ async function fetchGooglePlaces(query: string, sessionToken: string): Promise<s
 interface AddressSearchBarProps {
   onSelect: (address: string) => void;
   placeholder?: string;
+  userCoords?: Coords;
 }
 
-export function AddressSearchBar({ onSelect, placeholder }: AddressSearchBarProps) {
+export function AddressSearchBar({ onSelect, placeholder, userCoords }: AddressSearchBarProps) {
   const { t, i18n } = useTranslation();
   const colors = useColors();
   const isAr = i18n.language === "ar";
@@ -126,14 +132,14 @@ export function AddressSearchBar({ onSelect, placeholder }: AddressSearchBarProp
     ).slice(0, 5);
 
     if (GOOGLE_PLACES_KEY) {
-      const google = await fetchGooglePlaces(text, sessionToken);
+      const google = await fetchGooglePlaces(text, sessionToken, userCoords);
       const combined = [...new Set([...google.slice(0, 4), ...local])].slice(0, 6);
       setSuggestions(combined);
     } else {
       setSuggestions(local);
     }
     setShowSuggestions(true);
-  }, [allNeighborhoods, sessionToken]);
+  }, [allNeighborhoods, sessionToken, userCoords]);
 
   const handleChangeText = (text: string) => {
     setQuery(text);
