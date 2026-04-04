@@ -12,9 +12,10 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import RestaurantCard from "@/components/RestaurantCard";
-import { CATEGORIES, RESTAURANTS, Restaurant } from "@/data/restaurants";
+import { CATEGORIES, RESTAURANTS } from "@/data/restaurants";
 import { useAddresses } from "@/context/AddressContext";
 import { useNotifications } from "@/context/NotificationsContext";
+import { useOrders } from "@/context/OrderContext";
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -23,6 +24,7 @@ export default function HomeScreen() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const { defaultAddress } = useAddresses();
   const { unreadCount } = useNotifications();
+  const { activeOrder } = useOrders();
 
   const filtered = RESTAURANTS.filter((r) => {
     return selectedCategory === "all" || r.category === selectedCategory;
@@ -62,7 +64,7 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        {/* Search — tappable button that opens the search screen */}
+        {/* Search */}
         <TouchableOpacity
           style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}
           onPress={() => router.push("/search")}
@@ -106,17 +108,28 @@ export default function HomeScreen() {
           ))}
         </ScrollView>
 
-        {/* Active orders banner */}
-        <TouchableOpacity
-          style={[styles.orderBanner, { backgroundColor: colors.secondary }]}
-          onPress={() => router.push("/orders")}
-        >
-          <View style={[styles.bannerDot, { backgroundColor: colors.primary }]} />
-          <Text style={[styles.bannerText, { color: colors.primary }]}>
-            تتبع طلبك الحالي
-          </Text>
-          <MaterialIcons name="chevron-right" size={20} color={colors.primary} />
-        </TouchableOpacity>
+        {/* Active order banner */}
+        {activeOrder && (
+          <TouchableOpacity
+            style={[styles.orderBanner, { backgroundColor: colors.secondary }]}
+            onPress={() =>
+              router.push({ pathname: "/order-tracking/[id]", params: { id: activeOrder.id } })
+            }
+          >
+            <View style={[styles.bannerDot, { backgroundColor: colors.primary }]} />
+            <View style={styles.bannerInfo}>
+              <Text style={[styles.bannerText, { color: colors.primary }]}>
+                {activeOrder.status === "searching" ? "جاري البحث عن مندوب..." :
+                 activeOrder.status === "accepted" ? `${activeOrder.courierName} قبل طلبك` :
+                 activeOrder.status === "on_way" ? "المندوب في الطريق" : "تم التوصيل"}
+              </Text>
+              <Text style={[styles.bannerSub, { color: colors.mutedForeground }]} numberOfLines={1}>
+                {activeOrder.restaurantName}
+              </Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={20} color={colors.primary} />
+          </TouchableOpacity>
+        )}
 
         {/* Restaurants */}
         <View style={styles.section}>
@@ -141,9 +154,7 @@ export default function HomeScreen() {
           {filtered.length === 0 && (
             <View style={styles.empty}>
               <MaterialIcons name="search-off" size={48} color={colors.mutedForeground} />
-              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-                لا توجد نتائج
-              </Text>
+              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>لا توجد نتائج</Text>
             </View>
           )}
         </View>
@@ -161,44 +172,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
   },
-  locationRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  location: {
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  notifBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-  },
-  notifBadge: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 3,
-  },
+  locationRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  location: { fontSize: 15, fontWeight: "600" },
+  notifBtn: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", position: "relative" },
+  notifBadge: { position: "absolute", top: 4, right: 4, minWidth: 16, height: 16, borderRadius: 8, alignItems: "center", justifyContent: "center", paddingHorizontal: 3 },
   notifBadgeText: { color: "#fff", fontSize: 9, fontWeight: "800" },
-  greeting: {
-    paddingHorizontal: 16,
-    marginBottom: 16,
-  },
-  greetTitle: {
-    fontSize: 24,
-    fontWeight: "800",
-    lineHeight: 34,
-  },
+  greeting: { paddingHorizontal: 16, marginBottom: 16 },
+  greetTitle: { fontSize: 24, fontWeight: "800", lineHeight: 34 },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -210,27 +190,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 10,
   },
-  searchPlaceholder: {
-    flex: 1,
-    fontSize: 14,
-  },
-  categoriesContainer: {
-    marginBottom: 16,
-  },
-  categoriesScroll: {
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  categoryBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  categoryText: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
+  searchPlaceholder: { flex: 1, fontSize: 14 },
+  categoriesContainer: { marginBottom: 16 },
+  categoriesScroll: { paddingHorizontal: 16, gap: 8 },
+  categoryBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+  categoryText: { fontSize: 13, fontWeight: "600" },
   orderBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -238,21 +202,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     padding: 14,
     borderRadius: 14,
-    gap: 8,
+    gap: 10,
   },
-  bannerDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  bannerText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  section: {
-    paddingHorizontal: 16,
-  },
+  bannerDot: { width: 8, height: 8, borderRadius: 4 },
+  bannerInfo: { flex: 1 },
+  bannerText: { fontSize: 14, fontWeight: "700" },
+  bannerSub: { fontSize: 12, marginTop: 2 },
+  section: { paddingHorizontal: 16 },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -260,20 +216,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     writingDirection: "rtl",
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  count: {
-    fontWeight: "400",
-    fontSize: 14,
-  },
-  empty: {
-    alignItems: "center",
-    paddingVertical: 48,
-    gap: 12,
-  },
-  emptyText: {
-    fontSize: 16,
-  },
+  sectionTitle: { fontSize: 18, fontWeight: "800" },
+  count: { fontWeight: "400", fontSize: 14 },
+  empty: { alignItems: "center", paddingVertical: 48, gap: 12 },
+  emptyText: { fontSize: 16 },
 });

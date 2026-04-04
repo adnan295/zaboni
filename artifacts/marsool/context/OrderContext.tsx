@@ -1,31 +1,39 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from "react";
-import { CartItem } from "./CartContext";
 
-export type OrderStatus = "pending" | "confirmed" | "preparing" | "on_way" | "delivered";
+export type OrderStatus = "searching" | "accepted" | "on_way" | "delivered";
 
 export interface Order {
   id: string;
-  items: CartItem[];
-  totalPrice: number;
+  orderText: string;
   restaurantName: string;
   status: OrderStatus;
+  courierName: string;
+  courierPhone: string;
+  courierRating: number;
+  courierId: string;
   createdAt: number;
   address: string;
   estimatedMinutes: number;
 }
 
+const MOCK_COURIERS = [
+  { id: "c1", name: "أحمد الزهراني", phone: "+966 50 123 4567", rating: 4.9 },
+  { id: "c2", name: "علي المطيري", phone: "+966 55 234 5678", rating: 4.8 },
+  { id: "c3", name: "محمد القحطاني", phone: "+966 54 345 6789", rating: 4.7 },
+  { id: "c4", name: "سعد العتيبي", phone: "+966 56 456 7890", rating: 4.9 },
+  { id: "c5", name: "عبدالله الشمري", phone: "+966 57 567 8901", rating: 5.0 },
+  { id: "c6", name: "خالد الدوسري", phone: "+966 58 678 9012", rating: 4.8 },
+];
+
 interface OrderContextValue {
   orders: Order[];
   activeOrder: Order | null;
-  placeOrder: (items: CartItem[], totalPrice: number, restaurantName: string, address: string) => Order;
+  placeOrder: (orderText: string, restaurantName: string, address: string) => Order;
   getOrder: (id: string) => Order | undefined;
-  onStatusChange?: (order: Order, newStatus: OrderStatus) => void;
   setStatusChangeHandler: (handler: (order: Order, newStatus: OrderStatus) => void) => void;
 }
 
 const OrderContext = createContext<OrderContextValue | null>(null);
-
-const STATUS_SEQUENCE: OrderStatus[] = ["pending", "confirmed", "preparing", "on_way", "delivered"];
 
 export function OrderProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -38,40 +46,41 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
-  const advanceStatus = useCallback((orderId: string) => {
+  const advanceStatus = useCallback((orderId: string, newStatus: OrderStatus) => {
     setOrders((prev) => {
       const order = prev.find((o) => o.id === orderId);
       if (!order) return prev;
-      const currentIdx = STATUS_SEQUENCE.indexOf(order.status);
-      if (currentIdx >= STATUS_SEQUENCE.length - 1) return prev;
-      const nextStatus = STATUS_SEQUENCE[currentIdx + 1];
-      const updated = { ...order, status: nextStatus };
+      const updated = { ...order, status: newStatus };
       if (statusChangeHandler.current) {
-        statusChangeHandler.current(updated, nextStatus);
+        statusChangeHandler.current(updated, newStatus);
       }
       return prev.map((o) => (o.id === orderId ? updated : o));
     });
   }, []);
 
   const placeOrder = useCallback(
-    (items: CartItem[], totalPrice: number, restaurantName: string, address: string): Order => {
-      const id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+    (orderText: string, restaurantName: string, address: string): Order => {
+      const id = `${Date.now()}${Math.random().toString(36).slice(2, 9)}`;
+      const courier = MOCK_COURIERS[Math.floor(Math.random() * MOCK_COURIERS.length)];
       const newOrder: Order = {
         id,
-        items,
-        totalPrice,
+        orderText,
         restaurantName,
-        status: "pending",
+        status: "searching",
+        courierName: courier.name,
+        courierPhone: courier.phone,
+        courierRating: courier.rating,
+        courierId: courier.id,
         createdAt: Date.now(),
         address,
-        estimatedMinutes: Math.floor(Math.random() * 20) + 25,
+        estimatedMinutes: Math.floor(Math.random() * 15) + 20,
       };
       setOrders((prev) => [newOrder, ...prev]);
 
-      const delays = [3000, 8000, 20000, 35000];
-      delays.forEach((delay) => {
-        setTimeout(() => advanceStatus(id), delay);
-      });
+      const searchDelay = Math.floor(Math.random() * 3000) + 4000;
+      setTimeout(() => advanceStatus(id, "accepted"), searchDelay);
+      setTimeout(() => advanceStatus(id, "on_way"), searchDelay + 90000);
+      setTimeout(() => advanceStatus(id, "delivered"), searchDelay + 90000 + 300000);
 
       return newOrder;
     },
