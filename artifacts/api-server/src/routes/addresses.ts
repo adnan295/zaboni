@@ -9,6 +9,8 @@ const upsertAddressSchema = z.object({
   label: z.string().min(1),
   address: z.string().min(1),
   isDefault: z.boolean().optional().default(false),
+  latitude: z.number().optional().nullable(),
+  longitude: z.number().optional().nullable(),
 });
 
 function getUserId(req: import("express").Request): string {
@@ -52,6 +54,8 @@ router.post("/addresses", async (req, res) => {
     label: body.data.label,
     address: body.data.address,
     isDefault: existing.length === 0 ? true : (body.data.isDefault ?? false),
+    latitude: body.data.latitude ?? null,
+    longitude: body.data.longitude ?? null,
   };
 
   const rows = await db.insert(addressesTable).values(newAddr).returning();
@@ -69,7 +73,12 @@ router.put("/addresses/:id", async (req, res) => {
 
   const rows = await db
     .update(addressesTable)
-    .set({ label: body.data.label, address: body.data.address })
+    .set({
+      label: body.data.label,
+      address: body.data.address,
+      latitude: body.data.latitude ?? null,
+      longitude: body.data.longitude ?? null,
+    })
     .where(and(eq(addressesTable.id, id), eq(addressesTable.userId, userId)))
     .returning();
 

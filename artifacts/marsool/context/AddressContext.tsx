@@ -19,14 +19,16 @@ export interface Address {
   label: string;
   address: string;
   isDefault: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 interface AddressContextValue {
   addresses: Address[];
   defaultAddress: Address | null;
   isLoading: boolean;
-  addAddress: (label: string, address: string) => Promise<void>;
-  updateAddress: (id: string, label: string, address: string) => Promise<void>;
+  addAddress: (label: string, address: string, coords?: { latitude: number; longitude: number } | null) => Promise<void>;
+  updateAddress: (id: string, label: string, address: string, coords?: { latitude: number; longitude: number } | null) => Promise<void>;
   deleteAddress: (id: string) => Promise<void>;
   setDefault: (id: string) => Promise<void>;
 }
@@ -38,8 +40,22 @@ const DEFAULT_ADDRESSES: Address[] = [
   { id: "a2", label: "العمل", address: "طريق الملك فهد، برج المملكة، الرياض", isDefault: false },
 ];
 
-function apiToLocal(a: { id: string; label: string; address: string; isDefault: boolean }): Address {
-  return { id: a.id, label: a.label, address: a.address, isDefault: a.isDefault };
+function apiToLocal(a: {
+  id: string;
+  label: string;
+  address: string;
+  isDefault: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+}): Address {
+  return {
+    id: a.id,
+    label: a.label,
+    address: a.address,
+    isDefault: a.isDefault,
+    latitude: a.latitude,
+    longitude: a.longitude,
+  };
 }
 
 export function AddressProvider({ children }: { children: React.ReactNode }) {
@@ -86,10 +102,20 @@ export function AddressProvider({ children }: { children: React.ReactNode }) {
 
   const defaultAddress = addresses.find((a) => a.isDefault) ?? addresses[0] ?? null;
 
-  const addAddress = useCallback(async (label: string, address: string): Promise<void> => {
+  const addAddress = useCallback(async (
+    label: string,
+    address: string,
+    coords?: { latitude: number; longitude: number } | null
+  ): Promise<void> => {
     try {
       const result = await apiCreateAddress(
-        { label, address, isDefault: false },
+        {
+          label,
+          address,
+          isDefault: false,
+          latitude: coords?.latitude ?? null,
+          longitude: coords?.longitude ?? null,
+        },
         {}
       );
       setAddresses((prev) => [...prev, apiToLocal(result)]);
@@ -99,22 +125,40 @@ export function AddressProvider({ children }: { children: React.ReactNode }) {
         label,
         address,
         isDefault: addresses.length === 0,
+        latitude: coords?.latitude ?? null,
+        longitude: coords?.longitude ?? null,
       };
       setAddresses((prev) => [...prev, newAddr]);
     }
   }, [addresses.length]);
 
-  const updateAddress = useCallback(async (id: string, label: string, address: string): Promise<void> => {
+  const updateAddress = useCallback(async (
+    id: string,
+    label: string,
+    address: string,
+    coords?: { latitude: number; longitude: number } | null
+  ): Promise<void> => {
     try {
       const result = await apiUpdateAddress(
         id,
-        { label, address },
+        {
+          label,
+          address,
+          latitude: coords?.latitude ?? null,
+          longitude: coords?.longitude ?? null,
+        },
         {}
       );
       setAddresses((prev) => prev.map((a) => (a.id === id ? apiToLocal(result) : a)));
     } catch {
       setAddresses((prev) =>
-        prev.map((a) => (a.id === id ? { ...a, label, address } : a))
+        prev.map((a) => (a.id === id ? {
+          ...a,
+          label,
+          address,
+          latitude: coords?.latitude ?? a.latitude,
+          longitude: coords?.longitude ?? a.longitude,
+        } : a))
       );
     }
   }, []);

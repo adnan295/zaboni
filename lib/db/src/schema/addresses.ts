@@ -1,4 +1,4 @@
-import { pgTable, text, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, real } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
 export const addressesTable = pgTable("addresses", {
@@ -7,6 +7,8 @@ export const addressesTable = pgTable("addresses", {
   label: text("label").notNull(),
   address: text("address").notNull(),
   isDefault: boolean("is_default").notNull().default(false),
+  latitude: real("latitude"),
+  longitude: real("longitude"),
 });
 
 export const insertAddressSchema = createInsertSchema(addressesTable);
