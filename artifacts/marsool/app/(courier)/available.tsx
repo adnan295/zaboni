@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -12,14 +12,15 @@ import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
+import * as Location from "expo-location";
 import { useColors } from "@/hooks/useColors";
 import { useCourier, CourierOrder } from "@/context/CourierContext";
 
 function timeAgo(isoString: string): string {
   const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 60000);
   if (diff < 1) return "الآن";
-  if (diff < 60) return `منذ ${diff} دقيقة`;
-  return `منذ ${Math.floor(diff / 60)} ساعة`;
+  if (diff < 60) return `منذ ${diff} د`;
+  return `منذ ${Math.floor(diff / 60)} س`;
 }
 
 function OrderCard({
@@ -45,19 +46,31 @@ function OrderCard({
   return (
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <View style={styles.cardHeader}>
-        {order.restaurantName ? (
-          <View style={styles.row}>
-            <MaterialIcons name="restaurant" size={16} color={colors.primary} />
-            <Text style={[styles.restaurant, { color: colors.primary }]}>{order.restaurantName}</Text>
-          </View>
-        ) : null}
-        <Text style={[styles.timeAgo, { color: colors.mutedForeground }]}>
-          {timeAgo(order.createdAt)}
-        </Text>
+        <View style={styles.row}>
+          {order.restaurantName ? (
+            <>
+              <MaterialIcons name="restaurant" size={15} color={colors.primary} />
+              <Text style={[styles.restaurant, { color: colors.primary }]}>{order.restaurantName}</Text>
+            </>
+          ) : null}
+        </View>
+        <View style={styles.metaRow}>
+          {order.distanceKm !== undefined ? (
+            <View style={[styles.distanceBadge, { backgroundColor: colors.secondary }]}>
+              <MaterialIcons name="near-me" size={12} color={colors.primary} />
+              <Text style={[styles.distanceText, { color: colors.primary }]}>
+                {order.distanceKm} كم
+              </Text>
+            </View>
+          ) : null}
+          <Text style={[styles.timeAgo, { color: colors.mutedForeground }]}>
+            {timeAgo(order.createdAt)}
+          </Text>
+        </View>
       </View>
 
-      <View style={[styles.detailRow, { borderColor: colors.border }]}>
-        <MaterialIcons name="notes" size={16} color={colors.mutedForeground} />
+      <View style={styles.detailRow}>
+        <MaterialIcons name="notes" size={15} color={colors.mutedForeground} />
         <Text style={[styles.orderText, { color: colors.foreground }]} numberOfLines={3}>
           {order.orderText}
         </Text>
@@ -65,7 +78,7 @@ function OrderCard({
 
       {order.address ? (
         <View style={styles.detailRow}>
-          <MaterialIcons name="location-on" size={16} color={colors.mutedForeground} />
+          <MaterialIcons name="location-on" size={15} color={colors.mutedForeground} />
           <Text style={[styles.address, { color: colors.mutedForeground }]} numberOfLines={2}>
             {order.address}
           </Text>
@@ -91,10 +104,27 @@ export default function AvailableOrdersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
-  const { availableOrders, isLoadingAvailable, refreshAvailableOrders, acceptOrder } = useCourier();
+  const { availableOrders, isLoadingAvailable, refreshAvailableOrders, acceptOrder, updateLocation } = useCourier();
+  const locationFetched = useRef(false);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
+
+  useEffect(() => {
+    if (locationFetched.current || Platform.OS === "web") return;
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === "granted") {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          await updateLocation(loc.coords.latitude, loc.coords.longitude);
+          locationFetched.current = true;
+          await refreshAvailableOrders();
+        }
+      } catch {
+      }
+    })();
+  }, []);
 
   const handleAccept = useCallback(
     async (orderId: string) => {
@@ -107,12 +137,26 @@ export default function AvailableOrdersScreen() {
     [acceptOrder, t]
   );
 
+  const handleRefresh = useCallback(async () => {
+    if (Platform.OS !== "web") {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === "granted") {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          await updateLocation(loc.coords.latitude, loc.coords.longitude);
+        }
+      } catch {
+      }
+    }
+    await refreshAvailableOrders();
+  }, [refreshAvailableOrders, updateLocation]);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPadding + 16, backgroundColor: colors.primary }]}>
         <MaterialIcons name="delivery-dining" size={24} color="#fff" />
         <Text style={styles.headerTitle}>{t("courier.available.title")}</Text>
-        <TouchableOpacity onPress={refreshAvailableOrders} style={styles.refreshBtn}>
+        <TouchableOpacity onPress={handleRefresh} style={styles.refreshBtn}>
           <MaterialIcons name="refresh" size={22} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -131,7 +175,7 @@ export default function AvailableOrdersScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isLoadingAvailable}
-            onRefresh={refreshAvailableOrders}
+            onRefresh={handleRefresh}
             tintColor={colors.primary}
             colors={[colors.primary]}
           />
@@ -182,9 +226,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 4,
   },
   row: { flexDirection: "row", alignItems: "center", gap: 4 },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   restaurant: { fontSize: 14, fontWeight: "700" },
+  distanceBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  distanceText: { fontSize: 12, fontWeight: "700" },
   timeAgo: { fontSize: 12 },
   detailRow: {
     flexDirection: "row",

@@ -99,11 +99,16 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
 
   const withDistance = rows
     .filter((o) => o.userId !== courierId)
-    .map((o) => ({
-      ...o,
-      distanceKm: Number(haversineKm(courierLat, courierLon, RIYADH_LAT, RIYADH_LON).toFixed(1)),
-    }))
-    .filter((o) => o.distanceKm <= NEARBY_RADIUS_KM);
+    .map((o) => {
+      const destLat = o.destinationLat ?? RIYADH_LAT;
+      const destLon = o.destinationLon ?? RIYADH_LON;
+      return {
+        ...o,
+        distanceKm: Number(haversineKm(courierLat, courierLon, destLat, destLon).toFixed(1)),
+      };
+    })
+    .filter((o) => o.distanceKm <= NEARBY_RADIUS_KM)
+    .sort((a, b) => a.distanceKm - b.distanceKm);
 
   res.json(withDistance);
 });

@@ -13,12 +13,14 @@ export default function OrderNotificationBridge() {
       const labels: Record<OrderStatus, string> = {
         searching: t("orderNotification.searching.title"),
         accepted: t("orderNotification.accepted.title"),
+        picked_up: t("orderNotification.picked_up.title"),
         on_way: t("orderNotification.on_way.title"),
         delivered: t("orderNotification.delivered.title"),
       };
       const bodies: Record<OrderStatus, string> = {
         searching: t("orderNotification.searching.body"),
         accepted: t("orderNotification.accepted.body"),
+        picked_up: t("orderNotification.picked_up.body"),
         on_way: t("orderNotification.on_way.body"),
         delivered: t("orderNotification.delivered.body"),
       };

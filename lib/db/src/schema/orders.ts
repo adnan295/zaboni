@@ -1,4 +1,4 @@
-import { pgTable, text, real, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, real, integer, timestamp, doublePrecision } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -11,6 +11,9 @@ export const ORDER_STATUSES = [
 ] as const;
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
+
+const RIYADH_CENTER_LAT = 24.7136;
+const RIYADH_CENTER_LON = 46.6753;
 
 export const ordersTable = pgTable("orders", {
   id: text("id").primaryKey(),
@@ -27,6 +30,8 @@ export const ordersTable = pgTable("orders", {
   courierRating: real("courier_rating").notNull().default(0),
   courierId: text("courier_id").notNull().default(""),
   address: text("address").notNull().default(""),
+  destinationLat: doublePrecision("destination_lat").default(RIYADH_CENTER_LAT),
+  destinationLon: doublePrecision("destination_lon").default(RIYADH_CENTER_LON),
   estimatedMinutes: integer("estimated_minutes").notNull().default(30),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
