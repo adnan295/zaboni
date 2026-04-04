@@ -46,7 +46,7 @@ export default function RestaurantScreen() {
       Animated.spring(favScale, { toValue: 1.4, useNativeDriver: true, speed: 40 }),
       Animated.spring(favScale, { toValue: 1, useNativeDriver: true, speed: 40 }),
     ]).start();
-    toggleFavorite(restaurant as any);
+    toggleFavorite(restaurant);
   };
 
   const filteredItems = selectedCategory

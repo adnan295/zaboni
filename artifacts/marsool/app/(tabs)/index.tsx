@@ -168,7 +168,7 @@ export default function HomeScreen() {
               {filtered.map((restaurant) => (
                 <RestaurantCard
                   key={restaurant.id}
-                  restaurant={restaurant as any}
+                  restaurant={restaurant}
                   onPress={() => router.push(`/restaurant/${restaurant.id}`)}
                 />
               ))}
