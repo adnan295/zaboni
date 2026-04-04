@@ -265,6 +265,8 @@
   "chat": {
     "notFound": "الطلب غير موجود",
     "onlineNow": "متصل الآن",
+    "connecting": "جارٍ الاتصال...",
+    "typing": "يكتب...",
     "inputPlaceholder": "اكتب رسالة...",
     "empty": {
       "title": "ستبدأ المحادثة قريباً",

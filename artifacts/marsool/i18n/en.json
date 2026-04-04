@@ -265,6 +265,8 @@
   "chat": {
     "notFound": "Order not found",
     "onlineNow": "Online now",
+    "connecting": "Connecting...",
+    "typing": "typing...",
     "inputPlaceholder": "Type a message...",
     "empty": {
       "title": "Chat will start soon",
