@@ -1,6 +1,6 @@
 import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { ordersTable } from "./orders";
+import { ordersTable, ORDER_STATUSES } from "./orders";
 
 export const orderStatusHistoryTable = pgTable("order_status_history", {
   id: text("id").primaryKey(),
@@ -8,7 +8,7 @@ export const orderStatusHistoryTable = pgTable("order_status_history", {
     .notNull()
     .references(() => ordersTable.id, { onDelete: "cascade" }),
   status: text("status", {
-    enum: ["searching", "accepted", "on_way", "delivered"],
+    enum: ORDER_STATUSES,
   }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

@@ -20,10 +20,6 @@ const createOrderSchema = z.object({
   address: z.string().default(""),
 });
 
-const updateStatusSchema = z.object({
-  status: z.enum(["searching", "accepted", "on_way", "delivered"]),
-});
-
 function resolveUserId(req: Request): string {
   return req.auth!.userId;
 }
@@ -85,36 +81,6 @@ router.get("/orders/:id", async (req, res) => {
     res.status(404).json({ error: "Order not found" });
     return;
   }
-  res.json(rows[0]);
-});
-
-router.patch("/orders/:id/status", async (req, res) => {
-  const { id } = req.params;
-  const body = updateStatusSchema.safeParse(req.body);
-  if (!body.success) {
-    res.status(400).json({ error: "Invalid status" });
-    return;
-  }
-
-  const userId = resolveUserId(req);
-
-  const rows = await db
-    .update(ordersTable)
-    .set({ status: body.data.status, updatedAt: new Date() })
-    .where(and(eq(ordersTable.id, id), eq(ordersTable.userId, userId)))
-    .returning();
-
-  if (rows.length === 0) {
-    res.status(404).json({ error: "Order not found" });
-    return;
-  }
-
-  await db.insert(orderStatusHistoryTable).values({
-    id: `${id}_${body.data.status}_${Date.now()}`,
-    orderId: id,
-    status: body.data.status,
-  });
-
   res.json(rows[0]);
 });
 

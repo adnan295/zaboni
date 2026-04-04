@@ -9,12 +9,14 @@ import { AppState, AppStateStatus } from "react-native";
 import { customFetch } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
 
+export type CourierOrderStatus = "searching" | "accepted" | "picked_up" | "on_way" | "delivered";
+
 export interface CourierOrder {
   id: string;
   userId: string;
   orderText: string;
   restaurantName: string;
-  status: "searching" | "accepted" | "on_way" | "delivered";
+  status: CourierOrderStatus;
   courierName: string;
   courierPhone: string;
   courierRating: number;
@@ -22,7 +24,10 @@ export interface CourierOrder {
   address: string;
   estimatedMinutes: number;
   createdAt: string;
+  distanceKm?: number;
 }
+
+export type CourierDeliveryStatus = "picked_up" | "on_way" | "delivered";
 
 interface CourierContextValue {
   availableOrders: CourierOrder[];
@@ -32,7 +37,8 @@ interface CourierContextValue {
   refreshAvailableOrders: () => Promise<void>;
   refreshActiveOrders: () => Promise<void>;
   acceptOrder: (orderId: string) => Promise<void>;
-  updateDeliveryStatus: (orderId: string, status: "on_way" | "delivered") => Promise<void>;
+  updateDeliveryStatus: (orderId: string, status: CourierDeliveryStatus) => Promise<void>;
+  updateLocation: (lat: number, lon: number) => Promise<void>;
 }
 
 const CourierContext = createContext<CourierContextValue | null>(null);
@@ -79,7 +85,7 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
   );
 
   const updateDeliveryStatus = useCallback(
-    async (orderId: string, status: "on_way" | "delivered") => {
+    async (orderId: string, status: CourierDeliveryStatus) => {
       await customFetch(`/api/courier/orders/${orderId}/status`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
@@ -89,6 +95,17 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
     },
     [refreshActiveOrders]
   );
+
+  const updateLocation = useCallback(async (lat: number, lon: number) => {
+    try {
+      await customFetch("/api/courier/location", {
+        method: "PATCH",
+        body: JSON.stringify({ lat, lon }),
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch {
+    }
+  }, []);
 
   useEffect(() => {
     if (!isCourier) return;
@@ -118,6 +135,7 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
         refreshActiveOrders,
         acceptOrder,
         updateDeliveryStatus,
+        updateLocation,
       }}
     >
       {children}

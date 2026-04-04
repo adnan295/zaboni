@@ -16,7 +16,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { getApiBaseUrl } from "@/lib/apiConfig";
 
-export type OrderStatus = "searching" | "accepted" | "on_way" | "delivered";
+export type OrderStatus = "searching" | "accepted" | "picked_up" | "on_way" | "delivered";
 
 export interface Order {
   id: string;
