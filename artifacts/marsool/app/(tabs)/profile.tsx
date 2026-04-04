@@ -15,11 +15,13 @@ import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
 import { useOrders } from "@/context/OrderContext";
+import { useFavorites } from "@/context/FavoritesContext";
 
 interface MenuItemDef {
   icon: keyof typeof MaterialIcons.glyphMap;
   label: string;
   onPress: () => void;
+  badge?: number;
   danger?: boolean;
 }
 
@@ -29,6 +31,7 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user, signOut } = useAuth();
   const { orders } = useOrders();
+  const { favorites } = useFavorites();
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
 
@@ -51,8 +54,9 @@ export default function ProfileScreen() {
   };
 
   const menuItems: MenuItemDef[] = [
-    { icon: "receipt-long", label: "طلباتي", onPress: () => router.push("/orders") },
-    { icon: "location-on", label: "عناويني", onPress: () => {} },
+    { icon: "receipt-long", label: "طلباتي", onPress: () => router.push("/orders"), badge: orders.length > 0 ? orders.length : undefined },
+    { icon: "favorite", label: "المفضلة", onPress: () => router.push("/favorites"), badge: favorites.length > 0 ? favorites.length : undefined },
+    { icon: "location-on", label: "عناويني", onPress: () => router.push("/addresses") },
     { icon: "payment", label: "طرق الدفع", onPress: () => {} },
     { icon: "notifications", label: "الإشعارات", onPress: () => {} },
     { icon: "help-outline", label: "المساعدة والدعم", onPress: () => {} },
@@ -85,13 +89,13 @@ export default function ProfileScreen() {
           </View>
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
           <View style={styles.stat}>
-            <Text style={[styles.statNum, { color: colors.primary }]}>4.8</Text>
-            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>تقييمك</Text>
+            <Text style={[styles.statNum, { color: colors.primary }]}>{favorites.length}</Text>
+            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>مفضلة</Text>
           </View>
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
           <View style={styles.stat}>
-            <Text style={[styles.statNum, { color: colors.primary }]}>0</Text>
-            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>مفضلة</Text>
+            <Text style={[styles.statNum, { color: colors.primary }]}>4.8</Text>
+            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>تقييمك</Text>
           </View>
         </View>
 
@@ -104,7 +108,7 @@ export default function ProfileScreen() {
                 onPress={item.onPress}
                 activeOpacity={0.7}
               >
-                <View style={[styles.menuIcon, { backgroundColor: colors.secondary }]}>
+                <View style={[styles.menuIcon, { backgroundColor: item.danger ? "#fff0f0" : colors.secondary }]}>
                   <MaterialIcons
                     name={item.icon}
                     size={20}
@@ -114,6 +118,11 @@ export default function ProfileScreen() {
                 <Text style={[styles.menuLabel, { color: item.danger ? colors.destructive : colors.foreground }]}>
                   {item.label}
                 </Text>
+                {item.badge !== undefined && (
+                  <View style={[styles.badge, { backgroundColor: colors.primary }]}>
+                    <Text style={styles.badgeText}>{item.badge}</Text>
+                  </View>
+                )}
                 <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
               </TouchableOpacity>
               {idx < menuItems.length - 1 && (
@@ -159,11 +168,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarInitial: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: "#fff",
-  },
+  avatarInitial: { fontSize: 32, fontWeight: "800", color: "#fff" },
   name: { fontSize: 20, fontWeight: "800", color: "#fff" },
   phone: { fontSize: 14, color: "rgba(255,255,255,0.8)", marginTop: 4 },
   statsRow: {
@@ -203,6 +208,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   menuLabel: { flex: 1, fontSize: 15, fontWeight: "500" },
+  badge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+    marginRight: 4,
+  },
+  badgeText: { color: "#fff", fontSize: 11, fontWeight: "700" },
   divider: { height: 1, marginHorizontal: 16 },
   signOutBtn: {
     flexDirection: "row",
@@ -216,9 +231,5 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   signOutText: { fontSize: 15, fontWeight: "700" },
-  version: {
-    textAlign: "center",
-    fontSize: 12,
-    marginTop: 24,
-  },
+  version: { textAlign: "center", fontSize: 12, marginTop: 24 },
 });

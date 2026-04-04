@@ -17,29 +17,33 @@ import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useCart } from "@/context/CartContext";
 import { useOrders } from "@/context/OrderContext";
-
-const ADDRESSES = [
-  { id: "a1", label: "المنزل", address: "حي النخيل، شارع الأمير محمد، الرياض" },
-  { id: "a2", label: "العمل", address: "طريق الملك فهد، برج المملكة، الرياض" },
-];
+import { useAddresses } from "@/context/AddressContext";
 
 export default function CartScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { items, totalItems, totalPrice, restaurantName, updateQuantity, removeItem, clearCart } = useCart();
+  const { items, totalItems, totalPrice, restaurantName, updateQuantity, clearCart } = useCart();
   const { placeOrder } = useOrders();
-  const [selectedAddress, setSelectedAddress] = useState("a1");
+  const { addresses, defaultAddress } = useAddresses();
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(
+    defaultAddress?.id ?? null
+  );
   const [note, setNote] = useState("");
 
   const deliveryFee = totalPrice >= 50 ? 0 : 10;
   const total = totalPrice + deliveryFee;
 
+  const selectedAddress = addresses.find((a) => a.id === selectedAddressId) ?? defaultAddress;
+
   const handleOrder = () => {
     if (items.length === 0) return;
+    if (!selectedAddress) {
+      Alert.alert("تنبيه", "يرجى اختيار عنوان التوصيل أولاً");
+      return;
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const address = ADDRESSES.find(a => a.id === selectedAddress)?.address ?? "";
-    const order = placeOrder(items, total, restaurantName ?? "", address);
+    const order = placeOrder(items, total, restaurantName ?? "", selectedAddress.address);
     clearCart();
     router.replace(`/order-tracking/${order.id}`);
   };
@@ -141,32 +145,55 @@ export default function CartScreen() {
 
         {/* Address */}
         <View style={styles.sectionContainer}>
-          <Text style={[styles.sectionHeading, { color: colors.foreground }]}>
-            عنوان التوصيل
-          </Text>
-          {ADDRESSES.map((addr) => (
-            <TouchableOpacity
-              key={addr.id}
-              style={[
-                styles.addressCard,
-                {
-                  backgroundColor: selectedAddress === addr.id ? colors.secondary : colors.card,
-                  borderColor: selectedAddress === addr.id ? colors.primary : colors.border,
-                },
-              ]}
-              onPress={() => setSelectedAddress(addr.id)}
-            >
-              <View style={[styles.addrRadio, { borderColor: selectedAddress === addr.id ? colors.primary : colors.mutedForeground }]}>
-                {selectedAddress === addr.id && (
-                  <View style={[styles.addrRadioInner, { backgroundColor: colors.primary }]} />
-                )}
-              </View>
-              <View style={styles.addrInfo}>
-                <Text style={[styles.addrLabel, { color: colors.foreground }]}>{addr.label}</Text>
-                <Text style={[styles.addrText, { color: colors.mutedForeground }]}>{addr.address}</Text>
-              </View>
+          <View style={styles.addressHeader}>
+            <Text style={[styles.sectionHeading, { color: colors.foreground }]}>
+              عنوان التوصيل
+            </Text>
+            <TouchableOpacity onPress={() => router.push("/addresses")}>
+              <Text style={[styles.manageAddresses, { color: colors.primary }]}>إدارة العناوين</Text>
             </TouchableOpacity>
-          ))}
+          </View>
+
+          {addresses.length === 0 ? (
+            <TouchableOpacity
+              style={[styles.addAddressBtn, { borderColor: colors.primary, backgroundColor: colors.secondary }]}
+              onPress={() => router.push("/addresses")}
+            >
+              <MaterialIcons name="add-location" size={20} color={colors.primary} />
+              <Text style={[styles.addAddressText, { color: colors.primary }]}>إضافة عنوان توصيل</Text>
+            </TouchableOpacity>
+          ) : (
+            addresses.map((addr) => (
+              <TouchableOpacity
+                key={addr.id}
+                style={[
+                  styles.addressCard,
+                  {
+                    backgroundColor: selectedAddressId === addr.id ? colors.secondary : colors.card,
+                    borderColor: selectedAddressId === addr.id ? colors.primary : colors.border,
+                  },
+                ]}
+                onPress={() => setSelectedAddressId(addr.id)}
+              >
+                <View style={[styles.addrRadio, { borderColor: selectedAddressId === addr.id ? colors.primary : colors.mutedForeground }]}>
+                  {selectedAddressId === addr.id && (
+                    <View style={[styles.addrRadioInner, { backgroundColor: colors.primary }]} />
+                  )}
+                </View>
+                <View style={styles.addrInfo}>
+                  <View style={styles.addrLabelRow}>
+                    <Text style={[styles.addrLabel, { color: colors.foreground }]}>{addr.label}</Text>
+                    {addr.isDefault && (
+                      <View style={[styles.defaultBadge, { backgroundColor: colors.muted }]}>
+                        <Text style={[styles.defaultBadgeText, { color: colors.mutedForeground }]}>افتراضي</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.addrText, { color: colors.mutedForeground }]}>{addr.address}</Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
         </View>
 
         {/* Note */}
@@ -236,11 +263,7 @@ const styles = StyleSheet.create({
   },
   title: { flex: 1, textAlign: "center", fontSize: 17, fontWeight: "700" },
   clearText: { fontSize: 14, fontWeight: "600" },
-  section: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
+  section: { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
   sectionTitle: { fontSize: 15, fontWeight: "600" },
   itemsList: { paddingHorizontal: 16, paddingVertical: 12, gap: 10 },
   cartItem: {
@@ -265,7 +288,20 @@ const styles = StyleSheet.create({
   qtyBtn: { paddingHorizontal: 8, paddingVertical: 6 },
   qtyNum: { fontSize: 14, fontWeight: "700", minWidth: 24, textAlign: "center" },
   sectionContainer: { paddingHorizontal: 16, marginBottom: 16 },
-  sectionHeading: { fontSize: 16, fontWeight: "700", marginBottom: 10 },
+  addressHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  sectionHeading: { fontSize: 16, fontWeight: "700" },
+  manageAddresses: { fontSize: 13, fontWeight: "600" },
+  addAddressBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+  },
+  addAddressText: { fontSize: 14, fontWeight: "600" },
   addressCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -283,13 +319,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  addrRadioInner: {
-    width: 10,
-    height: 10,
+  addrRadioInner: { width: 10, height: 10, borderRadius: 5 },
+  addrInfo: { flex: 1 },
+  addrLabelRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  addrLabel: { fontSize: 14, fontWeight: "700" },
+  defaultBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 5,
   },
-  addrInfo: { flex: 1 },
-  addrLabel: { fontSize: 14, fontWeight: "700" },
+  defaultBadgeText: { fontSize: 10, fontWeight: "600" },
   addrText: { fontSize: 12, marginTop: 2 },
   noteInput: {
     borderWidth: 1,
@@ -326,11 +365,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: 1,
   },
-  orderBtn: {
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: "center",
-  },
+  orderBtn: { borderRadius: 16, paddingVertical: 16, alignItems: "center" },
   orderBtnText: { color: "#fff", fontSize: 16, fontWeight: "800" },
   emptyContainer: {
     flex: 1,
@@ -341,11 +376,6 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontSize: 20, fontWeight: "800" },
   emptySubtitle: { fontSize: 14, textAlign: "center" },
-  browseBtn: {
-    marginTop: 8,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 14,
-  },
+  browseBtn: { marginTop: 8, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14 },
   browseBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
 });

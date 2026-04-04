@@ -5,11 +5,13 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
-  Platform,
+  Animated,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { Restaurant } from "@/data/restaurants";
+import { useFavorites } from "@/context/FavoritesContext";
 
 interface Props {
   restaurant: Restaurant;
@@ -18,6 +20,19 @@ interface Props {
 
 export default function RestaurantCard({ restaurant, onPress }: Props) {
   const colors = useColors();
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const fav = isFavorite(restaurant.id);
+  const scale = React.useRef(new Animated.Value(1)).current;
+
+  const handleFav = (e: any) => {
+    e.stopPropagation();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Animated.sequence([
+      Animated.spring(scale, { toValue: 1.35, useNativeDriver: true, speed: 40 }),
+      Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 40 }),
+    ]).start();
+    toggleFavorite(restaurant);
+  };
 
   return (
     <TouchableOpacity
@@ -43,6 +58,22 @@ export default function RestaurantCard({ restaurant, onPress }: Props) {
             </Text>
           </View>
         )}
+
+        {/* Favorite button */}
+        <TouchableOpacity
+          style={[styles.favBtn, { backgroundColor: "rgba(255,255,255,0.92)" }]}
+          onPress={handleFav}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          activeOpacity={0.8}
+        >
+          <Animated.View style={{ transform: [{ scale }] }}>
+            <MaterialIcons
+              name={fav ? "favorite" : "favorite-border"}
+              size={20}
+              color={fav ? "#ef4444" : "#888"}
+            />
+          </Animated.View>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.content}>
@@ -93,24 +124,15 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  imageContainer: {
-    position: "relative",
-  },
-  image: {
-    width: "100%",
-    height: 160,
-  },
+  imageContainer: { position: "relative" },
+  image: { width: "100%", height: 160 },
   closedOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.5)",
     alignItems: "center",
     justifyContent: "center",
   },
-  closedText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "700",
-  },
+  closedText: { color: "#fff", fontSize: 18, fontWeight: "700" },
   discountBadge: {
     position: "absolute",
     top: 12,
@@ -119,54 +141,30 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
   },
-  discountText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  content: {
-    padding: 14,
-    gap: 5,
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  discountText: { fontSize: 11, fontWeight: "700" },
+  favBtn: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  name: {
-    fontSize: 16,
-    fontWeight: "700",
-    flex: 1,
-  },
-  ratingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-  },
-  rating: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  category: {
-    fontSize: 13,
-  },
-  meta: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 2,
-    gap: 6,
-  },
-  metaItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-  },
-  metaText: {
-    fontSize: 12,
-  },
-  dot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: "#ccc",
-  },
+  content: { padding: 14, gap: 5 },
+  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  name: { fontSize: 16, fontWeight: "700", flex: 1 },
+  ratingRow: { flexDirection: "row", alignItems: "center", gap: 2 },
+  rating: { fontSize: 13, fontWeight: "600" },
+  category: { fontSize: 13 },
+  meta: { flexDirection: "row", alignItems: "center", marginTop: 2, gap: 6 },
+  metaItem: { flexDirection: "row", alignItems: "center", gap: 3 },
+  metaText: { fontSize: 12 },
+  dot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: "#ccc" },
 });
