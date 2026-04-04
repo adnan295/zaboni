@@ -14,6 +14,7 @@ export interface Rating {
 
 interface RatingsContextValue {
   ratings: Rating[];
+  ratingsLoaded: boolean;
   rateOrder: (
     orderId: string,
     restaurantStars: number,
@@ -29,10 +30,14 @@ const RatingsContext = createContext<RatingsContextValue | null>(null);
 
 export function RatingsProvider({ children }: { children: React.ReactNode }) {
   const [ratings, setRatings] = useState<Rating[]>([]);
+  const [ratingsLoaded, setRatingsLoaded] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
-      if (!raw) return;
+      if (!raw) {
+        setRatingsLoaded(true);
+        return;
+      }
       const parsed = JSON.parse(raw);
       let needsSave = false;
       const migrated = parsed.map((r: Rating & { stars?: number }) => {
@@ -47,7 +52,8 @@ export function RatingsProvider({ children }: { children: React.ReactNode }) {
       if (needsSave) {
         AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
       }
-    });
+      setRatingsLoaded(true);
+    }).catch(() => setRatingsLoaded(true));
   }, []);
 
   const rateOrder = useCallback(
@@ -85,7 +91,7 @@ export function RatingsProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <RatingsContext.Provider value={{ ratings, rateOrder, getRating, hasRated }}>
+    <RatingsContext.Provider value={{ ratings, ratingsLoaded, rateOrder, getRating, hasRated }}>
       {children}
     </RatingsContext.Provider>
   );

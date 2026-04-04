@@ -32,7 +32,7 @@ export default function OrderTrackingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { getOrder } = useOrders();
-  const { hasRated } = useRatings();
+  const { hasRated, ratingsLoaded } = useRatings();
   const [, forceUpdate] = useState(0);
   const initialOrder = getOrder(id ?? "");
   const isAlreadyDelivered = initialOrder?.status === "delivered";
@@ -53,6 +53,7 @@ export default function OrderTrackingScreen() {
 
   useEffect(() => {
     if (
+      ratingsLoaded &&
       isAlreadyDelivered &&
       initialOrder &&
       !hasRated(initialOrder.id) &&
@@ -73,7 +74,7 @@ export default function OrderTrackingScreen() {
         ratePromptTimer.current = null;
       }
     };
-  }, []);
+  }, [ratingsLoaded]);
 
   const order = getOrder(id ?? "");
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
