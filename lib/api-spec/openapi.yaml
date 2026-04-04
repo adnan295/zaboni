@@ -3,13 +3,19 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Marsool delivery app API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: restaurants
+    description: Restaurant operations
+  - name: orders
+    description: Order operations
+  - name: addresses
+    description: Address operations
 paths:
   /healthz:
     get:
@@ -24,6 +30,296 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /restaurants:
+    get:
+      operationId: getRestaurants
+      tags: [restaurants]
+      summary: List all restaurants
+      responses:
+        "200":
+          description: List of restaurants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Restaurant"
+
+  /restaurants/{id}:
+    get:
+      operationId: getRestaurant
+      tags: [restaurants]
+      summary: Get a restaurant by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Restaurant details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Restaurant"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /restaurants/{id}/menu:
+    get:
+      operationId: getRestaurantMenu
+      tags: [restaurants]
+      summary: Get menu items for a restaurant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Menu items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MenuItem"
+
+  /orders:
+    get:
+      operationId: getOrders
+      tags: [orders]
+      summary: List orders for a user
+      parameters:
+        - name: userId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+    post:
+      operationId: createOrder
+      tags: [orders]
+      summary: Create a new order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderRequest"
+      responses:
+        "201":
+          description: Created order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      tags: [orders]
+      summary: Get an order by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Order details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /orders/{id}/status:
+    patch:
+      operationId: updateOrderStatus
+      tags: [orders]
+      summary: Update order status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOrderStatusRequest"
+      responses:
+        "200":
+          description: Updated order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /addresses:
+    get:
+      operationId: getAddresses
+      tags: [addresses]
+      summary: List addresses for a user
+      parameters:
+        - name: userId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of addresses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Address"
+    post:
+      operationId: createAddress
+      tags: [addresses]
+      summary: Create a new address
+      parameters:
+        - name: userId
+          in: query
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertAddressRequest"
+      responses:
+        "201":
+          description: Created address
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Address"
+
+  /addresses/{id}:
+    put:
+      operationId: updateAddress
+      tags: [addresses]
+      summary: Update an address
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: userId
+          in: query
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertAddressRequest"
+      responses:
+        "200":
+          description: Updated address
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Address"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteAddress
+      tags: [addresses]
+      summary: Delete an address
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: userId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /addresses/{id}/default:
+    patch:
+      operationId: setDefaultAddress
+      tags: [addresses]
+      summary: Set an address as default
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: userId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated address
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Address"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -33,4 +329,191 @@ components:
           type: string
       required:
         - status
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    Restaurant:
+      type: object
+      required:
+        - id
+        - name
+        - nameAr
+        - category
+        - categoryAr
+        - rating
+        - reviewCount
+        - deliveryTime
+        - deliveryFee
+        - minOrder
+        - image
+        - tags
+        - isOpen
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        nameAr:
+          type: string
+        category:
+          type: string
+        categoryAr:
+          type: string
+        rating:
+          type: number
+        reviewCount:
+          type: integer
+        deliveryTime:
+          type: string
+        deliveryFee:
+          type: number
+        minOrder:
+          type: number
+        image:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        isOpen:
+          type: boolean
+        discount:
+          type: string
+          nullable: true
+
+    MenuItem:
+      type: object
+      required:
+        - id
+        - restaurantId
+        - name
+        - nameAr
+        - price
+        - image
+        - category
+        - categoryAr
+        - isPopular
+      properties:
+        id:
+          type: string
+        restaurantId:
+          type: string
+        name:
+          type: string
+        nameAr:
+          type: string
+        description:
+          type: string
+        descriptionAr:
+          type: string
+        price:
+          type: number
+        image:
+          type: string
+        category:
+          type: string
+        categoryAr:
+          type: string
+        isPopular:
+          type: boolean
+
+    Order:
+      type: object
+      required:
+        - id
+        - userId
+        - orderText
+        - restaurantName
+        - status
+        - courierName
+        - courierPhone
+        - courierRating
+        - courierId
+        - address
+        - estimatedMinutes
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        orderText:
+          type: string
+        restaurantName:
+          type: string
+        status:
+          type: string
+          enum: [searching, accepted, on_way, delivered]
+        courierName:
+          type: string
+        courierPhone:
+          type: string
+        courierRating:
+          type: number
+        courierId:
+          type: string
+        address:
+          type: string
+        estimatedMinutes:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateOrderRequest:
+      type: object
+      required: [orderText]
+      properties:
+        orderText:
+          type: string
+        restaurantName:
+          type: string
+        address:
+          type: string
+        userId:
+          type: string
+
+    UpdateOrderStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [searching, accepted, on_way, delivered]
+
+    Address:
+      type: object
+      required: [id, userId, label, address, isDefault]
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        label:
+          type: string
+        address:
+          type: string
+        isDefault:
+          type: boolean
+
+    UpsertAddressRequest:
+      type: object
+      required: [label, address]
+      properties:
+        label:
+          type: string
+        address:
+          type: string
+        isDefault:
+          type: boolean
 

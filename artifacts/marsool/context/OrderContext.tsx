@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from "react";
+import { createOrder as apiCreateOrder, updateOrderStatus } from "@workspace/api-client-react";
 
 export type OrderStatus = "searching" | "accepted" | "on_way" | "delivered";
 
@@ -16,24 +17,51 @@ export interface Order {
   estimatedMinutes: number;
 }
 
-const MOCK_COURIERS = [
-  { id: "c1", name: "أحمد الزهراني", phone: "+966 50 123 4567", rating: 4.9 },
-  { id: "c2", name: "علي المطيري", phone: "+966 55 234 5678", rating: 4.8 },
-  { id: "c3", name: "محمد القحطاني", phone: "+966 54 345 6789", rating: 4.7 },
-  { id: "c4", name: "سعد العتيبي", phone: "+966 56 456 7890", rating: 4.9 },
-  { id: "c5", name: "عبدالله الشمري", phone: "+966 57 567 8901", rating: 5.0 },
-  { id: "c6", name: "خالد الدوسري", phone: "+966 58 678 9012", rating: 4.8 },
-];
-
 interface OrderContextValue {
   orders: Order[];
   activeOrder: Order | null;
-  placeOrder: (orderText: string, restaurantName: string, address: string) => Order;
+  placeOrder: (orderText: string, restaurantName: string, address: string) => Promise<Order>;
   getOrder: (id: string) => Order | undefined;
   setStatusChangeHandler: (handler: (order: Order, newStatus: OrderStatus) => void) => void;
 }
 
 const OrderContext = createContext<OrderContextValue | null>(null);
+
+function apiOrderToLocal(apiOrder: {
+  id: string;
+  orderText: string;
+  restaurantName: string;
+  status: string;
+  courierName: string;
+  courierPhone: string;
+  courierRating: number;
+  courierId: string;
+  createdAt: string | Date;
+  address: string;
+  estimatedMinutes: number;
+}): Order {
+  return {
+    id: apiOrder.id,
+    orderText: apiOrder.orderText,
+    restaurantName: apiOrder.restaurantName,
+    status: apiOrder.status as OrderStatus,
+    courierName: apiOrder.courierName,
+    courierPhone: apiOrder.courierPhone,
+    courierRating: apiOrder.courierRating,
+    courierId: apiOrder.courierId,
+    createdAt:
+      apiOrder.createdAt instanceof Date
+        ? apiOrder.createdAt.getTime()
+        : new Date(apiOrder.createdAt as string).getTime(),
+    address: apiOrder.address,
+    estimatedMinutes: apiOrder.estimatedMinutes,
+  };
+}
+
+const FALLBACK_COURIERS = [
+  { id: "c1", name: "أحمد الزهراني", phone: "+966 50 123 4567", rating: 4.9 },
+  { id: "c2", name: "علي المطيري", phone: "+966 55 234 5678", rating: 4.8 },
+];
 
 export function OrderProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -46,41 +74,66 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
-  const advanceStatus = useCallback((orderId: string, newStatus: OrderStatus) => {
-    setOrders((prev) => {
-      const order = prev.find((o) => o.id === orderId);
-      if (!order) return prev;
-      const updated = { ...order, status: newStatus };
-      if (statusChangeHandler.current) {
-        statusChangeHandler.current(updated, newStatus);
+  const advanceStatus = useCallback(
+    async (orderId: string, newStatus: OrderStatus) => {
+      try {
+        const updated = await updateOrderStatus(orderId, { status: newStatus });
+        const localOrder = apiOrderToLocal(updated);
+        setOrders((prev) => {
+          if (statusChangeHandler.current) {
+            statusChangeHandler.current(localOrder, newStatus);
+          }
+          return prev.map((o) => (o.id === orderId ? localOrder : o));
+        });
+      } catch {
+        setOrders((prev) => {
+          const order = prev.find((o) => o.id === orderId);
+          if (!order) return prev;
+          const updated = { ...order, status: newStatus };
+          if (statusChangeHandler.current) {
+            statusChangeHandler.current(updated, newStatus);
+          }
+          return prev.map((o) => (o.id === orderId ? updated : o));
+        });
       }
-      return prev.map((o) => (o.id === orderId ? updated : o));
-    });
-  }, []);
+    },
+    []
+  );
 
   const placeOrder = useCallback(
-    (orderText: string, restaurantName: string, address: string): Order => {
-      const id = `${Date.now()}${Math.random().toString(36).slice(2, 9)}`;
-      const courier = MOCK_COURIERS[Math.floor(Math.random() * MOCK_COURIERS.length)];
-      const newOrder: Order = {
-        id,
-        orderText,
-        restaurantName,
-        status: "searching",
-        courierName: courier.name,
-        courierPhone: courier.phone,
-        courierRating: courier.rating,
-        courierId: courier.id,
-        createdAt: Date.now(),
-        address,
-        estimatedMinutes: Math.floor(Math.random() * 15) + 20,
-      };
+    async (orderText: string, restaurantName: string, address: string): Promise<Order> => {
+      let newOrder: Order;
+      try {
+        const result = await apiCreateOrder({
+          orderText,
+          restaurantName,
+          address,
+          userId: "guest",
+        });
+        newOrder = apiOrderToLocal(result);
+      } catch {
+        const id = `${Date.now()}${Math.random().toString(36).slice(2, 9)}`;
+        const courier = FALLBACK_COURIERS[Math.floor(Math.random() * FALLBACK_COURIERS.length)];
+        newOrder = {
+          id,
+          orderText,
+          restaurantName,
+          status: "searching",
+          courierName: courier.name,
+          courierPhone: courier.phone,
+          courierRating: courier.rating,
+          courierId: courier.id,
+          createdAt: Date.now(),
+          address,
+          estimatedMinutes: Math.floor(Math.random() * 15) + 20,
+        };
+      }
       setOrders((prev) => [newOrder, ...prev]);
 
       const searchDelay = Math.floor(Math.random() * 3000) + 4000;
-      setTimeout(() => advanceStatus(id, "accepted"), searchDelay);
-      setTimeout(() => advanceStatus(id, "on_way"), searchDelay + 90000);
-      setTimeout(() => advanceStatus(id, "delivered"), searchDelay + 90000 + 300000);
+      setTimeout(() => advanceStatus(newOrder.id, "accepted"), searchDelay);
+      setTimeout(() => advanceStatus(newOrder.id, "on_way"), searchDelay + 90000);
+      setTimeout(() => advanceStatus(newOrder.id, "delivered"), searchDelay + 90000 + 300000);
 
       return newOrder;
     },

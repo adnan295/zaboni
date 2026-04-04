@@ -7,6 +7,7 @@ import {
   Image,
   Platform,
   Animated,
+  ActivityIndicator,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -17,8 +18,8 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import MenuItemCard from "@/components/MenuItemCard";
-import { RESTAURANTS, getRestaurantMenu, getMenuCategories } from "@/data/restaurants";
 import { useFavorites } from "@/context/FavoritesContext";
+import { useGetRestaurant, useGetRestaurantMenu } from "@workspace/api-client-react";
 
 export default function RestaurantScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -29,9 +30,10 @@ export default function RestaurantScreen() {
   const backIcon = useBackIcon();
   const { isFavorite, toggleFavorite } = useFavorites();
 
-  const restaurant = RESTAURANTS.find((r) => r.id === id);
-  const menuItems = getRestaurantMenu(id ?? "");
-  const categories = getMenuCategories(id ?? "");
+  const { data: restaurant, isLoading: restaurantLoading } = useGetRestaurant(id ?? "");
+  const { data: menuItemsData } = useGetRestaurantMenu(id ?? "");
+  const menuItems = menuItemsData ?? [];
+  const categories = Array.from(new Set(menuItems.map((m) => m.categoryAr)));
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const favScale = React.useRef(new Animated.Value(1)).current;
@@ -44,12 +46,20 @@ export default function RestaurantScreen() {
       Animated.spring(favScale, { toValue: 1.4, useNativeDriver: true, speed: 40 }),
       Animated.spring(favScale, { toValue: 1, useNativeDriver: true, speed: 40 }),
     ]).start();
-    toggleFavorite(restaurant);
+    toggleFavorite(restaurant as any);
   };
 
   const filteredItems = selectedCategory
     ? menuItems.filter((m) => m.categoryAr === selectedCategory)
     : menuItems;
+
+  if (restaurantLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }]}>
+        <ActivityIndicator size="large" color="#FF6B00" />
+      </View>
+    );
+  }
 
   if (!restaurant) {
     return (
@@ -105,7 +115,7 @@ export default function RestaurantScreen() {
                 {restaurant.nameAr}
               </Text>
               <Text style={[styles.tags, { color: colors.mutedForeground }]}>
-                {restaurant.tags.join(" · ")}
+                {(restaurant.tags as string[]).join(" · ")}
               </Text>
             </View>
             <View style={[styles.ratingChip, { backgroundColor: colors.secondary }]}>

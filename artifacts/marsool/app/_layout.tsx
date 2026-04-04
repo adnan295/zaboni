@@ -1,4 +1,6 @@
 import "@/i18n";
+import { initApiClient } from "@/lib/apiConfig";
+initApiClient();
 import {
   Tajawal_400Regular,
   Tajawal_500Medium,
