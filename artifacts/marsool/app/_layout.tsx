@@ -17,6 +17,8 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { CartProvider } from "@/context/CartContext";
 import { OrderProvider } from "@/context/OrderContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { FavoritesProvider } from "@/context/FavoritesContext";
+import { AddressProvider } from "@/context/AddressContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -81,6 +83,14 @@ function RootLayoutNav() {
           name="orders"
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="favorites"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="addresses"
+          options={{ headerShown: false }}
+        />
       </Stack>
     </AuthGate>
   );
@@ -107,15 +117,19 @@ export default function RootLayout() {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <CartProvider>
-              <OrderProvider>
-                <GestureHandlerRootView>
-                  <KeyboardProvider>
-                    <RootLayoutNav />
-                  </KeyboardProvider>
-                </GestureHandlerRootView>
-              </OrderProvider>
-            </CartProvider>
+            <FavoritesProvider>
+              <AddressProvider>
+                <CartProvider>
+                  <OrderProvider>
+                    <GestureHandlerRootView>
+                      <KeyboardProvider>
+                        <RootLayoutNav />
+                      </KeyboardProvider>
+                    </GestureHandlerRootView>
+                  </OrderProvider>
+                </CartProvider>
+              </AddressProvider>
+            </FavoritesProvider>
           </AuthProvider>
         </QueryClientProvider>
       </ErrorBoundary>

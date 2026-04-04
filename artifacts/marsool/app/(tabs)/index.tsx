@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import RestaurantCard from "@/components/RestaurantCard";
 import { CATEGORIES, RESTAURANTS, Restaurant } from "@/data/restaurants";
+import { useAddresses } from "@/context/AddressContext";
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -22,6 +23,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchText, setSearchText] = useState("");
+  const { defaultAddress } = useAddresses();
 
   const filtered = RESTAURANTS.filter((r) => {
     const matchCat = selectedCategory === "all" || r.category === selectedCategory;
@@ -36,11 +38,13 @@ export default function HomeScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Header */}
         <View style={[styles.header, { paddingTop: topPadding + 16 }]}>
-          <View style={styles.locationRow}>
+          <TouchableOpacity style={styles.locationRow} onPress={() => router.push("/addresses")}>
             <MaterialIcons name="location-on" size={18} color={colors.primary} />
-            <Text style={[styles.location, { color: colors.foreground }]}>الرياض، حي النخيل</Text>
+            <Text style={[styles.location, { color: colors.foreground }]} numberOfLines={1}>
+              {defaultAddress ? defaultAddress.label : "أضف عنواناً"}
+            </Text>
             <MaterialIcons name="keyboard-arrow-down" size={18} color={colors.foreground} />
-          </View>
+          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.notifBtn, { backgroundColor: colors.card }]}
             onPress={() => {}}

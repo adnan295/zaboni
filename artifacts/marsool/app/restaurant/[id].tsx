@@ -7,25 +7,42 @@ import {
   TouchableOpacity,
   Image,
   Platform,
+  Animated,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import MenuItemCard from "@/components/MenuItemCard";
 import CartButton from "@/components/CartButton";
 import { RESTAURANTS, getRestaurantMenu, getMenuCategories } from "@/data/restaurants";
+import { useFavorites } from "@/context/FavoritesContext";
 
 export default function RestaurantScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { isFavorite, toggleFavorite } = useFavorites();
 
   const restaurant = RESTAURANTS.find((r) => r.id === id);
   const menuItems = getRestaurantMenu(id ?? "");
   const categories = getMenuCategories(id ?? "");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+  const favScale = React.useRef(new Animated.Value(1)).current;
+  const fav = restaurant ? isFavorite(restaurant.id) : false;
+
+  const handleFav = () => {
+    if (!restaurant) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Animated.sequence([
+      Animated.spring(favScale, { toValue: 1.4, useNativeDriver: true, speed: 40 }),
+      Animated.spring(favScale, { toValue: 1, useNativeDriver: true, speed: 40 }),
+    ]).start();
+    toggleFavorite(restaurant);
+  };
 
   const filteredItems = selectedCategory
     ? menuItems.filter((m) => m.categoryAr === selectedCategory)
@@ -54,11 +71,27 @@ export default function RestaurantScreen() {
             >
               <MaterialIcons name="arrow-forward" size={22} color="#1a1a1a" />
             </TouchableOpacity>
-            {restaurant.discount && (
-              <View style={[styles.heroBadge, { backgroundColor: colors.primary }]}>
-                <Text style={styles.heroBadgeText}>{restaurant.discount}</Text>
-              </View>
-            )}
+
+            <View style={styles.heroRight}>
+              {restaurant.discount && (
+                <View style={[styles.heroBadge, { backgroundColor: colors.primary }]}>
+                  <Text style={styles.heroBadgeText}>{restaurant.discount}</Text>
+                </View>
+              )}
+              <TouchableOpacity
+                style={[styles.favHeroBtn, { backgroundColor: "rgba(255,255,255,0.9)" }]}
+                onPress={handleFav}
+                activeOpacity={0.8}
+              >
+                <Animated.View style={{ transform: [{ scale: favScale }] }}>
+                  <MaterialIcons
+                    name={fav ? "favorite" : "favorite-border"}
+                    size={22}
+                    color={fav ? "#ef4444" : "#888"}
+                  />
+                </Animated.View>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -172,6 +205,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
+  heroRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   backBtn: {
     width: 40,
     height: 40,
@@ -179,16 +213,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  favHeroBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 2,
+  },
   heroBadge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 10,
   },
-  heroBadgeText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "700",
-  },
+  heroBadgeText: { color: "#fff", fontSize: 12, fontWeight: "700" },
   infoCard: {
     margin: 16,
     borderRadius: 16,
@@ -219,20 +261,9 @@ const styles = StyleSheet.create({
   },
   ratingNum: { fontSize: 14, fontWeight: "700" },
   ratingCount: { fontSize: 11 },
-  statsRow: {
-    flexDirection: "row",
-    borderTopWidth: 1,
-    paddingVertical: 12,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: "center",
-    gap: 3,
-  },
-  statDivider: {
-    width: 1,
-    height: "100%",
-  },
+  statsRow: { flexDirection: "row", borderTopWidth: 1, paddingVertical: 12 },
+  statItem: { flex: 1, alignItems: "center", gap: 3 },
+  statDivider: { width: 1, height: "100%" },
   statLabel: { fontSize: 11 },
   statValue: { fontSize: 13, fontWeight: "700" },
   catScroll: { paddingHorizontal: 16, gap: 8 },
