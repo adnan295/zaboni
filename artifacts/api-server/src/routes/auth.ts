@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { randomInt } from "crypto";
 import { db, otpCodesTable, usersTable } from "@workspace/db";
 import { and, eq, gt } from "drizzle-orm";
 import { z } from "zod";
@@ -50,7 +51,7 @@ function getJwtSecret(): string {
 }
 
 function generateOtp(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return randomInt(100000, 1000000).toString();
 }
 
 async function sendOtpSms(phone: string, code: string): Promise<void> {
