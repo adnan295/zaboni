@@ -12,11 +12,22 @@ import { MaterialIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
-import { Restaurant } from "@/data/restaurants";
 import { useFavorites } from "@/context/FavoritesContext";
 
 interface Props {
-  restaurant: Restaurant;
+  restaurant: {
+    id: string;
+    name: string;
+    nameAr: string;
+    category: string;
+    rating: number;
+    deliveryTime: string;
+    deliveryFee: number;
+    image: string;
+    tags: unknown[];
+    isOpen: boolean;
+    discount?: string | null;
+  };
   onPress: () => void;
 }
 
@@ -92,7 +103,7 @@ export default function RestaurantCard({ restaurant, onPress }: Props) {
         </View>
 
         <Text style={[styles.category, { color: colors.mutedForeground }]}>
-          {restaurant.tags.join(" · ")}
+          {(restaurant.tags as string[]).join(" · ")}
         </Text>
 
         <View style={styles.meta}>

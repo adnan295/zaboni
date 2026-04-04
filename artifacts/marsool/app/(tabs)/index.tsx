@@ -5,6 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -13,10 +14,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import RestaurantCard from "@/components/RestaurantCard";
-import { CATEGORIES, RESTAURANTS } from "@/data/restaurants";
+import { CATEGORIES } from "@/data/restaurants";
 import { useAddresses } from "@/context/AddressContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import { useOrders } from "@/context/OrderContext";
+import { useGetRestaurants } from "@workspace/api-client-react";
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -28,7 +30,10 @@ export default function HomeScreen() {
   const { unreadCount } = useNotifications();
   const { activeOrder } = useOrders();
 
-  const filtered = RESTAURANTS.filter((r) => {
+  const { data: apiRestaurants, isLoading: restaurantsLoading } = useGetRestaurants();
+
+  const allRestaurants = apiRestaurants ?? [];
+  const filtered = allRestaurants.filter((r) => {
     return selectedCategory === "all" || r.category === selectedCategory;
   });
 
@@ -154,19 +159,27 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          {filtered.map((restaurant) => (
-            <RestaurantCard
-              key={restaurant.id}
-              restaurant={restaurant}
-              onPress={() => router.push(`/restaurant/${restaurant.id}`)}
-            />
-          ))}
-
-          {filtered.length === 0 && (
+          {restaurantsLoading ? (
             <View style={styles.empty}>
-              <MaterialIcons name="search-off" size={48} color={colors.mutedForeground} />
-              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>{t("home.noResults")}</Text>
+              <ActivityIndicator size="large" color="#FF6B00" />
             </View>
+          ) : (
+            <>
+              {filtered.map((restaurant) => (
+                <RestaurantCard
+                  key={restaurant.id}
+                  restaurant={restaurant as any}
+                  onPress={() => router.push(`/restaurant/${restaurant.id}`)}
+                />
+              ))}
+
+              {filtered.length === 0 && (
+                <View style={styles.empty}>
+                  <MaterialIcons name="search-off" size={48} color={colors.mutedForeground} />
+                  <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>{t("home.noResults")}</Text>
+                </View>
+              )}
+            </>
           )}
         </View>
       </ScrollView>

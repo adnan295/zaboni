@@ -41,16 +41,20 @@ export default function OrderRequestScreen() {
 
   const stepIcons: Array<keyof typeof MaterialIcons.glyphMap> = ["send", "check-circle", "chat"];
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!isValid || isSubmitting) return;
     setIsSubmitting(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const address = defaultAddress?.label ?? t("orderRequest.currentLocation");
-    const order = placeOrder(orderText.trim(), restaurantName ?? t("orderRequest.title"), address);
-    router.replace({
-      pathname: "/order-tracking/[id]",
-      params: { id: order.id },
-    });
+    try {
+      const order = await placeOrder(orderText.trim(), restaurantName ?? t("orderRequest.title"), address);
+      router.replace({
+        pathname: "/order-tracking/[id]",
+        params: { id: order.id },
+      });
+    } catch {
+      setIsSubmitting(false);
+    }
   };
 
   return (

@@ -18,7 +18,7 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import RestaurantCard from "@/components/RestaurantCard";
-import { RESTAURANTS } from "@/data/restaurants";
+import { useGetRestaurants } from "@workspace/api-client-react";
 
 type SortOption = "fastest" | "rating" | "delivery_fee";
 
@@ -81,13 +81,17 @@ export default function SearchScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const filtered = RESTAURANTS.filter((r) => {
+  const { data: apiRestaurants } = useGetRestaurants();
+  const allRestaurants = apiRestaurants ?? [];
+
+  const filtered = allRestaurants.filter((r) => {
     if (!query.trim()) return false;
     const q = query.trim().toLowerCase();
+    const tags = (r.tags as string[]) ?? [];
     const matchName =
       r.nameAr.includes(q) ||
       r.name.toLowerCase().includes(q) ||
-      r.tags.some((tag) => tag.toLowerCase().includes(q));
+      tags.some((tag) => tag.toLowerCase().includes(q));
     const matchRating = minRating === null || r.rating >= minRating;
     const matchFree = !freeDeliveryOnly || r.deliveryFee === 0;
     return matchName && matchRating && matchFree;

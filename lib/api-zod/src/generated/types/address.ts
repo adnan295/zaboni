@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface Address {
+  id: string;
+  userId: string;
+  label: string;
+  address: string;
+  isDefault: boolean;
 }
