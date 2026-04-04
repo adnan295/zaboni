@@ -10,6 +10,31 @@ const router: IRouter = Router();
 const OTP_TTL_MINUTES = 10;
 const OTP_LENGTH = 6;
 
+const SEND_OTP_LIMIT = 3;
+const SEND_OTP_WINDOW_MS = 5 * 60 * 1000;
+const VERIFY_OTP_LIMIT = 5;
+const VERIFY_OTP_WINDOW_MS = 10 * 60 * 1000;
+
+const sendOtpBucket = new Map<string, { count: number; resetAt: number }>();
+const verifyOtpBucket = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(
+  map: Map<string, { count: number; resetAt: number }>,
+  key: string,
+  limit: number,
+  windowMs: number,
+): boolean {
+  const now = Date.now();
+  const entry = map.get(key);
+  if (!entry || now > entry.resetAt) {
+    map.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  if (entry.count >= limit) return false;
+  entry.count++;
+  return true;
+}
+
 const DEV_JWT_SECRET = "marsool-dev-secret-change-in-production-please";
 
 function getJwtSecret(): string {
@@ -92,6 +117,15 @@ router.post("/auth/send-otp", async (req, res) => {
   }
 
   const { phone } = body.data;
+
+  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.socket.remoteAddress ?? "unknown";
+  const phoneKey = `phone:${phone}`;
+  const ipKey = `ip:${ip}`;
+  if (!checkRateLimit(sendOtpBucket, phoneKey, SEND_OTP_LIMIT, SEND_OTP_WINDOW_MS) ||
+      !checkRateLimit(sendOtpBucket, ipKey, SEND_OTP_LIMIT * 3, SEND_OTP_WINDOW_MS)) {
+    res.status(429).json({ error: "طلبات كثيرة جداً — حاول لاحقاً / Too many requests, try later" });
+    return;
+  }
   const code = generateOtp();
   const id = `${Date.now()}${Math.random().toString(36).slice(2, 8)}`;
   const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
@@ -122,6 +156,13 @@ router.post("/auth/verify-otp", async (req, res) => {
   }
 
   const { phone, code, name } = body.data;
+
+  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.socket.remoteAddress ?? "unknown";
+  if (!checkRateLimit(verifyOtpBucket, `phone:${phone}`, VERIFY_OTP_LIMIT, VERIFY_OTP_WINDOW_MS) ||
+      !checkRateLimit(verifyOtpBucket, `ip:${ip}`, VERIFY_OTP_LIMIT * 3, VERIFY_OTP_WINDOW_MS)) {
+    res.status(429).json({ error: "محاولات كثيرة — حاول لاحقاً / Too many attempts, try later" });
+    return;
+  }
 
   const rows = await db
     .select()
