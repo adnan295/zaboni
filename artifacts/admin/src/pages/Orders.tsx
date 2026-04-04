@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, type Order } from "@/lib/api";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -26,22 +27,30 @@ const STATUS_COLORS: Record<string, string> = {
   delivered: "bg-green-100 text-green-800",
 };
 
+const PAGE_SIZE = 50;
+
 export default function Orders() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
 
-  const { data: orders = [], isLoading } = useQuery({
-    queryKey: ["admin", "orders"],
-    queryFn: api.getOrders,
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin", "orders", page],
+    queryFn: () => api.getOrders(page, PAGE_SIZE),
     refetchInterval: 15_000,
   });
+
+  const orders = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   const filtered = orders.filter((o) => {
     const matchesSearch =
       o.orderText.includes(search) ||
       o.restaurantName.toLowerCase().includes(search.toLowerCase()) ||
       o.address.toLowerCase().includes(search.toLowerCase()) ||
-      o.courierName.toLowerCase().includes(search.toLowerCase());
+      o.courierName.toLowerCase().includes(search.toLowerCase()) ||
+      (o.customerName ?? "").toLowerCase().includes(search.toLowerCase());
     const matchesStatus =
       statusFilter === "all" || o.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -51,15 +60,24 @@ export default function Orders() {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Orders</h1>
 
-      <div className="flex gap-3 flex-wrap">
+      <div className="flex gap-3 flex-wrap items-center">
         <Input
           type="search"
           placeholder="Search orders..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
           className="max-w-xs"
         />
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select
+          value={statusFilter}
+          onValueChange={(v) => {
+            setStatusFilter(v);
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="w-44">
             <SelectValue placeholder="All statuses" />
           </SelectTrigger>
@@ -72,8 +90,8 @@ export default function Orders() {
             ))}
           </SelectContent>
         </Select>
-        <span className="text-sm text-muted-foreground self-center">
-          {filtered.length} orders
+        <span className="text-sm text-muted-foreground">
+          {total} total orders
         </span>
       </div>
 
@@ -87,10 +105,10 @@ export default function Orders() {
             <thead className="bg-muted/50 border-b">
               <tr>
                 <th className="text-left px-4 py-3 font-medium">Order</th>
+                <th className="text-left px-4 py-3 font-medium">Customer</th>
                 <th className="text-left px-4 py-3 font-medium">Restaurant</th>
                 <th className="text-left px-4 py-3 font-medium">Status</th>
                 <th className="text-left px-4 py-3 font-medium">Courier</th>
-                <th className="text-left px-4 py-3 font-medium">Address</th>
                 <th className="text-left px-4 py-3 font-medium">Payment</th>
                 <th className="text-left px-4 py-3 font-medium">Date</th>
               </tr>
@@ -101,6 +119,30 @@ export default function Orders() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center gap-2 justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            Previous
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Page {page} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            Next
+          </Button>
         </div>
       )}
     </div>
@@ -125,7 +167,16 @@ function OrderRow({ order }: { order: Order }) {
           </p>
         </td>
         <td className="px-4 py-3 text-sm">
-          {order.restaurantName || <span className="text-muted-foreground">—</span>}
+          {order.customerName || (
+            <span className="text-muted-foreground font-mono text-xs">
+              {order.userId.slice(0, 8)}…
+            </span>
+          )}
+        </td>
+        <td className="px-4 py-3 text-sm">
+          {order.restaurantName || (
+            <span className="text-muted-foreground">—</span>
+          )}
         </td>
         <td className="px-4 py-3">
           <span
@@ -135,10 +186,9 @@ function OrderRow({ order }: { order: Order }) {
           </span>
         </td>
         <td className="px-4 py-3 text-sm">
-          {order.courierName || <span className="text-muted-foreground">Unassigned</span>}
-        </td>
-        <td className="px-4 py-3 text-sm max-w-[180px]">
-          <p className="truncate">{order.address || "—"}</p>
+          {order.courierName || (
+            <span className="text-muted-foreground">Unassigned</span>
+          )}
         </td>
         <td className="px-4 py-3 text-sm capitalize">{order.paymentMethod}</td>
         <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
@@ -150,21 +200,34 @@ function OrderRow({ order }: { order: Order }) {
           <td colSpan={7} className="px-4 py-3">
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1">Order Text</p>
+                <p className="text-xs font-medium text-muted-foreground mb-1">
+                  Order Text
+                </p>
                 <p dir="rtl" className="text-sm">
                   {order.orderText}
                 </p>
               </div>
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1">User ID</p>
-                <p className="font-mono text-xs">{order.userId}</p>
+                <p className="text-xs font-medium text-muted-foreground mb-1">
+                  Customer
+                </p>
+                <p>{order.customerName || "—"}</p>
+                {order.customerPhone && (
+                  <p className="text-xs text-muted-foreground font-mono">
+                    {order.customerPhone}
+                  </p>
+                )}
               </div>
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1">Order ID</p>
+                <p className="text-xs font-medium text-muted-foreground mb-1">
+                  Order ID
+                </p>
                 <p className="font-mono text-xs">{order.id}</p>
               </div>
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1">Courier</p>
+                <p className="text-xs font-medium text-muted-foreground mb-1">
+                  Courier
+                </p>
                 <p>
                   {order.courierName || "—"}{" "}
                   {order.courierPhone && (
@@ -175,11 +238,21 @@ function OrderRow({ order }: { order: Order }) {
                 </p>
               </div>
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1">Est. Time</p>
+                <p className="text-xs font-medium text-muted-foreground mb-1">
+                  Address
+                </p>
+                <p>{order.address || "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1">
+                  Est. Time
+                </p>
                 <p>{order.estimatedMinutes} min</p>
               </div>
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1">Updated</p>
+                <p className="text-xs font-medium text-muted-foreground mb-1">
+                  Updated
+                </p>
                 <p>{new Date(order.updatedAt).toLocaleString()}</p>
               </div>
             </div>

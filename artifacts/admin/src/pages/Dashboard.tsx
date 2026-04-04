@@ -6,7 +6,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 const STATUS_LABELS: Record<string, string> = {
   searching: "Searching",
@@ -35,8 +34,8 @@ export default function Dashboard() {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">Dashboard</h1>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => (
             <Card key={i} className="animate-pulse">
               <CardContent className="p-6">
                 <div className="h-8 bg-muted rounded w-1/2 mb-2" />
@@ -61,25 +60,61 @@ export default function Dashboard() {
   }
 
   const statCards = [
-    { label: "Restaurants", value: stats!.restaurants, icon: "🍽️", color: "text-orange-500" },
-    { label: "Total Orders", value: stats!.orders, icon: "📦", color: "text-blue-500" },
-    { label: "Users", value: stats!.users, icon: "👤", color: "text-green-500" },
-    { label: "Menu Items", value: stats!.menuItems, icon: "🍔", color: "text-purple-500" },
+    {
+      label: "Today's Orders",
+      value: stats!.todayOrders,
+      icon: "📅",
+      color: "text-orange-500",
+    },
+    {
+      label: "Total Orders",
+      value: stats!.orders,
+      icon: "📦",
+      color: "text-blue-500",
+    },
+    {
+      label: "Restaurants",
+      value: stats!.restaurants,
+      icon: "🍽️",
+      color: "text-purple-500",
+    },
+    {
+      label: "Customers",
+      value: stats!.users - stats!.couriers,
+      icon: "🛒",
+      color: "text-green-500",
+    },
+    {
+      label: "Couriers",
+      value: stats!.couriers,
+      icon: "🚴",
+      color: "text-indigo-500",
+    },
+    {
+      label: "Menu Items",
+      value: stats!.menuItems,
+      icon: "🍔",
+      color: "text-rose-500",
+    },
   ];
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Dashboard</h1>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         {statCards.map((s) => (
           <Card key={s.label} className="shadow-sm">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-2xl">{s.icon}</span>
-                <span className={`text-3xl font-bold ${s.color}`}>{s.value}</span>
+                <span className={`text-3xl font-bold ${s.color}`}>
+                  {s.value}
+                </span>
               </div>
-              <p className="text-sm text-muted-foreground font-medium">{s.label}</p>
+              <p className="text-sm text-muted-foreground font-medium">
+                {s.label}
+              </p>
             </CardContent>
           </Card>
         ))}
@@ -88,7 +123,9 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle className="text-base font-semibold">Orders by Status</CardTitle>
+            <CardTitle className="text-base font-semibold">
+              Orders by Status
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {stats!.ordersByStatus.length === 0 ? (
@@ -112,7 +149,9 @@ export default function Dashboard() {
 
         <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle className="text-base font-semibold">Recent Orders</CardTitle>
+            <CardTitle className="text-base font-semibold">
+              Recent Orders
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {stats!.recentOrders.length === 0 ? (
@@ -129,6 +168,7 @@ export default function Dashboard() {
                         {order.orderText}
                       </p>
                       <p className="text-xs text-muted-foreground">
+                        {order.customerName || order.userId.slice(0, 8)} ·{" "}
                         {order.restaurantName || "—"} ·{" "}
                         {new Date(order.createdAt).toLocaleString()}
                       </p>

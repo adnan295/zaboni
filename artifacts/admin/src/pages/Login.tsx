@@ -30,7 +30,7 @@ export default function Login({ onLogin }: LoginProps) {
         setAdminToken(secret.trim());
         onLogin();
       } else {
-        setError("Invalid admin secret. Please try again.");
+        setError("Invalid admin secret or admin panel is not configured.");
       }
     } catch {
       setError("Could not connect to the server.");
@@ -56,6 +56,7 @@ export default function Login({ onLogin }: LoginProps) {
               <Input
                 id="secret"
                 type="password"
+                autoComplete="current-password"
                 placeholder="Enter admin secret..."
                 value={secret}
                 onChange={(e) => setSecret(e.target.value)}
@@ -74,9 +75,6 @@ export default function Login({ onLogin }: LoginProps) {
               {loading ? "Verifying..." : "Sign In"}
             </Button>
           </form>
-          <p className="mt-4 text-xs text-muted-foreground text-center">
-            Default dev secret: <code className="bg-muted px-1 rounded">marsool-admin-dev</code>
-          </p>
         </CardContent>
       </Card>
     </div>

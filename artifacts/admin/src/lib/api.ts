@@ -36,10 +36,12 @@ async function apiFetch<T>(
 export type Stats = {
   restaurants: number;
   orders: number;
+  todayOrders: number;
   users: number;
+  couriers: number;
   menuItems: number;
   ordersByStatus: Array<{ status: string; count: number }>;
-  recentOrders: Order[];
+  recentOrders: (Order & { customerName: string | null })[];
 };
 
 export type Restaurant = {
@@ -88,6 +90,15 @@ export type Order = {
   estimatedMinutes: number;
   createdAt: string;
   updatedAt: string;
+  customerName?: string | null;
+  customerPhone?: string | null;
+};
+
+export type OrdersPage = {
+  data: Order[];
+  total: number;
+  page: number;
+  limit: number;
 };
 
 export type User = {
@@ -128,15 +139,18 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
-  updateMenuItem: (id: string, data: Partial<MenuItem>) =>
-    apiFetch<MenuItem>(`/admin/menu/${id}`, {
+  updateMenuItem: (restaurantId: string, itemId: string, data: Partial<MenuItem>) =>
+    apiFetch<MenuItem>(`/admin/restaurants/${restaurantId}/menu/${itemId}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
-  deleteMenuItem: (id: string) =>
-    apiFetch<void>(`/admin/menu/${id}`, { method: "DELETE" }),
+  deleteMenuItem: (restaurantId: string, itemId: string) =>
+    apiFetch<void>(`/admin/restaurants/${restaurantId}/menu/${itemId}`, {
+      method: "DELETE",
+    }),
 
-  getOrders: () => apiFetch<Order[]>("/admin/orders"),
+  getOrders: (page = 1, limit = 50) =>
+    apiFetch<OrdersPage>(`/admin/orders?page=${page}&limit=${limit}`),
   getUsers: () => apiFetch<User[]>("/admin/users"),
   updateUserRole: (id: string, role: "customer" | "courier") =>
     apiFetch<User>(`/admin/users/${id}/role`, {
