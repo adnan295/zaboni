@@ -15,7 +15,11 @@ router.get("/chat/:orderId/messages", async (req, res) => {
     .where(eq(ordersTable.id, orderId))
     .limit(1);
 
-  if (orders.length === 0 || orders[0].userId !== userId) {
+  const order = orders[0];
+  const isCustomer = order && order.userId === userId;
+  const isCourier = order && order.courierId !== "" && order.courierId === userId;
+
+  if (!order || (!isCustomer && !isCourier)) {
     res.status(404).json({ error: "Order not found" });
     return;
   }

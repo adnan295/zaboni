@@ -18,15 +18,6 @@ function getJwtSecret(): string | null {
 
 const expo = new Expo();
 
-const COURIER_AUTO_REPLIES = [
-  "إن شاء الله 🙏",
-  "تمام يا باشا",
-  "وصلت قريب",
-  "عندك 5 دقايق",
-  "أنا في الطريق",
-  "ما في مشكلة",
-];
-
 interface AuthenticatedSocket extends Socket {
   auth?: AuthPayload;
 }
@@ -46,7 +37,11 @@ function untrackUserConnection(userId: string, socketId: string) {
   if (sockets.size === 0) connectedUsers.delete(userId);
 }
 
-function isUserOnlineInRoom(io: SocketServer, userId: string, orderId: string): boolean {
+function isUserOnlineInRoom(
+  io: SocketServer,
+  userId: string,
+  orderId: string
+): boolean {
   const room = `order:${orderId}`;
   const sockets = connectedUsers.get(userId);
   if (!sockets || sockets.size === 0) return false;
@@ -118,9 +113,10 @@ export function createChatServer(httpServer: HttpServer) {
         return;
       }
 
+      const senderRole = isCustomer ? "customer" : "courier";
       const room = `order:${orderId}`;
       socket.join(room);
-      logger.info({ userId, orderId, role: isCustomer ? "customer" : "courier" }, "Socket joined chat room");
+      logger.info({ userId, orderId, senderRole }, "Socket joined chat room");
 
       const history = await db
         .select()
@@ -129,13 +125,6 @@ export function createChatServer(httpServer: HttpServer) {
         .orderBy(asc(chatMessagesTable.createdAt));
 
       socket.emit("history", history);
-
-      if (isCustomer && history.length === 0) {
-        setTimeout(async () => {
-          await saveCourierMessage(io, orderId, "أهلاً، استلمت طلبك وأنا في الطريق 🛵");
-          simulateCourierPresence(io, orderId, order.userId);
-        }, 800);
-      }
     });
 
     socket.on(
@@ -156,7 +145,10 @@ export function createChatServer(httpServer: HttpServer) {
         const isCourier = order.courierId !== "" && order.courierId === userId;
         if (!isCustomer && !isCourier) return;
 
-        const senderRole = (isCustomer ? "customer" : "courier") as "customer" | "courier";
+        const senderRole = (isCustomer ? "customer" : "courier") as
+          | "customer"
+          | "courier";
+        const recipientId = isCustomer ? order.courierId : order.userId;
 
         const msg = {
           id: randomUUID(),
@@ -172,31 +164,60 @@ export function createChatServer(httpServer: HttpServer) {
         const room = `order:${orderId}`;
         io.to(room).emit("message", msg);
 
-        const recipientId = isCustomer ? order.courierId : order.userId;
-
-        if (isCustomer && !isUserOnlineInRoom(io, recipientId, orderId)) {
-          setTimeout(async () => {
-            await simulateCourierReply(io, orderId, order.userId);
-          }, Math.floor(Math.random() * 2000) + 1500);
-        }
-
-        if (!isUserOnlineInRoom(io, recipientId, orderId)) {
-          const senderName = socket.auth!.name || "مستخدم";
-          await sendPushNotification(recipientId, `${senderName}: ${text.trim()}`);
+        if (recipientId && !isUserOnlineInRoom(io, recipientId, orderId)) {
+          const senderName = socket.auth!.name || (isCustomer ? "عميل" : "مندوب");
+          await sendPushNotification(
+            recipientId,
+            `${senderName}: ${text.trim()}`
+          );
         }
       }
     );
 
-    socket.on("typing", ({ orderId }: { orderId: string }) => {
+    socket.on("typing", async ({ orderId }: { orderId: string }) => {
       if (!orderId) return;
+
+      const orders = await db
+        .select({ userId: ordersTable.userId, courierId: ordersTable.courierId })
+        .from(ordersTable)
+        .where(eq(ordersTable.id, orderId))
+        .limit(1);
+
+      if (orders.length === 0) return;
+      const order = orders[0];
+
+      const isCustomer = order.userId === userId;
+      const isCourier = order.courierId !== "" && order.courierId === userId;
+      if (!isCustomer && !isCourier) return;
+
+      const senderRole = isCustomer ? "customer" : "courier";
       const room = `order:${orderId}`;
-      socket.to(room).emit("typing", { senderId: userId, senderRole: "customer", orderId });
+      socket
+        .to(room)
+        .emit("typing", { senderId: userId, senderRole, orderId });
     });
 
-    socket.on("stop-typing", ({ orderId }: { orderId: string }) => {
+    socket.on("stop-typing", async ({ orderId }: { orderId: string }) => {
       if (!orderId) return;
+
+      const orders = await db
+        .select({ userId: ordersTable.userId, courierId: ordersTable.courierId })
+        .from(ordersTable)
+        .where(eq(ordersTable.id, orderId))
+        .limit(1);
+
+      if (orders.length === 0) return;
+      const order = orders[0];
+
+      const isCustomer = order.userId === userId;
+      const isCourier = order.courierId !== "" && order.courierId === userId;
+      if (!isCustomer && !isCourier) return;
+
+      const senderRole = isCustomer ? "customer" : "courier";
       const room = `order:${orderId}`;
-      socket.to(room).emit("stop-typing", { senderId: userId, senderRole: "customer", orderId });
+      socket
+        .to(room)
+        .emit("stop-typing", { senderId: userId, senderRole, orderId });
     });
 
     socket.on("disconnect", () => {
@@ -206,77 +227,6 @@ export function createChatServer(httpServer: HttpServer) {
   });
 
   return io;
-}
-
-async function simulateCourierPresence(
-  io: SocketServer,
-  orderId: string,
-  customerId: string
-) {
-  await new Promise((r) => setTimeout(r, 1200));
-
-  const history = await db
-    .select()
-    .from(chatMessagesTable)
-    .where(eq(chatMessagesTable.orderId, orderId))
-    .limit(10);
-
-  const courierHasReplied = history.some((m) => m.senderRole === "courier" && m.text !== "أهلاً، استلمت طلبك وأنا في الطريق 🛵");
-  if (courierHasReplied) return;
-
-  if (!isUserOnlineInRoom(io, customerId, orderId)) return;
-}
-
-async function simulateCourierReply(
-  io: SocketServer,
-  orderId: string,
-  customerId: string
-) {
-  const room = `order:${orderId}`;
-
-  io.to(room).emit("typing", {
-    senderId: "courier-sim",
-    senderRole: "courier",
-    orderId,
-  });
-
-  await new Promise((r) => setTimeout(r, 1200));
-
-  io.to(room).emit("stop-typing", {
-    senderId: "courier-sim",
-    senderRole: "courier",
-    orderId,
-  });
-
-  const reply =
-    COURIER_AUTO_REPLIES[
-      Math.floor(Math.random() * COURIER_AUTO_REPLIES.length)
-    ];
-
-  await saveCourierMessage(io, orderId, reply);
-
-  if (!isUserOnlineInRoom(io, customerId, orderId)) {
-    await sendPushNotification(customerId, `المندوب: ${reply}`);
-  }
-}
-
-async function saveCourierMessage(
-  io: SocketServer,
-  orderId: string,
-  text: string
-) {
-  const msg = {
-    id: randomUUID(),
-    orderId,
-    senderId: "courier-sim",
-    senderRole: "courier" as const,
-    text,
-    createdAt: new Date(),
-  };
-  await db.insert(chatMessagesTable).values(msg);
-  const room = `order:${orderId}`;
-  io.to(room).emit("message", msg);
-  return msg;
 }
 
 async function sendPushNotification(userId: string, body: string) {

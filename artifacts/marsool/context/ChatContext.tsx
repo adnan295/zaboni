@@ -30,7 +30,7 @@ interface ChatContextValue {
   sendMessage: (orderId: string, text: string) => void;
   sendTyping: (orderId: string) => void;
   sendStopTyping: (orderId: string) => void;
-  joinOrder: (orderId: string) => void;
+  joinOrder: (orderId: string) => Promise<void>;
   isConnected: boolean;
   sendCustomerMessage: (orderId: string, text: string) => void;
   triggerCourierGreeting: (orderId: string) => void;
@@ -126,13 +126,30 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     };
   }, [token, user?.id]);
 
-  const joinOrder = useCallback((orderId: string) => {
+  const joinOrder = useCallback(async (orderId: string) => {
     joinedRoomsRef.current.add(orderId);
+
+    if (token) {
+      try {
+        const baseUrl = Platform.OS === "web" ? "" : getApiBaseUrl();
+        const res = await fetch(`${baseUrl}/api/chat/${orderId}/messages`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data: ChatMessage[] = await res.json();
+          if (data.length > 0) {
+            setMessagesByOrder((prev) => ({ ...prev, [orderId]: data }));
+          }
+        }
+      } catch {
+      }
+    }
+
     const socket = socketRef.current;
     if (socket?.connected) {
       socket.emit("join", { orderId });
     }
-  }, []);
+  }, [token]);
 
   const getMessages = useCallback(
     (orderId: string): ChatMessage[] => messagesByOrder[orderId] ?? [],
