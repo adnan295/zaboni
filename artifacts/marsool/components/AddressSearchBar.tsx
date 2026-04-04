@@ -86,7 +86,7 @@ interface Coords { latitude: number; longitude: number }
 async function fetchGooglePlaces(query: string, sessionToken: string, userCoords?: Coords): Promise<string[]> {
   if (!GOOGLE_PLACES_KEY) return [];
   try {
-    let url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&key=${GOOGLE_PLACES_KEY}&language=ar&components=country:SA&sessiontoken=${sessionToken}`;
+    let url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&key=${GOOGLE_PLACES_KEY}&language=ar&components=country:SY&sessiontoken=${sessionToken}`;
     if (userCoords) {
       url += `&location=${userCoords.latitude},${userCoords.longitude}&radius=15000&strictbounds=false`;
     }
