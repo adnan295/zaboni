@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
 import {
   restaurantsTable,
@@ -13,11 +13,7 @@ const router = Router();
 
 const ADMIN_SECRET = process.env["ADMIN_SECRET"];
 
-function requireAdmin(
-  req: Parameters<Parameters<typeof router.use>[0]>[0],
-  res: Parameters<Parameters<typeof router.use>[0]>[1],
-  next: Parameters<Parameters<typeof router.use>[0]>[2],
-) {
+function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   if (!ADMIN_SECRET) {
     res.status(503).json({
       error:
@@ -25,9 +21,11 @@ function requireAdmin(
     });
     return;
   }
-  const authHeader = req.headers["authorization"] as string | undefined;
+  const authHeader = req.headers["authorization"];
   const token =
-    authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    typeof authHeader === "string" && authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : null;
   if (!token || token !== ADMIN_SECRET) {
     res.status(401).json({ error: "Unauthorized" });
     return;
