@@ -165,6 +165,10 @@
       "hours": "{{count}} hr ago"
     }
   },
+  "tabs": {
+    "home": "Home",
+    "profile": "Profile"
+  },
   "restaurant": {
     "notFound": "Restaurant not found",
     "deliveryTime": "Delivery Time",
@@ -174,7 +178,11 @@
     "rating": "Rating",
     "all": "All",
     "menu": "Menu",
-    "orderNow": "Order Now"
+    "orderNow": "Order Now",
+    "closed": "Closed",
+    "freeDelivery": "Free Delivery",
+    "currency": "SAR",
+    "popular": "Most Ordered"
   },
   "orderRequest": {
     "title": "Write Your Order",
@@ -252,6 +260,24 @@
     "successBody": "Your rating helps us improve the service",
     "done": "Done",
     "skip": "Skip"
+  },
+  "orderNotification": {
+    "searching": {
+      "title": "Looking for a courier",
+      "body": "Searching for the nearest courier..."
+    },
+    "accepted": {
+      "title": "Courier accepted your order!",
+      "body": "A chat with the courier has opened to coordinate details"
+    },
+    "on_way": {
+      "title": "Courier is on the way",
+      "body": "Get ready to receive your order!"
+    },
+    "delivered": {
+      "title": "Delivered successfully",
+      "body": "Your order arrived. Enjoy! Don't forget to rate your experience"
+    }
   },
   "common": {
     "back": "Back",

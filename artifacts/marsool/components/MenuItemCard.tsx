@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Image,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { MenuItem } from "@/data/restaurants";
 
@@ -14,13 +15,14 @@ interface Props {
 
 export default function MenuItemCard({ item }: Props) {
   const colors = useColors();
+  const { t } = useTranslation();
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <View style={styles.content}>
         {item.isPopular && (
           <View style={[styles.popularBadge, { backgroundColor: colors.accent }]}>
-            <Text style={[styles.popularText, { color: colors.primary }]}>الأكثر طلباً</Text>
+            <Text style={[styles.popularText, { color: colors.primary }]}>{t("restaurant.popular")}</Text>
           </View>
         )}
         <Text style={[styles.name, { color: colors.foreground }]}>{item.nameAr}</Text>

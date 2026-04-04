@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { Restaurant } from "@/data/restaurants";
 import { useFavorites } from "@/context/FavoritesContext";
@@ -21,6 +22,7 @@ interface Props {
 
 export default function RestaurantCard({ restaurant, onPress }: Props) {
   const colors = useColors();
+  const { t } = useTranslation();
   const { isFavorite, toggleFavorite } = useFavorites();
   const fav = isFavorite(restaurant.id);
   const scale = React.useRef(new Animated.Value(1)).current;
@@ -49,7 +51,7 @@ export default function RestaurantCard({ restaurant, onPress }: Props) {
         />
         {!restaurant.isOpen && (
           <View style={styles.closedOverlay}>
-            <Text style={styles.closedText}>مغلق</Text>
+            <Text style={styles.closedText}>{t("restaurant.closed")}</Text>
           </View>
         )}
         {restaurant.discount && (
@@ -60,7 +62,6 @@ export default function RestaurantCard({ restaurant, onPress }: Props) {
           </View>
         )}
 
-        {/* Favorite button */}
         <TouchableOpacity
           style={[styles.favBtn, { backgroundColor: "rgba(255,255,255,0.92)" }]}
           onPress={handleFav}
@@ -98,14 +99,16 @@ export default function RestaurantCard({ restaurant, onPress }: Props) {
           <View style={styles.metaItem}>
             <MaterialIcons name="access-time" size={13} color={colors.mutedForeground} />
             <Text style={[styles.metaText, { color: colors.mutedForeground }]}>
-              {restaurant.deliveryTime} د
+              {restaurant.deliveryTime} {t("restaurant.minutes")}
             </Text>
           </View>
           <View style={styles.dot} />
           <View style={styles.metaItem}>
             <MaterialIcons name="delivery-dining" size={13} color={colors.mutedForeground} />
             <Text style={[styles.metaText, { color: colors.mutedForeground }]}>
-              {restaurant.deliveryFee === 0 ? "توصيل مجاني" : `${restaurant.deliveryFee} ر.س`}
+              {restaurant.deliveryFee === 0
+                ? t("restaurant.freeDelivery")
+                : `${restaurant.deliveryFee} ${t("restaurant.currency")}`}
             </Text>
           </View>
         </View>
