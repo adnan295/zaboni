@@ -37,6 +37,7 @@ export default function OrderTrackingScreen() {
   const prevStatus = useRef<OrderStatus | null>(null);
   const deliveredHapticFired = useRef(false);
   const ratePromptShown = useRef(false);
+  const ratePromptTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const celebrateScale = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -66,7 +67,8 @@ export default function OrderTrackingScreen() {
           }
           if (!ratePromptShown.current && !hasRated(order.id)) {
             ratePromptShown.current = true;
-            setTimeout(() => {
+            ratePromptTimer.current = setTimeout(() => {
+              ratePromptTimer.current = null;
               router.push({
                 pathname: "/rate-order",
                 params: { orderId: order.id, restaurantName: order.restaurantName },
@@ -79,6 +81,12 @@ export default function OrderTrackingScreen() {
       }
       prevStatus.current = current;
     }
+    return () => {
+      if (ratePromptTimer.current) {
+        clearTimeout(ratePromptTimer.current);
+        ratePromptTimer.current = null;
+      }
+    };
   }, [order?.status, order?.id, order?.restaurantName, hasRated, router, celebrateScale]);
 
   if (!order) {
