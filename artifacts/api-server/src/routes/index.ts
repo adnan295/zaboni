@@ -4,6 +4,7 @@ import restaurantsRouter from "./restaurants";
 import ordersRouter from "./orders";
 import addressesRouter from "./addresses";
 import authRouter from "./auth";
+import chatRouter from "./chat";
 import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
@@ -15,5 +16,6 @@ router.use(restaurantsRouter);
 router.use(requireAuth);
 router.use(ordersRouter);
 router.use(addressesRouter);
+router.use(chatRouter);
 
 export default router;

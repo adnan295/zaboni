@@ -15,11 +15,13 @@
     "cookie-parser": "^1.4.7",
     "cors": "^2",
     "drizzle-orm": "catalog:",
+    "expo-server-sdk": "^6.1.0",
     "express": "^5",
     "jsonwebtoken": "^9.0.3",
     "libphonenumber-js": "^1.12.41",
     "pino": "^9",
     "pino-http": "^10",
+    "socket.io": "^4.8.3",
     "twilio": "^5.13.1",
     "zod": "catalog:"
   },

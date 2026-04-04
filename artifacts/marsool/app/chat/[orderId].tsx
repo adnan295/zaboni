@@ -7,6 +7,7 @@ import {
   FlatList,
   Platform,
   KeyboardAvoidingView,
+  ActivityIndicator,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -27,38 +28,52 @@ export default function ChatScreen() {
   const { t } = useTranslation();
   const backIcon = useBackIcon();
   const { getOrder } = useOrders();
-  const { getMessages, sendCustomerMessage, triggerCourierGreeting } = useChat();
+  const {
+    getMessages,
+    sendMessage,
+    sendTyping,
+    sendStopTyping,
+    joinOrder,
+    isCourierTyping,
+    isConnected,
+  } = useChat();
   const [text, setText] = useState("");
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
 
   const order = getOrder(orderId ?? "");
   const messages = getMessages(orderId ?? "");
+  const courierIsTyping = isCourierTyping(orderId ?? "");
 
   useEffect(() => {
     if (!orderId) return;
-    const timer = setTimeout(() => {
-      triggerCourierGreeting(orderId);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [orderId, triggerCourierGreeting]);
+    joinOrder(orderId);
+  }, [orderId, joinOrder]);
 
   useEffect(() => {
     if (messages.length > 0) {
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     }
-  }, [messages.length]);
+  }, [messages.length, courierIsTyping]);
 
   const handleSend = () => {
     if (!text.trim() || !orderId) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    sendCustomerMessage(orderId, text.trim());
+    sendMessage(orderId, text.trim());
+    sendStopTyping(orderId);
     setText("");
+  };
+
+  const handleTextChange = (val: string) => {
+    setText(val);
+    if (orderId && val.length > 0) {
+      sendTyping(orderId);
+    }
   };
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
 
-  const formatTime = (ts: number) =>
+  const formatTime = (ts: string | Date | number) =>
     new Date(ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 
   if (!order) {
@@ -86,8 +101,10 @@ export default function ChatScreen() {
           <View>
             <Text style={[styles.courierName, { color: colors.foreground }]}>{order.courierName}</Text>
             <View style={styles.onlineRow}>
-              <View style={[styles.onlineDot, { backgroundColor: "#22c55e" }]} />
-              <Text style={[styles.onlineText, { color: colors.mutedForeground }]}>{t("chat.onlineNow")}</Text>
+              <View style={[styles.onlineDot, { backgroundColor: isConnected ? "#22c55e" : "#94a3b8" }]} />
+              <Text style={[styles.onlineText, { color: colors.mutedForeground }]}>
+                {isConnected ? t("chat.onlineNow") : t("chat.connecting")}
+              </Text>
             </View>
           </View>
         </View>
@@ -118,7 +135,7 @@ export default function ChatScreen() {
         contentContainerStyle={[styles.messagesList, { paddingBottom: bottomPadding + 90 }]}
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => {
-          const isCustomer = item.sender === "customer";
+          const isCustomer = item.senderRole === "customer";
           return (
             <View style={[styles.messageRow, isCustomer ? styles.messageRowRight : styles.messageRowLeft]}>
               {!isCustomer && (
@@ -138,12 +155,25 @@ export default function ChatScreen() {
                   {item.text}
                 </Text>
                 <Text style={[styles.bubbleTime, { color: isCustomer ? "rgba(255,255,255,0.65)" : colors.mutedForeground }]}>
-                  {formatTime(item.timestamp)}
+                  {formatTime(item.createdAt)}
                 </Text>
               </View>
             </View>
           );
         }}
+        ListFooterComponent={
+          courierIsTyping ? (
+            <View style={[styles.messageRow, styles.messageRowLeft, { marginTop: 8 }]}>
+              <View style={[styles.smallAvatar, { backgroundColor: colors.primary }]}>
+                <MaterialIcons name="delivery-dining" size={14} color="#fff" />
+              </View>
+              <View style={[styles.bubble, styles.bubbleCourier, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: "row", gap: 4, paddingVertical: 10, paddingHorizontal: 14 }]}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={{ color: colors.mutedForeground, fontSize: 13 }}>{t("chat.typing")}</Text>
+              </View>
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
           <View style={styles.emptyChat}>
             <View style={[styles.emptyIcon, { backgroundColor: colors.secondary }]}>
@@ -173,7 +203,7 @@ export default function ChatScreen() {
           placeholder={t("chat.inputPlaceholder")}
           placeholderTextColor={colors.mutedForeground}
           value={text}
-          onChangeText={setText}
+          onChangeText={handleTextChange}
           textAlign="right"
           returnKeyType="send"
           onSubmitEditing={handleSend}

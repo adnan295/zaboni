@@ -32,6 +32,7 @@ import { RatingsProvider } from "@/context/RatingsContext";
 import { NotificationsProvider } from "@/context/NotificationsContext";
 import { LanguageProvider, useLanguage } from "@/context/LanguageContext";
 import OrderNotificationBridge from "@/components/OrderNotificationBridge";
+import PushNotificationSetup from "@/components/PushNotificationSetup";
 import ToastBanner from "@/components/ToastBanner";
 
 SplashScreen.preventAutoHideAsync();
@@ -139,6 +140,7 @@ export default function RootLayout() {
                           <ChatProvider>
                             <GestureHandlerRootView>
                               <KeyboardProvider>
+                                <PushNotificationSetup />
                                 <OrderNotificationBridge />
                                 <RootLayoutNav />
                               </KeyboardProvider>
