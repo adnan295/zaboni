@@ -27,15 +27,17 @@ const NOTIF_COLOR: Record<NotifType, string> = {
   system: "#6b7280",
 };
 
-function timeAgo(ts: number): string {
+function formatTimestamp(ts: number): string {
   const diff = Date.now() - ts;
   const mins = Math.floor(diff / 60000);
+  const date = new Date(ts);
+  const timeStr = date.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit", hour12: true });
+  const dateStr = date.toLocaleDateString("ar-SA", { day: "numeric", month: "short" });
   if (mins < 1) return "الآن";
-  if (mins < 60) return `منذ ${mins} دقيقة`;
+  if (mins < 60) return `منذ ${mins} دقيقة · ${timeStr}`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `منذ ${hrs} ساعة`;
-  const days = Math.floor(hrs / 24);
-  return `منذ ${days} يوم`;
+  if (hrs < 24) return `منذ ${hrs} ساعة · ${timeStr}`;
+  return `${dateStr} · ${timeStr}`;
 }
 
 function NotifCard({
@@ -75,7 +77,7 @@ function NotifCard({
           <Text style={[styles.body, { color: colors.mutedForeground }]} numberOfLines={2}>
             {notif.body}
           </Text>
-          <Text style={[styles.time, { color: colors.mutedForeground }]}>{timeAgo(notif.createdAt)}</Text>
+          <Text style={[styles.time, { color: colors.mutedForeground }]}>{formatTimestamp(notif.createdAt)}</Text>
         </View>
       </TouchableOpacity>
       <View style={styles.cardActions}>
