@@ -28,7 +28,7 @@ import { FavoritesProvider } from "@/context/FavoritesContext";
 import { AddressProvider } from "@/context/AddressContext";
 import { RatingsProvider } from "@/context/RatingsContext";
 import { NotificationsProvider } from "@/context/NotificationsContext";
-import { LanguageProvider } from "@/context/LanguageContext";
+import { LanguageProvider, useLanguage } from "@/context/LanguageContext";
 import OrderNotificationBridge from "@/components/OrderNotificationBridge";
 import ToastBanner from "@/components/ToastBanner";
 
@@ -59,6 +59,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
+  return <>{children}</>;
+}
+
+function LanguageGate({ children }: { children: React.ReactNode }) {
+  const { isReady } = useLanguage();
+  if (!isReady) return null;
   return <>{children}</>;
 }
 
@@ -121,26 +127,28 @@ export default function RootLayout() {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <LanguageProvider>
-            <AuthProvider>
-              <NotificationsProvider>
-                <RatingsProvider>
-                  <FavoritesProvider>
-                    <AddressProvider>
-                      <OrderProvider>
-                        <ChatProvider>
-                          <GestureHandlerRootView>
-                            <KeyboardProvider>
-                              <OrderNotificationBridge />
-                              <RootLayoutNav />
-                            </KeyboardProvider>
-                          </GestureHandlerRootView>
-                        </ChatProvider>
-                      </OrderProvider>
-                    </AddressProvider>
-                  </FavoritesProvider>
-                </RatingsProvider>
-              </NotificationsProvider>
-            </AuthProvider>
+            <LanguageGate>
+              <AuthProvider>
+                <NotificationsProvider>
+                  <RatingsProvider>
+                    <FavoritesProvider>
+                      <AddressProvider>
+                        <OrderProvider>
+                          <ChatProvider>
+                            <GestureHandlerRootView>
+                              <KeyboardProvider>
+                                <OrderNotificationBridge />
+                                <RootLayoutNav />
+                              </KeyboardProvider>
+                            </GestureHandlerRootView>
+                          </ChatProvider>
+                        </OrderProvider>
+                      </AddressProvider>
+                    </FavoritesProvider>
+                  </RatingsProvider>
+                </NotificationsProvider>
+              </AuthProvider>
+            </LanguageGate>
           </LanguageProvider>
         </QueryClientProvider>
       </ErrorBoundary>
