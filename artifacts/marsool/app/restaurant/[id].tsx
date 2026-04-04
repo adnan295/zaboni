@@ -15,7 +15,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import MenuItemCard from "@/components/MenuItemCard";
-import CartButton from "@/components/CartButton";
 import { RESTAURANTS, getRestaurantMenu, getMenuCategories } from "@/data/restaurants";
 import { useFavorites } from "@/context/FavoritesContext";
 
@@ -57,6 +56,7 @@ export default function RestaurantScreen() {
   }
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
+  const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -125,17 +125,15 @@ export default function RestaurantScreen() {
             </View>
             <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
             <View style={styles.statItem}>
-              <MaterialIcons name="delivery-dining" size={16} color={colors.primary} />
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>رسوم التوصيل</Text>
-              <Text style={[styles.statValue, { color: colors.foreground }]}>
-                {restaurant.deliveryFee === 0 ? "مجاني" : `${restaurant.deliveryFee} ر.س`}
-              </Text>
+              <MaterialIcons name="location-on" size={16} color={colors.primary} />
+              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>المسافة</Text>
+              <Text style={[styles.statValue, { color: colors.foreground }]}>قريب منك</Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
             <View style={styles.statItem}>
-              <MaterialIcons name="shopping-bag" size={16} color={colors.primary} />
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>الحد الأدنى</Text>
-              <Text style={[styles.statValue, { color: colors.foreground }]}>{restaurant.minOrder} ر.س</Text>
+              <MaterialIcons name="star" size={16} color={colors.primary} />
+              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>التقييم</Text>
+              <Text style={[styles.statValue, { color: colors.foreground }]}>{restaurant.rating}</Text>
             </View>
           </View>
         </View>
@@ -182,13 +180,30 @@ export default function RestaurantScreen() {
 
         {/* Menu Items */}
         <View style={styles.menuSection}>
+          <Text style={[styles.menuTitle, { color: colors.foreground }]}>المنيو</Text>
           {filteredItems.map((item) => (
-            <MenuItemCard key={item.id} item={item} restaurantName={restaurant.nameAr} />
+            <MenuItemCard key={item.id} item={item} />
           ))}
         </View>
       </ScrollView>
 
-      <CartButton />
+      {/* Order CTA */}
+      <View style={[styles.orderFooter, { backgroundColor: colors.background, paddingBottom: bottomPadding + 12, borderTopColor: colors.border }]}>
+        <TouchableOpacity
+          style={[styles.orderBtn, { backgroundColor: colors.primary }]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            router.push({
+              pathname: "/order-request",
+              params: { restaurantName: restaurant.nameAr },
+            });
+          }}
+          activeOpacity={0.85}
+        >
+          <MaterialIcons name="edit-note" size={22} color="#fff" />
+          <Text style={styles.orderBtnText}>اطلب الآن</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -275,4 +290,28 @@ const styles = StyleSheet.create({
   },
   catText: { fontSize: 13, fontWeight: "600" },
   menuSection: { paddingHorizontal: 16 },
+  menuTitle: { fontSize: 17, fontWeight: "800", marginBottom: 12, textAlign: "right" },
+  orderFooter: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+  },
+  orderBtn: {
+    height: 56,
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    shadowColor: "#FF6B00",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  orderBtnText: { color: "#fff", fontSize: 17, fontWeight: "700" },
 });

@@ -14,12 +14,11 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { CartProvider } from "@/context/CartContext";
 import { OrderProvider } from "@/context/OrderContext";
+import { ChatProvider } from "@/context/ChatContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { FavoritesProvider } from "@/context/FavoritesContext";
 import { AddressProvider } from "@/context/AddressContext";
-import { CouponsProvider } from "@/context/CouponsContext";
 import { RatingsProvider } from "@/context/RatingsContext";
 import { NotificationsProvider } from "@/context/NotificationsContext";
 import OrderNotificationBridge from "@/components/OrderNotificationBridge";
@@ -60,55 +59,20 @@ function RootLayoutNav() {
     <View style={layoutStyles.root}>
       <AuthGate>
         <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="auth/phone"
-          options={{ headerShown: false, gestureEnabled: false }}
-        />
-        <Stack.Screen
-          name="auth/otp"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="auth/name"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="restaurant/[id]"
-          options={{ headerShown: false, presentation: "card" }}
-        />
-        <Stack.Screen
-          name="cart"
-          options={{ headerShown: false, presentation: "modal" }}
-        />
-        <Stack.Screen
-          name="order-tracking/[id]"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="orders"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="favorites"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="addresses"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="search"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="notifications"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="rate-order"
-          options={{ headerShown: false, presentation: "modal" }}
-        />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="auth/phone" options={{ headerShown: false, gestureEnabled: false }} />
+          <Stack.Screen name="auth/otp" options={{ headerShown: false }} />
+          <Stack.Screen name="auth/name" options={{ headerShown: false }} />
+          <Stack.Screen name="restaurant/[id]" options={{ headerShown: false, presentation: "card" }} />
+          <Stack.Screen name="order-request" options={{ headerShown: false }} />
+          <Stack.Screen name="order-tracking/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="chat/[orderId]" options={{ headerShown: false }} />
+          <Stack.Screen name="orders" options={{ headerShown: false }} />
+          <Stack.Screen name="favorites" options={{ headerShown: false }} />
+          <Stack.Screen name="addresses" options={{ headerShown: false }} />
+          <Stack.Screen name="search" options={{ headerShown: false }} />
+          <Stack.Screen name="notifications" options={{ headerShown: false }} />
+          <Stack.Screen name="rate-order" options={{ headerShown: false, presentation: "modal" }} />
         </Stack>
       </AuthGate>
       <ToastBanner />
@@ -145,18 +109,16 @@ export default function RootLayout() {
               <RatingsProvider>
                 <FavoritesProvider>
                   <AddressProvider>
-                    <CouponsProvider>
-                      <CartProvider>
-                        <OrderProvider>
-                          <GestureHandlerRootView>
-                            <KeyboardProvider>
-                              <OrderNotificationBridge />
-                              <RootLayoutNav />
-                            </KeyboardProvider>
-                          </GestureHandlerRootView>
-                        </OrderProvider>
-                      </CartProvider>
-                    </CouponsProvider>
+                    <OrderProvider>
+                      <ChatProvider>
+                        <GestureHandlerRootView>
+                          <KeyboardProvider>
+                            <OrderNotificationBridge />
+                            <RootLayoutNav />
+                          </KeyboardProvider>
+                        </GestureHandlerRootView>
+                      </ChatProvider>
+                    </OrderProvider>
                   </AddressProvider>
                 </FavoritesProvider>
               </RatingsProvider>

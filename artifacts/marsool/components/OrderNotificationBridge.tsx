@@ -3,18 +3,16 @@ import { useOrders, Order, OrderStatus } from "@/context/OrderContext";
 import { useNotifications } from "@/context/NotificationsContext";
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
-  pending: "في الانتظار",
-  confirmed: "تم تأكيد طلبك",
-  preparing: "يتم تحضير طلبك",
-  on_way: "طلبك في الطريق إليك",
+  searching: "جاري البحث عن مندوب",
+  accepted: "قبل مندوب طلبك!",
+  on_way: "المندوب في الطريق إليك",
   delivered: "تم التوصيل بنجاح",
 };
 
 const STATUS_BODIES: Record<OrderStatus, string> = {
-  pending: "جاري معالجة طلبك...",
-  confirmed: "المطعم تلقى طلبك وبدأ التحضير",
-  preparing: "الشيف يعمل على طلبك بكل اهتمام",
-  on_way: "المندوب في الطريق إليك، استعد لاستقبال طلبك!",
+  searching: "يتم البحث عن أقرب مندوب...",
+  accepted: "تم فتح دردشة مع المندوب لتنسيق التفاصيل",
+  on_way: "استعد لاستقبال طلبك!",
   delivered: "وصل طلبك. بالعافية! لا تنس تقييم تجربتك",
 };
 

@@ -15,25 +15,22 @@ import { useOrders, OrderStatus } from "@/context/OrderContext";
 import { useRatings } from "@/context/RatingsContext";
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
-  pending: "في الانتظار",
-  confirmed: "تم التأكيد",
-  preparing: "قيد التحضير",
+  searching: "يبحث عن مندوب",
+  accepted: "تم القبول",
   on_way: "في الطريق",
   delivered: "تم التوصيل",
 };
 
 const STATUS_COLOR: Record<OrderStatus, string> = {
-  pending: "#888",
-  confirmed: "#2563eb",
-  preparing: "#d97706",
+  searching: "#d97706",
+  accepted: "#2563eb",
   on_way: "#059669",
   delivered: "#16a34a",
 };
 
 const STATUS_ICON: Record<OrderStatus, keyof typeof MaterialIcons.glyphMap> = {
-  pending: "hourglass-empty",
-  confirmed: "check-circle",
-  preparing: "restaurant",
+  searching: "search",
+  accepted: "check-circle",
   on_way: "delivery-dining",
   delivered: "done-all",
 };
@@ -72,9 +69,6 @@ export default function OrdersScreen() {
       minute: "2-digit",
     });
 
-  const formatPrice = (p: number) =>
-    p.toLocaleString("ar-SA", { style: "currency", currency: "SAR", maximumFractionDigits: 0 });
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.card, borderBottomColor: colors.border }]}>
@@ -110,6 +104,7 @@ export default function OrdersScreen() {
             const isActive = order.status !== "delivered";
             return (
               <View key={order.id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                {/* Header row */}
                 <View style={styles.cardHeader}>
                   <Text style={[styles.restaurantName, { color: colors.foreground }]} numberOfLines={1}>
                     {order.restaurantName}
@@ -126,21 +121,27 @@ export default function OrdersScreen() {
 
                 <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-                <Text style={[styles.itemsLabel, { color: colors.mutedForeground }]}>
-                  {order.items.map((i) => `${i.nameAr} ×${i.quantity}`).join("  ·  ")}
+                {/* Order text */}
+                <Text style={[styles.orderText, { color: colors.foreground }]} numberOfLines={2}>
+                  {order.orderText}
                 </Text>
 
-                <View style={styles.footer}>
-                  <Text style={[styles.total, { color: colors.primary }]}>{formatPrice(order.totalPrice)}</Text>
+                {/* Courier info if known */}
+                {order.status !== "searching" && (
+                  <View style={styles.courierRow}>
+                    <MaterialIcons name="delivery-dining" size={14} color={colors.primary} />
+                    <Text style={[styles.courierName, { color: colors.mutedForeground }]}>
+                      {order.courierName}
+                    </Text>
+                  </View>
+                )}
 
+                <View style={styles.footer}>
                   {isActive && (
                     <TouchableOpacity
                       style={[styles.trackBtn, { borderColor: colors.primary }]}
                       onPress={() =>
-                        router.push({
-                          pathname: "/order-tracking/[id]",
-                          params: { id: order.id },
-                        })
+                        router.push({ pathname: "/order-tracking/[id]", params: { id: order.id } })
                       }
                     >
                       <MaterialIcons name="delivery-dining" size={16} color={colors.primary} />
@@ -148,14 +149,23 @@ export default function OrdersScreen() {
                     </TouchableOpacity>
                   )}
 
+                  {isActive && order.status !== "searching" && (
+                    <TouchableOpacity
+                      style={[styles.chatBtn, { backgroundColor: colors.secondary }]}
+                      onPress={() =>
+                        router.push({ pathname: "/chat/[orderId]", params: { orderId: order.id } })
+                      }
+                    >
+                      <MaterialIcons name="chat" size={16} color={colors.primary} />
+                      <Text style={[styles.chatBtnText, { color: colors.primary }]}>دردشة</Text>
+                    </TouchableOpacity>
+                  )}
+
                   {order.status === "delivered" && !rated && (
                     <TouchableOpacity
                       style={[styles.rateBtn, { backgroundColor: colors.primary }]}
                       onPress={() =>
-                        router.push({
-                          pathname: "/rate-order",
-                          params: { orderId: order.id, restaurantName: order.restaurantName },
-                        })
+                        router.push({ pathname: "/rate-order", params: { orderId: order.id, restaurantName: order.restaurantName } })
                       }
                     >
                       <MaterialIcons name="star" size={16} color="#fff" />
@@ -169,7 +179,6 @@ export default function OrdersScreen() {
                       <StarRow stars={rating.restaurantStars} />
                       <MaterialIcons name="delivery-dining" size={13} color={colors.mutedForeground} />
                       <StarRow stars={rating.courierStars} />
-                      <Text style={[styles.ratedLabel, { color: colors.mutedForeground }]}>تم التقييم</Text>
                     </View>
                   )}
                 </View>
@@ -198,48 +207,22 @@ const styles = StyleSheet.create({
   emptyBody: { fontSize: 14, textAlign: "center" },
   browseBtn: { marginTop: 8, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
   browseBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
-  card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    marginBottom: 12,
-    gap: 8,
-  },
+  card: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 12, gap: 8 },
   cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
   restaurantName: { fontSize: 16, fontWeight: "800", flex: 1 },
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
+  statusBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   statusText: { fontSize: 12, fontWeight: "700" },
   date: { fontSize: 12 },
   divider: { height: 1 },
-  itemsLabel: { fontSize: 13, lineHeight: 20 },
-  footer: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 4 },
-  total: { fontSize: 17, fontWeight: "800" },
-  trackBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1.5,
-  },
+  orderText: { fontSize: 13, lineHeight: 20, textAlign: "right" },
+  courierRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  courierName: { fontSize: 12 },
+  footer: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 8, marginTop: 4, flexWrap: "wrap" },
+  trackBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1.5 },
   trackBtnText: { fontSize: 13, fontWeight: "700" },
-  rateBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
+  chatBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
+  chatBtnText: { fontSize: 13, fontWeight: "700" },
+  rateBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
   rateBtnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
   ratedRow: { flexDirection: "row", alignItems: "center", gap: 4, flexWrap: "wrap" },
-  ratedLabel: { fontSize: 12 },
 });
