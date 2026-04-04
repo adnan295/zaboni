@@ -53,9 +53,7 @@ export default function ProfileScreen() {
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
 
-  const displayPhone = user?.phone
-    ? `+966 ${user.phone.slice(0, 2)} ${user.phone.slice(2, 5)} ${user.phone.slice(5)}`
-    : "";
+  const displayPhone = user?.phone ?? "";
 
   const handleSignOut = () => {
     Alert.alert(t("profile.signOutTitle"), t("profile.signOutMessage"), [

@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -17,6 +18,7 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useBackIcon, useForwardIcon } from "@/hooks/useTypography";
 import { useAuth } from "@/context/AuthContext";
+import { getApiBaseUrl } from "@/lib/apiClient";
 
 export default function NameScreen() {
   const colors = useColors();
@@ -25,7 +27,7 @@ export default function NameScreen() {
   const { t } = useTranslation();
   const backIcon = useBackIcon();
   const forwardIcon = useForwardIcon();
-  const { phone } = useLocalSearchParams<{ phone: string }>();
+  const { phone, token, userId } = useLocalSearchParams<{ phone: string; token: string; userId: string }>();
   const { signIn } = useAuth();
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -37,8 +39,28 @@ export default function NameScreen() {
     if (!isValid || loading) return;
     setLoading(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    await signIn({ phone: phone ?? "", name: name.trim() });
-    router.replace("/(tabs)");
+    try {
+      const base = getApiBaseUrl();
+      const trimmedName = name.trim();
+      await fetch(`${base}/api/auth/me`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: trimmedName }),
+      });
+      await signIn(token ?? "", {
+        id: userId ?? "",
+        phone: phone ?? "",
+        name: trimmedName,
+      });
+      router.replace("/(tabs)");
+    } catch {
+      Alert.alert(t("auth.name.errorTitle"), t("auth.name.errorMsg"));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -63,12 +85,8 @@ export default function NameScreen() {
             <MaterialIcons name="person" size={36} color={colors.primary} />
           </View>
 
-          <Text style={[styles.title, { color: colors.foreground }]}>
-            {t("auth.name.title")}
-          </Text>
-          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            {t("auth.name.subtitle")}
-          </Text>
+          <Text style={[styles.title, { color: colors.foreground }]}>{t("auth.name.title")}</Text>
+          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>{t("auth.name.subtitle")}</Text>
 
           <TextInput
             style={[
@@ -91,28 +109,16 @@ export default function NameScreen() {
           />
 
           <TouchableOpacity
-            style={[
-              styles.finishBtn,
-              { backgroundColor: isValid ? colors.primary : colors.muted },
-            ]}
+            style={[styles.finishBtn, { backgroundColor: isValid ? colors.primary : colors.muted }]}
             onPress={handleFinish}
             disabled={!isValid || loading}
             activeOpacity={0.85}
           >
-            <Text
-              style={[
-                styles.finishBtnText,
-                { color: isValid ? "#fff" : colors.mutedForeground },
-              ]}
-            >
+            <Text style={[styles.finishBtnText, { color: isValid ? "#fff" : colors.mutedForeground }]}>
               {loading ? t("auth.name.loading") : t("auth.name.start")}
             </Text>
             {!loading && (
-              <MaterialIcons
-                name={forwardIcon}
-                size={20}
-                color={isValid ? "#fff" : colors.mutedForeground}
-              />
+              <MaterialIcons name={forwardIcon} size={20} color={isValid ? "#fff" : colors.mutedForeground} />
             )}
           </TouchableOpacity>
         </View>
@@ -123,47 +129,13 @@ export default function NameScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  inner: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 32,
-  },
+  inner: { paddingHorizontal: 24, paddingBottom: 40 },
+  backBtn: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", marginBottom: 32 },
   content: { alignItems: "center" },
-  iconBox: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 24,
-  },
+  iconBox: { width: 80, height: 80, borderRadius: 24, alignItems: "center", justifyContent: "center", marginBottom: 24 },
   title: { fontSize: 24, fontWeight: "800", marginBottom: 8 },
   subtitle: { fontSize: 14, marginBottom: 32, textAlign: "center" },
-  input: {
-    width: "100%",
-    height: 56,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    paddingHorizontal: 18,
-    fontSize: 17,
-    fontWeight: "600",
-    marginBottom: 20,
-  },
-  finishBtn: {
-    width: "100%",
-    height: 56,
-    borderRadius: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
+  input: { width: "100%", height: 56, borderRadius: 16, borderWidth: 1.5, paddingHorizontal: 18, fontSize: 17, fontWeight: "600", marginBottom: 20 },
+  finishBtn: { width: "100%", height: 56, borderRadius: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   finishBtnText: { fontSize: 17, fontWeight: "700" },
 });

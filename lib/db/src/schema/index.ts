@@ -4,3 +4,4 @@ export * from "./orders";
 export * from "./addresses";
 export * from "./users";
 export * from "./order_status_history";
+export * from "./otp_codes";

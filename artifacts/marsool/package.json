@@ -58,6 +58,7 @@
   "dependencies": {
     "@expo-google-fonts/tajawal": "^0.4.1",
     "i18next": "^26.0.3",
+    "libphonenumber-js": "^1.12.41",
     "react-i18next": "^17.0.2"
   }
 }
