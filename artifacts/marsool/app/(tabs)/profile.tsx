@@ -137,7 +137,7 @@ export default function ProfileScreen() {
                     <Text style={styles.badgeText}>{item.badge}</Text>
                   </View>
                 )}
-                <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
+                <MaterialIcons name="chevron-right" size={20} color={colors.mutedForeground} />
               </TouchableOpacity>
               {idx < menuItems.length - 1 && (
                 <View style={[styles.divider, { backgroundColor: colors.border }]} />

@@ -78,7 +78,7 @@ export default function PhoneScreen() {
             onChangeText={(t) => setPhone(formatPhone(t))}
             maxLength={11}
             autoFocus
-            textAlign="left"
+            textAlign="right"
           />
         </View>
 
