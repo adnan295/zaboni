@@ -54,16 +54,20 @@ function RestaurantFormDialog({
   onClose,
   initial,
   onSave,
+  saving,
 }: {
   open: boolean;
   onClose: () => void;
   initial: RestaurantForm;
   onSave: (data: RestaurantForm) => void;
+  saving?: boolean;
 }) {
   const [form, setForm] = useState<RestaurantForm>(initial);
 
-  const set = (k: keyof RestaurantForm, v: string | number | boolean | null) =>
-    setForm((f) => ({ ...f, [k]: v }));
+  const set = <K extends keyof RestaurantForm>(
+    k: K,
+    v: RestaurantForm[K],
+  ) => setForm((f) => ({ ...f, [k]: v }));
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -142,7 +146,9 @@ function RestaurantFormDialog({
               type="number"
               min={0}
               value={form.deliveryFee}
-              onChange={(e) => set("deliveryFee", parseFloat(e.target.value) || 0)}
+              onChange={(e) =>
+                set("deliveryFee", parseFloat(e.target.value) || 0)
+              }
             />
           </div>
           <div className="space-y-1">
@@ -151,7 +157,9 @@ function RestaurantFormDialog({
               type="number"
               min={0}
               value={form.minOrder}
-              onChange={(e) => set("minOrder", parseFloat(e.target.value) || 0)}
+              onChange={(e) =>
+                set("minOrder", parseFloat(e.target.value) || 0)
+              }
             />
           </div>
           <div className="space-y-1">
@@ -174,21 +182,10 @@ function RestaurantFormDialog({
             <Label>Tags (comma-separated)</Label>
             <Input
               value={form.tags.join(", ")}
-              onChange={(e) =>
-                set(
-                  "tags",
-                  e.target.value as unknown as string,
-                )
-              }
-              onBlur={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  tags: e.target.value
-                    .split(",")
-                    .map((t) => t.trim())
-                    .filter(Boolean),
-                }))
-              }
+              onChange={(e) => {
+                const raw = e.target.value;
+                set("tags", raw.split(",").map((t) => t.trim()).filter(Boolean));
+              }}
               placeholder="برجر, شاورما, ..."
             />
           </div>
@@ -210,9 +207,9 @@ function RestaurantFormDialog({
           <Button
             className="bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => onSave(form)}
-            disabled={!form.name || !form.nameAr}
+            disabled={!form.name || !form.nameAr || saving}
           >
-            Save
+            {saving ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -249,8 +246,8 @@ function MenuDialog({
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: MenuItemForm }) =>
-      api.updateMenuItem(id, data),
+    mutationFn: ({ item, data }: { item: MenuItem; data: MenuItemForm }) =>
+      api.updateMenuItem(item.restaurantId, item.id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "menu", restaurant.id] });
       setEditItem(null);
@@ -258,22 +255,45 @@ function MenuDialog({
   });
 
   const deleteMutation = useMutation({
-    mutationFn: api.deleteMenuItem,
+    mutationFn: (item: MenuItem) =>
+      api.deleteMenuItem(item.restaurantId, item.id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "menu", restaurant.id] });
       qc.invalidateQueries({ queryKey: ["admin", "stats"] });
     },
   });
 
-  const set = (k: keyof MenuItemForm, v: string | number | boolean) =>
-    setForm((f) => ({ ...f, [k]: v }));
+  const activeForm = editItem
+    ? {
+        name: editItem.name,
+        nameAr: editItem.nameAr,
+        description: editItem.description,
+        descriptionAr: editItem.descriptionAr,
+        price: editItem.price,
+        image: editItem.image,
+        category: editItem.category,
+        categoryAr: editItem.categoryAr,
+        isPopular: editItem.isPopular,
+      }
+    : form;
+
+  const setActiveForm = (updater: (f: MenuItemForm) => MenuItemForm) => {
+    if (editItem) setEditItem((i) => i && { ...i, ...updater(i) });
+    else setForm(updater);
+  };
+
+  const setField = <K extends keyof MenuItemForm>(k: K, v: MenuItemForm[K]) =>
+    setActiveForm((f) => ({ ...f, [k]: v }));
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            Menu — <span dir="rtl">{restaurant.nameAr}</span>
+            Menu —{" "}
+            <span dir="rtl" className="font-bold">
+              {restaurant.nameAr}
+            </span>
           </DialogTitle>
         </DialogHeader>
 
@@ -296,43 +316,31 @@ function MenuDialog({
               <div className="space-y-1">
                 <Label>Name (EN)</Label>
                 <Input
-                  value={editItem ? editItem.name : form.name}
-                  onChange={(e) => {
-                    if (editItem) setEditItem({ ...editItem, name: e.target.value });
-                    else set("name", e.target.value);
-                  }}
+                  value={activeForm.name}
+                  onChange={(e) => setField("name", e.target.value)}
                 />
               </div>
               <div className="space-y-1">
                 <Label>Name (AR)</Label>
                 <Input
                   dir="rtl"
-                  value={editItem ? editItem.nameAr : form.nameAr}
-                  onChange={(e) => {
-                    if (editItem) setEditItem({ ...editItem, nameAr: e.target.value });
-                    else set("nameAr", e.target.value);
-                  }}
+                  value={activeForm.nameAr}
+                  onChange={(e) => setField("nameAr", e.target.value)}
                 />
               </div>
               <div className="space-y-1">
                 <Label>Category (EN)</Label>
                 <Input
-                  value={editItem ? editItem.category : form.category}
-                  onChange={(e) => {
-                    if (editItem) setEditItem({ ...editItem, category: e.target.value });
-                    else set("category", e.target.value);
-                  }}
+                  value={activeForm.category}
+                  onChange={(e) => setField("category", e.target.value)}
                 />
               </div>
               <div className="space-y-1">
                 <Label>Category (AR)</Label>
                 <Input
                   dir="rtl"
-                  value={editItem ? editItem.categoryAr : form.categoryAr}
-                  onChange={(e) => {
-                    if (editItem) setEditItem({ ...editItem, categoryAr: e.target.value });
-                    else set("categoryAr", e.target.value);
-                  }}
+                  value={activeForm.categoryAr}
+                  onChange={(e) => setField("categoryAr", e.target.value)}
                 />
               </div>
               <div className="space-y-1">
@@ -340,33 +348,26 @@ function MenuDialog({
                 <Input
                   type="number"
                   min={0}
-                  value={editItem ? editItem.price : form.price}
-                  onChange={(e) => {
-                    const v = parseFloat(e.target.value) || 0;
-                    if (editItem) setEditItem({ ...editItem, price: v });
-                    else set("price", v);
-                  }}
+                  value={activeForm.price}
+                  onChange={(e) =>
+                    setField("price", parseFloat(e.target.value) || 0)
+                  }
                 />
               </div>
-              <div className="space-y-1 col-span-1">
+              <div className="space-y-1">
                 <Label>Image URL</Label>
                 <Input
-                  value={editItem ? editItem.image : form.image}
-                  onChange={(e) => {
-                    if (editItem) setEditItem({ ...editItem, image: e.target.value });
-                    else set("image", e.target.value);
-                  }}
+                  value={activeForm.image}
+                  onChange={(e) => setField("image", e.target.value)}
+                  placeholder="https://..."
                 />
               </div>
               <div className="col-span-2 flex items-center gap-2">
                 <input
                   type="checkbox"
                   id="isPopular"
-                  checked={editItem ? editItem.isPopular : form.isPopular}
-                  onChange={(e) => {
-                    if (editItem) setEditItem({ ...editItem, isPopular: e.target.checked });
-                    else set("isPopular", e.target.checked);
-                  }}
+                  checked={activeForm.isPopular}
+                  onChange={(e) => setField("isPopular", e.target.checked)}
                   className="w-4 h-4 accent-primary"
                 />
                 <Label htmlFor="isPopular">Popular item</Label>
@@ -378,25 +379,17 @@ function MenuDialog({
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
                 onClick={() => {
                   if (editItem) {
-                    updateMutation.mutate({
-                      id: editItem.id,
-                      data: {
-                        name: editItem.name,
-                        nameAr: editItem.nameAr,
-                        description: editItem.description,
-                        descriptionAr: editItem.descriptionAr,
-                        price: editItem.price,
-                        image: editItem.image,
-                        category: editItem.category,
-                        categoryAr: editItem.categoryAr,
-                        isPopular: editItem.isPopular,
-                      },
-                    });
+                    updateMutation.mutate({ item: editItem, data: activeForm });
                   } else {
                     createMutation.mutate(form);
                   }
                 }}
-                disabled={createMutation.isPending || updateMutation.isPending}
+                disabled={
+                  createMutation.isPending ||
+                  updateMutation.isPending ||
+                  !activeForm.name ||
+                  !activeForm.nameAr
+                }
               >
                 {editItem ? "Update" : "Create"}
               </Button>
@@ -418,7 +411,9 @@ function MenuDialog({
         {isLoading ? (
           <p className="text-muted-foreground text-sm py-4">Loading menu...</p>
         ) : items.length === 0 ? (
-          <p className="text-muted-foreground text-sm py-4">No menu items yet.</p>
+          <p className="text-muted-foreground text-sm py-4">
+            No menu items yet.
+          </p>
         ) : (
           <div className="space-y-2 mt-2">
             {items.map((item) => (
@@ -435,16 +430,19 @@ function MenuDialog({
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{item.name}</p>
-                  <p className="text-xs text-muted-foreground" dir="rtl">
+                  <p
+                    className="text-xs text-muted-foreground"
+                    dir="rtl"
+                  >
                     {item.nameAr} · {item.price.toLocaleString("ar-SY")} ل.س
                   </p>
                 </div>
                 {item.isPopular && (
-                  <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">
+                  <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full flex-shrink-0">
                     Popular
                   </span>
                 )}
-                <div className="flex gap-1">
+                <div className="flex gap-1 flex-shrink-0">
                   <Button
                     size="sm"
                     variant="outline"
@@ -462,7 +460,7 @@ function MenuDialog({
                     className="h-7 px-2 text-xs text-destructive hover:text-destructive"
                     onClick={() => {
                       if (confirm(`Delete "${item.name}"?`))
-                        deleteMutation.mutate(item.id);
+                        deleteMutation.mutate(item);
                     }}
                   >
                     Delete
@@ -560,7 +558,10 @@ export default function Restaurants() {
             </thead>
             <tbody className="divide-y">
               {filtered.map((r) => (
-                <tr key={r.id} className="hover:bg-muted/30 transition-colors">
+                <tr
+                  key={r.id}
+                  className="hover:bg-muted/30 transition-colors"
+                >
                   <td className="px-4 py-3">
                     <p className="font-medium">{r.name}</p>
                     <p className="text-xs text-muted-foreground" dir="rtl">
@@ -640,6 +641,7 @@ export default function Restaurants() {
           onClose={() => setShowForm(false)}
           initial={emptyRestaurant}
           onSave={(data) => createMutation.mutate(data)}
+          saving={createMutation.isPending}
         />
       )}
 
@@ -651,6 +653,7 @@ export default function Restaurants() {
           onSave={(data) =>
             updateMutation.mutate({ id: editRestaurant.id, data })
           }
+          saving={updateMutation.isPending}
         />
       )}
 

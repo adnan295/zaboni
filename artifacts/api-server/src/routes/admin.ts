@@ -6,19 +6,25 @@ import {
   ordersTable,
   usersTable,
 } from "@workspace/db";
-import { eq, count, desc } from "drizzle-orm";
+import { eq, count, desc, gte, getTableColumns, and } from "drizzle-orm";
 import { z } from "zod";
 
 const router = Router();
 
-const ADMIN_SECRET =
-  process.env["ADMIN_SECRET"] ?? "marsool-admin-dev";
+const ADMIN_SECRET = process.env["ADMIN_SECRET"];
 
 function requireAdmin(
   req: Parameters<Parameters<typeof router.use>[0]>[0],
   res: Parameters<Parameters<typeof router.use>[0]>[1],
   next: Parameters<Parameters<typeof router.use>[0]>[2],
 ) {
+  if (!ADMIN_SECRET) {
+    res.status(503).json({
+      error:
+        "Admin panel is not configured. Set the ADMIN_SECRET environment variable.",
+    });
+    return;
+  }
   const authHeader = req.headers["authorization"] as string | undefined;
   const token =
     authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
@@ -32,18 +38,24 @@ function requireAdmin(
 router.use("/admin", requireAdmin);
 
 router.get("/admin/stats", async (_req, res) => {
-  const [restaurantRow] = await db
-    .select({ count: count() })
-    .from(restaurantsTable);
-  const [orderRow] = await db
-    .select({ count: count() })
-    .from(ordersTable);
-  const [userRow] = await db
-    .select({ count: count() })
-    .from(usersTable);
-  const [menuRow] = await db
-    .select({ count: count() })
-    .from(menuItemsTable);
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const [[restaurantRow], [orderRow], [userRow], [menuRow], [todayOrderRow], [courierRow]] =
+    await Promise.all([
+      db.select({ count: count() }).from(restaurantsTable),
+      db.select({ count: count() }).from(ordersTable),
+      db.select({ count: count() }).from(usersTable),
+      db.select({ count: count() }).from(menuItemsTable),
+      db
+        .select({ count: count() })
+        .from(ordersTable)
+        .where(gte(ordersTable.createdAt, todayStart)),
+      db
+        .select({ count: count() })
+        .from(usersTable)
+        .where(eq(usersTable.role, "courier")),
+    ]);
 
   const ordersByStatus = await db
     .select({ status: ordersTable.status, count: count() })
@@ -51,15 +63,21 @@ router.get("/admin/stats", async (_req, res) => {
     .groupBy(ordersTable.status);
 
   const recentOrders = await db
-    .select()
+    .select({
+      ...getTableColumns(ordersTable),
+      customerName: usersTable.name,
+    })
     .from(ordersTable)
+    .leftJoin(usersTable, eq(ordersTable.userId, usersTable.id))
     .orderBy(desc(ordersTable.createdAt))
     .limit(5);
 
   res.json({
     restaurants: restaurantRow?.count ?? 0,
     orders: orderRow?.count ?? 0,
+    todayOrders: todayOrderRow?.count ?? 0,
     users: userRow?.count ?? 0,
+    couriers: courierRow?.count ?? 0,
     menuItems: menuRow?.count ?? 0,
     ordersByStatus,
     recentOrders,
@@ -165,8 +183,9 @@ router.post("/admin/restaurants/:id/menu", async (req, res) => {
   res.status(201).json(row);
 });
 
-router.put("/admin/menu/:id", async (req, res) => {
-  const id = String(req.params["id"]);
+router.put("/admin/restaurants/:restaurantId/menu/:itemId", async (req, res) => {
+  const itemId = String(req.params["itemId"]);
+  const restaurantId = String(req.params["restaurantId"]);
   const parsed = menuItemBody.partial().safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -175,7 +194,12 @@ router.put("/admin/menu/:id", async (req, res) => {
   const [row] = await db
     .update(menuItemsTable)
     .set(parsed.data)
-    .where(eq(menuItemsTable.id, id))
+    .where(
+      and(
+        eq(menuItemsTable.id, itemId),
+        eq(menuItemsTable.restaurantId, restaurantId),
+      ),
+    )
     .returning();
   if (!row) {
     res.status(404).json({ error: "Not found" });
@@ -184,19 +208,47 @@ router.put("/admin/menu/:id", async (req, res) => {
   res.json(row);
 });
 
-router.delete("/admin/menu/:id", async (req, res) => {
-  const id = String(req.params["id"]);
-  await db.delete(menuItemsTable).where(eq(menuItemsTable.id, id));
+router.delete("/admin/restaurants/:restaurantId/menu/:itemId", async (req, res) => {
+  const itemId = String(req.params["itemId"]);
+  await db.delete(menuItemsTable).where(eq(menuItemsTable.id, itemId));
   res.status(204).end();
 });
 
-router.get("/admin/orders", async (_req, res) => {
-  const rows = await db
-    .select()
-    .from(ordersTable)
-    .orderBy(desc(ordersTable.createdAt))
-    .limit(500);
-  res.json(rows);
+const paginationSchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(200).default(50),
+});
+
+router.get("/admin/orders", async (req, res) => {
+  const parsed = paginationSchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid pagination params" });
+    return;
+  }
+  const { page, limit } = parsed.data;
+  const offset = (page - 1) * limit;
+
+  const [[totalRow], rows] = await Promise.all([
+    db.select({ count: count() }).from(ordersTable),
+    db
+      .select({
+        ...getTableColumns(ordersTable),
+        customerName: usersTable.name,
+        customerPhone: usersTable.phone,
+      })
+      .from(ordersTable)
+      .leftJoin(usersTable, eq(ordersTable.userId, usersTable.id))
+      .orderBy(desc(ordersTable.createdAt))
+      .offset(offset)
+      .limit(limit),
+  ]);
+
+  res.json({
+    data: rows,
+    total: totalRow?.count ?? 0,
+    page,
+    limit,
+  });
 });
 
 router.get("/admin/users", async (_req, res) => {
