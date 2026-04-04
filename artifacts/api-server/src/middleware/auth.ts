@@ -1,6 +1,14 @@
 import { type Request, type Response, type NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
+const DEV_JWT_SECRET = "marsool-dev-secret-change-in-production-please";
+
+function getJwtSecret(): string | null {
+  const secret = process.env["JWT_SECRET"];
+  if (!secret && process.env["NODE_ENV"] !== "production") return DEV_JWT_SECRET;
+  return secret ?? null;
+}
+
 export interface AuthPayload {
   userId: string;
   phone: string;
@@ -23,7 +31,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   }
 
   const token = authHeader.slice(7);
-  const secret = process.env["JWT_SECRET"];
+  const secret = getJwtSecret();
 
   if (!secret) {
     res.status(500).json({ error: "JWT_SECRET not configured" });
@@ -47,7 +55,7 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction): 
   }
 
   const token = authHeader.slice(7);
-  const secret = process.env["JWT_SECRET"];
+  const secret = getJwtSecret();
 
   if (!secret) {
     next();

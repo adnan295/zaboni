@@ -12,7 +12,7 @@ const upsertAddressSchema = z.object({
 });
 
 function getUserId(req: import("express").Request): string {
-  return req.auth?.userId ?? (req.query["userId"] as string) ?? "guest";
+  return req.auth!.userId;
 }
 
 router.get("/addresses", async (req, res) => {

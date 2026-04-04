@@ -19,30 +19,31 @@ import { useTranslation } from "react-i18next";
 import { useForwardIcon } from "@/hooks/useTypography";
 import { useColors } from "@/hooks/useColors";
 import { getApiBaseUrl } from "@/lib/apiClient";
+import { isValidPhoneNumber } from "libphonenumber-js";
 
 const COUNTRY_CODES = [
-  { flag: "🇸🇦", code: "+966", country: "SA", minLen: 9 },
-  { flag: "🇦🇪", code: "+971", country: "AE", minLen: 9 },
-  { flag: "🇪🇬", code: "+20",  country: "EG", minLen: 10 },
-  { flag: "🇯🇴", code: "+962", country: "JO", minLen: 9 },
-  { flag: "🇰🇼", code: "+965", country: "KW", minLen: 8 },
-  { flag: "🇶🇦", code: "+974", country: "QA", minLen: 8 },
-  { flag: "🇧🇭", code: "+973", country: "BH", minLen: 8 },
-  { flag: "🇴🇲", code: "+968", country: "OM", minLen: 8 },
-  { flag: "🇺🇸", code: "+1",   country: "US", minLen: 10 },
-  { flag: "🇬🇧", code: "+44",  country: "GB", minLen: 10 },
-  { flag: "🇩🇪", code: "+49",  country: "DE", minLen: 10 },
-  { flag: "🇫🇷", code: "+33",  country: "FR", minLen: 9 },
-  { flag: "🇹🇷", code: "+90",  country: "TR", minLen: 10 },
-  { flag: "🇮🇳", code: "+91",  country: "IN", minLen: 10 },
-  { flag: "🇵🇰", code: "+92",  country: "PK", minLen: 10 },
+  { flag: "🇸🇦", code: "+966", country: "SA", nameAr: "السعودية",   nameEn: "Saudi Arabia" },
+  { flag: "🇦🇪", code: "+971", country: "AE", nameAr: "الإمارات",   nameEn: "UAE" },
+  { flag: "🇪🇬", code: "+20",  country: "EG", nameAr: "مصر",        nameEn: "Egypt" },
+  { flag: "🇯🇴", code: "+962", country: "JO", nameAr: "الأردن",     nameEn: "Jordan" },
+  { flag: "🇰🇼", code: "+965", country: "KW", nameAr: "الكويت",     nameEn: "Kuwait" },
+  { flag: "🇶🇦", code: "+974", country: "QA", nameAr: "قطر",        nameEn: "Qatar" },
+  { flag: "🇧🇭", code: "+973", country: "BH", nameAr: "البحرين",    nameEn: "Bahrain" },
+  { flag: "🇴🇲", code: "+968", country: "OM", nameAr: "عُمان",      nameEn: "Oman" },
+  { flag: "🇺🇸", code: "+1",   country: "US", nameAr: "أمريكا",     nameEn: "USA" },
+  { flag: "🇬🇧", code: "+44",  country: "GB", nameAr: "بريطانيا",   nameEn: "UK" },
+  { flag: "🇩🇪", code: "+49",  country: "DE", nameAr: "ألمانيا",    nameEn: "Germany" },
+  { flag: "🇫🇷", code: "+33",  country: "FR", nameAr: "فرنسا",      nameEn: "France" },
+  { flag: "🇹🇷", code: "+90",  country: "TR", nameAr: "تركيا",      nameEn: "Turkey" },
+  { flag: "🇮🇳", code: "+91",  country: "IN", nameAr: "الهند",      nameEn: "India" },
+  { flag: "🇵🇰", code: "+92",  country: "PK", nameAr: "باكستان",    nameEn: "Pakistan" },
 ];
 
 export default function PhoneScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const forwardIcon = useForwardIcon();
   const [phone, setPhone] = useState("");
   const [selectedCountry, setSelectedCountry] = useState(COUNTRY_CODES[0]);
@@ -51,8 +52,10 @@ export default function PhoneScreen() {
   const inputRef = useRef<TextInput>(null);
 
   const digits = phone.replace(/\D/g, "");
-  const isValid = digits.length >= selectedCountry.minLen;
   const fullPhone = `${selectedCountry.code}${digits}`;
+  const isValid = digits.length > 0 && (() => {
+    try { return isValidPhoneNumber(fullPhone); } catch { return false; }
+  })();
 
   const handleContinue = async () => {
     if (!isValid || loading) return;
@@ -136,7 +139,9 @@ export default function PhoneScreen() {
                 >
                   <Text style={styles.prefixFlag}>{c.flag}</Text>
                   <Text style={[styles.pickerCode, { color: colors.mutedForeground }]}>{c.code}</Text>
-                  <Text style={[styles.pickerCountry, { color: colors.foreground }]}>{c.country}</Text>
+                  <Text style={[styles.pickerCountry, { color: colors.foreground }]}>
+                    {i18n.language === "ar" ? c.nameAr : c.nameEn}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
