@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -6,12 +6,17 @@ import {
   ScrollView,
   TouchableOpacity,
   Platform,
+  Animated,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useOrders, OrderStatus } from "@/context/OrderContext";
+import { useRatings } from "@/context/RatingsContext";
+
+const USE_NATIVE_DRIVER = Platform.OS !== "web";
 
 const STATUS_STEPS: { status: OrderStatus; label: string; icon: keyof typeof MaterialIcons.glyphMap }[] = [
   { status: "pending", label: "تم استلام الطلب", icon: "receipt" },
@@ -27,16 +32,54 @@ export default function OrderTrackingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { getOrder } = useOrders();
+  const { hasRated } = useRatings();
   const [, forceUpdate] = useState(0);
+  const prevStatus = useRef<OrderStatus | null>(null);
+  const deliveredHapticFired = useRef(false);
+  const ratePromptShown = useRef(false);
+  const celebrateScale = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const interval = setInterval(() => forceUpdate((n) => n + 1), 2000);
+    const interval = setInterval(() => forceUpdate((n) => n + 1), 1000);
     return () => clearInterval(interval);
   }, []);
 
   const order = getOrder(id ?? "");
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
+
+  useEffect(() => {
+    if (!order) return;
+    const current = order.status;
+    if (prevStatus.current !== current) {
+      if (prevStatus.current !== null) {
+        if (current === "delivered") {
+          if (!deliveredHapticFired.current) {
+            deliveredHapticFired.current = true;
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Animated.spring(celebrateScale, {
+              toValue: 1,
+              tension: 60,
+              friction: 8,
+              useNativeDriver: USE_NATIVE_DRIVER,
+            }).start();
+          }
+          if (!ratePromptShown.current && !hasRated(order.id)) {
+            ratePromptShown.current = true;
+            setTimeout(() => {
+              router.push({
+                pathname: "/rate-order",
+                params: { orderId: order.id, restaurantName: order.restaurantName },
+              });
+            }, 2000);
+          }
+        } else {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+      }
+      prevStatus.current = current;
+    }
+  }, [order?.status, order?.id, order?.restaurantName, hasRated, router, celebrateScale]);
 
   if (!order) {
     return (
@@ -48,10 +91,10 @@ export default function OrderTrackingScreen() {
 
   const currentStepIdx = STATUS_STEPS.findIndex((s) => s.status === order.status);
   const isDelivered = order.status === "delivered";
+  const rated = hasRated(order.id);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
       <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.primary }]}>
         <TouchableOpacity
           style={styles.backBtn}
@@ -64,13 +107,15 @@ export default function OrderTrackingScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: bottomPadding + 20 }}>
-        {/* ETA Card */}
+        {/* ETA / Delivered Card */}
         <View style={[styles.etaCard, { backgroundColor: colors.primary }]}>
           {isDelivered ? (
             <>
-              <MaterialIcons name="check-circle" size={48} color="#fff" />
+              <Animated.View style={{ transform: [{ scale: celebrateScale }] }}>
+                <MaterialIcons name="check-circle" size={56} color="#fff" />
+              </Animated.View>
               <Text style={styles.etaTitle}>تم التوصيل!</Text>
-              <Text style={styles.etaSubtitle}>نتمنى أن يعجبك الطلب</Text>
+              <Text style={styles.etaSubtitle}>نتمنى أن يعجبك الطلب، بالعافية</Text>
             </>
           ) : (
             <>
@@ -93,9 +138,7 @@ export default function OrderTrackingScreen() {
                   <View
                     style={[
                       styles.stepIcon,
-                      {
-                        backgroundColor: isDone ? colors.primary : colors.muted,
-                      },
+                      { backgroundColor: isDone ? colors.primary : colors.muted },
                     ]}
                   >
                     <MaterialIcons
@@ -165,12 +208,30 @@ export default function OrderTrackingScreen() {
         </View>
 
         {isDelivered && (
-          <TouchableOpacity
-            style={[styles.reorderBtn, { backgroundColor: colors.primary }]}
-            onPress={() => router.replace("/(tabs)")}
-          >
-            <Text style={styles.reorderText}>اطلب مجدداً</Text>
-          </TouchableOpacity>
+          <View style={styles.deliveredActions}>
+            {!rated && (
+              <TouchableOpacity
+                style={[styles.rateBtn, { backgroundColor: colors.primary }]}
+                onPress={() =>
+                  router.push({
+                    pathname: "/rate-order",
+                    params: { orderId: order.id, restaurantName: order.restaurantName },
+                  })
+                }
+              >
+                <MaterialIcons name="star" size={20} color="#fff" />
+                <Text style={styles.rateBtnText}>قيّم تجربتك</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={[styles.reorderBtn, { backgroundColor: rated ? colors.primary : colors.secondary }]}
+              onPress={() => router.replace("/(tabs)")}
+            >
+              <Text style={[styles.reorderText, { color: rated ? "#fff" : colors.primary }]}>
+                اطلب مجدداً
+              </Text>
+            </TouchableOpacity>
+          </View>
         )}
       </ScrollView>
     </View>
@@ -232,11 +293,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   stepLabel: { fontSize: 14 },
-  activeDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
+  activeDot: { width: 8, height: 8, borderRadius: 4 },
   summaryCard: {
     marginHorizontal: 16,
     marginBottom: 12,
@@ -274,12 +331,24 @@ const styles = StyleSheet.create({
   addrInfo: { flex: 1, gap: 3 },
   addrLabel: { fontSize: 12 },
   addrText: { fontSize: 14, fontWeight: "500" },
-  reorderBtn: {
+  deliveredActions: {
     marginHorizontal: 16,
     marginTop: 8,
+    gap: 12,
+  },
+  rateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 16,
+    paddingVertical: 16,
+  },
+  rateBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  reorderBtn: {
     borderRadius: 16,
     paddingVertical: 16,
     alignItems: "center",
   },
-  reorderText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  reorderText: { fontSize: 16, fontWeight: "700" },
 });

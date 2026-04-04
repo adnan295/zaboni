@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const STORAGE_KEY = "@marsool_notifications";
@@ -15,9 +15,18 @@ export interface AppNotification {
   orderId?: string;
 }
 
+export interface ToastPayload {
+  id: string;
+  type: NotifType;
+  title: string;
+  body: string;
+}
+
 interface NotificationsContextValue {
   notifications: AppNotification[];
   unreadCount: number;
+  toast: ToastPayload | null;
+  dismissToast: () => void;
   addNotification: (n: Omit<AppNotification, "id" | "read" | "createdAt">) => void;
   markRead: (id: string) => void;
   markAllRead: () => void;
@@ -28,6 +37,8 @@ const NotificationsContext = createContext<NotificationsContextValue | null>(nul
 
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [toast, setToast] = useState<ToastPayload | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
@@ -38,7 +49,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
           {
             id: "welcome-1",
             type: "promo",
-            title: "مرحباً بك في مرسول! 🎉",
+            title: "مرحباً بك في مرسول!",
             body: "استخدم كود WELCOME للحصول على خصم 25% على أول طلب",
             read: false,
             createdAt: Date.now(),
@@ -56,13 +67,34 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(welcome));
       }
     });
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
+  }, []);
+
+  const dismissToast = useCallback(() => {
+    setToast(null);
+    if (toastTimer.current) {
+      clearTimeout(toastTimer.current);
+      toastTimer.current = null;
+    }
+  }, []);
+
+  const showToast = useCallback((payload: ToastPayload) => {
+    setToast(payload);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => {
+      setToast(null);
+      toastTimer.current = null;
+    }, 3500);
   }, []);
 
   const addNotification = useCallback(
     (n: Omit<AppNotification, "id" | "read" | "createdAt">) => {
+      const id = Date.now().toString() + Math.random().toString(36).substr(2, 6);
       const entry: AppNotification = {
         ...n,
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 6),
+        id,
         read: false,
         createdAt: Date.now(),
       };
@@ -71,8 +103,9 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
         return next;
       });
+      showToast({ id, type: n.type, title: n.title, body: n.body });
     },
-    []
+    [showToast]
   );
 
   const markRead = useCallback((id: string) => {
@@ -99,7 +132,9 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
-    <NotificationsContext.Provider value={{ notifications, unreadCount, addNotification, markRead, markAllRead, clearAll }}>
+    <NotificationsContext.Provider
+      value={{ notifications, unreadCount, toast, dismissToast, addNotification, markRead, markAllRead, clearAll }}
+    >
       {children}
     </NotificationsContext.Provider>
   );

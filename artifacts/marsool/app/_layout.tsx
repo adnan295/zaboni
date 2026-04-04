@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
-import { View, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -23,6 +23,7 @@ import { CouponsProvider } from "@/context/CouponsContext";
 import { RatingsProvider } from "@/context/RatingsContext";
 import { NotificationsProvider } from "@/context/NotificationsContext";
 import OrderNotificationBridge from "@/components/OrderNotificationBridge";
+import ToastBanner from "@/components/ToastBanner";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -56,8 +57,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
 function RootLayoutNav() {
   return (
-    <AuthGate>
-      <Stack screenOptions={{ headerShown: false }}>
+    <View style={layoutStyles.root}>
+      <AuthGate>
+        <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
           name="auth/phone"
@@ -107,10 +109,16 @@ function RootLayoutNav() {
           name="rate-order"
           options={{ headerShown: false, presentation: "modal" }}
         />
-      </Stack>
-    </AuthGate>
+        </Stack>
+      </AuthGate>
+      <ToastBanner />
+    </View>
   );
 }
+
+const layoutStyles = StyleSheet.create({
+  root: { flex: 1 },
+});
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
