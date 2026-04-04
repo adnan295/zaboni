@@ -131,7 +131,6 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
           orderText,
           restaurantName,
           address,
-          userId: "guest",
         });
         newOrder = apiOrderToLocal(result);
       } catch {
