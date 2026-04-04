@@ -42,7 +42,7 @@ export default function NameScreen() {
     try {
       const base = getApiBaseUrl();
       const trimmedName = name.trim();
-      await fetch(`${base}/api/auth/me`, {
+      const res = await fetch(`${base}/api/auth/me`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -50,6 +50,11 @@ export default function NameScreen() {
         },
         body: JSON.stringify({ name: trimmedName }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        Alert.alert(t("auth.name.errorTitle"), (err as { error?: string }).error ?? t("auth.name.errorMsg"));
+        return;
+      }
       await signIn(token ?? "", {
         id: userId ?? "",
         phone: phone ?? "",

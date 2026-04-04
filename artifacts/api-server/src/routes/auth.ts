@@ -194,12 +194,11 @@ router.patch("/auth/me", async (req, res) => {
   }
 
   const token = authHeader.slice(7);
-  const secret = process.env["JWT_SECRET"];
-  if (!secret) { res.status(500).json({ error: "JWT_SECRET not configured" }); return; }
+  const secret = getJwtSecret();
 
   let userId: string;
   try {
-    const payload = (await import("jsonwebtoken")).default.verify(token, secret) as { userId: string };
+    const payload = jwt.verify(token, secret) as { userId: string };
     userId = payload.userId;
   } catch {
     res.status(401).json({ error: "Invalid or expired token" });
