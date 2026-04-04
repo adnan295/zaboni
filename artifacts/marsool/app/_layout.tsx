@@ -16,7 +16,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
-import { View, ActivityIndicator, StyleSheet, Text, I18nManager } from "react-native";
+import { View, ActivityIndicator, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -31,10 +31,6 @@ import { NotificationsProvider } from "@/context/NotificationsContext";
 import { LanguageProvider } from "@/context/LanguageContext";
 import OrderNotificationBridge from "@/components/OrderNotificationBridge";
 import ToastBanner from "@/components/ToastBanner";
-
-const _defaultFont = I18nManager.isRTL ? "Tajawal_400Regular" : "Inter_400Regular";
-if (!(Text as any).defaultProps) (Text as any).defaultProps = {};
-(Text as any).defaultProps.style = { fontFamily: _defaultFont };
 
 SplashScreen.preventAutoHideAsync();
 
