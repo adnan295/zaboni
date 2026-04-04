@@ -39,7 +39,12 @@ export default function ProfileScreen() {
 
   const avgRating =
     ratings.length > 0
-      ? (ratings.reduce((sum, r) => sum + r.stars, 0) / ratings.length).toFixed(1)
+      ? (
+          ratings.reduce(
+            (sum, r) => sum + (r.restaurantStars + r.courierStars) / 2,
+            0
+          ) / ratings.length
+        ).toFixed(1)
       : "—";
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
