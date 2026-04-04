@@ -48,12 +48,12 @@ export default function ToastBanner() {
   useEffect(() => {
     if (toast && toast.id !== currentToastId.current) {
       currentToastId.current = toast.id;
-      if (toast.type !== "order_status") {
-        Haptics.notificationAsync(
-          toast.type === "rating_request"
-            ? Haptics.NotificationFeedbackType.Success
-            : Haptics.NotificationFeedbackType.Warning
-        );
+      if (toast.type === "rating_request") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else if (toast.type === "order_status") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       }
       Animated.parallel([
         Animated.spring(slideY, {
