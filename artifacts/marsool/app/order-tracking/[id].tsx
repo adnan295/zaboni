@@ -12,13 +12,25 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
+import * as Location from "expo-location";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import { useOrders, OrderStatus } from "@/context/OrderContext";
 import { useRatings } from "@/context/RatingsContext";
+import { DeliveryMap } from "@/components/DeliveryMap";
+import {
+  Coords,
+  RIYADH_CENTER,
+  simulateCourierStart,
+  interpolateCoords,
+  haversineDistance,
+  estimateEtaMinutes,
+} from "@/utils/geo";
 
 const USE_NATIVE_DRIVER = Platform.OS !== "web";
+const SIMULATION_DURATION_MS = 7 * 60 * 1000;
+const SIMULATION_STEP_MS = 3000;
 
 export default function OrderTrackingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -43,10 +55,66 @@ export default function OrderTrackingScreen() {
   const initialAccepted = initialOrder?.status === "accepted" || initialOrder?.status === "on_way" || initialOrder?.status === "delivered";
   const acceptedScale = useRef(new Animated.Value(initialAccepted ? 1 : 0)).current;
 
+  const [userCoords, setUserCoords] = useState<Coords | null>(null);
+  const [courierCoords, setCourierCoords] = useState<Coords | null>(null);
+  const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
+  const simulationRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const simulationStartRef = useRef<number>(0);
+  const courierStartRef = useRef<Coords | null>(null);
+
   useEffect(() => {
     const interval = setInterval(() => forceUpdate((n) => n + 1), 800);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === "granted") {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          setUserCoords({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+        } else {
+          setUserCoords(RIYADH_CENTER);
+        }
+      } catch {
+        setUserCoords(RIYADH_CENTER);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!userCoords) return;
+    const order = getOrder(id ?? "");
+    if (!order || order.status === "searching" || order.status === "delivered") return;
+
+    if (!courierStartRef.current) {
+      courierStartRef.current = simulateCourierStart(userCoords, order.status === "on_way" ? 1.2 : 2);
+    }
+    simulationStartRef.current = Date.now();
+
+    if (simulationRef.current) clearInterval(simulationRef.current);
+
+    simulationRef.current = setInterval(() => {
+      const elapsed = Date.now() - simulationStartRef.current;
+      const t = Math.min(1, elapsed / SIMULATION_DURATION_MS);
+      const currentCourier = interpolateCoords(courierStartRef.current!, userCoords, t);
+      setCourierCoords(currentCourier);
+      const dist = haversineDistance(currentCourier, userCoords);
+      setEtaMinutes(estimateEtaMinutes(dist));
+      if (t >= 1 && simulationRef.current) {
+        clearInterval(simulationRef.current);
+        simulationRef.current = null;
+      }
+    }, SIMULATION_STEP_MS);
+
+    return () => {
+      if (simulationRef.current) {
+        clearInterval(simulationRef.current);
+        simulationRef.current = null;
+      }
+    };
+  }, [userCoords, id]);
 
   useEffect(() => {
     const spin = Animated.loop(
@@ -144,6 +212,7 @@ export default function OrderTrackingScreen() {
   const isAccepted = order.status === "accepted";
   const isSearching = order.status === "searching";
   const rated = hasRated(order.id);
+  const showMap = !isSearching && !isDelivered;
 
   const getStatusTitle = () => {
     if (isSearching) return t("orderTracking.status.searching");
@@ -167,6 +236,31 @@ export default function OrderTrackingScreen() {
         <Text style={styles.headerTitle}>{getStatusTitle()}</Text>
         <View style={{ width: 40 }} />
       </View>
+
+      {showMap && (
+        <View style={styles.mapSection}>
+          <DeliveryMap
+            userCoords={userCoords}
+            courierCoords={courierCoords}
+            isSearching={isSearching}
+            etaMinutes={etaMinutes}
+            height={220}
+          />
+          {etaMinutes && !isDelivered && (
+            <View style={[styles.etaBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+              <MaterialIcons name="access-time" size={16} color={colors.primary} />
+              <Text style={[styles.etaBarText, { color: colors.foreground }]}>
+                {t("orderTracking.eta", { minutes: etaMinutes })}
+              </Text>
+              <View style={[styles.etaBadge, { backgroundColor: colors.secondary }]}>
+                <Text style={[styles.etaBadgeText, { color: colors.primary }]}>
+                  {isOnWay ? t("orderTracking.onWayLabel") : t("orderTracking.comingLabel")}
+                </Text>
+              </View>
+            </View>
+          )}
+        </View>
+      )}
 
       <ScrollView contentContainerStyle={{ paddingBottom: bottomPadding + 24 }}>
 
@@ -301,6 +395,22 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   headerTitle: { flex: 1, textAlign: "center", fontSize: 17, fontWeight: "700", color: "#fff" },
+  mapSection: { overflow: "hidden" },
+  etaBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
+    borderTopWidth: 1,
+  },
+  etaBarText: { flex: 1, fontSize: 14, fontWeight: "600" },
+  etaBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  etaBadgeText: { fontSize: 12, fontWeight: "700" },
   heroCard: {
     alignItems: "center",
     paddingVertical: 48,

@@ -20,6 +20,8 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import { useAddresses, Address } from "@/context/AddressContext";
+import { AddressMapPicker } from "@/components/AddressMapPicker";
+import { AddressSearchBar } from "@/components/AddressSearchBar";
 
 type EditingAddress = { id?: string; label: string; address: string };
 
@@ -35,6 +37,7 @@ export default function AddressesScreen() {
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editing, setEditing] = useState<EditingAddress>({ label: "", address: "" });
+  const [mapPickerVisible, setMapPickerVisible] = useState(false);
 
   const labelSuggestions = t("addresses.labelSuggestions", { returnObjects: true }) as string[];
 
@@ -79,6 +82,10 @@ export default function AddressesScreen() {
   const handleSetDefault = (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setDefault(id);
+  };
+
+  const handleMapSelect = (address: string) => {
+    setEditing((e) => ({ ...e, address }));
   };
 
   return (
@@ -213,18 +220,11 @@ export default function AddressesScreen() {
                   key={s}
                   style={[
                     styles.suggestionChip,
-                    {
-                      backgroundColor: editing.label === s ? colors.primary : colors.muted,
-                    },
+                    { backgroundColor: editing.label === s ? colors.primary : colors.muted },
                   ]}
                   onPress={() => setEditing((e) => ({ ...e, label: s }))}
                 >
-                  <Text
-                    style={[
-                      styles.suggestionText,
-                      { color: editing.label === s ? "#fff" : colors.foreground },
-                    ]}
-                  >
+                  <Text style={[styles.suggestionText, { color: editing.label === s ? "#fff" : colors.foreground }]}>
                     {s}
                   </Text>
                 </TouchableOpacity>
@@ -241,6 +241,11 @@ export default function AddressesScreen() {
               maxLength={30}
             />
 
+            <AddressSearchBar
+              onSelect={(addr) => setEditing((e) => ({ ...e, address: addr }))}
+              placeholder={t("map.searchPlaceholder")}
+            />
+
             <TextInput
               style={[styles.input, styles.inputMultiline, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
               placeholder={t("addresses.modal.addressPlaceholder")}
@@ -249,10 +254,21 @@ export default function AddressesScreen() {
               onChangeText={(text) => setEditing((e) => ({ ...e, address: text }))}
               textAlign="right"
               multiline
-              numberOfLines={3}
+              numberOfLines={2}
               textAlignVertical="top"
               maxLength={200}
             />
+
+            <TouchableOpacity
+              style={[styles.mapPickerBtn, { backgroundColor: colors.secondary, borderColor: colors.primary }]}
+              onPress={() => {
+                setModalVisible(false);
+                setTimeout(() => setMapPickerVisible(true), 300);
+              }}
+            >
+              <MaterialIcons name="map" size={18} color={colors.primary} />
+              <Text style={[styles.mapPickerBtnText, { color: colors.primary }]}>{t("map.pickFromMap")}</Text>
+            </TouchableOpacity>
 
             <View style={styles.modalBtns}>
               <TouchableOpacity
@@ -271,6 +287,20 @@ export default function AddressesScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <AddressMapPicker
+        visible={mapPickerVisible}
+        onClose={() => {
+          setMapPickerVisible(false);
+          setModalVisible(true);
+        }}
+        onSelect={(address) => {
+          handleMapSelect(address);
+          setMapPickerVisible(false);
+          setModalVisible(true);
+        }}
+        initialAddress={editing.address}
+      />
     </View>
   );
 }
@@ -342,11 +372,7 @@ const styles = StyleSheet.create({
   addrInfo: { flex: 1, gap: 4 },
   addrLabelRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   addrLabel: { fontSize: 15, fontWeight: "700" },
-  defaultBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
+  defaultBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
   defaultBadgeText: { fontSize: 10, fontWeight: "700" },
   addrText: { fontSize: 12, lineHeight: 18 },
   addrActions: { flexDirection: "row", gap: 6 },
@@ -374,10 +400,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   fabText: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
+  modalOverlay: { flex: 1, justifyContent: "flex-end" },
   modalBg: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.4)",
@@ -398,11 +421,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: { fontSize: 18, fontWeight: "800", textAlign: "center", marginBottom: 4 },
   suggestionsRow: { gap: 8, paddingBottom: 4 },
-  suggestionChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-  },
+  suggestionChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20 },
   suggestionText: { fontSize: 13, fontWeight: "600" },
   input: {
     borderRadius: 12,
@@ -412,9 +431,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   inputMultiline: {
-    minHeight: 80,
+    minHeight: 60,
     paddingTop: 12,
   },
+  mapPickerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    paddingVertical: 12,
+  },
+  mapPickerBtnText: { fontSize: 14, fontWeight: "700" },
   modalBtns: { flexDirection: "row", gap: 10, marginTop: 4 },
   cancelBtn: {
     flex: 1,
