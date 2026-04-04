@@ -3,6 +3,7 @@ import { db, otpCodesTable, usersTable } from "@workspace/db";
 import { and, eq, gt } from "drizzle-orm";
 import { z } from "zod";
 import jwt from "jsonwebtoken";
+import { parsePhoneNumber, isValidPhoneNumber } from "libphonenumber-js";
 
 const router: IRouter = Router();
 
@@ -46,12 +47,31 @@ async function sendOtpSms(phone: string, code: string): Promise<void> {
   }
 }
 
+const e164Phone = z
+  .string()
+  .min(7)
+  .max(20)
+  .refine(
+    (phone) => {
+      try {
+        return isValidPhoneNumber(phone);
+      } catch {
+        return false;
+      }
+    },
+    { message: "رقم الهاتف غير صحيح — يجب أن يكون بصيغة E.164 مثل +966512345678" },
+  )
+  .transform((phone) => {
+    const parsed = parsePhoneNumber(phone);
+    return parsed.format("E.164");
+  });
+
 const sendOtpSchema = z.object({
-  phone: z.string().min(7).max(20),
+  phone: e164Phone,
 });
 
 const verifyOtpSchema = z.object({
-  phone: z.string().min(7).max(20),
+  phone: e164Phone,
   code: z.string().length(OTP_LENGTH),
   name: z.string().optional(),
 });

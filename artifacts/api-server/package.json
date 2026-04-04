@@ -17,6 +17,7 @@
     "drizzle-orm": "catalog:",
     "express": "^5",
     "jsonwebtoken": "^9.0.3",
+    "libphonenumber-js": "^1.12.41",
     "pino": "^9",
     "pino-http": "^10",
     "twilio": "^5.13.1",

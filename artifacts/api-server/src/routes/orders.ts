@@ -18,16 +18,14 @@ const createOrderSchema = z.object({
   orderText: z.string().min(1),
   restaurantName: z.string().default(""),
   address: z.string().default(""),
-  userId: z.string().optional(),
 });
 
 const updateStatusSchema = z.object({
   status: z.enum(["searching", "accepted", "on_way", "delivered"]),
-  userId: z.string().optional(),
 });
 
-function resolveUserId(req: Request, fallback?: string): string {
-  return req.auth?.userId ?? (req.query["userId"] as string) ?? fallback ?? "guest";
+function resolveUserId(req: Request): string {
+  return req.auth!.userId;
 }
 
 router.get("/orders", async (req, res) => {
@@ -47,7 +45,7 @@ router.post("/orders", async (req, res) => {
     return;
   }
 
-  const userId = resolveUserId(req, body.data.userId);
+  const userId = resolveUserId(req);
   const courier = MOCK_COURIERS[Math.floor(Math.random() * MOCK_COURIERS.length)];
   const id = `${Date.now()}${Math.random().toString(36).slice(2, 9)}`;
   const estimatedMinutes = Math.floor(Math.random() * 15) + 20;
@@ -99,7 +97,7 @@ router.patch("/orders/:id/status", async (req, res) => {
     return;
   }
 
-  const userId = resolveUserId(req, body.data.userId);
+  const userId = resolveUserId(req);
 
   const rows = await db
     .update(ordersTable)

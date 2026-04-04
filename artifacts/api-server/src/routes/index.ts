@@ -4,7 +4,7 @@ import restaurantsRouter from "./restaurants";
 import ordersRouter from "./orders";
 import addressesRouter from "./addresses";
 import authRouter from "./auth";
-import { optionalAuth } from "../middleware/auth";
+import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
 
@@ -12,7 +12,7 @@ router.use(healthRouter);
 router.use(authRouter);
 router.use(restaurantsRouter);
 
-router.use(optionalAuth);
+router.use(requireAuth);
 router.use(ordersRouter);
 router.use(addressesRouter);
 

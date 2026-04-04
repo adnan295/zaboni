@@ -6,7 +6,7 @@ import React, {
   useCallback,
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { setAuthTokenGetter } from "@workspace/api-client-react";
+import { setAuthTokenGetter, setUnauthorizedHandler } from "@workspace/api-client-react";
 
 export interface AuthUser {
   id: string;
@@ -71,7 +71,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(null);
     setUser(null);
     setAuthTokenGetter(null);
+    setUnauthorizedHandler(null);
   }, []);
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      signOut();
+    });
+    return () => {
+      setUnauthorizedHandler(null);
+    };
+  }, [signOut]);
 
   const updateName = useCallback((name: string) => {
     setUser((prev) => (prev ? { ...prev, name } : prev));
