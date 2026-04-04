@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const STORAGE_KEY = "@marsool_notifications";
+const SEEDED_KEY = "@marsool_notifications_seeded";
 
 export type NotifType = "order_status" | "promo" | "rating_request" | "system";
 
@@ -42,10 +43,13 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
+    Promise.all([
+      AsyncStorage.getItem(STORAGE_KEY),
+      AsyncStorage.getItem(SEEDED_KEY),
+    ]).then(([raw, seeded]) => {
       if (raw) {
         setNotifications(JSON.parse(raw));
-      } else {
+      } else if (!seeded) {
         const welcome: AppNotification[] = [
           {
             id: "welcome-1",
@@ -66,6 +70,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         ];
         setNotifications(welcome);
         AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(welcome));
+        AsyncStorage.setItem(SEEDED_KEY, "1");
       }
     });
     return () => {

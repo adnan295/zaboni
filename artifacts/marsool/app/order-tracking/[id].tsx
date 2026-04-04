@@ -51,6 +51,30 @@ export default function OrderTrackingScreen() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (
+      isAlreadyDelivered &&
+      initialOrder &&
+      !hasRated(initialOrder.id) &&
+      !ratePromptShown.current
+    ) {
+      ratePromptShown.current = true;
+      ratePromptTimer.current = setTimeout(() => {
+        ratePromptTimer.current = null;
+        router.push({
+          pathname: "/rate-order",
+          params: { orderId: initialOrder.id, restaurantName: initialOrder.restaurantName },
+        });
+      }, 800);
+    }
+    return () => {
+      if (ratePromptTimer.current) {
+        clearTimeout(ratePromptTimer.current);
+        ratePromptTimer.current = null;
+      }
+    };
+  }, []);
+
   const order = getOrder(id ?? "");
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
