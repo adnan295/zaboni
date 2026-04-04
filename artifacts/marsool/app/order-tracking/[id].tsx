@@ -43,8 +43,9 @@ export default function OrderTrackingScreen() {
   const { hasRated, ratingsLoaded } = useRatings();
   const [, forceUpdate] = useState(0);
 
-  const initialOrder = getOrder(id ?? "");
-  const isAlreadyDelivered = initialOrder?.status === "delivered";
+  const order = getOrder(id ?? "");
+  const initialOrder = order;
+  const isAlreadyDelivered = order?.status === "delivered";
   const prevStatus = useRef<OrderStatus | null>(null);
   const deliveredHapticFired = useRef(isAlreadyDelivered);
   const ratePromptShown = useRef(false);
@@ -83,17 +84,19 @@ export default function OrderTrackingScreen() {
     })();
   }, []);
 
+  const simulationInitialized = useRef(false);
+
   useEffect(() => {
     if (!userCoords) return;
-    const order = getOrder(id ?? "");
-    if (!order || order.status === "searching" || order.status === "delivered") return;
+    const currentOrder = getOrder(id ?? "");
+    if (!currentOrder || currentOrder.status === "searching" || currentOrder.status === "delivered") return;
+    if (simulationInitialized.current) return;
 
+    simulationInitialized.current = true;
     if (!courierStartRef.current) {
-      courierStartRef.current = simulateCourierStart(userCoords, order.status === "on_way" ? 1.2 : 2);
+      courierStartRef.current = simulateCourierStart(userCoords, currentOrder.status === "on_way" ? 1.2 : 2);
     }
     simulationStartRef.current = Date.now();
-
-    if (simulationRef.current) clearInterval(simulationRef.current);
 
     simulationRef.current = setInterval(() => {
       const elapsed = Date.now() - simulationStartRef.current;
@@ -107,14 +110,16 @@ export default function OrderTrackingScreen() {
         simulationRef.current = null;
       }
     }, SIMULATION_STEP_MS);
+  }, [userCoords, id, order?.status]);
 
+  useEffect(() => {
     return () => {
       if (simulationRef.current) {
         clearInterval(simulationRef.current);
         simulationRef.current = null;
       }
     };
-  }, [userCoords, id]);
+  }, []);
 
   useEffect(() => {
     const spin = Animated.loop(
@@ -136,18 +141,18 @@ export default function OrderTrackingScreen() {
   }, []);
 
   useEffect(() => {
-    const order = getOrder(id ?? "");
+    const latestOrder = getOrder(id ?? "");
     if (
       ratingsLoaded &&
       isAlreadyDelivered &&
-      order &&
-      !hasRated(order.id) &&
+      latestOrder &&
+      !hasRated(latestOrder.id) &&
       !ratePromptShown.current
     ) {
       ratePromptShown.current = true;
       ratePromptTimer.current = setTimeout(() => {
         ratePromptTimer.current = null;
-        router.push({ pathname: "/rate-order", params: { orderId: order.id, restaurantName: order.restaurantName } });
+        router.push({ pathname: "/rate-order", params: { orderId: latestOrder.id, restaurantName: latestOrder.restaurantName } });
       }, 800);
     }
     return () => {
@@ -155,7 +160,6 @@ export default function OrderTrackingScreen() {
     };
   }, [ratingsLoaded]);
 
-  const order = getOrder(id ?? "");
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
 

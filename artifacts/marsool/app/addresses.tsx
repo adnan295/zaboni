@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -16,6 +16,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
+import * as Location from "expo-location";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
@@ -24,6 +25,7 @@ import { AddressMapPicker } from "@/components/AddressMapPicker";
 import { AddressSearchBar } from "@/components/AddressSearchBar";
 
 type EditingAddress = { id?: string; label: string; address: string };
+interface Coords { latitude: number; longitude: number }
 
 export default function AddressesScreen() {
   const colors = useColors();
@@ -38,6 +40,19 @@ export default function AddressesScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [editing, setEditing] = useState<EditingAddress>({ label: "", address: "" });
   const [mapPickerVisible, setMapPickerVisible] = useState(false);
+  const [userCoords, setUserCoords] = useState<Coords | undefined>(undefined);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === "granted") {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          setUserCoords({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+        }
+      } catch {}
+    })();
+  }, []);
 
   const labelSuggestions = t("addresses.labelSuggestions", { returnObjects: true }) as string[];
 
@@ -244,6 +259,7 @@ export default function AddressesScreen() {
             <AddressSearchBar
               onSelect={(addr) => setEditing((e) => ({ ...e, address: addr }))}
               placeholder={t("map.searchPlaceholder")}
+              userCoords={userCoords}
             />
 
             <TextInput
