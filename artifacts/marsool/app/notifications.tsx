@@ -38,39 +38,54 @@ function timeAgo(ts: number): string {
   return `منذ ${days} يوم`;
 }
 
-function NotifCard({ notif, onPress }: { notif: AppNotification; onPress: () => void }) {
+function NotifCard({
+  notif,
+  onPress,
+  onDelete,
+}: {
+  notif: AppNotification;
+  onPress: () => void;
+  onDelete: () => void;
+}) {
   const colors = useColors();
   const icon = NOTIF_ICON[notif.type];
   const iconColor = NOTIF_COLOR[notif.type];
 
   return (
-    <TouchableOpacity
+    <View
       style={[
-        styles.card,
+        styles.cardWrapper,
         {
           backgroundColor: notif.read ? colors.card : colors.primary + "0d",
           borderColor: notif.read ? colors.border : colors.primary + "33",
         },
       ]}
-      onPress={onPress}
-      activeOpacity={0.75}
     >
-      <View style={[styles.iconWrap, { backgroundColor: iconColor + "18" }]}>
-        <MaterialIcons name={icon} size={22} color={iconColor} />
-      </View>
-      <View style={styles.content}>
-        <View style={styles.titleRow}>
-          <Text style={[styles.title, { color: colors.foreground }]} numberOfLines={1}>
-            {notif.title}
-          </Text>
-          {!notif.read && <View style={[styles.dot, { backgroundColor: colors.primary }]} />}
+      <TouchableOpacity style={styles.cardInner} onPress={onPress} activeOpacity={0.75}>
+        <View style={[styles.iconWrap, { backgroundColor: iconColor + "18" }]}>
+          <MaterialIcons name={icon} size={22} color={iconColor} />
         </View>
-        <Text style={[styles.body, { color: colors.mutedForeground }]} numberOfLines={2}>
-          {notif.body}
-        </Text>
-        <Text style={[styles.time, { color: colors.mutedForeground }]}>{timeAgo(notif.createdAt)}</Text>
-      </View>
-    </TouchableOpacity>
+        <View style={styles.content}>
+          <View style={styles.titleRow}>
+            <Text style={[styles.title, { color: colors.foreground }]} numberOfLines={1}>
+              {notif.title}
+            </Text>
+            {!notif.read && <View style={[styles.dot, { backgroundColor: colors.primary }]} />}
+          </View>
+          <Text style={[styles.body, { color: colors.mutedForeground }]} numberOfLines={2}>
+            {notif.body}
+          </Text>
+          <Text style={[styles.time, { color: colors.mutedForeground }]}>{timeAgo(notif.createdAt)}</Text>
+        </View>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.deleteBtn, { backgroundColor: "#fee2e2" }]}
+        onPress={onDelete}
+        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+      >
+        <MaterialIcons name="delete-outline" size={18} color="#dc2626" />
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -78,7 +93,7 @@ export default function NotificationsScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { notifications, markRead, markAllRead, clearAll } = useNotifications();
+  const { notifications, markRead, markAllRead, deleteNotification, clearAll } = useNotifications();
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
 
@@ -123,6 +138,7 @@ export default function NotificationsScreen() {
                   router.push("/orders");
                 }
               }}
+              onDelete={() => deleteNotification(notif.id)}
             />
           ))}
 
@@ -158,14 +174,28 @@ const styles = StyleSheet.create({
   empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, paddingHorizontal: 32 },
   emptyTitle: { fontSize: 20, fontWeight: "800" },
   emptyBody: { fontSize: 14, textAlign: "center" },
-  card: {
+  cardWrapper: {
     flexDirection: "row",
     borderRadius: 14,
     borderWidth: 1,
-    padding: 14,
     marginBottom: 10,
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  cardInner: {
+    flex: 1,
+    flexDirection: "row",
+    padding: 14,
     gap: 12,
     alignItems: "flex-start",
+  },
+  deleteBtn: {
+    width: 44,
+    alignSelf: "stretch",
+    alignItems: "center",
+    justifyContent: "center",
+    borderLeftWidth: 1,
+    borderLeftColor: "#fecaca",
   },
   iconWrap: {
     width: 44,

@@ -32,7 +32,16 @@ export function RatingsProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
-      if (raw) setRatings(JSON.parse(raw));
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      const migrated = parsed.map((r: Rating & { stars?: number }) => {
+        if (r.restaurantStars === undefined || r.courierStars === undefined) {
+          const fallback = r.stars ?? 3;
+          return { ...r, restaurantStars: fallback, courierStars: fallback };
+        }
+        return r;
+      });
+      setRatings(migrated);
     });
   }, []);
 

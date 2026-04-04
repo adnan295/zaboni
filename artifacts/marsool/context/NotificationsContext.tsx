@@ -30,6 +30,7 @@ interface NotificationsContextValue {
   addNotification: (n: Omit<AppNotification, "id" | "read" | "createdAt">) => void;
   markRead: (id: string) => void;
   markAllRead: () => void;
+  deleteNotification: (id: string) => void;
   clearAll: () => void;
 }
 
@@ -124,6 +125,14 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     });
   }, []);
 
+  const deleteNotification = useCallback((id: string) => {
+    setNotifications((prev) => {
+      const next = prev.filter((n) => n.id !== id);
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   const clearAll = useCallback(() => {
     setNotifications([]);
     AsyncStorage.removeItem(STORAGE_KEY);
@@ -133,7 +142,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
 
   return (
     <NotificationsContext.Provider
-      value={{ notifications, unreadCount, toast, dismissToast, addNotification, markRead, markAllRead, clearAll }}
+      value={{ notifications, unreadCount, toast, dismissToast, addNotification, markRead, markAllRead, deleteNotification, clearAll }}
     >
       {children}
     </NotificationsContext.Provider>
