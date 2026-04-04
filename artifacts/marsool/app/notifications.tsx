@@ -10,6 +10,7 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useNotifications, AppNotification, NotifType } from "@/context/NotificationsContext";
 
@@ -27,16 +28,16 @@ const NOTIF_COLOR: Record<NotifType, string> = {
   system: "#6b7280",
 };
 
-function formatTimestamp(ts: number): string {
+function formatTimestamp(ts: number, t: (k: string, opts?: Record<string, unknown>) => string): string {
   const diff = Date.now() - ts;
   const mins = Math.floor(diff / 60000);
   const date = new Date(ts);
-  const timeStr = date.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit", hour12: true });
-  const dateStr = date.toLocaleDateString("ar-SA", { day: "numeric", month: "short" });
-  if (mins < 1) return "الآن";
-  if (mins < 60) return `منذ ${mins} دقيقة · ${timeStr}`;
+  const timeStr = date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: true });
+  const dateStr = date.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  if (mins < 1) return t("notifications.timeAgo.justNow");
+  if (mins < 60) return `${t("notifications.timeAgo.minutes", { count: mins })} · ${timeStr}`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `منذ ${hrs} ساعة · ${timeStr}`;
+  if (hrs < 24) return `${t("notifications.timeAgo.hours", { count: hrs })} · ${timeStr}`;
   return `${dateStr} · ${timeStr}`;
 }
 
@@ -52,6 +53,7 @@ function NotifCard({
   const colors = useColors();
   const icon = NOTIF_ICON[notif.type];
   const iconColor = NOTIF_COLOR[notif.type];
+  const { t } = useTranslation();
 
   return (
     <View
@@ -77,7 +79,7 @@ function NotifCard({
           <Text style={[styles.body, { color: colors.mutedForeground }]} numberOfLines={2}>
             {notif.body}
           </Text>
-          <Text style={[styles.time, { color: colors.mutedForeground }]}>{formatTimestamp(notif.createdAt)}</Text>
+          <Text style={[styles.time, { color: colors.mutedForeground }]}>{formatTimestamp(notif.createdAt, t)}</Text>
         </View>
       </TouchableOpacity>
       <View style={styles.cardActions}>
@@ -106,6 +108,7 @@ export default function NotificationsScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { notifications, markRead, markAllRead, deleteNotification, clearAll } = useNotifications();
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
@@ -118,10 +121,10 @@ export default function NotificationsScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <MaterialIcons name="arrow-forward-ios" size={22} color={colors.foreground} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.foreground }]}>الإشعارات</Text>
+        <Text style={[styles.headerTitle, { color: colors.foreground }]}>{t("notifications.title")}</Text>
         {unread > 0 ? (
           <TouchableOpacity onPress={markAllRead} style={styles.markAllBtn}>
-            <Text style={[styles.markAllText, { color: colors.primary }]}>قراءة الكل</Text>
+            <Text style={[styles.markAllText, { color: colors.primary }]}>{t("notifications.markAllRead")}</Text>
           </TouchableOpacity>
         ) : (
           <View style={{ width: 72 }} />
@@ -131,9 +134,9 @@ export default function NotificationsScreen() {
       {notifications.length === 0 ? (
         <View style={styles.empty}>
           <MaterialIcons name="notifications-off" size={64} color={colors.mutedForeground} />
-          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>لا توجد إشعارات</Text>
+          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>{t("notifications.empty.title")}</Text>
           <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
-            ستظهر هنا تحديثات طلباتك والعروض الخاصة
+            {t("notifications.empty.body")}
           </Text>
         </View>
       ) : (
@@ -162,7 +165,7 @@ export default function NotificationsScreen() {
               activeOpacity={0.7}
             >
               <MaterialIcons name="delete-sweep" size={18} color={colors.mutedForeground} />
-              <Text style={[styles.clearText, { color: colors.mutedForeground }]}>مسح كل الإشعارات</Text>
+              <Text style={[styles.clearText, { color: colors.mutedForeground }]}>{t("notifications.clearAll")}</Text>
             </TouchableOpacity>
           )}
         </ScrollView>

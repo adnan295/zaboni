@@ -13,25 +13,10 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
+import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useRatings } from "@/context/RatingsContext";
 import { useNotifications } from "@/context/NotificationsContext";
-
-const QUICK_COMMENTS = [
-  "الطعام كان لذيذاً",
-  "التوصيل كان سريعاً",
-  "التعبئة كانت ممتازة",
-  "جودة عالية",
-  "سأطلب مرة أخرى",
-];
-
-const STAR_LABELS: Record<number, string> = {
-  1: "سيء",
-  2: "مقبول",
-  3: "جيد",
-  4: "رائع",
-  5: "ممتاز!",
-};
 
 function StarPicker({
   label,
@@ -45,8 +30,17 @@ function StarPicker({
   onStars: (n: number) => void;
 }) {
   const colors = useColors();
+  const { t } = useTranslation();
   const [hovered, setHovered] = useState(0);
   const display = hovered > 0 ? hovered : stars;
+
+  const STAR_LABELS: Record<number, string> = {
+    1: t("rating.stars.1"),
+    2: t("rating.stars.2"),
+    3: t("rating.stars.3"),
+    4: t("rating.stars.4"),
+    5: t("rating.stars.5"),
+  };
 
   return (
     <View style={[pickerStyles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -102,6 +96,7 @@ export default function RateOrderScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { orderId, restaurantName } = useLocalSearchParams<{
     orderId: string;
     restaurantName: string;
@@ -119,13 +114,15 @@ export default function RateOrderScreen() {
 
   const canSubmit = restaurantStars > 0 && courierStars > 0;
 
+  const quickComments = t("rating.quickComments", { returnObjects: true }) as string[];
+
   const handleSubmit = async () => {
     if (!canSubmit) return;
     await rateOrder(orderId, restaurantStars, courierStars, comment, restaurantName ?? "");
     addNotification({
       type: "system",
-      title: "شكراً على تقييمك!",
-      body: `تقييمك لـ ${restaurantName} يساعدنا على تحسين الخدمة`,
+      title: t("rating.success"),
+      body: `${t("rating.successBody")} ${restaurantName}`,
     });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setSubmitted(true);
@@ -138,9 +135,9 @@ export default function RateOrderScreen() {
       <View style={[styles.successContainer, { backgroundColor: colors.background }]}>
         <View style={[styles.successCard, { backgroundColor: colors.card }]}>
           <MaterialIcons name="check-circle" size={72} color="#16a34a" />
-          <Text style={[styles.successTitle, { color: colors.foreground }]}>شكراً على تقييمك!</Text>
+          <Text style={[styles.successTitle, { color: colors.foreground }]}>{t("rating.success")}</Text>
           <Text style={[styles.successBody, { color: colors.mutedForeground }]}>
-            تقييمك يساعد الآخرين في اختياراتهم
+            {t("rating.successBody")}
           </Text>
           <View style={{ flexDirection: "row", gap: 4, marginTop: 8 }}>
             {[1, 2, 3, 4, 5].map((s) => (
@@ -155,7 +152,7 @@ export default function RateOrderScreen() {
           <View style={styles.ratingBreakdown}>
             <View style={styles.breakdownRow}>
               <MaterialIcons name="restaurant" size={16} color={colors.primary} />
-              <Text style={[styles.breakdownLabel, { color: colors.mutedForeground }]}>المطعم</Text>
+              <Text style={[styles.breakdownLabel, { color: colors.mutedForeground }]}>{t("rating.restaurant")}</Text>
               <View style={{ flexDirection: "row", gap: 2 }}>
                 {[1, 2, 3, 4, 5].map((s) => (
                   <MaterialIcons
@@ -169,7 +166,7 @@ export default function RateOrderScreen() {
             </View>
             <View style={styles.breakdownRow}>
               <MaterialIcons name="delivery-dining" size={16} color={colors.primary} />
-              <Text style={[styles.breakdownLabel, { color: colors.mutedForeground }]}>المندوب</Text>
+              <Text style={[styles.breakdownLabel, { color: colors.mutedForeground }]}>{t("rating.courier")}</Text>
               <View style={{ flexDirection: "row", gap: 2 }}>
                 {[1, 2, 3, 4, 5].map((s) => (
                   <MaterialIcons
@@ -206,7 +203,7 @@ export default function RateOrderScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
             <MaterialIcons name="close" size={24} color={colors.foreground} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: colors.foreground }]}>تقييم الطلب</Text>
+          <Text style={[styles.headerTitle, { color: colors.foreground }]}>{t("rating.title")}</Text>
           <View style={{ width: 40 }} />
         </View>
 
@@ -223,18 +220,18 @@ export default function RateOrderScreen() {
           </View>
 
           <Text style={[styles.sectionHeader, { color: colors.mutedForeground }]}>
-            قيّم تجربتك بشكل منفصل
+            {t("rating.subtitle")}
           </Text>
 
           <StarPicker
-            label="المطعم"
+            label={t("rating.restaurant")}
             icon="restaurant"
             stars={restaurantStars}
             onStars={setRestaurantStars}
           />
 
           <StarPicker
-            label="المندوب"
+            label={t("rating.courier")}
             icon="delivery-dining"
             stars={courierStars}
             onStars={setCourierStars}
@@ -246,14 +243,14 @@ export default function RateOrderScreen() {
               { backgroundColor: colors.card, borderColor: colors.border },
             ]}
           >
-            <Text style={[styles.commentTitle, { color: colors.foreground }]}>تعليق سريع</Text>
+            <Text style={[styles.commentTitle, { color: colors.foreground }]}>{t("rating.title")}</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.quickScroll}
               contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
             >
-              {QUICK_COMMENTS.map((c) => (
+              {quickComments.map((c) => (
                 <TouchableOpacity
                   key={c}
                   style={[
@@ -286,7 +283,7 @@ export default function RateOrderScreen() {
                   borderColor: colors.border,
                 },
               ]}
-              placeholder="أضف تعليقاً (اختياري)..."
+              placeholder={t("rating.commentPlaceholder")}
               placeholderTextColor={colors.mutedForeground}
               value={comment}
               onChangeText={setComment}
@@ -296,14 +293,6 @@ export default function RateOrderScreen() {
               numberOfLines={3}
             />
           </View>
-
-          {!canSubmit && (restaurantStars > 0 || courierStars > 0) && (
-            <Text style={[styles.hint, { color: colors.mutedForeground }]}>
-              {restaurantStars === 0
-                ? "قيّم المطعم لإكمال التقييم"
-                : "قيّم المندوب لإكمال التقييم"}
-            </Text>
-          )}
 
           <TouchableOpacity
             style={[
@@ -315,7 +304,7 @@ export default function RateOrderScreen() {
             activeOpacity={0.8}
           >
             <MaterialIcons name="star" size={20} color="#fff" />
-            <Text style={styles.submitBtnText}>إرسال التقييم</Text>
+            <Text style={styles.submitBtnText}>{t("rating.submit")}</Text>
           </TouchableOpacity>
         </ScrollView>
       </View>
@@ -368,7 +357,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     minHeight: 80,
   },
-  hint: { fontSize: 13, textAlign: "center", marginBottom: 4 },
   submitBtn: {
     flexDirection: "row",
     alignItems: "center",

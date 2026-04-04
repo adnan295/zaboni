@@ -10,16 +10,10 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useOrders, OrderStatus } from "@/context/OrderContext";
 import { useRatings } from "@/context/RatingsContext";
-
-const STATUS_LABEL: Record<OrderStatus, string> = {
-  searching: "يبحث عن مندوب",
-  accepted: "تم القبول",
-  on_way: "في الطريق",
-  delivered: "تم التوصيل",
-};
 
 const STATUS_COLOR: Record<OrderStatus, string> = {
   searching: "#d97706",
@@ -55,13 +49,14 @@ export default function OrdersScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { orders } = useOrders();
   const { hasRated, getRating } = useRatings();
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
 
   const formatDate = (ts: number) =>
-    new Date(ts).toLocaleDateString("ar-SA", {
+    new Date(ts).toLocaleDateString(undefined, {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -69,28 +64,35 @@ export default function OrdersScreen() {
       minute: "2-digit",
     });
 
+  const STATUS_LABEL: Record<OrderStatus, string> = {
+    searching: t("orders.status.searching"),
+    accepted: t("orders.status.accepted"),
+    on_way: t("orders.status.on_way"),
+    delivered: t("orders.status.delivered"),
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <MaterialIcons name="arrow-forward-ios" size={22} color={colors.foreground} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.foreground }]}>طلباتي</Text>
+        <Text style={[styles.headerTitle, { color: colors.foreground }]}>{t("orders.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
       {orders.length === 0 ? (
         <View style={styles.empty}>
           <MaterialIcons name="receipt-long" size={64} color={colors.mutedForeground} />
-          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>لا توجد طلبات بعد</Text>
+          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>{t("orders.empty.title")}</Text>
           <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
-            اطلب من مطاعمك المفضلة وستظهر هنا
+            {t("orders.empty.body")}
           </Text>
           <TouchableOpacity
             style={[styles.browseBtn, { backgroundColor: colors.primary }]}
             onPress={() => router.replace("/(tabs)")}
           >
-            <Text style={styles.browseBtnText}>تصفح المطاعم</Text>
+            <Text style={styles.browseBtnText}>{t("orders.empty.browse")}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -104,7 +106,6 @@ export default function OrdersScreen() {
             const isActive = order.status !== "delivered";
             return (
               <View key={order.id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                {/* Header row */}
                 <View style={styles.cardHeader}>
                   <Text style={[styles.restaurantName, { color: colors.foreground }]} numberOfLines={1}>
                     {order.restaurantName}
@@ -121,12 +122,10 @@ export default function OrdersScreen() {
 
                 <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-                {/* Order text */}
                 <Text style={[styles.orderText, { color: colors.foreground }]} numberOfLines={2}>
                   {order.orderText}
                 </Text>
 
-                {/* Courier info if known */}
                 {order.status !== "searching" && (
                   <View style={styles.courierRow}>
                     <MaterialIcons name="delivery-dining" size={14} color={colors.primary} />
@@ -145,7 +144,7 @@ export default function OrdersScreen() {
                       }
                     >
                       <MaterialIcons name="delivery-dining" size={16} color={colors.primary} />
-                      <Text style={[styles.trackBtnText, { color: colors.primary }]}>تتبع الطلب</Text>
+                      <Text style={[styles.trackBtnText, { color: colors.primary }]}>{t("orders.track")}</Text>
                     </TouchableOpacity>
                   )}
 
@@ -157,7 +156,7 @@ export default function OrdersScreen() {
                       }
                     >
                       <MaterialIcons name="chat" size={16} color={colors.primary} />
-                      <Text style={[styles.chatBtnText, { color: colors.primary }]}>دردشة</Text>
+                      <Text style={[styles.chatBtnText, { color: colors.primary }]}>{t("orders.chat")}</Text>
                     </TouchableOpacity>
                   )}
 
@@ -169,7 +168,7 @@ export default function OrdersScreen() {
                       }
                     >
                       <MaterialIcons name="star" size={16} color="#fff" />
-                      <Text style={styles.rateBtnText}>قيّم طلبك</Text>
+                      <Text style={styles.rateBtnText}>{t("orders.rate")}</Text>
                     </TouchableOpacity>
                   )}
 

@@ -1,0 +1,265 @@
+{
+  "app": {
+    "name": "مرسول"
+  },
+  "auth": {
+    "phone": {
+      "title": "مرحباً بك في مرسول",
+      "subtitle": "أدخل رقم جوالك للمتابعة",
+      "continue": "متابعة",
+      "termsPrefix": "بالمتابعة، أنت توافق على",
+      "termsLink": "شروط الاستخدام",
+      "termsAnd": " و",
+      "privacyLink": "سياسة الخصوصية"
+    },
+    "otp": {
+      "title": "رمز التحقق",
+      "subtitle": "أدخل الرمز المرسل إلى",
+      "hint": "للتجربة: أدخل أي 6 أرقام",
+      "noCode": "لم يصلك الرمز؟",
+      "resend": "إعادة الإرسال"
+    },
+    "name": {
+      "title": "ما اسمك؟",
+      "subtitle": "سنستخدمه لمخاطبتك في التطبيق",
+      "placeholder": "اسمك الكامل",
+      "loading": "جاري الدخول...",
+      "start": "ابدأ الطلب"
+    }
+  },
+  "home": {
+    "addAddress": "أضف عنواناً",
+    "discoverTitle": "اكتشف",
+    "discoverSub": "ما يشتهيه قلبك",
+    "searchPlaceholder": "ابحث عن مطعم أو طعام...",
+    "allRestaurants": "جميع المطاعم",
+    "noResults": "لا توجد نتائج",
+    "order": {
+      "searching": "جاري البحث عن مندوب...",
+      "accepted": "قبل طلبك",
+      "onWay": "المندوب في الطريق",
+      "delivered": "تم التوصيل"
+    }
+  },
+  "profile": {
+    "defaultUser": "المستخدم",
+    "stats": {
+      "orders": "طلب",
+      "favorites": "مفضلة",
+      "avgRating": "متوسط تقييمي"
+    },
+    "menu": {
+      "orders": "طلباتي",
+      "favorites": "المفضلة",
+      "addresses": "عناويني",
+      "notifications": "الإشعارات",
+      "payments": "طرق الدفع",
+      "support": "المساعدة والدعم",
+      "about": "عن التطبيق",
+      "language": "اللغة"
+    },
+    "signOut": "تسجيل الخروج",
+    "signOutTitle": "تسجيل الخروج",
+    "signOutMessage": "هل تريد تسجيل الخروج؟",
+    "signOutCancel": "إلغاء",
+    "signOutConfirm": "خروج",
+    "version": "مرسول · الإصدار 1.0.0",
+    "language": {
+      "title": "اختر اللغة",
+      "arabic": "العربية",
+      "english": "English",
+      "restartMsg": "سيتم إعادة تشغيل التطبيق لتطبيق تغيير اللغة",
+      "restartBtn": "موافق",
+      "cancel": "إلغاء"
+    }
+  },
+  "orders": {
+    "title": "طلباتي",
+    "empty": {
+      "title": "لا توجد طلبات بعد",
+      "body": "اطلب من مطاعمك المفضلة وستظهر هنا",
+      "browse": "تصفح المطاعم"
+    },
+    "status": {
+      "searching": "يبحث عن مندوب",
+      "accepted": "تم القبول",
+      "on_way": "في الطريق",
+      "delivered": "تم التوصيل"
+    },
+    "courier": "المندوب",
+    "track": "تتبع الطلب",
+    "chat": "دردشة",
+    "rate": "قيّم طلبك",
+    "reorder": "اطلب مجدداً"
+  },
+  "favorites": {
+    "title": "المفضلة",
+    "empty": {
+      "title": "لا توجد مطاعم مفضلة",
+      "subtitle": "اضغط على قلب أي مطعم لإضافته هنا",
+      "browse": "تصفح المطاعم"
+    }
+  },
+  "addresses": {
+    "title": "عناويني",
+    "empty": {
+      "title": "لا توجد عناوين محفوظة",
+      "subtitle": "أضف عنوانك لتسريع التوصيل",
+      "add": "إضافة عنوان"
+    },
+    "default": "الافتراضي",
+    "setDefault": "تعيين كافتراضي",
+    "edit": "تعديل",
+    "delete": "حذف",
+    "modal": {
+      "addTitle": "إضافة عنوان",
+      "editTitle": "تعديل العنوان",
+      "labelPlaceholder": "اسم العنوان",
+      "addressPlaceholder": "العنوان بالتفصيل",
+      "suggestions": "اقتراحات: ",
+      "cancel": "إلغاء",
+      "save": "حفظ"
+    },
+    "alerts": {
+      "missing": "تنبيه",
+      "missingMsg": "يرجى تعبئة الاسم والعنوان",
+      "deleteTitle": "حذف العنوان",
+      "deleteCancel": "إلغاء",
+      "deleteConfirm": "حذف"
+    },
+    "labelSuggestions": ["المنزل", "العمل", "المقهى", "الصالة الرياضية", "آخر"]
+  },
+  "search": {
+    "placeholder": "ابحث عن مطعم أو طعام...",
+    "sort": {
+      "fastest": "الأسرع",
+      "rating": "الأعلى تقييماً",
+      "fee": "أقل رسوم"
+    },
+    "filters": {
+      "freeDelivery": "توصيل مجاني",
+      "stars": "4+ نجوم"
+    },
+    "history": {
+      "title": "عمليات البحث الأخيرة",
+      "clearAll": "مسح الكل"
+    },
+    "noResults": "لا توجد نتائج لـ",
+    "noResultsSub": "جرّب كلمة بحث مختلفة أو تغيير الفلاتر",
+    "resultsCount": "نتيجة",
+    "activeFilters": "فلتر مفعّل",
+    "suggestions": "اقتراحات شائعة",
+    "suggestionsList": ["البيك", "برجر", "بيتزا", "قهوة", "دجاج", "سناكس"]
+  },
+  "notifications": {
+    "title": "الإشعارات",
+    "markAllRead": "قراءة الكل",
+    "clearAll": "مسح كل الإشعارات",
+    "empty": {
+      "title": "لا توجد إشعارات",
+      "body": "ستظهر هنا تحديثات طلباتك والعروض الخاصة"
+    },
+    "timeAgo": {
+      "justNow": "الآن",
+      "minutes": "منذ {{count}} دقيقة",
+      "hours": "منذ {{count}} ساعة"
+    }
+  },
+  "restaurant": {
+    "notFound": "المطعم غير موجود",
+    "deliveryTime": "وقت التوصيل",
+    "minutes": "د",
+    "distance": "المسافة",
+    "nearby": "قريب منك",
+    "rating": "التقييم",
+    "all": "الكل",
+    "menu": "المنيو",
+    "orderNow": "اطلب الآن"
+  },
+  "orderRequest": {
+    "title": "اكتب طلبك",
+    "from": "من",
+    "label": "تفاصيل طلبك",
+    "hint": "مثال: بدي كولا وشاورما دجاج من عند الشاطر حسن",
+    "placeholder": "اكتب ما تريد طلبه بالتفصيل...",
+    "deliveryAddress": "عنوان التوصيل",
+    "currentLocation": "الموقع الحالي",
+    "changeAddress": "تغيير",
+    "howItWorks": "كيف يعمل؟",
+    "steps": [
+      "يُرسل طلبك للمندوبين القريبين",
+      "مندوب يقبل ويذهب لإحضار طلبك",
+      "تفتح دردشة لتنسيق التفاصيل معه"
+    ],
+    "sendOrder": "أرسل الطلب",
+    "sending": "جاري الإرسال..."
+  },
+  "orderTracking": {
+    "notFound": "الطلب غير موجود",
+    "status": {
+      "searching": "البحث عن مندوب",
+      "accepted": "تم القبول",
+      "on_way": "في الطريق",
+      "delivered": "تم التوصيل"
+    },
+    "searching": {
+      "title": "يتم البحث عن مندوب قريب منك",
+      "sub": "سيصلك إشعار فور قبول أحد المندوبين"
+    },
+    "courier": {
+      "acceptedBanner": "قَبِل طلبك!",
+      "openChat": "فتح الدردشة مع المندوب"
+    },
+    "statusSteps": {
+      "accepted": "قَبِل المندوب طلبك",
+      "on_way": "المندوب في الطريق إليك",
+      "delivered": "تم التوصيل"
+    },
+    "orderTitle": "حالة الطلب",
+    "summary": {
+      "title": "تفاصيل الطلب",
+      "address": "العنوان"
+    },
+    "rate": "قيّم تجربتك",
+    "reorder": "اطلب مجدداً"
+  },
+  "chat": {
+    "notFound": "الطلب غير موجود",
+    "onlineNow": "متصل الآن",
+    "inputPlaceholder": "اكتب رسالة...",
+    "empty": {
+      "title": "ستبدأ المحادثة قريباً",
+      "sub": "المندوب سيتواصل معك بعد قبول الطلب"
+    }
+  },
+  "rating": {
+    "title": "قيّم تجربتك",
+    "subtitle": "تقييمك يساعدنا على التحسين",
+    "restaurant": "المطعم",
+    "courier": "المندوب",
+    "quickComments": ["الطعام كان لذيذاً", "التوصيل كان سريعاً", "التعبئة كانت ممتازة", "جودة عالية", "سأطلب مرة أخرى"],
+    "stars": {
+      "1": "سيء",
+      "2": "مقبول",
+      "3": "جيد",
+      "4": "رائع",
+      "5": "ممتاز!"
+    },
+    "commentPlaceholder": "أضف تعليقاً (اختياري)...",
+    "submit": "إرسال التقييم",
+    "submitting": "جاري الإرسال...",
+    "success": "شكراً على تقييمك!",
+    "successBody": "تقييمك يساعدنا على تحسين الخدمة",
+    "done": "تم",
+    "skip": "تخطي"
+  },
+  "common": {
+    "back": "رجوع",
+    "cancel": "إلغاء",
+    "save": "حفظ",
+    "delete": "حذف",
+    "loading": "جاري التحميل...",
+    "error": "حدث خطأ",
+    "retry": "إعادة المحاولة"
+  }
+}

@@ -10,6 +10,7 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import RestaurantCard from "@/components/RestaurantCard";
 import { CATEGORIES, RESTAURANTS } from "@/data/restaurants";
@@ -21,6 +22,7 @@ export default function HomeScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const { defaultAddress } = useAddresses();
   const { unreadCount } = useNotifications();
@@ -32,6 +34,14 @@ export default function HomeScreen() {
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
+  const getOrderStatusText = () => {
+    if (!activeOrder) return "";
+    if (activeOrder.status === "searching") return t("home.order.searching");
+    if (activeOrder.status === "accepted") return `${activeOrder.courierName} ${t("home.order.accepted")}`;
+    if (activeOrder.status === "on_way") return t("home.order.onWay");
+    return t("home.order.delivered");
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
@@ -40,7 +50,7 @@ export default function HomeScreen() {
           <TouchableOpacity style={styles.locationRow} onPress={() => router.push("/addresses")}>
             <MaterialIcons name="location-on" size={18} color={colors.primary} />
             <Text style={[styles.location, { color: colors.foreground }]} numberOfLines={1}>
-              {defaultAddress ? defaultAddress.label : "أضف عنواناً"}
+              {defaultAddress ? defaultAddress.label : t("home.addAddress")}
             </Text>
             <MaterialIcons name="keyboard-arrow-down" size={18} color={colors.foreground} />
           </TouchableOpacity>
@@ -60,7 +70,8 @@ export default function HomeScreen() {
         {/* Greeting */}
         <View style={styles.greeting}>
           <Text style={[styles.greetTitle, { color: colors.foreground }]}>
-            اكتشف <Text style={{ color: colors.primary }}>ما يشتهيه قلبك</Text>
+            {t("home.discoverTitle")}{" "}
+            <Text style={{ color: colors.primary }}>{t("home.discoverSub")}</Text>
           </Text>
         </View>
 
@@ -72,7 +83,7 @@ export default function HomeScreen() {
         >
           <MaterialIcons name="search" size={20} color={colors.mutedForeground} />
           <Text style={[styles.searchPlaceholder, { color: colors.mutedForeground }]}>
-            ابحث عن مطعم أو طعام...
+            {t("home.searchPlaceholder")}
           </Text>
           <MaterialIcons name="tune" size={18} color={colors.primary} />
         </TouchableOpacity>
@@ -119,9 +130,7 @@ export default function HomeScreen() {
             <View style={[styles.bannerDot, { backgroundColor: colors.primary }]} />
             <View style={styles.bannerInfo}>
               <Text style={[styles.bannerText, { color: colors.primary }]}>
-                {activeOrder.status === "searching" ? "جاري البحث عن مندوب..." :
-                 activeOrder.status === "accepted" ? `${activeOrder.courierName} قبل طلبك` :
-                 activeOrder.status === "on_way" ? "المندوب في الطريق" : "تم التوصيل"}
+                {getOrderStatusText()}
               </Text>
               <Text style={[styles.bannerSub, { color: colors.mutedForeground }]} numberOfLines={1}>
                 {activeOrder.restaurantName}
@@ -135,7 +144,9 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-              {selectedCategory === "all" ? "جميع المطاعم" : CATEGORIES.find(c => c.id === selectedCategory)?.name}
+              {selectedCategory === "all"
+                ? t("home.allRestaurants")
+                : CATEGORIES.find((c) => c.id === selectedCategory)?.name}
               <Text style={[styles.count, { color: colors.mutedForeground }]}> ({filtered.length})</Text>
             </Text>
             <TouchableOpacity onPress={() => router.push("/search")}>
@@ -154,7 +165,7 @@ export default function HomeScreen() {
           {filtered.length === 0 && (
             <View style={styles.empty}>
               <MaterialIcons name="search-off" size={48} color={colors.mutedForeground} />
-              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>لا توجد نتائج</Text>
+              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>{t("home.noResults")}</Text>
             </View>
           )}
         </View>

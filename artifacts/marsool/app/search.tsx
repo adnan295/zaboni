@@ -14,25 +14,21 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
+import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import RestaurantCard from "@/components/RestaurantCard";
-import { RESTAURANTS, Restaurant } from "@/data/restaurants";
+import { RESTAURANTS } from "@/data/restaurants";
 
 type SortOption = "fastest" | "rating" | "delivery_fee";
 
 const HISTORY_KEY = "@marsool_search_history";
 const MAX_HISTORY = 5;
 
-const SORT_OPTIONS: { id: SortOption; label: string; icon: keyof typeof MaterialIcons.glyphMap }[] = [
-  { id: "fastest", label: "الأسرع", icon: "access-time" },
-  { id: "rating", label: "الأعلى تقييماً", icon: "star" },
-  { id: "delivery_fee", label: "أقل رسوم", icon: "local-shipping" },
-];
-
 export default function SearchScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const inputRef = useRef<TextInput>(null);
 
   const [query, setQuery] = useState("");
@@ -42,6 +38,12 @@ export default function SearchScreen() {
   const [minRating, setMinRating] = useState<number | null>(null);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
+
+  const SORT_OPTIONS: { id: SortOption; label: string; icon: keyof typeof MaterialIcons.glyphMap }[] = [
+    { id: "fastest", label: t("search.sort.fastest"), icon: "access-time" },
+    { id: "rating", label: t("search.sort.rating"), icon: "star" },
+    { id: "delivery_fee", label: t("search.sort.fee"), icon: "local-shipping" },
+  ];
 
   useEffect(() => {
     (async () => {
@@ -83,7 +85,7 @@ export default function SearchScreen() {
     const matchName =
       r.nameAr.includes(q) ||
       r.name.toLowerCase().includes(q) ||
-      r.tags.some((t) => t.toLowerCase().includes(q));
+      r.tags.some((tag) => tag.toLowerCase().includes(q));
     const matchRating = minRating === null || r.rating >= minRating;
     const matchFree = !freeDeliveryOnly || r.deliveryFee === 0;
     return matchName && matchRating && matchFree;
@@ -103,9 +105,11 @@ export default function SearchScreen() {
   const activeFiltersCount =
     (sortBy !== "rating" ? 1 : 0) + (freeDeliveryOnly ? 1 : 0) + (minRating ? 1 : 0);
 
+  const suggestions = t("search.suggestionsList", { returnObjects: true }) as string[];
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header with search input */}
+      {/* Header */}
       <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <TouchableOpacity
           style={[styles.backBtn, { backgroundColor: colors.card }]}
@@ -118,7 +122,7 @@ export default function SearchScreen() {
           <TextInput
             ref={inputRef}
             style={[styles.searchInput, { color: colors.foreground }]}
-            placeholder="ابحث عن مطعم أو طعام..."
+            placeholder={t("search.placeholder")}
             placeholderTextColor={colors.mutedForeground}
             value={query}
             onChangeText={setQuery}
@@ -134,14 +138,13 @@ export default function SearchScreen() {
         </View>
       </View>
 
-      {/* Filters bar */}
+      {/* Filters */}
       <View style={[styles.filtersWrapper, { borderBottomColor: colors.border }]}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filtersScroll}
         >
-          {/* Sort options */}
           {SORT_OPTIONS.map((opt) => (
             <TouchableOpacity
               key={opt.id}
@@ -168,10 +171,8 @@ export default function SearchScreen() {
             </TouchableOpacity>
           ))}
 
-          {/* Divider */}
           <View style={[styles.filterDivider, { backgroundColor: colors.border }]} />
 
-          {/* Free delivery toggle */}
           <TouchableOpacity
             style={[
               styles.filterChip,
@@ -191,11 +192,10 @@ export default function SearchScreen() {
               color={freeDeliveryOnly ? "#fff" : colors.mutedForeground}
             />
             <Text style={[styles.filterChipText, { color: freeDeliveryOnly ? "#fff" : colors.foreground }]}>
-              توصيل مجاني
+              {t("search.filters.freeDelivery")}
             </Text>
           </TouchableOpacity>
 
-          {/* 4+ stars */}
           <TouchableOpacity
             style={[
               styles.filterChip,
@@ -211,7 +211,7 @@ export default function SearchScreen() {
           >
             <MaterialIcons name="star" size={14} color={minRating === 4 ? "#fff" : "#FFB800"} />
             <Text style={[styles.filterChipText, { color: minRating === 4 ? "#fff" : colors.foreground }]}>
-              4+ نجوم
+              {t("search.filters.stars")}
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -225,15 +225,14 @@ export default function SearchScreen() {
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <>
-            {/* Search history */}
             {showHistory && (
               <View style={styles.historySection}>
                 <View style={styles.historyHeader}>
                   <Text style={[styles.historyTitle, { color: colors.foreground }]}>
-                    عمليات البحث الأخيرة
+                    {t("search.history.title")}
                   </Text>
                   <TouchableOpacity onPress={clearHistory}>
-                    <Text style={[styles.clearHistory, { color: colors.destructive }]}>مسح الكل</Text>
+                    <Text style={[styles.clearHistory, { color: colors.destructive }]}>{t("search.history.clearAll")}</Text>
                   </TouchableOpacity>
                 </View>
                 {history.map((term) => (
@@ -260,41 +259,38 @@ export default function SearchScreen() {
               </View>
             )}
 
-            {/* Empty state (typed something, no results) */}
             {showResults && filtered.length === 0 && (
               <View style={styles.emptyContainer}>
                 <View style={[styles.emptyIcon, { backgroundColor: colors.secondary }]}>
                   <MaterialIcons name="search-off" size={40} color={colors.primary} />
                 </View>
                 <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-                  لا توجد نتائج لـ "{query}"
+                  {t("search.noResults")} "{query}"
                 </Text>
                 <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
-                  جرّب كلمة بحث مختلفة أو تغيير الفلاتر
+                  {t("search.noResultsSub")}
                 </Text>
               </View>
             )}
 
-            {/* Results header */}
             {showResults && filtered.length > 0 && (
               <View style={styles.resultsHeader}>
                 <Text style={[styles.resultsCount, { color: colors.mutedForeground }]}>
-                  {filtered.length} نتيجة
+                  {filtered.length} {t("search.resultsCount")}
                   {activeFiltersCount > 0 && (
-                    <Text style={{ color: colors.primary }}> · {activeFiltersCount} فلتر مفعّل</Text>
+                    <Text style={{ color: colors.primary }}> · {activeFiltersCount} {t("search.activeFilters")}</Text>
                   )}
                 </Text>
               </View>
             )}
 
-            {/* Suggestions when query is empty and no history */}
             {!showResults && history.length === 0 && (
               <View style={styles.suggestionsContainer}>
                 <Text style={[styles.suggestionsTitle, { color: colors.foreground }]}>
-                  اقتراحات شائعة
+                  {t("search.suggestions")}
                 </Text>
                 <View style={styles.suggestionsGrid}>
-                  {["البيك", "برجر", "بيتزا", "قهوة", "دجاج", "سناكس"].map((s) => (
+                  {suggestions.map((s) => (
                     <TouchableOpacity
                       key={s}
                       style={[styles.suggestionChip, { backgroundColor: colors.card, borderColor: colors.border }]}

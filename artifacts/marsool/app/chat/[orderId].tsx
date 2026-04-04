@@ -13,6 +13,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
+import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useOrders } from "@/context/OrderContext";
 import { useChat, ChatMessage } from "@/context/ChatContext";
@@ -22,6 +23,7 @@ export default function ChatScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { getOrder } = useOrders();
   const { getMessages, sendCustomerMessage, triggerCourierGreeting } = useChat();
   const [text, setText] = useState("");
@@ -55,12 +57,12 @@ export default function ChatScreen() {
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
 
   const formatTime = (ts: number) =>
-    new Date(ts).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+    new Date(ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 
   if (!order) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }]}>
-        <Text style={{ color: colors.foreground }}>الطلب غير موجود</Text>
+        <Text style={{ color: colors.foreground }}>{t("chat.notFound")}</Text>
       </View>
     );
   }
@@ -71,7 +73,6 @@ export default function ChatScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={0}
     >
-      {/* Header */}
       <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <MaterialIcons name="arrow-forward" size={22} color={colors.foreground} />
@@ -84,7 +85,7 @@ export default function ChatScreen() {
             <Text style={[styles.courierName, { color: colors.foreground }]}>{order.courierName}</Text>
             <View style={styles.onlineRow}>
               <View style={[styles.onlineDot, { backgroundColor: "#22c55e" }]} />
-              <Text style={[styles.onlineText, { color: colors.mutedForeground }]}>متصل الآن</Text>
+              <Text style={[styles.onlineText, { color: colors.mutedForeground }]}>{t("chat.onlineNow")}</Text>
             </View>
           </View>
         </View>
@@ -101,7 +102,6 @@ export default function ChatScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Order context banner */}
       <View style={[styles.orderBanner, { backgroundColor: colors.secondary }]}>
         <MaterialIcons name="receipt" size={14} color={colors.primary} />
         <Text style={[styles.orderBannerText, { color: colors.primary }]} numberOfLines={1}>
@@ -109,7 +109,6 @@ export default function ChatScreen() {
         </Text>
       </View>
 
-      {/* Messages */}
       <FlatList
         ref={flatListRef}
         data={messages}
@@ -149,16 +148,15 @@ export default function ChatScreen() {
               <MaterialIcons name="chat-bubble-outline" size={36} color={colors.primary} />
             </View>
             <Text style={[styles.emptyChatTitle, { color: colors.foreground }]}>
-              ستبدأ المحادثة قريباً
+              {t("chat.empty.title")}
             </Text>
             <Text style={[styles.emptyChatSub, { color: colors.mutedForeground }]}>
-              المندوب سيتواصل معك بعد قبول الطلب
+              {t("chat.empty.sub")}
             </Text>
           </View>
         }
       />
 
-      {/* Input */}
       <View style={[styles.inputBar, { backgroundColor: colors.card, borderTopColor: colors.border, paddingBottom: bottomPadding + 8 }]}>
         <TouchableOpacity
           style={[styles.sendBtn, { backgroundColor: text.trim() ? colors.primary : colors.muted }]}
@@ -170,7 +168,7 @@ export default function ChatScreen() {
         </TouchableOpacity>
         <TextInput
           style={[styles.input, { backgroundColor: colors.background, color: colors.foreground, borderColor: colors.border }]}
-          placeholder="اكتب رسالة..."
+          placeholder={t("chat.inputPlaceholder")}
           placeholderTextColor={colors.mutedForeground}
           value={text}
           onChangeText={setText}
@@ -200,46 +198,42 @@ const styles = StyleSheet.create({
   courierName: { fontSize: 15, fontWeight: "700" },
   onlineRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
   onlineDot: { width: 7, height: 7, borderRadius: 4 },
-  onlineText: { fontSize: 11 },
-  trackIconBtn: { padding: 4, width: 40, alignItems: "center" },
+  onlineText: { fontSize: 12 },
+  trackIconBtn: { padding: 4, width: 40, alignItems: "flex-end" },
   orderBanner: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
   },
-  orderBannerText: { flex: 1, fontSize: 12, fontWeight: "500" },
-  messagesList: { paddingHorizontal: 16, paddingTop: 16 },
-  messageRow: { flexDirection: "row", marginBottom: 10, alignItems: "flex-end", gap: 6 },
+  orderBannerText: { flex: 1, fontSize: 12, fontWeight: "600" },
+  messagesList: { padding: 16, gap: 12 },
+  messageRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
   messageRowRight: { justifyContent: "flex-end" },
   messageRowLeft: { justifyContent: "flex-start" },
-  smallAvatar: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  bubble: { maxWidth: "72%", borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 },
+  smallAvatar: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", marginBottom: 18 },
+  bubble: { maxWidth: "75%", borderRadius: 16, padding: 12, gap: 4 },
   bubbleCustomer: { borderBottomRightRadius: 4 },
   bubbleCourier: { borderBottomLeftRadius: 4, borderWidth: 1 },
   bubbleText: { fontSize: 14, lineHeight: 20 },
-  bubbleTime: { fontSize: 10, marginTop: 4, textAlign: "right" },
-  emptyChat: { alignItems: "center", paddingTop: 80, gap: 12 },
+  bubbleTime: { fontSize: 10, textAlign: "right" },
+  emptyChat: { alignItems: "center", gap: 12, paddingTop: 80 },
   emptyIcon: { width: 72, height: 72, borderRadius: 36, alignItems: "center", justifyContent: "center", marginBottom: 4 },
-  emptyChatTitle: { fontSize: 16, fontWeight: "700" },
-  emptyChatSub: { fontSize: 13, textAlign: "center" },
+  emptyChatTitle: { fontSize: 17, fontWeight: "700", textAlign: "center" },
+  emptyChatSub: { fontSize: 13, textAlign: "center", paddingHorizontal: 32 },
   inputBar: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
     flexDirection: "row",
     alignItems: "flex-end",
+    gap: 10,
     paddingHorizontal: 12,
     paddingTop: 10,
     borderTopWidth: 1,
-    gap: 10,
   },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 14,
-    maxHeight: 100,
-  },
-  sendBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  sendBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", marginBottom: 2 },
+  input: { flex: 1, borderRadius: 22, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, maxHeight: 100 },
 });

@@ -12,12 +12,14 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
+import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
 import { useOrders } from "@/context/OrderContext";
 import { useFavorites } from "@/context/FavoritesContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import { useRatings } from "@/context/RatingsContext";
+import { useLanguage, AppLanguage } from "@/context/LanguageContext";
 
 interface MenuItemDef {
   icon: keyof typeof MaterialIcons.glyphMap;
@@ -31,11 +33,13 @@ export default function ProfileScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { user, signOut } = useAuth();
   const { orders } = useOrders();
   const { favorites } = useFavorites();
   const { unreadCount } = useNotifications();
   const { ratings } = useRatings();
+  const { language, setLanguage } = useLanguage();
 
   const avgRating =
     ratings.length > 0
@@ -54,10 +58,10 @@ export default function ProfileScreen() {
     : "";
 
   const handleSignOut = () => {
-    Alert.alert("تسجيل الخروج", "هل تريد تسجيل الخروج؟", [
-      { text: "إلغاء", style: "cancel" },
+    Alert.alert(t("profile.signOutTitle"), t("profile.signOutMessage"), [
+      { text: t("profile.signOutCancel"), style: "cancel" },
       {
-        text: "خروج",
+        text: t("profile.signOutConfirm"),
         style: "destructive",
         onPress: async () => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -67,14 +71,20 @@ export default function ProfileScreen() {
     ]);
   };
 
+  const handleLanguage = () => {
+    const otherLang: AppLanguage = language === "ar" ? "en" : "ar";
+    setLanguage(otherLang);
+  };
+
   const menuItems: MenuItemDef[] = [
-    { icon: "receipt-long", label: "طلباتي", onPress: () => router.push("/orders"), badge: orders.length > 0 ? orders.length : undefined },
-    { icon: "favorite", label: "المفضلة", onPress: () => router.push("/favorites"), badge: favorites.length > 0 ? favorites.length : undefined },
-    { icon: "location-on", label: "عناويني", onPress: () => router.push("/addresses") },
-    { icon: "notifications", label: "الإشعارات", onPress: () => router.push("/notifications"), badge: unreadCount > 0 ? unreadCount : undefined },
-    { icon: "payment", label: "طرق الدفع", onPress: () => {} },
-    { icon: "help-outline", label: "المساعدة والدعم", onPress: () => {} },
-    { icon: "info-outline", label: "عن التطبيق", onPress: () => {} },
+    { icon: "receipt-long", label: t("profile.menu.orders"), onPress: () => router.push("/orders"), badge: orders.length > 0 ? orders.length : undefined },
+    { icon: "favorite", label: t("profile.menu.favorites"), onPress: () => router.push("/favorites"), badge: favorites.length > 0 ? favorites.length : undefined },
+    { icon: "location-on", label: t("profile.menu.addresses"), onPress: () => router.push("/addresses") },
+    { icon: "notifications", label: t("profile.menu.notifications"), onPress: () => router.push("/notifications"), badge: unreadCount > 0 ? unreadCount : undefined },
+    { icon: "payment", label: t("profile.menu.payments"), onPress: () => {} },
+    { icon: "help-outline", label: t("profile.menu.support"), onPress: () => {} },
+    { icon: "info-outline", label: t("profile.menu.about"), onPress: () => {} },
+    { icon: "translate", label: t("profile.menu.language"), onPress: handleLanguage },
   ];
 
   return (
@@ -87,7 +97,7 @@ export default function ProfileScreen() {
             </Text>
           </View>
         </View>
-        <Text style={styles.name}>{user?.name ?? "المستخدم"}</Text>
+        <Text style={styles.name}>{user?.name ?? t("profile.defaultUser")}</Text>
         <Text style={styles.phone}>{displayPhone}</Text>
       </View>
 
@@ -99,18 +109,31 @@ export default function ProfileScreen() {
         <View style={[styles.statsRow, { backgroundColor: colors.card }]}>
           <View style={styles.stat}>
             <Text style={[styles.statNum, { color: colors.primary }]}>{orders.length}</Text>
-            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>طلب</Text>
+            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{t("profile.stats.orders")}</Text>
           </View>
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
           <View style={styles.stat}>
             <Text style={[styles.statNum, { color: colors.primary }]}>{favorites.length}</Text>
-            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>مفضلة</Text>
+            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{t("profile.stats.favorites")}</Text>
           </View>
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
           <View style={styles.stat}>
             <Text style={[styles.statNum, { color: colors.primary }]}>{avgRating}</Text>
-            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>متوسط تقييمي</Text>
+            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{t("profile.stats.avgRating")}</Text>
           </View>
+        </View>
+
+        {/* Language chip */}
+        <View style={[styles.langChip, { backgroundColor: colors.secondary }]}>
+          <MaterialIcons name="language" size={16} color={colors.primary} />
+          <Text style={[styles.langChipText, { color: colors.primary }]}>
+            {language === "ar" ? "العربية 🇸🇦" : "English 🌍"}
+          </Text>
+          <TouchableOpacity onPress={handleLanguage} style={[styles.langToggleBtn, { backgroundColor: colors.primary }]}>
+            <Text style={styles.langToggleBtnText}>
+              {language === "ar" ? "English" : "عربي"}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Menu */}
@@ -154,12 +177,12 @@ export default function ProfileScreen() {
         >
           <MaterialIcons name="logout" size={20} color={colors.destructive} />
           <Text style={[styles.signOutText, { color: colors.destructive }]}>
-            تسجيل الخروج
+            {t("profile.signOut")}
           </Text>
         </TouchableOpacity>
 
         <Text style={[styles.version, { color: colors.mutedForeground }]}>
-          مرسول · الإصدار 1.0.0
+          {t("profile.version")}
         </Text>
       </ScrollView>
     </View>
@@ -201,6 +224,19 @@ const styles = StyleSheet.create({
   statNum: { fontSize: 22, fontWeight: "800" },
   statLabel: { fontSize: 12 },
   statDivider: { width: 1, height: "100%" },
+  langChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  langChipText: { flex: 1, fontSize: 14, fontWeight: "600" },
+  langToggleBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 10 },
+  langToggleBtnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
   menuCard: {
     marginHorizontal: 16,
     marginTop: 16,

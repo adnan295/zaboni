@@ -13,6 +13,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
+import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
 
@@ -20,6 +21,7 @@ export default function NameScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { phone } = useLocalSearchParams<{ phone: string }>();
   const { signIn } = useAuth();
   const [name, setName] = useState("");
@@ -46,7 +48,6 @@ export default function NameScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Back */}
         <TouchableOpacity
           style={[styles.backBtn, { backgroundColor: colors.card }]}
           onPress={() => router.back()}
@@ -60,10 +61,10 @@ export default function NameScreen() {
           </View>
 
           <Text style={[styles.title, { color: colors.foreground }]}>
-            ما اسمك؟
+            {t("auth.name.title")}
           </Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            سنستخدمه لمخاطبتك في التطبيق
+            {t("auth.name.subtitle")}
           </Text>
 
           <TextInput
@@ -75,7 +76,7 @@ export default function NameScreen() {
                 color: colors.foreground,
               },
             ]}
-            placeholder="اسمك الكامل"
+            placeholder={t("auth.name.placeholder")}
             placeholderTextColor={colors.mutedForeground}
             value={name}
             onChangeText={setName}
@@ -101,7 +102,7 @@ export default function NameScreen() {
                 { color: isValid ? "#fff" : colors.mutedForeground },
               ]}
             >
-              {loading ? "جاري الدخول..." : "ابدأ الطلب"}
+              {loading ? t("auth.name.loading") : t("auth.name.start")}
             </Text>
             {!loading && (
               <MaterialIcons

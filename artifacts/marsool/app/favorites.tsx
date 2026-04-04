@@ -10,6 +10,7 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useFavorites } from "@/context/FavoritesContext";
 import RestaurantCard from "@/components/RestaurantCard";
@@ -18,6 +19,7 @@ export default function FavoritesScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { favorites } = useFavorites();
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
@@ -30,7 +32,7 @@ export default function FavoritesScreen() {
         >
           <MaterialIcons name="arrow-forward" size={22} color={colors.foreground} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.foreground }]}>المفضلة</Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>{t("favorites.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -40,16 +42,16 @@ export default function FavoritesScreen() {
             <MaterialIcons name="favorite-border" size={48} color={colors.primary} />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-            لا توجد مطاعم مفضلة
+            {t("favorites.empty.title")}
           </Text>
           <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
-            اضغط على قلب أي مطعم لإضافته هنا
+            {t("favorites.empty.subtitle")}
           </Text>
           <TouchableOpacity
             style={[styles.browseBtn, { backgroundColor: colors.primary }]}
             onPress={() => router.replace("/(tabs)")}
           >
-            <Text style={styles.browseBtnText}>تصفح المطاعم</Text>
+            <Text style={styles.browseBtnText}>{t("favorites.empty.browse")}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -100,15 +102,15 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 8,
+    marginBottom: 4,
   },
   emptyTitle: { fontSize: 20, fontWeight: "800" },
   emptySubtitle: { fontSize: 14, textAlign: "center" },
   browseBtn: {
     marginTop: 8,
-    paddingHorizontal: 24,
+    paddingHorizontal: 28,
     paddingVertical: 12,
-    borderRadius: 14,
+    borderRadius: 12,
   },
   browseBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
   list: { padding: 16 },

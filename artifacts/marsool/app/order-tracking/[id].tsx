@@ -12,6 +12,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
+import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useOrders, OrderStatus } from "@/context/OrderContext";
 import { useRatings } from "@/context/RatingsContext";
@@ -23,6 +24,7 @@ export default function OrderTrackingScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { getOrder } = useOrders();
   const { hasRated, ratingsLoaded } = useRatings();
   const [, forceUpdate] = useState(0);
@@ -39,13 +41,11 @@ export default function OrderTrackingScreen() {
   const initialAccepted = initialOrder?.status === "accepted" || initialOrder?.status === "on_way" || initialOrder?.status === "delivered";
   const acceptedScale = useRef(new Animated.Value(initialAccepted ? 1 : 0)).current;
 
-  // Poll for status updates
   useEffect(() => {
     const interval = setInterval(() => forceUpdate((n) => n + 1), 800);
     return () => clearInterval(interval);
   }, []);
 
-  // Searching spinner animation
   useEffect(() => {
     const spin = Animated.loop(
       Animated.timing(searchingRotate, {
@@ -65,7 +65,6 @@ export default function OrderTrackingScreen() {
     return () => { spin.stop(); pulse.stop(); };
   }, []);
 
-  // Auto-show rate prompt for already-delivered unrated orders
   useEffect(() => {
     const order = getOrder(id ?? "");
     if (
@@ -90,7 +89,6 @@ export default function OrderTrackingScreen() {
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
 
-  // Handle status transitions
   useEffect(() => {
     if (!order) return;
     const current = order.status;
@@ -134,7 +132,7 @@ export default function OrderTrackingScreen() {
   if (!order) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }]}>
-        <Text style={{ color: colors.foreground }}>الطلب غير موجود</Text>
+        <Text style={{ color: colors.foreground }}>{t("orderTracking.notFound")}</Text>
       </View>
     );
   }
@@ -145,22 +143,31 @@ export default function OrderTrackingScreen() {
   const isSearching = order.status === "searching";
   const rated = hasRated(order.id);
 
+  const getStatusTitle = () => {
+    if (isSearching) return t("orderTracking.status.searching");
+    if (isAccepted) return t("orderTracking.status.accepted");
+    if (isOnWay) return t("orderTracking.status.on_way");
+    return t("orderTracking.status.delivered");
+  };
+
+  const STATUS_STEPS: { key: OrderStatus; label: string; icon: keyof typeof MaterialIcons.glyphMap }[] = [
+    { key: "accepted", label: t("orderTracking.statusSteps.accepted"), icon: "check-circle" },
+    { key: "on_way", label: t("orderTracking.statusSteps.on_way"), icon: "delivery-dining" },
+    { key: "delivered", label: t("orderTracking.statusSteps.delivered"), icon: "home" },
+  ];
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
       <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.primary }]}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.replace("/(tabs)")}>
           <MaterialIcons name="arrow-forward" size={22} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {isSearching ? "البحث عن مندوب" : isAccepted ? "تم القبول" : isOnWay ? "في الطريق" : "تم التوصيل"}
-        </Text>
+        <Text style={styles.headerTitle}>{getStatusTitle()}</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: bottomPadding + 24 }}>
 
-        {/* ── SEARCHING phase ── */}
         {isSearching && (
           <View style={[styles.heroCard, { backgroundColor: colors.primary }]}>
             <Animated.View style={{ transform: [{ scale: searchingPulse }] }}>
@@ -168,8 +175,8 @@ export default function OrderTrackingScreen() {
                 <MaterialIcons name="delivery-dining" size={72} color="#fff" />
               </Animated.View>
             </Animated.View>
-            <Text style={styles.heroTitle}>يتم البحث عن مندوب قريب منك</Text>
-            <Text style={styles.heroSub}>سيصلك إشعار فور قبول أحد المندوبين</Text>
+            <Text style={styles.heroTitle}>{t("orderTracking.searching.title")}</Text>
+            <Text style={styles.heroSub}>{t("orderTracking.searching.sub")}</Text>
             <View style={styles.dotRow}>
               {[0, 1, 2].map((i) => (
                 <View key={i} style={[styles.dot, { backgroundColor: "rgba(255,255,255,0.5)" }]} />
@@ -178,15 +185,13 @@ export default function OrderTrackingScreen() {
           </View>
         )}
 
-        {/* ── ACCEPTED / ON_WAY / DELIVERED phase ── */}
         {!isSearching && (
           <>
-            {/* Courier Card */}
             <Animated.View style={[styles.courierCard, { backgroundColor: colors.card }, isAccepted && { transform: [{ scale: acceptedScale }] }]}>
               {isAccepted && (
                 <View style={[styles.acceptedBanner, { backgroundColor: "#22c55e" }]}>
                   <MaterialIcons name="check-circle" size={16} color="#fff" />
-                  <Text style={styles.acceptedBannerText}>قبل طلبك!</Text>
+                  <Text style={styles.acceptedBannerText}>{t("orderTracking.courier.acceptedBanner")}</Text>
                 </View>
               )}
               <View style={styles.courierRow}>
@@ -199,12 +204,11 @@ export default function OrderTrackingScreen() {
                   <View style={styles.courierRatingRow}>
                     <MaterialIcons name="star" size={14} color="#FFB800" />
                     <Text style={[styles.courierRatingText, { color: colors.foreground }]}>{order.courierRating}</Text>
-                    <Text style={[styles.courierRatingLabel, { color: colors.mutedForeground }]}>تقييم المندوب</Text>
+                    <Text style={[styles.courierRatingLabel, { color: colors.mutedForeground }]}>{t("orders.courier")}</Text>
                   </View>
                 </View>
               </View>
 
-              {/* Chat button */}
               <TouchableOpacity
                 style={[styles.chatBtn, { backgroundColor: colors.primary }]}
                 onPress={() =>
@@ -212,18 +216,13 @@ export default function OrderTrackingScreen() {
                 }
               >
                 <MaterialIcons name="chat" size={20} color="#fff" />
-                <Text style={styles.chatBtnText}>فتح الدردشة مع المندوب</Text>
+                <Text style={styles.chatBtnText}>{t("orderTracking.courier.openChat")}</Text>
               </TouchableOpacity>
             </Animated.View>
 
-            {/* Status card */}
             <View style={[styles.statusCard, { backgroundColor: colors.card }]}>
-              <Text style={[styles.cardTitle, { color: colors.foreground }]}>حالة الطلب</Text>
-              {[
-                { key: "accepted" as OrderStatus, label: "قَبِل المندوب طلبك", icon: "check-circle" as const },
-                { key: "on_way" as OrderStatus, label: "المندوب في الطريق إليك", icon: "delivery-dining" as const },
-                { key: "delivered" as OrderStatus, label: "تم التوصيل", icon: "home" as const },
-              ].map((step, idx, arr) => {
+              <Text style={[styles.cardTitle, { color: colors.foreground }]}>{t("orderTracking.orderTitle")}</Text>
+              {STATUS_STEPS.map((step, idx, arr) => {
                 const statusOrder: OrderStatus[] = ["accepted", "on_way", "delivered"];
                 const currentIdx = statusOrder.indexOf(order.status);
                 const stepIdx = statusOrder.indexOf(step.key);
@@ -254,9 +253,8 @@ export default function OrderTrackingScreen() {
           </>
         )}
 
-        {/* Order text summary */}
         <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
-          <Text style={[styles.cardTitle, { color: colors.foreground }]}>تفاصيل الطلب</Text>
+          <Text style={[styles.cardTitle, { color: colors.foreground }]}>{t("orderTracking.summary.title")}</Text>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Text style={[styles.restaurantLabel, { color: colors.mutedForeground }]}>{order.restaurantName}</Text>
           <Text style={[styles.orderText, { color: colors.foreground }]}>{order.orderText}</Text>
@@ -267,7 +265,6 @@ export default function OrderTrackingScreen() {
           </View>
         </View>
 
-        {/* Delivered actions */}
         {isDelivered && (
           <View style={styles.deliveredActions}>
             {!rated && (
@@ -276,14 +273,14 @@ export default function OrderTrackingScreen() {
                 onPress={() => router.push({ pathname: "/rate-order", params: { orderId: order.id, restaurantName: order.restaurantName } })}
               >
                 <MaterialIcons name="star" size={20} color="#fff" />
-                <Text style={styles.rateBtnText}>قيّم تجربتك</Text>
+                <Text style={styles.rateBtnText}>{t("orderTracking.rate")}</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity
               style={[styles.reorderBtn, { backgroundColor: rated ? colors.primary : colors.secondary }]}
               onPress={() => router.replace("/(tabs)")}
             >
-              <Text style={[styles.reorderText, { color: rated ? "#fff" : colors.primary }]}>اطلب مجدداً</Text>
+              <Text style={[styles.reorderText, { color: rated ? "#fff" : colors.primary }]}>{t("orderTracking.reorder")}</Text>
             </TouchableOpacity>
           </View>
         )}
