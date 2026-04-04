@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
+import { useBackIcon } from "@/hooks/useTypography";
 import { useAddresses, Address } from "@/context/AddressContext";
 
 type EditingAddress = { id?: string; label: string; address: string };
@@ -27,6 +28,7 @@ export default function AddressesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const backIcon = useBackIcon();
   const { addresses, addAddress, updateAddress, deleteAddress, setDefault } = useAddresses();
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
@@ -86,7 +88,7 @@ export default function AddressesScreen() {
           style={[styles.backBtn, { backgroundColor: colors.card }]}
           onPress={() => router.back()}
         >
-          <MaterialIcons name="arrow-forward" size={22} color={colors.foreground} />
+          <MaterialIcons name={backIcon} size={22} color={colors.foreground} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: colors.foreground }]}>{t("addresses.title")}</Text>
         <TouchableOpacity

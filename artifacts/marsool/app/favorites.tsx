@@ -12,6 +12,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
+import { useBackIcon } from "@/hooks/useTypography";
 import { useFavorites } from "@/context/FavoritesContext";
 import RestaurantCard from "@/components/RestaurantCard";
 
@@ -20,6 +21,7 @@ export default function FavoritesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const backIcon = useBackIcon();
   const { favorites } = useFavorites();
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
@@ -30,7 +32,7 @@ export default function FavoritesScreen() {
           style={[styles.backBtn, { backgroundColor: colors.card }]}
           onPress={() => router.back()}
         >
-          <MaterialIcons name="arrow-forward" size={22} color={colors.foreground} />
+          <MaterialIcons name={backIcon} size={22} color={colors.foreground} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: colors.foreground }]}>{t("favorites.title")}</Text>
         <View style={{ width: 40 }} />

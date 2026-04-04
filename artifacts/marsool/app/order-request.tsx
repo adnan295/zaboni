@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
+import { useBackIcon } from "@/hooks/useTypography";
 import { useOrders } from "@/context/OrderContext";
 import { useAddresses } from "@/context/AddressContext";
 
@@ -23,6 +24,7 @@ export default function OrderRequestScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const backIcon = useBackIcon();
   const { restaurantName } = useLocalSearchParams<{ restaurantName?: string }>();
   const { placeOrder } = useOrders();
   const { defaultAddress } = useAddresses();
@@ -58,7 +60,7 @@ export default function OrderRequestScreen() {
     >
       <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <MaterialIcons name="arrow-forward" size={22} color={colors.foreground} />
+          <MaterialIcons name={backIcon} size={22} color={colors.foreground} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>{t("orderRequest.title")}</Text>
         <View style={{ width: 40 }} />

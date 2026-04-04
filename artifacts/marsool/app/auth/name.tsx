@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
+import { useBackIcon, useForwardIcon } from "@/hooks/useTypography";
 import { useAuth } from "@/context/AuthContext";
 
 export default function NameScreen() {
@@ -22,6 +23,8 @@ export default function NameScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const backIcon = useBackIcon();
+  const forwardIcon = useForwardIcon();
   const { phone } = useLocalSearchParams<{ phone: string }>();
   const { signIn } = useAuth();
   const [name, setName] = useState("");
@@ -52,7 +55,7 @@ export default function NameScreen() {
           style={[styles.backBtn, { backgroundColor: colors.card }]}
           onPress={() => router.back()}
         >
-          <MaterialIcons name="arrow-forward" size={22} color={colors.foreground} />
+          <MaterialIcons name={backIcon} size={22} color={colors.foreground} />
         </TouchableOpacity>
 
         <View style={styles.content}>
@@ -106,7 +109,7 @@ export default function NameScreen() {
             </Text>
             {!loading && (
               <MaterialIcons
-                name="arrow-back"
+                name={forwardIcon}
                 size={20}
                 color={isValid ? "#fff" : colors.mutedForeground}
               />

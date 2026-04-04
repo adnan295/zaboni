@@ -12,6 +12,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
+import { useBackIcon } from "@/hooks/useTypography";
 import { useOrders, OrderStatus } from "@/context/OrderContext";
 import { useRatings } from "@/context/RatingsContext";
 
@@ -50,6 +51,7 @@ export default function OrdersScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const backIcon = useBackIcon();
   const { orders } = useOrders();
   const { hasRated, getRating } = useRatings();
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
@@ -75,7 +77,7 @@ export default function OrdersScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <MaterialIcons name="arrow-forward-ios" size={22} color={colors.foreground} />
+          <MaterialIcons name={backIcon} size={22} color={colors.foreground} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>{t("orders.title")}</Text>
         <View style={{ width: 40 }} />

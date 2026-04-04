@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
+import { useBackIcon } from "@/hooks/useTypography";
 import { useOrders } from "@/context/OrderContext";
 import { useChat, ChatMessage } from "@/context/ChatContext";
 
@@ -24,6 +25,7 @@ export default function ChatScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const backIcon = useBackIcon();
   const { getOrder } = useOrders();
   const { getMessages, sendCustomerMessage, triggerCourierGreeting } = useChat();
   const [text, setText] = useState("");
@@ -75,7 +77,7 @@ export default function ChatScreen() {
     >
       <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <MaterialIcons name="arrow-forward" size={22} color={colors.foreground} />
+          <MaterialIcons name={backIcon} size={22} color={colors.foreground} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <View style={[styles.avatarCircle, { backgroundColor: colors.primary }]}>

@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
+import { useBackIcon } from "@/hooks/useTypography";
 
 const OTP_LENGTH = 6;
 
@@ -22,6 +23,7 @@ export default function OtpScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const backIcon = useBackIcon();
   const { phone } = useLocalSearchParams<{ phone: string }>();
   const [otp, setOtp] = useState("");
   const [countdown, setCountdown] = useState(60);
@@ -73,7 +75,7 @@ export default function OtpScreen() {
         style={[styles.backBtn, { backgroundColor: colors.card }]}
         onPress={() => router.back()}
       >
-        <MaterialIcons name="arrow-forward" size={22} color={colors.foreground} />
+        <MaterialIcons name={backIcon} size={22} color={colors.foreground} />
       </TouchableOpacity>
 
       <View style={styles.content}>

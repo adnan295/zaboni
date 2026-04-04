@@ -16,6 +16,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
+import { useBackIcon } from "@/hooks/useTypography";
 import RestaurantCard from "@/components/RestaurantCard";
 import { RESTAURANTS } from "@/data/restaurants";
 
@@ -29,6 +30,7 @@ export default function SearchScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const backIcon = useBackIcon();
   const inputRef = useRef<TextInput>(null);
 
   const [query, setQuery] = useState("");
@@ -115,7 +117,7 @@ export default function SearchScreen() {
           style={[styles.backBtn, { backgroundColor: colors.card }]}
           onPress={() => router.back()}
         >
-          <MaterialIcons name="arrow-forward" size={22} color={colors.foreground} />
+          <MaterialIcons name={backIcon} size={22} color={colors.foreground} />
         </TouchableOpacity>
         <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <MaterialIcons name="search" size={20} color={colors.primary} />
