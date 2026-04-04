@@ -127,11 +127,11 @@ export default function ProfileScreen() {
         <View style={[styles.langChip, { backgroundColor: colors.secondary }]}>
           <MaterialIcons name="language" size={16} color={colors.primary} />
           <Text style={[styles.langChipText, { color: colors.primary }]}>
-            {language === "ar" ? "العربية 🇸🇦" : "English 🌍"}
+            {t("profile.language.currentLabel")}
           </Text>
           <TouchableOpacity onPress={handleLanguage} style={[styles.langToggleBtn, { backgroundColor: colors.primary }]}>
             <Text style={styles.langToggleBtnText}>
-              {language === "ar" ? "English" : "عربي"}
+              {t("profile.language.switchLabel")}
             </Text>
           </TouchableOpacity>
         </View>

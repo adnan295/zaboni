@@ -68,6 +68,8 @@
       "title": "Choose Language",
       "arabic": "العربية",
       "english": "English",
+      "currentLabel": "English 🌍",
+      "switchLabel": "عربي",
       "restartMsg": "The app will restart to apply the language change",
       "restartBtn": "OK",
       "cancel": "Cancel"

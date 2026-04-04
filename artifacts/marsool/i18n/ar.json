@@ -68,6 +68,8 @@
       "title": "اختر اللغة",
       "arabic": "العربية",
       "english": "English",
+      "currentLabel": "العربية 🇸🇦",
+      "switchLabel": "English",
       "restartMsg": "سيتم إعادة تشغيل التطبيق لتطبيق تغيير اللغة",
       "restartBtn": "موافق",
       "cancel": "إلغاء"
