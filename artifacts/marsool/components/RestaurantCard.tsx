@@ -1,13 +1,13 @@
 import React from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Image,
   Animated,
   GestureResponderEvent,
 } from "react-native";
+import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";

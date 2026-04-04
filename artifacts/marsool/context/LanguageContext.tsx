@@ -66,18 +66,17 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       };
 
       if (needsRTLChange && Platform.OS !== "web") {
+        const targetT = i18n.getFixedT(lang);
         Alert.alert(
-          lang === "ar" ? "تغيير اللغة" : "Language Change",
-          lang === "ar"
-            ? "سيتم إعادة تشغيل التطبيق لتطبيق تغيير اللغة"
-            : "The app will restart to apply the language change",
+          targetT("profile.language.title"),
+          targetT("profile.language.restartMsg"),
           [
             {
-              text: lang === "ar" ? "إلغاء" : "Cancel",
+              text: targetT("profile.language.cancel"),
               style: "cancel",
             },
             {
-              text: lang === "ar" ? "موافق" : "OK",
+              text: targetT("profile.language.restartBtn"),
               onPress: apply,
             },
           ]

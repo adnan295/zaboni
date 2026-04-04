@@ -1,10 +1,10 @@
 import React from "react";
 import {
   View,
-  Text,
   StyleSheet,
   Image,
 } from "react-native";
+import { default as Text } from "@/components/AppText";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { MenuItem } from "@/data/restaurants";

@@ -1,12 +1,12 @@
 import React, { useEffect, useRef } from "react";
 import {
   Animated,
-  Text,
   TouchableOpacity,
   StyleSheet,
   Platform,
   View,
 } from "react-native";
+import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
