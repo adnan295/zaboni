@@ -4,10 +4,8 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TextInput,
   TouchableOpacity,
   Platform,
-  FlatList,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -16,19 +14,18 @@ import { useColors } from "@/hooks/useColors";
 import RestaurantCard from "@/components/RestaurantCard";
 import { CATEGORIES, RESTAURANTS, Restaurant } from "@/data/restaurants";
 import { useAddresses } from "@/context/AddressContext";
+import { useNotifications } from "@/context/NotificationsContext";
 
 export default function HomeScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [searchText, setSearchText] = useState("");
   const { defaultAddress } = useAddresses();
+  const { unreadCount } = useNotifications();
 
   const filtered = RESTAURANTS.filter((r) => {
-    const matchCat = selectedCategory === "all" || r.category === selectedCategory;
-    const matchSearch = r.nameAr.includes(searchText) || r.name.toLowerCase().includes(searchText.toLowerCase());
-    return matchCat && matchSearch;
+    return selectedCategory === "all" || r.category === selectedCategory;
   });
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
@@ -47,9 +44,14 @@ export default function HomeScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.notifBtn, { backgroundColor: colors.card }]}
-            onPress={() => {}}
+            onPress={() => router.push("/notifications")}
           >
             <MaterialIcons name="notifications-none" size={22} color={colors.foreground} />
+            {unreadCount > 0 && (
+              <View style={[styles.notifBadge, { backgroundColor: colors.primary }]}>
+                <Text style={styles.notifBadgeText}>{unreadCount > 9 ? "9+" : unreadCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -60,23 +62,18 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        {/* Search */}
-        <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        {/* Search — tappable button that opens the search screen */}
+        <TouchableOpacity
+          style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={() => router.push("/search")}
+          activeOpacity={0.8}
+        >
           <MaterialIcons name="search" size={20} color={colors.mutedForeground} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.foreground }]}
-            placeholder="ابحث عن مطعم أو طعام..."
-            placeholderTextColor={colors.mutedForeground}
-            value={searchText}
-            onChangeText={setSearchText}
-            textAlign="right"
-          />
-          {searchText.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchText("")}>
-              <MaterialIcons name="close" size={18} color={colors.mutedForeground} />
-            </TouchableOpacity>
-          )}
-        </View>
+          <Text style={[styles.searchPlaceholder, { color: colors.mutedForeground }]}>
+            ابحث عن مطعم أو طعام...
+          </Text>
+          <MaterialIcons name="tune" size={18} color={colors.primary} />
+        </TouchableOpacity>
 
         {/* Categories */}
         <ScrollView
@@ -123,10 +120,15 @@ export default function HomeScreen() {
 
         {/* Restaurants */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            {selectedCategory === "all" ? "جميع المطاعم" : CATEGORIES.find(c => c.id === selectedCategory)?.name}
-            <Text style={[styles.count, { color: colors.mutedForeground }]}> ({filtered.length})</Text>
-          </Text>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              {selectedCategory === "all" ? "جميع المطاعم" : CATEGORIES.find(c => c.id === selectedCategory)?.name}
+              <Text style={[styles.count, { color: colors.mutedForeground }]}> ({filtered.length})</Text>
+            </Text>
+            <TouchableOpacity onPress={() => router.push("/search")}>
+              <MaterialIcons name="search" size={22} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
 
           {filtered.map((restaurant) => (
             <RestaurantCard
@@ -174,7 +176,20 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+    position: "relative",
   },
+  notifBadge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  notifBadgeText: { color: "#fff", fontSize: 9, fontWeight: "800" },
   greeting: {
     paddingHorizontal: 16,
     marginBottom: 16,
@@ -195,7 +210,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 10,
   },
-  searchInput: {
+  searchPlaceholder: {
     flex: 1,
     fontSize: 14,
   },
@@ -238,10 +253,16 @@ const styles = StyleSheet.create({
   section: {
     paddingHorizontal: 16,
   },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+    writingDirection: "rtl",
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "800",
-    marginBottom: 12,
   },
   count: {
     fontWeight: "400",

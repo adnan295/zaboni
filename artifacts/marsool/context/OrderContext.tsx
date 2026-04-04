@@ -1,5 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { createContext, useContext, useState, useCallback, useRef } from "react";
 import { CartItem } from "./CartContext";
 
 export type OrderStatus = "pending" | "confirmed" | "preparing" | "on_way" | "delivered";
@@ -20,6 +19,8 @@ interface OrderContextValue {
   activeOrder: Order | null;
   placeOrder: (items: CartItem[], totalPrice: number, restaurantName: string, address: string) => Order;
   getOrder: (id: string) => Order | undefined;
+  onStatusChange?: (order: Order, newStatus: OrderStatus) => void;
+  setStatusChangeHandler: (handler: (order: Order, newStatus: OrderStatus) => void) => void;
 }
 
 const OrderContext = createContext<OrderContextValue | null>(null);
@@ -28,9 +29,14 @@ const STATUS_SEQUENCE: OrderStatus[] = ["pending", "confirmed", "preparing", "on
 
 export function OrderProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [timers, setTimers] = useState<Record<string, NodeJS.Timeout>>({});
+  const statusChangeHandler = useRef<((order: Order, newStatus: OrderStatus) => void) | null>(null);
 
-  const activeOrder = orders.find((o) => o.status !== "delivered") ?? null;
+  const setStatusChangeHandler = useCallback(
+    (handler: (order: Order, newStatus: OrderStatus) => void) => {
+      statusChangeHandler.current = handler;
+    },
+    []
+  );
 
   const advanceStatus = useCallback((orderId: string) => {
     setOrders((prev) => {
@@ -39,9 +45,11 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       const currentIdx = STATUS_SEQUENCE.indexOf(order.status);
       if (currentIdx >= STATUS_SEQUENCE.length - 1) return prev;
       const nextStatus = STATUS_SEQUENCE[currentIdx + 1];
-      return prev.map((o) =>
-        o.id === orderId ? { ...o, status: nextStatus } : o
-      );
+      const updated = { ...order, status: nextStatus };
+      if (statusChangeHandler.current) {
+        statusChangeHandler.current(updated, nextStatus);
+      }
+      return prev.map((o) => (o.id === orderId ? updated : o));
     });
   }, []);
 
@@ -61,7 +69,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       setOrders((prev) => [newOrder, ...prev]);
 
       const delays = [3000, 8000, 20000, 35000];
-      delays.forEach((delay, idx) => {
+      delays.forEach((delay) => {
         setTimeout(() => advanceStatus(id), delay);
       });
 
@@ -75,8 +83,10 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     [orders]
   );
 
+  const activeOrder = orders.find((o) => o.status !== "delivered") ?? null;
+
   return (
-    <OrderContext.Provider value={{ orders, activeOrder, placeOrder, getOrder }}>
+    <OrderContext.Provider value={{ orders, activeOrder, placeOrder, getOrder, setStatusChangeHandler }}>
       {children}
     </OrderContext.Provider>
   );

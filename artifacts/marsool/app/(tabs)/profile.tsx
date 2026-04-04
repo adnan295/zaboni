@@ -16,6 +16,8 @@ import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
 import { useOrders } from "@/context/OrderContext";
 import { useFavorites } from "@/context/FavoritesContext";
+import { useNotifications } from "@/context/NotificationsContext";
+import { useRatings } from "@/context/RatingsContext";
 
 interface MenuItemDef {
   icon: keyof typeof MaterialIcons.glyphMap;
@@ -32,6 +34,13 @@ export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const { orders } = useOrders();
   const { favorites } = useFavorites();
+  const { unreadCount } = useNotifications();
+  const { ratings } = useRatings();
+
+  const avgRating =
+    ratings.length > 0
+      ? (ratings.reduce((sum, r) => sum + r.stars, 0) / ratings.length).toFixed(1)
+      : "—";
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
 
@@ -57,8 +66,8 @@ export default function ProfileScreen() {
     { icon: "receipt-long", label: "طلباتي", onPress: () => router.push("/orders"), badge: orders.length > 0 ? orders.length : undefined },
     { icon: "favorite", label: "المفضلة", onPress: () => router.push("/favorites"), badge: favorites.length > 0 ? favorites.length : undefined },
     { icon: "location-on", label: "عناويني", onPress: () => router.push("/addresses") },
+    { icon: "notifications", label: "الإشعارات", onPress: () => router.push("/notifications"), badge: unreadCount > 0 ? unreadCount : undefined },
     { icon: "payment", label: "طرق الدفع", onPress: () => {} },
-    { icon: "notifications", label: "الإشعارات", onPress: () => {} },
     { icon: "help-outline", label: "المساعدة والدعم", onPress: () => {} },
     { icon: "info-outline", label: "عن التطبيق", onPress: () => {} },
   ];
@@ -94,8 +103,8 @@ export default function ProfileScreen() {
           </View>
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
           <View style={styles.stat}>
-            <Text style={[styles.statNum, { color: colors.primary }]}>4.8</Text>
-            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>تقييمك</Text>
+            <Text style={[styles.statNum, { color: colors.primary }]}>{avgRating}</Text>
+            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>متوسط تقييمي</Text>
           </View>
         </View>
 

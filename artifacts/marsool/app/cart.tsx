@@ -18,6 +18,7 @@ import { useColors } from "@/hooks/useColors";
 import { useCart } from "@/context/CartContext";
 import { useOrders } from "@/context/OrderContext";
 import { useAddresses } from "@/context/AddressContext";
+import { useCoupons, COUPONS } from "@/context/CouponsContext";
 
 export default function CartScreen() {
   const colors = useColors();
@@ -26,10 +27,12 @@ export default function CartScreen() {
   const { items, totalItems, totalPrice, restaurantName, updateQuantity, clearCart } = useCart();
   const { placeOrder } = useOrders();
   const { addresses, defaultAddress } = useAddresses();
+  const { appliedCoupon, couponError, discountAmount, applyCoupon, removeCoupon } = useCoupons();
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(
     defaultAddress?.id ?? null
   );
   const [note, setNote] = useState("");
+  const [couponInput, setCouponInput] = useState("");
 
   useEffect(() => {
     if (!selectedAddressId && defaultAddress) {
@@ -38,7 +41,8 @@ export default function CartScreen() {
   }, [defaultAddress]);
 
   const deliveryFee = totalPrice >= 50 ? 0 : 10;
-  const total = totalPrice + deliveryFee;
+  const discount = discountAmount(totalPrice);
+  const total = totalPrice + deliveryFee - discount;
 
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId) ?? defaultAddress;
 
@@ -51,7 +55,14 @@ export default function CartScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const order = placeOrder(items, total, restaurantName ?? "", selectedAddress.address);
     clearCart();
+    removeCoupon();
     router.replace(`/order-tracking/${order.id}`);
+  };
+
+  const handleApplyCoupon = () => {
+    if (!couponInput.trim()) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    applyCoupon(couponInput, totalPrice);
   };
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
@@ -202,6 +213,86 @@ export default function CartScreen() {
           )}
         </View>
 
+        {/* Coupon Section */}
+        <View style={styles.sectionContainer}>
+          <Text style={[styles.sectionHeading, { color: colors.foreground }]}>كوبون الخصم</Text>
+
+          {appliedCoupon ? (
+            <View style={[styles.couponApplied, { backgroundColor: "#f0fdf4", borderColor: colors.success }]}>
+              <View style={styles.couponAppliedInfo}>
+                <View style={[styles.couponIcon, { backgroundColor: "#dcfce7" }]}>
+                  <MaterialIcons name="local-offer" size={18} color={colors.success} />
+                </View>
+                <View style={styles.couponAppliedText}>
+                  <Text style={[styles.couponCode, { color: colors.success }]}>{appliedCoupon.code}</Text>
+                  <Text style={[styles.couponDesc, { color: colors.mutedForeground }]}>{appliedCoupon.description}</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  removeCoupon();
+                  setCouponInput("");
+                }}
+              >
+                <MaterialIcons name="close" size={20} color={colors.destructive} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              <View style={[styles.couponRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <TextInput
+                  style={[styles.couponInput, { color: colors.foreground }]}
+                  placeholder="أدخل كود الخصم..."
+                  placeholderTextColor={colors.mutedForeground}
+                  value={couponInput}
+                  onChangeText={(t) => { setCouponInput(t); }}
+                  autoCapitalize="characters"
+                  returnKeyType="done"
+                  onSubmitEditing={handleApplyCoupon}
+                  textAlign="right"
+                />
+                <TouchableOpacity
+                  style={[styles.couponApplyBtn, { backgroundColor: couponInput.trim() ? colors.primary : colors.muted }]}
+                  onPress={handleApplyCoupon}
+                  disabled={!couponInput.trim()}
+                >
+                  <Text style={[styles.couponApplyText, { color: couponInput.trim() ? "#fff" : colors.mutedForeground }]}>
+                    تطبيق
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {couponError && (
+                <View style={styles.couponErrorRow}>
+                  <MaterialIcons name="error-outline" size={14} color={colors.destructive} />
+                  <Text style={[styles.couponError, { color: colors.destructive }]}>{couponError}</Text>
+                </View>
+              )}
+
+              {/* Quick coupon suggestions */}
+              <View style={styles.couponSuggestions}>
+                <Text style={[styles.couponSuggestLabel, { color: colors.mutedForeground }]}>كوبونات متاحة:</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.couponChips}>
+                  {COUPONS.map((c) => (
+                    <TouchableOpacity
+                      key={c.code}
+                      style={[styles.couponChip, { backgroundColor: colors.secondary, borderColor: colors.accent }]}
+                      onPress={() => {
+                        setCouponInput(c.code);
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
+                    >
+                      <MaterialIcons name="local-offer" size={12} color={colors.primary} />
+                      <Text style={[styles.couponChipCode, { color: colors.primary }]}>{c.code}</Text>
+                      <Text style={[styles.couponChipLabel, { color: colors.mutedForeground }]}>{c.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </>
+          )}
+        </View>
+
         {/* Note */}
         <View style={styles.sectionContainer}>
           <Text style={[styles.sectionHeading, { color: colors.foreground }]}>ملاحظات إضافية</Text>
@@ -231,6 +322,16 @@ export default function CartScreen() {
               {deliveryFee === 0 ? "مجاني" : `${deliveryFee} ر.س`}
             </Text>
           </View>
+          {discount > 0 && (
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: colors.success }]}>
+                خصم الكوبون ({appliedCoupon?.code})
+              </Text>
+              <Text style={[styles.summaryValue, { color: colors.success }]}>
+                -{discount} ر.س
+              </Text>
+            </View>
+          )}
           <View style={[styles.totalRow, { borderTopColor: colors.border }]}>
             <Text style={[styles.totalLabel, { color: colors.foreground }]}>الإجمالي</Text>
             <Text style={[styles.totalValue, { color: colors.primary }]}>{total} ر.س</Text>
@@ -245,7 +346,12 @@ export default function CartScreen() {
           onPress={handleOrder}
           activeOpacity={0.85}
         >
-          <Text style={styles.orderBtnText}>تأكيد الطلب · {total} ر.س</Text>
+          <Text style={styles.orderBtnText}>
+            تأكيد الطلب · {total} ر.س
+          </Text>
+          {discount > 0 && (
+            <Text style={styles.orderBtnSaving}>وفرت {discount} ر.س</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -295,7 +401,7 @@ const styles = StyleSheet.create({
   qtyNum: { fontSize: 14, fontWeight: "700", minWidth: 24, textAlign: "center" },
   sectionContainer: { paddingHorizontal: 16, marginBottom: 16 },
   addressHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
-  sectionHeading: { fontSize: 16, fontWeight: "700" },
+  sectionHeading: { fontSize: 16, fontWeight: "700", marginBottom: 10 },
   manageAddresses: { fontSize: 13, fontWeight: "600" },
   addAddressBtn: {
     flexDirection: "row",
@@ -329,13 +435,65 @@ const styles = StyleSheet.create({
   addrInfo: { flex: 1 },
   addrLabelRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   addrLabel: { fontSize: 14, fontWeight: "700" },
-  defaultBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 5,
-  },
+  defaultBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5 },
   defaultBadgeText: { fontSize: 10, fontWeight: "600" },
   addrText: { fontSize: 12, marginTop: 2 },
+  couponRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: "hidden",
+    marginBottom: 8,
+  },
+  couponInput: { flex: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15 },
+  couponApplyBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    margin: 4,
+    borderRadius: 10,
+  },
+  couponApplyText: { fontSize: 14, fontWeight: "700" },
+  couponErrorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 8,
+  },
+  couponError: { fontSize: 12 },
+  couponSuggestions: { gap: 8 },
+  couponSuggestLabel: { fontSize: 12 },
+  couponChips: { gap: 8 },
+  couponChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 4,
+  },
+  couponChipCode: { fontSize: 12, fontWeight: "800" },
+  couponChipLabel: { fontSize: 11 },
+  couponApplied: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+  },
+  couponAppliedInfo: { flexDirection: "row", alignItems: "center", gap: 10 },
+  couponIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  couponAppliedText: { gap: 2 },
+  couponCode: { fontSize: 15, fontWeight: "800" },
+  couponDesc: { fontSize: 12 },
   noteInput: {
     borderWidth: 1,
     borderRadius: 14,
@@ -371,8 +529,9 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: 1,
   },
-  orderBtn: { borderRadius: 16, paddingVertical: 16, alignItems: "center" },
+  orderBtn: { borderRadius: 16, paddingVertical: 14, alignItems: "center" },
   orderBtnText: { color: "#fff", fontSize: 16, fontWeight: "800" },
+  orderBtnSaving: { color: "rgba(255,255,255,0.8)", fontSize: 11, marginTop: 2 },
   emptyContainer: {
     flex: 1,
     alignItems: "center",

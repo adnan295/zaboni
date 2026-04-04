@@ -19,6 +19,10 @@ import { OrderProvider } from "@/context/OrderContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { FavoritesProvider } from "@/context/FavoritesContext";
 import { AddressProvider } from "@/context/AddressContext";
+import { CouponsProvider } from "@/context/CouponsContext";
+import { RatingsProvider } from "@/context/RatingsContext";
+import { NotificationsProvider } from "@/context/NotificationsContext";
+import OrderNotificationBridge from "@/components/OrderNotificationBridge";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -91,6 +95,18 @@ function RootLayoutNav() {
           name="addresses"
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="search"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="notifications"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="rate-order"
+          options={{ headerShown: false, presentation: "modal" }}
+        />
       </Stack>
     </AuthGate>
   );
@@ -117,19 +133,26 @@ export default function RootLayout() {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <FavoritesProvider>
-              <AddressProvider>
-                <CartProvider>
-                  <OrderProvider>
-                    <GestureHandlerRootView>
-                      <KeyboardProvider>
-                        <RootLayoutNav />
-                      </KeyboardProvider>
-                    </GestureHandlerRootView>
-                  </OrderProvider>
-                </CartProvider>
-              </AddressProvider>
-            </FavoritesProvider>
+            <NotificationsProvider>
+              <RatingsProvider>
+                <FavoritesProvider>
+                  <AddressProvider>
+                    <CouponsProvider>
+                      <CartProvider>
+                        <OrderProvider>
+                          <GestureHandlerRootView>
+                            <KeyboardProvider>
+                              <OrderNotificationBridge />
+                              <RootLayoutNav />
+                            </KeyboardProvider>
+                          </GestureHandlerRootView>
+                        </OrderProvider>
+                      </CartProvider>
+                    </CouponsProvider>
+                  </AddressProvider>
+                </FavoritesProvider>
+              </RatingsProvider>
+            </NotificationsProvider>
           </AuthProvider>
         </QueryClientProvider>
       </ErrorBoundary>
