@@ -3,7 +3,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import i18n from "@/i18n";
 
 const STORAGE_KEY = "@marsool_notifications";
-const SEEDED_LANG_KEY = "@marsool_notifications_seeded_lang";
 
 export type NotifType = "order_status" | "promo" | "rating_request" | "system";
 
@@ -65,19 +64,13 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const currentLang = i18n.language || "ar";
-
-    Promise.all([
-      AsyncStorage.getItem(STORAGE_KEY),
-      AsyncStorage.getItem(SEEDED_LANG_KEY),
-    ]).then(([raw, seededLang]) => {
-      if (raw && seededLang === currentLang) {
+    AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
+      if (raw) {
         setNotifications(JSON.parse(raw));
       } else {
         const welcome = buildSeedNotifications();
         setNotifications(welcome);
         AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(welcome));
-        AsyncStorage.setItem(SEEDED_LANG_KEY, currentLang);
       }
     });
 
