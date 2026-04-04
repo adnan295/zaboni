@@ -36,7 +36,8 @@ export default function OrderTrackingScreen() {
   const celebrateScale = useRef(new Animated.Value(isAlreadyDelivered ? 1 : 0)).current;
   const searchingRotate = useRef(new Animated.Value(0)).current;
   const searchingPulse = useRef(new Animated.Value(1)).current;
-  const acceptedScale = useRef(new Animated.Value(0)).current;
+  const initialAccepted = initialOrder?.status === "accepted" || initialOrder?.status === "on_way" || initialOrder?.status === "delivered";
+  const acceptedScale = useRef(new Animated.Value(initialAccepted ? 1 : 0)).current;
 
   // Poll for status updates
   useEffect(() => {
@@ -98,6 +99,9 @@ export default function OrderTrackingScreen() {
         if (current === "accepted") {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           Animated.spring(acceptedScale, { toValue: 1, tension: 60, friction: 8, useNativeDriver: USE_NATIVE_DRIVER }).start();
+          setTimeout(() => {
+            router.push({ pathname: "/chat/[orderId]", params: { orderId: order.id } });
+          }, 1200);
         } else if (current === "delivered") {
           if (!deliveredHapticFired.current) {
             deliveredHapticFired.current = true;
