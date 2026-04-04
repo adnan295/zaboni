@@ -80,6 +80,18 @@
       "restartMsg": "سيتم إعادة تشغيل التطبيق لتطبيق تغيير اللغة",
       "restartBtn": "موافق",
       "cancel": "إلغاء"
+    },
+    "courier": {
+      "sectionTitle": "وضع المندوب",
+      "registerTitle": "هل تريد التوصيل وكسب المال؟",
+      "registerBody": "سجّل كمندوب لتبدأ قبول الطلبات وكسب الأرباح",
+      "registerBtn": "التسجيل كمندوب",
+      "registering": "جاري التسجيل...",
+      "badge": "مندوب معتمد",
+      "switchToCourier": "التبديل لوضع المندوب",
+      "switchToCustomer": "العودة لوضع العميل",
+      "successTitle": "تم التسجيل!",
+      "successMsg": "أنت الآن مندوب معتمد، يمكنك قبول الطلبات"
     }
   },
   "orders": {
@@ -196,6 +208,48 @@
   "tabs": {
     "home": "الرئيسية",
     "profile": "حسابي"
+  },
+  "courierTabs": {
+    "available": "الطلبات",
+    "active": "طلبي الفعلي",
+    "profile": "حسابي"
+  },
+  "courier": {
+    "available": {
+      "title": "الطلبات المتاحة",
+      "empty": {
+        "title": "لا توجد طلبات متاحة",
+        "body": "ستظهر هنا الطلبات القريبة منك فور إرسالها"
+      },
+      "refresh": "تحديث",
+      "accept": "اقبل الطلب",
+      "accepting": "جاري القبول...",
+      "acceptError": "تعذّر قبول الطلب، ربما قبله مندوب آخر",
+      "customer": "العميل",
+      "address": "العنوان",
+      "orderText": "تفاصيل الطلب",
+      "restaurant": "المطعم"
+    },
+    "active": {
+      "title": "الطلب الفعلي",
+      "noActive": {
+        "title": "لا يوجد طلب فعلي",
+        "body": "اقبل أحد الطلبات المتاحة لتبدأ التوصيل"
+      },
+      "customer": "العميل",
+      "address": "عنوان التوصيل",
+      "orderText": "تفاصيل الطلب",
+      "openChat": "فتح الدردشة مع العميل",
+      "statusTitle": "تحديث الحالة",
+      "markOnWay": "في الطريق 🛵",
+      "markDelivered": "تم التوصيل ✅",
+      "updating": "جاري التحديث...",
+      "status": {
+        "accepted": "تم القبول",
+        "on_way": "في الطريق",
+        "delivered": "تم التوصيل"
+      }
+    }
   },
   "restaurant": {
     "notFound": "المطعم غير موجود",

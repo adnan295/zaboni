@@ -197,9 +197,12 @@ router.post("/auth/verify-otp", async (req, res) => {
   let userId: string;
   let userName: string;
 
+  let userRole: "customer" | "courier" = "customer";
+
   if (existingUser.length > 0) {
     userId = existingUser[0].id;
     userName = name ?? existingUser[0].name;
+    userRole = (existingUser[0].role as "customer" | "courier") ?? "customer";
     if (name && name !== existingUser[0].name) {
       await db.update(usersTable).set({ name }).where(eq(usersTable.id, userId));
     }
@@ -227,9 +230,46 @@ router.post("/auth/verify-otp", async (req, res) => {
 
   res.json({
     token,
-    user: { id: userId, phone, name: userName },
+    user: { id: userId, phone, name: userName, role: userRole },
     isNewUser,
   });
+});
+
+router.get("/auth/me", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const token = authHeader.slice(7);
+  const secret = getJwtSecret();
+  if (!secret) {
+    res.status(500).json({ error: "JWT_SECRET not configured" });
+    return;
+  }
+
+  let userId: string;
+  try {
+    const payload = jwt.verify(token, secret) as { userId: string };
+    userId = payload.userId;
+  } catch {
+    res.status(401).json({ error: "Invalid or expired token" });
+    return;
+  }
+
+  const users = await db
+    .select({ id: usersTable.id, phone: usersTable.phone, name: usersTable.name, role: usersTable.role })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
+
+  if (users.length === 0) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  res.json(users[0]);
 });
 
 const updateProfileSchema = z.object({

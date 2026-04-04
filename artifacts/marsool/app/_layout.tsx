@@ -31,6 +31,7 @@ import { AddressProvider } from "@/context/AddressContext";
 import { RatingsProvider } from "@/context/RatingsContext";
 import { NotificationsProvider } from "@/context/NotificationsContext";
 import { LanguageProvider, useLanguage } from "@/context/LanguageContext";
+import { CourierProvider } from "@/context/CourierContext";
 import OrderNotificationBridge from "@/components/OrderNotificationBridge";
 import PushNotificationSetup from "@/components/PushNotificationSetup";
 import ToastBanner from "@/components/ToastBanner";
@@ -40,19 +41,30 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient();
 
 function AuthGate({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isCourierMode, isCourier } = useAuth();
   const router = useRouter();
   const segments = useSegments();
 
   useEffect(() => {
     if (isLoading) return;
     const inAuthGroup = segments[0] === "auth";
+    const inCourierGroup = segments[0] === "(courier)";
+    const inTabsGroup = segments[0] === "(tabs)";
+
     if (!user && !inAuthGroup) {
       router.replace("/auth/phone");
     } else if (user && inAuthGroup) {
+      if (isCourier && isCourierMode) {
+        router.replace("/(courier)/available");
+      } else {
+        router.replace("/(tabs)");
+      }
+    } else if (user && isCourier && isCourierMode && inTabsGroup) {
+      router.replace("/(courier)/available");
+    } else if (user && (!isCourier || !isCourierMode) && inCourierGroup) {
       router.replace("/(tabs)");
     }
-  }, [user, isLoading, segments]);
+  }, [user, isLoading, segments, isCourierMode, isCourier]);
 
   if (isLoading) {
     return (
@@ -77,6 +89,7 @@ function RootLayoutNav() {
       <AuthGate>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="(courier)" options={{ headerShown: false }} />
           <Stack.Screen name="auth/phone" options={{ headerShown: false, gestureEnabled: false }} />
           <Stack.Screen name="auth/otp" options={{ headerShown: false }} />
           <Stack.Screen name="auth/name" options={{ headerShown: false }} />
@@ -138,13 +151,15 @@ export default function RootLayout() {
                       <AddressProvider>
                         <OrderProvider>
                           <ChatProvider>
-                            <GestureHandlerRootView>
-                              <KeyboardProvider>
-                                <PushNotificationSetup />
-                                <OrderNotificationBridge />
-                                <RootLayoutNav />
-                              </KeyboardProvider>
-                            </GestureHandlerRootView>
+                            <CourierProvider>
+                              <GestureHandlerRootView>
+                                <KeyboardProvider>
+                                  <PushNotificationSetup />
+                                  <OrderNotificationBridge />
+                                  <RootLayoutNav />
+                                </KeyboardProvider>
+                              </GestureHandlerRootView>
+                            </CourierProvider>
                           </ChatProvider>
                         </OrderProvider>
                       </AddressProvider>

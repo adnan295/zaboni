@@ -80,6 +80,18 @@
       "restartMsg": "The app will restart to apply the language change",
       "restartBtn": "OK",
       "cancel": "Cancel"
+    },
+    "courier": {
+      "sectionTitle": "Courier Mode",
+      "registerTitle": "Want to deliver and earn?",
+      "registerBody": "Register as a courier to start accepting orders and earning",
+      "registerBtn": "Register as Courier",
+      "registering": "Registering...",
+      "badge": "Verified Courier",
+      "switchToCourier": "Switch to Courier Mode",
+      "switchToCustomer": "Back to Customer Mode",
+      "successTitle": "Registered!",
+      "successMsg": "You are now a verified courier. You can start accepting orders."
     }
   },
   "orders": {
@@ -196,6 +208,48 @@
   "tabs": {
     "home": "Home",
     "profile": "Profile"
+  },
+  "courierTabs": {
+    "available": "Orders",
+    "active": "My Active",
+    "profile": "Profile"
+  },
+  "courier": {
+    "available": {
+      "title": "Available Orders",
+      "empty": {
+        "title": "No available orders",
+        "body": "New orders from customers will appear here"
+      },
+      "refresh": "Refresh",
+      "accept": "Accept Order",
+      "accepting": "Accepting...",
+      "acceptError": "Could not accept order — it may have been taken",
+      "customer": "Customer",
+      "address": "Address",
+      "orderText": "Order Details",
+      "restaurant": "Restaurant"
+    },
+    "active": {
+      "title": "Active Order",
+      "noActive": {
+        "title": "No active order",
+        "body": "Accept an available order to start delivering"
+      },
+      "customer": "Customer",
+      "address": "Delivery Address",
+      "orderText": "Order Details",
+      "openChat": "Open Chat with Customer",
+      "statusTitle": "Update Status",
+      "markOnWay": "On the Way 🛵",
+      "markDelivered": "Mark Delivered ✅",
+      "updating": "Updating...",
+      "status": {
+        "accepted": "Accepted",
+        "on_way": "On the Way",
+        "delivered": "Delivered"
+      }
+    }
   },
   "restaurant": {
     "notFound": "Restaurant not found",

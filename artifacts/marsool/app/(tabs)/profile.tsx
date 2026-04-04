@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   StyleSheet,
@@ -20,6 +20,7 @@ import { useFavorites } from "@/context/FavoritesContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import { useRatings } from "@/context/RatingsContext";
 import { useLanguage, AppLanguage } from "@/context/LanguageContext";
+import { customFetch } from "@workspace/api-client-react";
 
 interface MenuItemDef {
   icon: keyof typeof MaterialIcons.glyphMap;
@@ -34,12 +35,13 @@ export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
-  const { user, signOut } = useAuth();
+  const { user, signOut, isCourier, isCourierMode, setCourierMode, refreshRole } = useAuth();
   const { orders } = useOrders();
   const { favorites } = useFavorites();
   const { unreadCount } = useNotifications();
   const { ratings } = useRatings();
   const { language, setLanguage } = useLanguage();
+  const [registering, setRegistering] = useState(false);
 
   const avgRating =
     ratings.length > 0
@@ -74,6 +76,29 @@ export default function ProfileScreen() {
     setLanguage(otherLang);
   };
 
+  const handleRegisterAsCourier = async () => {
+    setRegistering(true);
+    try {
+      await customFetch("/api/courier/register", { method: "POST" });
+      await refreshRole();
+      Alert.alert(t("profile.courier.successTitle"), t("profile.courier.successMsg"));
+    } catch {
+      Alert.alert(t("common.error"), t("common.retry"));
+    } finally {
+      setRegistering(false);
+    }
+  };
+
+  const handleSwitchToCourier = async () => {
+    await setCourierMode(true);
+    router.replace("/(courier)/available");
+  };
+
+  const handleSwitchToCustomer = async () => {
+    await setCourierMode(false);
+    router.replace("/(tabs)");
+  };
+
   const menuItems: MenuItemDef[] = [
     { icon: "receipt-long", label: t("profile.menu.orders"), onPress: () => router.push("/orders"), badge: orders.length > 0 ? orders.length : undefined },
     { icon: "favorite", label: t("profile.menu.favorites"), onPress: () => router.push("/favorites"), badge: favorites.length > 0 ? favorites.length : undefined },
@@ -97,6 +122,12 @@ export default function ProfileScreen() {
         </View>
         <Text style={styles.name}>{user?.name ?? t("profile.defaultUser")}</Text>
         <Text style={styles.phone}>{displayPhone}</Text>
+        {isCourier && (
+          <View style={styles.courierBadge}>
+            <MaterialIcons name="verified" size={14} color="#FF6B00" />
+            <Text style={styles.courierBadgeText}>{t("profile.courier.badge")}</Text>
+          </View>
+        )}
       </View>
 
       <ScrollView
@@ -133,6 +164,68 @@ export default function ProfileScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Courier section */}
+        {!isCourier ? (
+          <View style={[styles.courierCard, { backgroundColor: "#FFF7F0", borderColor: "#FFD5B0" }]}>
+            <View style={styles.courierCardHeader}>
+              <MaterialIcons name="delivery-dining" size={28} color="#FF6B00" />
+              <View style={styles.courierCardText}>
+                <Text style={[styles.courierCardTitle, { color: "#FF6B00" }]}>
+                  {t("profile.courier.registerTitle")}
+                </Text>
+                <Text style={[styles.courierCardBody, { color: "#995000" }]}>
+                  {t("profile.courier.registerBody")}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={[styles.courierRegisterBtn, { backgroundColor: registering ? "#FFB070" : "#FF6B00" }]}
+              onPress={handleRegisterAsCourier}
+              disabled={registering}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons name="add-circle" size={20} color="#fff" />
+              <Text style={styles.courierRegisterBtnText}>
+                {registering ? t("profile.courier.registering") : t("profile.courier.registerBtn")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={[styles.courierCard, { backgroundColor: "#F0FFF4", borderColor: "#B0E8C0" }]}>
+            <View style={styles.courierCardHeader}>
+              <MaterialIcons name="verified" size={28} color="#4CAF50" />
+              <View style={styles.courierCardText}>
+                <Text style={[styles.courierCardTitle, { color: "#2E7D32" }]}>
+                  {t("profile.courier.sectionTitle")}
+                </Text>
+              </View>
+            </View>
+            {isCourierMode ? (
+              <TouchableOpacity
+                style={[styles.courierRegisterBtn, { backgroundColor: "#616161" }]}
+                onPress={handleSwitchToCustomer}
+                activeOpacity={0.8}
+              >
+                <MaterialIcons name="swap-horiz" size={20} color="#fff" />
+                <Text style={styles.courierRegisterBtnText}>
+                  {t("profile.courier.switchToCustomer")}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.courierRegisterBtn, { backgroundColor: "#4CAF50" }]}
+                onPress={handleSwitchToCourier}
+                activeOpacity={0.8}
+              >
+                <MaterialIcons name="delivery-dining" size={20} color="#fff" />
+                <Text style={styles.courierRegisterBtnText}>
+                  {t("profile.courier.switchToCourier")}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {/* Menu */}
         <View style={[styles.menuCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -206,6 +299,17 @@ const styles = StyleSheet.create({
   avatarInitial: { fontSize: 32, fontWeight: "800", color: "#fff" },
   name: { fontSize: 20, fontWeight: "800", color: "#fff" },
   phone: { fontSize: 14, color: "rgba(255,255,255,0.8)", marginTop: 4 },
+  courierBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 8,
+    backgroundColor: "#fff",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  courierBadgeText: { fontSize: 12, fontWeight: "700", color: "#FF6B00" },
   statsRow: {
     flexDirection: "row",
     marginHorizontal: 16,
@@ -235,6 +339,27 @@ const styles = StyleSheet.create({
   langChipText: { flex: 1, fontSize: 14, fontWeight: "600" },
   langToggleBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 10 },
   langToggleBtnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
+  courierCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    gap: 12,
+  },
+  courierCardHeader: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  courierCardText: { flex: 1, gap: 4 },
+  courierCardTitle: { fontSize: 15, fontWeight: "700" },
+  courierCardBody: { fontSize: 13, lineHeight: 18 },
+  courierRegisterBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  courierRegisterBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
   menuCard: {
     marginHorizontal: 16,
     marginTop: 16,
