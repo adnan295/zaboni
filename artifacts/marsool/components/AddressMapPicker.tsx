@@ -11,7 +11,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
-import { Coords, RIYADH_CENTER } from "@/utils/geo";
+import { Coords, DAMASCUS_CENTER } from "@/utils/geo";
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-leaflet";
 import L, { LatLng } from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -75,7 +75,7 @@ function DraggablePin({ coords, onMove }: { coords: Coords; onMove: (c: Coords) 
 export function AddressMapPicker({ visible, onClose, onSelect, initialAddress }: AddressMapPickerProps) {
   const { t } = useTranslation();
   const colors = useColors();
-  const [selectedCoords, setSelectedCoords] = useState<Coords>(RIYADH_CENTER);
+  const [selectedCoords, setSelectedCoords] = useState<Coords>(DAMASCUS_CENTER);
   const [resolvedAddress, setResolvedAddress] = useState<string>(initialAddress ?? "");
   const [geocoding, setGeocoding] = useState(false);
   const geocodeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -91,10 +91,10 @@ export function AddressMapPicker({ visible, onClose, onSelect, initialAddress }:
           setSelectedCoords(coords);
           await reverseGeocode(coords);
         } else {
-          await reverseGeocode(RIYADH_CENTER);
+          await reverseGeocode(DAMASCUS_CENTER);
         }
       } catch {
-        await reverseGeocode(RIYADH_CENTER);
+        await reverseGeocode(DAMASCUS_CENTER);
       }
     })();
   }, [visible]);

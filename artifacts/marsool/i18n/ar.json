@@ -75,7 +75,7 @@
       "title": "اختر اللغة",
       "arabic": "العربية",
       "english": "English",
-      "currentLabel": "العربية 🇸🇦",
+      "currentLabel": "العربية 🇸🇾",
       "switchLabel": "English",
       "restartMsg": "سيتم إعادة تشغيل التطبيق لتطبيق تغيير اللغة",
       "restartBtn": "موافق",
@@ -202,7 +202,7 @@
       "welcome1Title": "مرحباً بك في مرسول!",
       "welcome1Body": "استخدم كود WELCOME للحصول على خصم 25% على أول طلب",
       "welcome2Title": "عرض محدود: توصيل مجاني",
-      "welcome2Body": "اطلب الآن واستمتع بتوصيل مجاني على طلبات فوق 50 ريال"
+      "welcome2Body": "اطلب الآن واستمتع بتوصيل مجاني على طلباتك"
     }
   },
   "tabs": {
@@ -266,7 +266,7 @@
     "orderNow": "اطلب الآن",
     "closed": "مغلق",
     "freeDelivery": "توصيل مجاني",
-    "currency": "ر.س",
+    "currency": "ل.س",
     "popular": "الأكثر طلباً"
   },
   "orderRequest": {
@@ -286,6 +286,10 @@
     ],
     "sendOrder": "أرسل الطلب",
     "sending": "جاري الإرسال..."
+  },
+  "payment": {
+    "cashOnDelivery": "الدفع عند الاستلام 💵",
+    "method": "طريقة الدفع"
   },
   "orderTracking": {
     "notFound": "الطلب غير موجود",

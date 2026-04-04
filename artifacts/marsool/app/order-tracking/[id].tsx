@@ -21,7 +21,7 @@ import { useRatings } from "@/context/RatingsContext";
 import { DeliveryMap } from "@/components/DeliveryMap";
 import {
   Coords,
-  RIYADH_CENTER,
+  DAMASCUS_CENTER,
   simulateCourierStart,
   interpolateCoords,
   haversineDistance,
@@ -76,10 +76,10 @@ export default function OrderTrackingScreen() {
           const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
           setUserCoords({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
         } else {
-          setUserCoords(RIYADH_CENTER);
+          setUserCoords(DAMASCUS_CENTER);
         }
       } catch {
-        setUserCoords(RIYADH_CENTER);
+        setUserCoords(DAMASCUS_CENTER);
       }
     })();
   }, []);
@@ -370,6 +370,11 @@ export default function OrderTrackingScreen() {
           <View style={styles.addrRow}>
             <MaterialIcons name="location-on" size={16} color={colors.primary} />
             <Text style={[styles.addrText, { color: colors.foreground }]}>{order.address}</Text>
+          </View>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <View style={styles.addrRow}>
+            <MaterialIcons name="payments" size={16} color={colors.primary} />
+            <Text style={[styles.addrText, { color: colors.foreground }]}>{t("payment.cashOnDelivery")}</Text>
           </View>
         </View>
 

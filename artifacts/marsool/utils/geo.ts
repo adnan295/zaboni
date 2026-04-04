@@ -32,7 +32,7 @@ export function interpolateCoords(from: Coords, to: Coords, t: number): Coords {
   };
 }
 
-export const RIYADH_CENTER: Coords = { latitude: 24.7136, longitude: 46.6753 };
+export const DAMASCUS_CENTER: Coords = { latitude: 33.5138, longitude: 36.2765 };
 
 export function simulateCourierStart(user: Coords, offsetKm = 2): Coords {
   const deltaLat = offsetKm / 111;
