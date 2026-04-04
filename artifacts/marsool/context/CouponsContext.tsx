@@ -12,13 +12,14 @@ export interface Coupon {
   discountValue: number;
   minOrder: number;
   description: string;
+  firstOrderOnly?: boolean;
 }
 
 interface CouponsContextValue {
   appliedCoupon: Coupon | null;
   couponError: string | null;
   discountAmount: (subtotal: number) => number;
-  applyCoupon: (code: string, subtotal: number) => void;
+  applyCoupon: (code: string, subtotal: number, completedOrderCount: number) => void;
   removeCoupon: () => void;
 }
 
@@ -37,7 +38,8 @@ const COUPONS: Coupon[] = [
     discountType: "percent",
     discountValue: 20,
     minOrder: 0,
-    description: "خصم خاص للمستخدمين الجدد",
+    firstOrderOnly: true,
+    description: "خصم خاص للمستخدمين الجدد فقط (أول طلب)",
   },
   {
     code: "FREE15",
@@ -74,22 +76,30 @@ export function CouponsProvider({ children }: { children: React.ReactNode }) {
     [appliedCoupon]
   );
 
-  const applyCoupon = useCallback((code: string, subtotal: number) => {
-    const trimmed = code.trim().toUpperCase();
-    const found = COUPONS.find((c) => c.code === trimmed);
-    if (!found) {
-      setCouponError("كود الخصم غير صالح");
-      setAppliedCoupon(null);
-      return;
-    }
-    if (subtotal < found.minOrder) {
-      setCouponError(`الحد الأدنى للطلب ${found.minOrder} ريال لاستخدام هذا الكوبون`);
-      setAppliedCoupon(null);
-      return;
-    }
-    setCouponError(null);
-    setAppliedCoupon(found);
-  }, []);
+  const applyCoupon = useCallback(
+    (code: string, subtotal: number, completedOrderCount: number) => {
+      const trimmed = code.trim().toUpperCase();
+      const found = COUPONS.find((c) => c.code === trimmed);
+      if (!found) {
+        setCouponError("كود الخصم غير صالح");
+        setAppliedCoupon(null);
+        return;
+      }
+      if (found.firstOrderOnly && completedOrderCount > 0) {
+        setCouponError("هذا الكوبون متاح للمستخدمين الجدد فقط (أول طلب)");
+        setAppliedCoupon(null);
+        return;
+      }
+      if (subtotal < found.minOrder) {
+        setCouponError(`الحد الأدنى للطلب ${found.minOrder} ريال لاستخدام هذا الكوبون`);
+        setAppliedCoupon(null);
+        return;
+      }
+      setCouponError(null);
+      setAppliedCoupon(found);
+    },
+    []
+  );
 
   const removeCoupon = useCallback(() => {
     setAppliedCoupon(null);
