@@ -62,7 +62,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     const baseUrl = Platform.OS === "web" ? undefined : getApiBaseUrl();
 
-    const socket = io(baseUrl ?? "", {
+    const socketUrl = baseUrl ? `${baseUrl}/chat` : "/chat";
+    const socket = io(socketUrl, {
       path: "/socket.io",
       auth: { token },
       transports: ["websocket", "polling"],

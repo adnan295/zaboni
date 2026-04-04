@@ -1,5 +1,5 @@
 import { Server as HttpServer } from "http";
-import { Server as SocketServer, Socket } from "socket.io";
+import { Server as SocketServer, Socket, Namespace } from "socket.io";
 import jwt from "jsonwebtoken";
 import { randomUUID } from "crypto";
 import { db, chatMessagesTable, usersTable, ordersTable } from "@workspace/db";
@@ -38,14 +38,14 @@ function untrackUserConnection(userId: string, socketId: string) {
 }
 
 function isUserOnlineInRoom(
-  io: SocketServer,
+  ns: Namespace,
   userId: string,
   orderId: string
 ): boolean {
   const room = `order:${orderId}`;
   const sockets = connectedUsers.get(userId);
   if (!sockets || sockets.size === 0) return false;
-  const roomSockets = io.sockets.adapter.rooms.get(room);
+  const roomSockets = ns.adapter.rooms.get(room);
   if (!roomSockets) return false;
   for (const sid of sockets) {
     if (roomSockets.has(sid)) return true;
@@ -62,7 +62,9 @@ export function createChatServer(httpServer: HttpServer) {
     path: "/socket.io",
   });
 
-  io.use((socket: AuthenticatedSocket, next) => {
+  const chatNamespace = io.of("/chat");
+
+  chatNamespace.use((socket: AuthenticatedSocket, next) => {
     const token =
       socket.handshake.auth?.token ||
       socket.handshake.headers?.authorization?.replace("Bearer ", "");
@@ -85,7 +87,7 @@ export function createChatServer(httpServer: HttpServer) {
     }
   });
 
-  io.on("connection", (socket: AuthenticatedSocket) => {
+  chatNamespace.on("connection", (socket: AuthenticatedSocket) => {
     const userId = socket.auth!.userId;
     trackUserConnection(userId, socket.id);
     logger.info({ userId, socketId: socket.id }, "Chat socket connected");
@@ -162,9 +164,9 @@ export function createChatServer(httpServer: HttpServer) {
         await db.insert(chatMessagesTable).values(msg);
 
         const room = `order:${orderId}`;
-        io.to(room).emit("message", msg);
+        chatNamespace.to(room).emit("message", msg);
 
-        if (recipientId && !isUserOnlineInRoom(io, recipientId, orderId)) {
+        if (recipientId && !isUserOnlineInRoom(chatNamespace, recipientId, orderId)) {
           const senderName = socket.auth!.name || (isCustomer ? "عميل" : "مندوب");
           await sendPushNotification(
             recipientId,
