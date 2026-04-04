@@ -96,6 +96,9 @@ export default function OrderTrackingScreen() {
     if (!courierStartRef.current) {
       courierStartRef.current = simulateCourierStart(userCoords, currentOrder.status === "on_way" ? 1.2 : 2);
     }
+    setCourierCoords(courierStartRef.current);
+    const startDist = haversineDistance(courierStartRef.current, userCoords);
+    setEtaMinutes(estimateEtaMinutes(startDist));
     simulationStartRef.current = Date.now();
 
     simulationRef.current = setInterval(() => {

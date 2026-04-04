@@ -95,12 +95,16 @@ export interface Address {
   label: string;
   address: string;
   isDefault: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface UpsertAddressRequest {
   label: string;
   address: string;
   isDefault?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type

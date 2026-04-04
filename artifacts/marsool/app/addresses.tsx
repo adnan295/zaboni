@@ -24,7 +24,7 @@ import { useAddresses, Address } from "@/context/AddressContext";
 import { AddressMapPicker } from "@/components/AddressMapPicker";
 import { AddressSearchBar } from "@/components/AddressSearchBar";
 
-type EditingAddress = { id?: string; label: string; address: string };
+type EditingAddress = { id?: string; label: string; address: string; latitude?: number | null; longitude?: number | null };
 interface Coords { latitude: number; longitude: number }
 
 export default function AddressesScreen() {
@@ -62,7 +62,7 @@ export default function AddressesScreen() {
   };
 
   const openEdit = (addr: Address) => {
-    setEditing({ id: addr.id, label: addr.label, address: addr.address });
+    setEditing({ id: addr.id, label: addr.label, address: addr.address, latitude: addr.latitude, longitude: addr.longitude });
     setModalVisible(true);
   };
 
@@ -72,10 +72,13 @@ export default function AddressesScreen() {
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const coords = (editing.latitude != null && editing.longitude != null)
+      ? { latitude: editing.latitude, longitude: editing.longitude }
+      : null;
     if (editing.id) {
-      updateAddress(editing.id, editing.label.trim(), editing.address.trim());
+      updateAddress(editing.id, editing.label.trim(), editing.address.trim(), coords);
     } else {
-      addAddress(editing.label.trim(), editing.address.trim());
+      addAddress(editing.label.trim(), editing.address.trim(), coords);
     }
     setModalVisible(false);
   };
@@ -99,8 +102,13 @@ export default function AddressesScreen() {
     setDefault(id);
   };
 
-  const handleMapSelect = (address: string) => {
-    setEditing((e) => ({ ...e, address }));
+  const handleMapSelect = (address: string, coords?: { latitude: number; longitude: number }) => {
+    setEditing((e) => ({
+      ...e,
+      address,
+      latitude: coords?.latitude ?? e.latitude,
+      longitude: coords?.longitude ?? e.longitude,
+    }));
   };
 
   return (
@@ -310,8 +318,8 @@ export default function AddressesScreen() {
           setMapPickerVisible(false);
           setModalVisible(true);
         }}
-        onSelect={(address) => {
-          handleMapSelect(address);
+        onSelect={(address, coords) => {
+          handleMapSelect(address, coords);
           setMapPickerVisible(false);
           setModalVisible(true);
         }}
