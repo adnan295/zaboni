@@ -113,6 +113,16 @@ router.patch("/addresses/:id/default", async (req, res) => {
   const userId = getUserId(req);
   const { id } = req.params;
 
+  const target = await db
+    .select()
+    .from(addressesTable)
+    .where(and(eq(addressesTable.id, id), eq(addressesTable.userId, userId)));
+
+  if (target.length === 0) {
+    res.status(404).json({ error: "Address not found" });
+    return;
+  }
+
   await db
     .update(addressesTable)
     .set({ isDefault: false })
@@ -124,10 +134,6 @@ router.patch("/addresses/:id/default", async (req, res) => {
     .where(and(eq(addressesTable.id, id), eq(addressesTable.userId, userId)))
     .returning();
 
-  if (rows.length === 0) {
-    res.status(404).json({ error: "Address not found" });
-    return;
-  }
   res.json(rows[0]);
 });
 

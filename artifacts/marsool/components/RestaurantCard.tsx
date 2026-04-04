@@ -13,21 +13,10 @@ import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useFavorites } from "@/context/FavoritesContext";
+import type { Restaurant as ApiRestaurant } from "@workspace/api-client-react";
 
 interface Props {
-  restaurant: {
-    id: string;
-    name: string;
-    nameAr: string;
-    category: string;
-    rating: number;
-    deliveryTime: string;
-    deliveryFee: number;
-    image: string;
-    tags: unknown[];
-    isOpen: boolean;
-    discount?: string | null;
-  };
+  restaurant: ApiRestaurant;
   onPress: () => void;
 }
 
@@ -103,7 +92,7 @@ export default function RestaurantCard({ restaurant, onPress }: Props) {
         </View>
 
         <Text style={[styles.category, { color: colors.mutedForeground }]}>
-          {(restaurant.tags as string[]).join(" · ")}
+          {restaurant.tags.join(" · ")}
         </Text>
 
         <View style={styles.meta}>

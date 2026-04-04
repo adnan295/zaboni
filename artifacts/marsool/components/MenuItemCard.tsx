@@ -7,7 +7,7 @@ import {
 import { default as Text } from "@/components/AppText";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
-import { MenuItem } from "@/data/restaurants";
+import type { MenuItem } from "@workspace/api-client-react";
 
 interface Props {
   item: MenuItem;

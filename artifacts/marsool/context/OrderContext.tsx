@@ -1,5 +1,16 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from "react";
-import { createOrder as apiCreateOrder, updateOrderStatus } from "@workspace/api-client-react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+} from "react";
+import {
+  createOrder as apiCreateOrder,
+  updateOrderStatus,
+  getOrders as apiFetchOrders,
+} from "@workspace/api-client-react";
 
 export type OrderStatus = "searching" | "accepted" | "on_way" | "delivered";
 
@@ -67,6 +78,18 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const statusChangeHandler = useRef<((order: Order, newStatus: OrderStatus) => void) | null>(null);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const fetched = await apiFetchOrders({ userId: "guest" });
+        if (fetched && fetched.length > 0) {
+          setOrders(fetched.map(apiOrderToLocal));
+        }
+      } catch {
+      }
+    })();
+  }, []);
+
   const setStatusChangeHandler = useCallback(
     (handler: (order: Order, newStatus: OrderStatus) => void) => {
       statusChangeHandler.current = handler;
@@ -128,7 +151,10 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
           estimatedMinutes: Math.floor(Math.random() * 15) + 20,
         };
       }
-      setOrders((prev) => [newOrder, ...prev]);
+      setOrders((prev) => {
+        if (prev.some((o) => o.id === newOrder.id)) return prev;
+        return [newOrder, ...prev];
+      });
 
       const searchDelay = Math.floor(Math.random() * 3000) + 4000;
       setTimeout(() => advanceStatus(newOrder.id, "accepted"), searchDelay);

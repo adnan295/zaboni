@@ -6,7 +6,7 @@ import React, {
   useCallback,
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Restaurant } from "@/data/restaurants";
+import type { Restaurant } from "@workspace/api-client-react";
 
 interface FavoritesContextValue {
   favorites: Restaurant[];
