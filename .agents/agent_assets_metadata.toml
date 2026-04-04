@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "nO4vu-FTECWgKdzaNO53H"
+uri = "file://artifacts/marsool/assets/images/icon.png"
+type = "image"
+title = "marsool delivery app icon"
