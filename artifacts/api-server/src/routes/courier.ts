@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db, usersTable, ordersTable, orderStatusHistoryTable } from "@workspace/db";
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
 
@@ -148,6 +148,17 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
 
   if (order.userId === courierId) {
     res.status(400).json({ error: "Cannot accept your own order" });
+    return;
+  }
+
+  const existingActive = await db
+    .select({ id: ordersTable.id })
+    .from(ordersTable)
+    .where(and(eq(ordersTable.courierId, courierId), ne(ordersTable.status, "delivered")))
+    .limit(1);
+
+  if (existingActive.length > 0) {
+    res.status(409).json({ error: "You already have an active order. Complete it first." });
     return;
   }
 

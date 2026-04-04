@@ -17,15 +17,6 @@ function randomRiyadhCoord(): { lat: number; lon: number } {
 
 const router: IRouter = Router();
 
-const MOCK_COURIERS = [
-  { id: "c1", name: "أحمد الزهراني", phone: "+966 50 123 4567", rating: 4.9 },
-  { id: "c2", name: "علي المطيري", phone: "+966 55 234 5678", rating: 4.8 },
-  { id: "c3", name: "محمد القحطاني", phone: "+966 54 345 6789", rating: 4.7 },
-  { id: "c4", name: "سعد العتيبي", phone: "+966 56 456 7890", rating: 4.9 },
-  { id: "c5", name: "عبدالله الشمري", phone: "+966 57 567 8901", rating: 5.0 },
-  { id: "c6", name: "خالد الدوسري", phone: "+966 58 678 9012", rating: 4.8 },
-];
-
 const createOrderSchema = z.object({
   orderText: z.string().min(1),
   restaurantName: z.string().default(""),
