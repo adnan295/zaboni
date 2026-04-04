@@ -78,13 +78,24 @@ function NotifCard({
           <Text style={[styles.time, { color: colors.mutedForeground }]}>{timeAgo(notif.createdAt)}</Text>
         </View>
       </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.deleteBtn, { backgroundColor: "#fee2e2" }]}
-        onPress={onDelete}
-        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-      >
-        <MaterialIcons name="delete-outline" size={18} color="#dc2626" />
-      </TouchableOpacity>
+      <View style={styles.cardActions}>
+        {!notif.read && (
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: colors.primary + "18" }]}
+            onPress={onPress}
+            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+          >
+            <MaterialIcons name="mark-email-read" size={16} color={colors.primary} />
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          style={[styles.actionBtn, { backgroundColor: "#fee2e2" }]}
+          onPress={onDelete}
+          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+        >
+          <MaterialIcons name="delete-outline" size={16} color="#dc2626" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -189,13 +200,21 @@ const styles = StyleSheet.create({
     gap: 12,
     alignItems: "flex-start",
   },
-  deleteBtn: {
-    width: 44,
+  cardActions: {
+    flexDirection: "column",
     alignSelf: "stretch",
+    justifyContent: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    borderLeftWidth: 1,
+    borderLeftColor: "#e5e7eb",
+  },
+  actionBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    borderLeftWidth: 1,
-    borderLeftColor: "#fecaca",
   },
   iconWrap: {
     width: 44,
