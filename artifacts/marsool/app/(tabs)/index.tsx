@@ -115,7 +115,7 @@ export default function HomeScreen() {
           <Text style={[styles.bannerText, { color: colors.primary }]}>
             تتبع طلبك الحالي
           </Text>
-          <MaterialIcons name="chevron-left" size={20} color={colors.primary} />
+          <MaterialIcons name="chevron-right" size={20} color={colors.primary} />
         </TouchableOpacity>
 
         {/* Restaurants */}
