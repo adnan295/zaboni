@@ -107,6 +107,7 @@ export default function OrdersScreen() {
           {orders.map((order) => {
             const rated = hasRated(order.id);
             const rating = getRating(order.id);
+            const isActive = order.status !== "delivered";
             return (
               <View key={order.id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={styles.cardHeader}>
@@ -131,6 +132,21 @@ export default function OrdersScreen() {
 
                 <View style={styles.footer}>
                   <Text style={[styles.total, { color: colors.primary }]}>{formatPrice(order.totalPrice)}</Text>
+
+                  {isActive && (
+                    <TouchableOpacity
+                      style={[styles.trackBtn, { borderColor: colors.primary }]}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/order-tracking/[id]",
+                          params: { id: order.id },
+                        })
+                      }
+                    >
+                      <MaterialIcons name="delivery-dining" size={16} color={colors.primary} />
+                      <Text style={[styles.trackBtnText, { color: colors.primary }]}>تتبع الطلب</Text>
+                    </TouchableOpacity>
+                  )}
 
                   {order.status === "delivered" && !rated && (
                     <TouchableOpacity
@@ -202,6 +218,16 @@ const styles = StyleSheet.create({
   itemsLabel: { fontSize: 13, lineHeight: 20 },
   footer: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 4 },
   total: { fontSize: 17, fontWeight: "800" },
+  trackBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1.5,
+  },
+  trackBtnText: { fontSize: 13, fontWeight: "700" },
   rateBtn: {
     flexDirection: "row",
     alignItems: "center",

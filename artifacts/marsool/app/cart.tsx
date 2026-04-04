@@ -25,8 +25,9 @@ export default function CartScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { items, totalItems, totalPrice, restaurantName, updateQuantity, clearCart } = useCart();
-  const { placeOrder } = useOrders();
+  const { placeOrder, orders } = useOrders();
   const { addresses, defaultAddress } = useAddresses();
+  const completedOrderCount = orders.filter((o) => o.status === "delivered").length;
   const { appliedCoupon, couponError, discountAmount, applyCoupon, removeCoupon } = useCoupons();
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(
     defaultAddress?.id ?? null
@@ -62,7 +63,7 @@ export default function CartScreen() {
   const handleApplyCoupon = () => {
     if (!couponInput.trim()) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    applyCoupon(couponInput, totalPrice);
+    applyCoupon(couponInput, totalPrice, completedOrderCount);
   };
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
