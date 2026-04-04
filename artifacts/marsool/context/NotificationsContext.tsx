@@ -86,7 +86,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     toastTimer.current = setTimeout(() => {
       setToast(null);
       toastTimer.current = null;
-    }, 3500);
+    }, 3000);
   }, []);
 
   const addNotification = useCallback(
