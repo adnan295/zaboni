@@ -33,12 +33,20 @@ async function sendOtpSms(phone: string, code: string): Promise<void> {
   const authToken = process.env["TWILIO_AUTH_TOKEN"];
   const fromPhone = process.env["TWILIO_PHONE_NUMBER"];
 
-  if (accountSid && authToken && fromPhone) {
+  const twilioConfigured = accountSid && authToken && fromPhone;
+
+  if (!twilioConfigured && process.env["NODE_ENV"] === "production") {
+    throw new Error(
+      "Twilio credentials (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER) must be configured in production",
+    );
+  }
+
+  if (twilioConfigured) {
     const twilio = (await import("twilio")).default;
-    const client = twilio(accountSid, authToken);
+    const client = twilio(accountSid!, authToken!);
     await client.messages.create({
       body: `رمز التحقق الخاص بك في مرسول: ${code}\nYour Marsool verification code: ${code}`,
-      from: fromPhone,
+      from: fromPhone!,
       to: phone,
     });
     console.log(`[auth] SMS sent to ${phone}`);
