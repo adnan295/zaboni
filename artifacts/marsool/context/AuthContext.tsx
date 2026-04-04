@@ -74,14 +74,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUnauthorizedHandler(null);
   }, []);
 
+  // Only engage the 401 handler once the initial auth restoration is complete
+  // AND the user is authenticated. This prevents a race condition where
+  // AddressProvider/OrderProvider fire requests before the stored token is
+  // restored from AsyncStorage, which would trigger a spurious signOut().
   useEffect(() => {
+    if (isLoading) return;
+    if (!user) {
+      setUnauthorizedHandler(null);
+      return;
+    }
     setUnauthorizedHandler(() => {
       signOut();
     });
     return () => {
       setUnauthorizedHandler(null);
     };
-  }, [signOut]);
+  }, [isLoading, user, signOut]);
 
   const updateName = useCallback((name: string) => {
     setUser((prev) => (prev ? { ...prev, name } : prev));

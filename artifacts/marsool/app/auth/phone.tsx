@@ -20,24 +20,7 @@ import { useForwardIcon } from "@/hooks/useTypography";
 import { useColors } from "@/hooks/useColors";
 import { getApiBaseUrl } from "@/lib/apiClient";
 import { isValidPhoneNumber } from "libphonenumber-js";
-
-const COUNTRY_CODES = [
-  { flag: "🇸🇦", code: "+966", country: "SA", nameAr: "السعودية",   nameEn: "Saudi Arabia" },
-  { flag: "🇦🇪", code: "+971", country: "AE", nameAr: "الإمارات",   nameEn: "UAE" },
-  { flag: "🇪🇬", code: "+20",  country: "EG", nameAr: "مصر",        nameEn: "Egypt" },
-  { flag: "🇯🇴", code: "+962", country: "JO", nameAr: "الأردن",     nameEn: "Jordan" },
-  { flag: "🇰🇼", code: "+965", country: "KW", nameAr: "الكويت",     nameEn: "Kuwait" },
-  { flag: "🇶🇦", code: "+974", country: "QA", nameAr: "قطر",        nameEn: "Qatar" },
-  { flag: "🇧🇭", code: "+973", country: "BH", nameAr: "البحرين",    nameEn: "Bahrain" },
-  { flag: "🇴🇲", code: "+968", country: "OM", nameAr: "عُمان",      nameEn: "Oman" },
-  { flag: "🇺🇸", code: "+1",   country: "US", nameAr: "أمريكا",     nameEn: "USA" },
-  { flag: "🇬🇧", code: "+44",  country: "GB", nameAr: "بريطانيا",   nameEn: "UK" },
-  { flag: "🇩🇪", code: "+49",  country: "DE", nameAr: "ألمانيا",    nameEn: "Germany" },
-  { flag: "🇫🇷", code: "+33",  country: "FR", nameAr: "فرنسا",      nameEn: "France" },
-  { flag: "🇹🇷", code: "+90",  country: "TR", nameAr: "تركيا",      nameEn: "Turkey" },
-  { flag: "🇮🇳", code: "+91",  country: "IN", nameAr: "الهند",      nameEn: "India" },
-  { flag: "🇵🇰", code: "+92",  country: "PK", nameAr: "باكستان",    nameEn: "Pakistan" },
-];
+import { COUNTRY_CODES } from "@/data/countryCodes";
 
 export default function PhoneScreen() {
   const colors = useColors();
@@ -48,8 +31,21 @@ export default function PhoneScreen() {
   const [phone, setPhone] = useState("");
   const [selectedCountry, setSelectedCountry] = useState(COUNTRY_CODES[0]);
   const [showPicker, setShowPicker] = useState(false);
+  const [countrySearch, setCountrySearch] = useState("");
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<TextInput>(null);
+
+  const filteredCountries = countrySearch.trim()
+    ? COUNTRY_CODES.filter((c) => {
+        const q = countrySearch.toLowerCase();
+        return (
+          c.nameEn.toLowerCase().includes(q) ||
+          c.nameAr.includes(countrySearch) ||
+          c.code.includes(q) ||
+          c.country.toLowerCase().includes(q)
+        );
+      })
+    : COUNTRY_CODES;
 
   const digits = phone.replace(/\D/g, "");
   const fullPhone = `${selectedCountry.code}${digits}`;
@@ -130,12 +126,21 @@ export default function PhoneScreen() {
 
         {showPicker && (
           <View style={[styles.pickerCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <ScrollView style={{ maxHeight: 240 }} showsVerticalScrollIndicator={false}>
-              {COUNTRY_CODES.map((c) => (
+            <TextInput
+              style={[styles.pickerSearch, { color: colors.foreground, borderBottomColor: colors.border, backgroundColor: colors.card }]}
+              placeholder={i18n.language === "ar" ? "ابحث عن دولة..." : "Search country..."}
+              placeholderTextColor={colors.mutedForeground}
+              value={countrySearch}
+              onChangeText={setCountrySearch}
+              autoCorrect={false}
+              clearButtonMode="while-editing"
+            />
+            <ScrollView style={{ maxHeight: 220 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              {filteredCountries.map((c) => (
                 <TouchableOpacity
                   key={c.country}
                   style={[styles.pickerRow, selectedCountry.country === c.country && { backgroundColor: colors.secondary }]}
-                  onPress={() => { setSelectedCountry(c); setShowPicker(false); setPhone(""); inputRef.current?.focus(); }}
+                  onPress={() => { setSelectedCountry(c); setShowPicker(false); setCountrySearch(""); setPhone(""); inputRef.current?.focus(); }}
                 >
                   <Text style={styles.prefixFlag}>{c.flag}</Text>
                   <Text style={[styles.pickerCode, { color: colors.mutedForeground }]}>{c.code}</Text>
@@ -144,6 +149,11 @@ export default function PhoneScreen() {
                   </Text>
                 </TouchableOpacity>
               ))}
+              {filteredCountries.length === 0 && (
+                <Text style={[styles.pickerCountry, { color: colors.mutedForeground, textAlign: "center", paddingVertical: 16 }]}>
+                  {i18n.language === "ar" ? "لا توجد نتائج" : "No results"}
+                </Text>
+              )}
             </ScrollView>
           </View>
         )}
@@ -201,6 +211,10 @@ const styles = StyleSheet.create({
   input: { flex: 1, paddingHorizontal: 14, fontSize: 18, fontWeight: "600", letterSpacing: 1 },
   pickerCard: {
     width: "100%", borderRadius: 14, borderWidth: 1, marginBottom: 12, overflow: "hidden",
+  },
+  pickerSearch: {
+    paddingHorizontal: 14, paddingVertical: 10, fontSize: 14,
+    borderBottomWidth: 1,
   },
   pickerRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12, gap: 10 },
   pickerCode: { fontSize: 14, fontWeight: "600", width: 44 },
