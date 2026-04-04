@@ -1,5 +1,6 @@
 import { Server as HttpServer } from "http";
 import { Server as SocketServer, Socket, Namespace } from "socket.io";
+import { setupOrdersNamespace } from "../orders/server";
 import jwt from "jsonwebtoken";
 import { randomUUID } from "crypto";
 import { db, chatMessagesTable, usersTable, ordersTable } from "@workspace/db";
@@ -227,6 +228,8 @@ export function createChatServer(httpServer: HttpServer) {
       logger.info({ userId, socketId: socket.id }, "Chat socket disconnected");
     });
   });
+
+  setupOrdersNamespace(io);
 
   return io;
 }

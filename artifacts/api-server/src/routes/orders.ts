@@ -46,9 +46,8 @@ router.post("/orders", async (req, res) => {
   }
 
   const userId = resolveUserId(req);
-  const courier = MOCK_COURIERS[Math.floor(Math.random() * MOCK_COURIERS.length)];
   const id = `${Date.now()}${Math.random().toString(36).slice(2, 9)}`;
-  const estimatedMinutes = Math.floor(Math.random() * 15) + 20;
+  const estimatedMinutes = Math.floor(Math.random() * 15) + 30;
 
   const newOrder = {
     id,
@@ -56,10 +55,10 @@ router.post("/orders", async (req, res) => {
     orderText: body.data.orderText,
     restaurantName: body.data.restaurantName,
     status: "searching" as const,
-    courierName: courier.name,
-    courierPhone: courier.phone,
-    courierRating: courier.rating,
-    courierId: courier.id,
+    courierName: "",
+    courierPhone: "",
+    courierRating: 0,
+    courierId: "",
     address: body.data.address,
     estimatedMinutes,
   };

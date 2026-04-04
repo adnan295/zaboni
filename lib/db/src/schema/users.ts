@@ -5,6 +5,7 @@ export const usersTable = pgTable("users", {
   id: text("id").primaryKey(),
   phone: text("phone").notNull().unique(),
   name: text("name").notNull().default(""),
+  role: text("role", { enum: ["customer", "courier"] }).notNull().default("customer"),
   pushToken: varchar("push_token", { length: 512 }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

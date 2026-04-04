@@ -6,12 +6,15 @@ import React, {
   useRef,
   useEffect,
 } from "react";
+import { Platform } from "react-native";
+import { io, Socket } from "socket.io-client";
 import {
   createOrder as apiCreateOrder,
   updateOrderStatus,
   getOrders as apiFetchOrders,
 } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
+import { getApiBaseUrl } from "@/lib/apiConfig";
 
 export type OrderStatus = "searching" | "accepted" | "on_way" | "delivered";
 
@@ -70,15 +73,11 @@ function apiOrderToLocal(apiOrder: {
   };
 }
 
-const FALLBACK_COURIERS = [
-  { id: "c1", name: "أحمد الزهراني", phone: "+966 50 123 4567", rating: 4.9 },
-  { id: "c2", name: "علي المطيري", phone: "+966 55 234 5678", rating: 4.8 },
-];
-
 export function OrderProvider({ children }: { children: React.ReactNode }) {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, token, isLoading: authLoading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const statusChangeHandler = useRef<((order: Order, newStatus: OrderStatus) => void) | null>(null);
+  const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -102,35 +101,46 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, [user?.id, authLoading]);
 
+  useEffect(() => {
+    if (!user || !token || authLoading) return;
+
+    const baseUrl = Platform.OS === "web" ? undefined : getApiBaseUrl();
+    const socketUrl = baseUrl ? `${baseUrl}/orders` : "/orders";
+
+    const socket = io(socketUrl, {
+      path: "/socket.io",
+      auth: { token },
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 2000,
+    });
+
+    socketRef.current = socket;
+
+    socket.on("order_updated", (updatedOrder: Parameters<typeof apiOrderToLocal>[0]) => {
+      const local = apiOrderToLocal(updatedOrder);
+      setOrders((prev) => {
+        const idx = prev.findIndex((o) => o.id === local.id);
+        if (idx === -1) return prev;
+        const updated = [...prev];
+        updated[idx] = local;
+        if (statusChangeHandler.current) {
+          statusChangeHandler.current(local, local.status);
+        }
+        return updated;
+      });
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [user?.id, token, authLoading]);
+
   const setStatusChangeHandler = useCallback(
     (handler: (order: Order, newStatus: OrderStatus) => void) => {
       statusChangeHandler.current = handler;
-    },
-    []
-  );
-
-  const advanceStatus = useCallback(
-    async (orderId: string, newStatus: OrderStatus) => {
-      try {
-        const updated = await updateOrderStatus(orderId, { status: newStatus });
-        const localOrder = apiOrderToLocal(updated);
-        setOrders((prev) => {
-          if (statusChangeHandler.current) {
-            statusChangeHandler.current(localOrder, newStatus);
-          }
-          return prev.map((o) => (o.id === orderId ? localOrder : o));
-        });
-      } catch {
-        setOrders((prev) => {
-          const order = prev.find((o) => o.id === orderId);
-          if (!order) return prev;
-          const updated = { ...order, status: newStatus };
-          if (statusChangeHandler.current) {
-            statusChangeHandler.current(updated, newStatus);
-          }
-          return prev.map((o) => (o.id === orderId ? updated : o));
-        });
-      }
     },
     []
   );
@@ -147,19 +157,18 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         newOrder = apiOrderToLocal(result);
       } catch {
         const id = `${Date.now()}${Math.random().toString(36).slice(2, 9)}`;
-        const courier = FALLBACK_COURIERS[Math.floor(Math.random() * FALLBACK_COURIERS.length)];
         newOrder = {
           id,
           orderText,
           restaurantName,
           status: "searching",
-          courierName: courier.name,
-          courierPhone: courier.phone,
-          courierRating: courier.rating,
-          courierId: courier.id,
+          courierName: "",
+          courierPhone: "",
+          courierRating: 0,
+          courierId: "",
           createdAt: Date.now(),
           address,
-          estimatedMinutes: Math.floor(Math.random() * 15) + 20,
+          estimatedMinutes: 30,
         };
       }
       setOrders((prev) => {
@@ -167,14 +176,9 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         return [newOrder, ...prev];
       });
 
-      const searchDelay = Math.floor(Math.random() * 3000) + 4000;
-      setTimeout(() => advanceStatus(newOrder.id, "accepted"), searchDelay);
-      setTimeout(() => advanceStatus(newOrder.id, "on_way"), searchDelay + 90000);
-      setTimeout(() => advanceStatus(newOrder.id, "delivered"), searchDelay + 90000 + 300000);
-
       return newOrder;
     },
-    [advanceStatus]
+    []
   );
 
   const getOrder = useCallback(
