@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -30,6 +30,12 @@ export default function CartScreen() {
     defaultAddress?.id ?? null
   );
   const [note, setNote] = useState("");
+
+  useEffect(() => {
+    if (!selectedAddressId && defaultAddress) {
+      setSelectedAddressId(defaultAddress.id);
+    }
+  }, [defaultAddress]);
 
   const deliveryFee = totalPrice >= 50 ? 0 : 10;
   const total = totalPrice + deliveryFee;
