@@ -146,7 +146,12 @@ router.post("/auth/send-otp", async (req, res) => {
     return;
   }
 
-  res.json({ success: true, expiresInMinutes: OTP_TTL_MINUTES });
+  const isDev = !process.env["TWILIO_ACCOUNT_SID"];
+  res.json({
+    success: true,
+    expiresInMinutes: OTP_TTL_MINUTES,
+    ...(isDev ? { devCode: code } : {}),
+  });
 });
 
 router.post("/auth/verify-otp", async (req, res) => {

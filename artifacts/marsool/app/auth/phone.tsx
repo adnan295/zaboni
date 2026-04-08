@@ -64,12 +64,15 @@ export default function PhoneScreen() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: fullPhone }),
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        Alert.alert(t("auth.phone.errorTitle"), err.error ?? t("auth.phone.errorMsg"));
+        Alert.alert(t("auth.phone.errorTitle"), data.error ?? t("auth.phone.errorMsg"));
         return;
       }
-      router.push({ pathname: "/auth/otp", params: { phone: fullPhone } });
+      router.push({
+        pathname: "/auth/otp",
+        params: { phone: fullPhone, devCode: data.devCode ?? "" },
+      });
     } catch {
       Alert.alert(t("auth.phone.errorTitle"), t("auth.phone.errorMsg"));
     } finally {
