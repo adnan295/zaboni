@@ -28,12 +28,13 @@ export default function OtpScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const backIcon = useBackIcon();
-  const { phone } = useLocalSearchParams<{ phone: string }>();
+  const { phone, devCode } = useLocalSearchParams<{ phone: string; devCode?: string }>();
   const { signIn } = useAuth();
   const [otp, setOtp] = useState("");
   const [countdown, setCountdown] = useState(60);
   const [canResend, setCanResend] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [currentDevCode, setCurrentDevCode] = useState(devCode ?? "");
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -85,19 +86,27 @@ export default function OtpScreen() {
     }
   };
 
+  const handleDevCodeTap = () => {
+    if (!currentDevCode) return;
+    handleOtpChange(currentDevCode);
+  };
+
   const handleResend = async () => {
     if (!canResend) return;
     setCountdown(60);
     setCanResend(false);
     setOtp("");
+    setCurrentDevCode("");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       const base = getApiBaseUrl();
-      await fetch(`${base}/api/auth/send-otp`, {
+      const res = await fetch(`${base}/api/auth/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone }),
       });
+      const data = await res.json().catch(() => ({}));
+      if (data.devCode) setCurrentDevCode(data.devCode);
     } catch {}
   };
 
@@ -125,6 +134,19 @@ export default function OtpScreen() {
         <Text style={[styles.title, { color: colors.foreground }]}>{t("auth.otp.title")}</Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>{t("auth.otp.subtitle")}</Text>
         <Text style={[styles.phone, { color: colors.foreground }]}>{phone}</Text>
+
+        {!!currentDevCode && (
+          <TouchableOpacity
+            style={styles.devBanner}
+            onPress={handleDevCodeTap}
+            activeOpacity={0.8}
+          >
+            <MaterialIcons name="developer-mode" size={16} color="#92400e" />
+            <Text style={styles.devBannerLabel}>DEV — الكود التجريبي:</Text>
+            <Text style={styles.devBannerCode}>{currentDevCode}</Text>
+            <Text style={styles.devBannerTap}>اضغط للملء التلقائي</Text>
+          </TouchableOpacity>
+        )}
 
         <TextInput
           ref={inputRef}
@@ -195,7 +217,16 @@ const styles = StyleSheet.create({
   iconBox: { width: 80, height: 80, borderRadius: 24, alignItems: "center", justifyContent: "center", marginBottom: 24 },
   title: { fontSize: 24, fontWeight: "800", marginBottom: 8 },
   subtitle: { fontSize: 14, marginBottom: 4 },
-  phone: { fontSize: 16, fontWeight: "700", marginBottom: 32 },
+  phone: { fontSize: 16, fontWeight: "700", marginBottom: 20 },
+  devBanner: {
+    flexDirection: "row", alignItems: "center", flexWrap: "wrap",
+    gap: 6, backgroundColor: "#fef3c7", borderColor: "#f59e0b",
+    borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 14,
+    paddingVertical: 10, marginBottom: 20, width: "100%",
+  },
+  devBannerLabel: { fontSize: 12, color: "#92400e", fontWeight: "600" },
+  devBannerCode: { fontSize: 20, fontWeight: "800", color: "#92400e", letterSpacing: 4 },
+  devBannerTap: { fontSize: 11, color: "#b45309", fontWeight: "500", width: "100%" },
   hiddenInput: { position: "absolute", opacity: 0, width: 1, height: 1 },
   otpRow: { flexDirection: "row", gap: 10, marginBottom: 20 },
   otpBox: { width: 48, height: 56, borderRadius: 12, alignItems: "center", justifyContent: "center" },
