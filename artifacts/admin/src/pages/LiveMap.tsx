@@ -6,7 +6,8 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 // Fix Leaflet's default marker icon paths (broken by Vite bundler)
-delete (L.Icon.Default.prototype as Record<string, unknown>)["_getIconUrl"];
+// Cast through unknown first to avoid TS2352 on the Leaflet prototype type
+(L.Icon.Default.prototype as unknown as Record<string, unknown>)["_getIconUrl"] = undefined;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
