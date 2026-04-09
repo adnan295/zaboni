@@ -40,6 +40,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isCourierMode, setIsCourierModeState] = useState(false);
 
+  // Eagerly sync the module-level auth getter on every render.
+  // This recovers from Fast Refresh: when custom-fetch.ts is re-evaluated
+  // the module-level _authTokenGetter resets to null, but the next render
+  // of this component (even without a state change) restores it immediately.
+  setAuthTokenGetter(token !== null ? () => token : null);
+
+  // Also keep it in sync via effect for the normal sign-in / sign-out flow.
+  useEffect(() => {
+    setAuthTokenGetter(token !== null ? () => token : null);
+  }, [token]);
+
   useEffect(() => {
     (async () => {
       try {

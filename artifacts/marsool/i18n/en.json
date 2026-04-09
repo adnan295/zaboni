@@ -32,7 +32,8 @@
       "start": "Start Ordering",
       "errorTitle": "Error",
       "errorMsg": "Failed to save name. Please try again."
-    }
+    },
+    "sessionExpired": "Your session has expired. Please log in again."
   },
   "home": {
     "addAddress": "Add an address",
