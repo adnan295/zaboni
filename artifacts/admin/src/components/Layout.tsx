@@ -12,21 +12,21 @@ interface LayoutProps {
 }
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: "📊" },
-  { href: "/restaurants", label: "Restaurants", icon: "🍽️" },
-  { href: "/orders", label: "Orders", icon: "📦" },
-  { href: "/couriers", label: "Couriers", icon: "🚴" },
+  { href: "/", label: "لوحة التحكم", icon: "📊" },
+  { href: "/restaurants", label: "المطاعم", icon: "🍽️" },
+  { href: "/orders", label: "الطلبات", icon: "📦" },
+  { href: "/couriers", label: "المندوبون", icon: "🚴" },
   { href: "/content", label: "المحتوى", icon: "🖼️" },
-  { href: "/courier-applications", label: "Courier Applications", icon: "📋" },
-  { href: "/users", label: "Users", icon: "👤" },
-  { href: "/ratings", label: "Ratings", icon: "⭐" },
-  { href: "/promos", label: "Promos", icon: "🎟️" },
-  { href: "/notifications", label: "Notifications", icon: "🔔" },
-  { href: "/financial", label: "Financial", icon: "💰" },
-  { href: "/delivery-zones", label: "Delivery Zones", icon: "📍" },
-  { href: "/subscriptions", label: "Subscriptions", icon: "💳" },
-  { href: "/wallet-requests", label: "Wallet Requests", icon: "👛" },
-  { href: "/settings", label: "Settings", icon: "⚙️" },
+  { href: "/courier-applications", label: "طلبات الانضمام", icon: "📋" },
+  { href: "/users", label: "المستخدمون", icon: "👤" },
+  { href: "/ratings", label: "التقييمات", icon: "⭐" },
+  { href: "/promos", label: "أكواد الخصم", icon: "🎟️" },
+  { href: "/notifications", label: "الإشعارات", icon: "🔔" },
+  { href: "/financial", label: "التقارير المالية", icon: "💰" },
+  { href: "/delivery-zones", label: "نطاقات التوصيل", icon: "📍" },
+  { href: "/subscriptions", label: "الاشتراكات", icon: "💳" },
+  { href: "/wallet-requests", label: "طلبات المحفظة", icon: "👛" },
+  { href: "/settings", label: "الإعدادات", icon: "⚙️" },
 ];
 
 export default function Layout({ children, onLogout }: LayoutProps) {
@@ -54,7 +54,7 @@ export default function Layout({ children, onLogout }: LayoutProps) {
   const isDark = theme === "dark";
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-screen overflow-hidden bg-background" dir="rtl">
       {mobileOpen && (
         <div
           className="fixed inset-0 bg-black/40 z-30 lg:hidden"
@@ -65,10 +65,10 @@ export default function Layout({ children, onLogout }: LayoutProps) {
       <button
         onClick={() => setMobileOpen(true)}
         className={cn(
-          "fixed top-3 left-3 z-50 p-2 rounded-md bg-sidebar text-sidebar-foreground shadow-lg lg:hidden",
+          "fixed top-3 right-3 z-50 p-2 rounded-md bg-sidebar text-sidebar-foreground shadow-lg lg:hidden",
           mobileOpen && "hidden",
         )}
-        aria-label="Open sidebar"
+        aria-label="فتح القائمة"
       >
         ☰
       </button>
@@ -76,8 +76,8 @@ export default function Layout({ children, onLogout }: LayoutProps) {
       <aside
         className={cn(
           "flex-shrink-0 bg-sidebar text-sidebar-foreground flex flex-col z-40 transition-all duration-200",
-          "fixed lg:relative inset-y-0 left-0",
-          mobileOpen ? "w-56 translate-x-0" : "w-56 -translate-x-full",
+          "fixed lg:relative inset-y-0 right-0",
+          mobileOpen ? "w-56 translate-x-0" : "w-56 translate-x-full",
           "lg:translate-x-0",
           collapsed ? "lg:w-14" : "lg:w-56",
         )}
@@ -95,7 +95,7 @@ export default function Layout({ children, onLogout }: LayoutProps) {
               </div>
               <div>
                 <p className="font-bold text-sm leading-tight text-sidebar-foreground">مرسول</p>
-                <p className="text-[10px] text-sidebar-foreground/50 leading-tight">Admin Panel</p>
+                <p className="text-[10px] text-sidebar-foreground/50 leading-tight">لوحة الإدارة</p>
               </div>
             </div>
           )}
@@ -106,16 +106,16 @@ export default function Layout({ children, onLogout }: LayoutProps) {
           )}
           <button
             onClick={() => setMobileOpen(false)}
-            className="text-sidebar-foreground/40 hover:text-sidebar-foreground lg:hidden ml-auto"
-            aria-label="Close sidebar"
+            className="text-sidebar-foreground/40 hover:text-sidebar-foreground lg:hidden mr-auto"
+            aria-label="إغلاق القائمة"
           >
             ✕
           </button>
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="hidden lg:flex ml-auto text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors p-1 rounded"
-            aria-label="Toggle sidebar"
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="hidden lg:flex mr-auto text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors p-1 rounded"
+            aria-label="طي القائمة الجانبية"
+            title={collapsed ? "توسيع القائمة" : "طي القائمة"}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <rect y="1" width="14" height="2" rx="1" fill="currentColor" />
@@ -148,7 +148,7 @@ export default function Layout({ children, onLogout }: LayoutProps) {
                   <span className="text-base flex-shrink-0 relative">
                     {item.icon}
                     {showBadge && collapsed && (
-                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-orange-500 rounded-full" />
+                      <span className="absolute -top-1 -left-1 w-2 h-2 bg-orange-500 rounded-full" />
                     )}
                   </span>
                   {!collapsed && (
@@ -178,25 +178,25 @@ export default function Layout({ children, onLogout }: LayoutProps) {
         >
           <button
             onClick={() => setTheme(isDark ? "light" : "dark")}
-            title={collapsed ? (isDark ? "Light Mode" : "Dark Mode") : undefined}
+            title={collapsed ? (isDark ? "وضع فاتح" : "وضع داكن") : undefined}
             className={cn(
               "w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors",
               collapsed ? "lg:justify-center lg:px-0" : "",
             )}
           >
             <span className="text-base flex-shrink-0">{isDark ? "☀️" : "🌙"}</span>
-            {!collapsed && <span>{isDark ? "Light Mode" : "Dark Mode"}</span>}
+            {!collapsed && <span>{isDark ? "وضع فاتح" : "وضع داكن"}</span>}
           </button>
           <button
             onClick={handleLogout}
-            title={collapsed ? "Sign Out" : undefined}
+            title={collapsed ? "تسجيل الخروج" : undefined}
             className={cn(
               "w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors",
               collapsed ? "lg:justify-center lg:px-0" : "",
             )}
           >
             <span className="text-base flex-shrink-0">🚪</span>
-            {!collapsed && <span>Sign Out</span>}
+            {!collapsed && <span>تسجيل الخروج</span>}
           </button>
         </div>
       </aside>

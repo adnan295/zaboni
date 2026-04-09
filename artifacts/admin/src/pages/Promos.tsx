@@ -47,11 +47,11 @@ function PromoFormDialog({
       isEdit ? api.updatePromo(promo!.id, data) : api.createPromo(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "promos"] });
-      toast({ title: isEdit ? "Promo updated" : "Promo created" });
+      toast({ title: isEdit ? "تم تحديث الكود" : "تم إنشاء الكود" });
       onClose();
     },
     onError: (e: Error) => {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
     },
   });
 
@@ -72,11 +72,11 @@ function PromoFormDialog({
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit Promo Code" : "Create Promo Code"}</DialogTitle>
+          <DialogTitle>{isEdit ? "تعديل كود الخصم" : "إنشاء كود خصم"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="space-y-1">
-            <label className="text-sm font-medium">Code</label>
+            <label className="text-sm font-medium">الكود</label>
             <Input
               value={form.code}
               onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))}
@@ -88,18 +88,18 @@ function PromoFormDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-sm font-medium">Type</label>
+              <label className="text-sm font-medium">النوع</label>
               <select
                 className="w-full border rounded-md px-3 py-2 text-sm bg-background"
                 value={form.type}
                 onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as "percent" | "fixed" }))}
               >
-                <option value="fixed">Fixed (SYP)</option>
-                <option value="percent">Percent (%)</option>
+                <option value="fixed">ثابت (ل.س)</option>
+                <option value="percent">نسبة مئوية (%)</option>
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium">Value</label>
+              <label className="text-sm font-medium">القيمة</label>
               <Input
                 type="number"
                 min="0"
@@ -113,17 +113,17 @@ function PromoFormDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-sm font-medium">Max Uses (global)</label>
+              <label className="text-sm font-medium">الحد الأقصى للاستخدام</label>
               <Input
                 type="number"
                 min="1"
                 value={form.maxUses}
                 onChange={(e) => setForm((f) => ({ ...f, maxUses: e.target.value }))}
-                placeholder="Unlimited"
+                placeholder="غير محدود"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium">Max per user</label>
+              <label className="text-sm font-medium">الحد لكل مستخدم</label>
               <Input
                 type="number"
                 min="1"
@@ -133,7 +133,7 @@ function PromoFormDialog({
             </div>
           </div>
           <div className="space-y-1">
-            <label className="text-sm font-medium">Expires At (optional)</label>
+            <label className="text-sm font-medium">تاريخ الانتهاء (اختياري)</label>
             <Input
               type="datetime-local"
               value={form.expiresAt}
@@ -148,12 +148,12 @@ function PromoFormDialog({
               onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
               className="w-4 h-4"
             />
-            <label htmlFor="isActive" className="text-sm font-medium">Active</label>
+            <label htmlFor="isActive" className="text-sm font-medium">مفعّل</label>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={onClose}>إلغاء</Button>
             <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? "Saving..." : isEdit ? "Update" : "Create"}
+              {mutation.isPending ? "جاري الحفظ..." : isEdit ? "تحديث" : "إنشاء"}
             </Button>
           </DialogFooter>
         </form>
@@ -177,10 +177,10 @@ export default function PromosPage() {
     mutationFn: api.deletePromo,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "promos"] });
-      toast({ title: "Promo deleted" });
+      toast({ title: "تم حذف الكود" });
     },
     onError: (e: Error) => {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
     },
   });
 
@@ -193,22 +193,21 @@ export default function PromosPage() {
   });
 
   const handleDelete = (id: string, code: string) => {
-    if (!confirm(`Delete promo "${code}"? This cannot be undone.`)) return;
+    if (!confirm(`حذف الكود "${code}"؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
     deleteMutation.mutate(id);
   };
 
   const active = data?.filter((p) => p.isActive) ?? [];
-  const inactive = data?.filter((p) => !p.isActive) ?? [];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Promo Codes</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage discount codes for customers</p>
+          <h1 className="text-2xl font-bold tracking-tight">أكواد الخصم</h1>
+          <p className="text-sm text-muted-foreground mt-1">إدارة أكواد الخصم للعملاء</p>
         </div>
         <Button onClick={() => { setEditing(null); setDialogOpen(true); }}>
-          + New Promo
+          + كود جديد
         </Button>
       </div>
 
@@ -217,13 +216,13 @@ export default function PromosPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="text-3xl font-bold">{data.length}</div>
-              <div className="text-sm text-muted-foreground mt-1">Total Codes</div>
+              <div className="text-sm text-muted-foreground mt-1">إجمالي الأكواد</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
               <div className="text-3xl font-bold text-green-500">{active.length}</div>
-              <div className="text-sm text-muted-foreground mt-1">Active</div>
+              <div className="text-sm text-muted-foreground mt-1">نشط</div>
             </CardContent>
           </Card>
           <Card>
@@ -231,7 +230,7 @@ export default function PromosPage() {
               <div className="text-3xl font-bold text-orange-500">
                 {data.reduce((s, p) => s + (p.usesCount ?? 0), 0)}
               </div>
-              <div className="text-sm text-muted-foreground mt-1">Total Uses</div>
+              <div className="text-sm text-muted-foreground mt-1">إجمالي الاستخدامات</div>
             </CardContent>
           </Card>
         </div>
@@ -240,12 +239,12 @@ export default function PromosPage() {
       <Card>
         <CardContent className="p-0">
           {isLoading && (
-            <div className="flex items-center justify-center h-40 text-muted-foreground">Loading...</div>
+            <div className="flex items-center justify-center h-40 text-muted-foreground">جاري التحميل...</div>
           )}
           {data && data.length === 0 && (
             <div className="flex flex-col items-center justify-center h-40 gap-2 text-muted-foreground">
               <span className="text-3xl">🎟️</span>
-              <span className="text-sm">No promo codes yet</span>
+              <span className="text-sm">لا توجد أكواد خصم بعد</span>
             </div>
           )}
           {data && data.length > 0 && (
@@ -253,13 +252,13 @@ export default function PromosPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/50">
-                    <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Code</th>
-                    <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Type</th>
-                    <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Value</th>
-                    <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Uses</th>
-                    <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Expires</th>
-                    <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Status</th>
-                    <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Actions</th>
+                    <th className="px-4 py-3 text-right font-semibold text-muted-foreground">الكود</th>
+                    <th className="px-4 py-3 text-right font-semibold text-muted-foreground">النوع</th>
+                    <th className="px-4 py-3 text-right font-semibold text-muted-foreground">القيمة</th>
+                    <th className="px-4 py-3 text-right font-semibold text-muted-foreground">الاستخدامات</th>
+                    <th className="px-4 py-3 text-right font-semibold text-muted-foreground">ينتهي في</th>
+                    <th className="px-4 py-3 text-right font-semibold text-muted-foreground">الحالة</th>
+                    <th className="px-4 py-3 text-right font-semibold text-muted-foreground">إجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -271,7 +270,9 @@ export default function PromosPage() {
                         <td className="px-4 py-3">
                           <span className="font-mono font-bold text-primary">{p.code}</span>
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground capitalize">{p.type}</td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {p.type === "percent" ? "نسبة %" : "ثابت"}
+                        </td>
                         <td className="px-4 py-3 font-semibold">
                           {p.type === "percent" ? `${p.value}%` : `${p.value.toLocaleString()} ل.س`}
                         </td>
@@ -280,8 +281,8 @@ export default function PromosPage() {
                         </td>
                         <td className="px-4 py-3 text-muted-foreground text-xs">
                           {p.expiresAt
-                            ? new Date(p.expiresAt).toLocaleDateString("en-GB", { year: "numeric", month: "short", day: "numeric" })
-                            : <span className="italic">Never</span>}
+                            ? new Date(p.expiresAt).toLocaleDateString("ar-SY", { year: "numeric", month: "short", day: "numeric" })
+                            : <span className="italic">لا ينتهي</span>}
                         </td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
@@ -289,7 +290,7 @@ export default function PromosPage() {
                               ? "bg-muted text-muted-foreground"
                               : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                           }`}>
-                            {!p.isActive ? "Inactive" : expired ? "Expired" : exhausted ? "Exhausted" : "Active"}
+                            {!p.isActive ? "معطّل" : expired ? "منتهي" : exhausted ? "مستنفَد" : "نشط"}
                           </span>
                         </td>
                         <td className="px-4 py-3">
@@ -299,7 +300,7 @@ export default function PromosPage() {
                               variant="outline"
                               onClick={() => { setEditing(p); setDialogOpen(true); }}
                             >
-                              Edit
+                              تعديل
                             </Button>
                             <Button
                               size="sm"
@@ -307,7 +308,7 @@ export default function PromosPage() {
                               onClick={() => toggleMutation.mutate({ id: p.id, isActive: !p.isActive })}
                               disabled={toggleMutation.isPending}
                             >
-                              {p.isActive ? "Disable" : "Enable"}
+                              {p.isActive ? "تعطيل" : "تفعيل"}
                             </Button>
                             <Button
                               size="sm"
@@ -315,7 +316,7 @@ export default function PromosPage() {
                               onClick={() => handleDelete(p.id, p.code)}
                               disabled={deleteMutation.isPending}
                             >
-                              Delete
+                              حذف
                             </Button>
                           </div>
                         </td>

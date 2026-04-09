@@ -13,10 +13,10 @@ import {
 } from "recharts";
 
 const RANGE_OPTIONS = [
-  { label: "Last 7 days", value: 7 },
-  { label: "Last 14 days", value: 14 },
-  { label: "Last 30 days", value: 30 },
-  { label: "Last 90 days", value: 90 },
+  { label: "آخر 7 أيام", value: 7 },
+  { label: "آخر 14 يوم", value: 14 },
+  { label: "آخر 30 يوم", value: 30 },
+  { label: "آخر 90 يوم", value: 90 },
 ];
 
 function SYP(n: number) {
@@ -58,20 +58,20 @@ export default function FinancialPage() {
 
   const chartData = (data?.revenueSeries ?? []).map((d) => ({
     ...d,
-    label: groupBy === "week" ? `W ${d.date.slice(5)}` : d.date.slice(5),
+    label: groupBy === "week" ? `أسبوع ${d.date.slice(5)}` : d.date.slice(5),
   }));
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Financial Reports</h1>
-          <p className="text-sm text-muted-foreground mt-1">Platform subscription revenue and order breakdown</p>
+          <h1 className="text-2xl font-bold tracking-tight">التقارير المالية</h1>
+          <p className="text-sm text-muted-foreground mt-1">إيرادات الاشتراكات وتفاصيل الطلبات</p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           <div className="flex gap-1 border border-border rounded-md p-0.5">
-            <FilterButton active={groupBy === "day"} onClick={() => setGroupBy("day")}>Daily</FilterButton>
-            <FilterButton active={groupBy === "week"} onClick={() => setGroupBy("week")}>Weekly</FilterButton>
+            <FilterButton active={groupBy === "day"} onClick={() => setGroupBy("day")}>يومي</FilterButton>
+            <FilterButton active={groupBy === "week"} onClick={() => setGroupBy("week")}>أسبوعي</FilterButton>
           </div>
           <div className="flex gap-2">
             {RANGE_OPTIONS.map((opt) => (
@@ -84,14 +84,14 @@ export default function FinancialPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center h-40 text-muted-foreground">Loading...</div>
+        <div className="flex items-center justify-center h-40 text-muted-foreground">جاري التحميل...</div>
       ) : (
         <>
           <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-lg">💳</span>
               <h2 className="text-sm font-semibold text-primary uppercase tracking-wide">
-                Platform Revenue (Subscription Fees)
+                إيرادات المنصة (رسوم الاشتراك)
               </h2>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -100,7 +100,7 @@ export default function FinancialPage() {
                   <div className="text-2xl font-bold text-primary">
                     {SYP(data?.summary.subscriptionRevenue ?? 0)}
                   </div>
-                  <div className="text-sm text-muted-foreground mt-1">Subscription Revenue</div>
+                  <div className="text-sm text-muted-foreground mt-1">إيرادات الاشتراكات</div>
                 </CardContent>
               </Card>
               <Card className="border-green-200">
@@ -108,7 +108,7 @@ export default function FinancialPage() {
                   <div className="text-2xl font-bold text-green-600">
                     {(data?.summary.paidSubscriptions ?? 0).toLocaleString()}
                   </div>
-                  <div className="text-sm text-muted-foreground mt-1">Paid Subscriptions</div>
+                  <div className="text-sm text-muted-foreground mt-1">اشتراكات مدفوعة</div>
                 </CardContent>
               </Card>
               <Card className="border-yellow-200">
@@ -116,7 +116,7 @@ export default function FinancialPage() {
                   <div className="text-2xl font-bold text-yellow-600">
                     {(data?.summary.waivedSubscriptions ?? 0).toLocaleString()}
                   </div>
-                  <div className="text-sm text-muted-foreground mt-1">Waived</div>
+                  <div className="text-sm text-muted-foreground mt-1">معفاة</div>
                 </CardContent>
               </Card>
               <Card className="border-red-200">
@@ -124,7 +124,7 @@ export default function FinancialPage() {
                   <div className="text-2xl font-bold text-red-500">
                     {(data?.summary.pendingSubscriptions ?? 0).toLocaleString()}
                   </div>
-                  <div className="text-sm text-muted-foreground mt-1">Pending (Unpaid)</div>
+                  <div className="text-sm text-muted-foreground mt-1">معلّقة (غير مدفوعة)</div>
                 </CardContent>
               </Card>
             </div>
@@ -132,7 +132,7 @@ export default function FinancialPage() {
 
           <div>
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-              Order Statistics
+              إحصائيات الطلبات
             </h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <Card>
@@ -140,25 +140,25 @@ export default function FinancialPage() {
                   <div className="text-2xl font-bold text-muted-foreground">
                     {SYP(data?.summary.totalDeliveryFees ?? 0)}
                   </div>
-                  <div className="text-sm text-muted-foreground mt-1">Delivery Fees (to couriers)</div>
+                  <div className="text-sm text-muted-foreground mt-1">رسوم التوصيل (للمندوبين)</div>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="pt-6">
                   <div className="text-2xl font-bold">{(data?.summary.deliveredOrders ?? 0).toLocaleString()}</div>
-                  <div className="text-sm text-muted-foreground mt-1">Delivered Orders</div>
+                  <div className="text-sm text-muted-foreground mt-1">طلبات موصَّلة</div>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="pt-6">
                   <div className="text-2xl font-bold">{(data?.summary.totalOrders ?? 0).toLocaleString()}</div>
-                  <div className="text-sm text-muted-foreground mt-1">Total Orders</div>
+                  <div className="text-sm text-muted-foreground mt-1">إجمالي الطلبات</div>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="pt-6">
                   <div className="text-2xl font-bold text-red-500">{(data?.summary.cancelledOrders ?? 0).toLocaleString()}</div>
-                  <div className="text-sm text-muted-foreground mt-1">Cancelled</div>
+                  <div className="text-sm text-muted-foreground mt-1">ملغاة</div>
                 </CardContent>
               </Card>
             </div>
@@ -167,7 +167,7 @@ export default function FinancialPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
-                {groupBy === "week" ? "Weekly" : "Daily"} Delivery Fees (ل.س) — goes to couriers
+                رسوم التوصيل {groupBy === "week" ? "الأسبوعية" : "اليومية"} (ل.س) — تذهب للمندوبين
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -187,8 +187,8 @@ export default function FinancialPage() {
                     axisLine={false}
                   />
                   <Tooltip
-                    formatter={(value: number) => [SYP(value), "Delivery Fees"]}
-                    labelFormatter={(l) => `${groupBy === "week" ? "Week of" : "Date"}: ${l}`}
+                    formatter={(value: number) => [SYP(value), "رسوم التوصيل"]}
+                    labelFormatter={(l) => `${groupBy === "week" ? "أسبوع" : "تاريخ"}: ${l}`}
                     contentStyle={{ fontSize: 12 }}
                   />
                   <Bar dataKey="revenue" fill="#FF6B00" radius={[4, 4, 0, 0]} />
@@ -199,22 +199,22 @@ export default function FinancialPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Delivery Fees by Restaurant</CardTitle>
+              <CardTitle className="text-base">رسوم التوصيل حسب المطعم</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               {(!data?.byRestaurant || data.byRestaurant.length === 0) ? (
                 <div className="flex items-center justify-center h-24 text-muted-foreground text-sm">
-                  No data
+                  لا توجد بيانات
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border bg-muted/50">
-                        <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Restaurant</th>
-                        <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Total Orders</th>
-                        <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Delivered</th>
-                        <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Delivery Fees</th>
+                        <th className="px-4 py-3 text-right font-semibold text-muted-foreground">المطعم</th>
+                        <th className="px-4 py-3 text-right font-semibold text-muted-foreground">إجمالي الطلبات</th>
+                        <th className="px-4 py-3 text-right font-semibold text-muted-foreground">موصَّلة</th>
+                        <th className="px-4 py-3 text-right font-semibold text-muted-foreground">رسوم التوصيل</th>
                       </tr>
                     </thead>
                     <tbody>

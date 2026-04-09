@@ -23,13 +23,13 @@ export default function NotificationsPage() {
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["admin", "notifications", "history"] });
       toast({
-        title: "Sent!",
-        description: `${data.sentCount} sent, ${data.failedCount} failed`,
+        title: "تم الإرسال!",
+        description: `${data.sentCount} أُرسل، ${data.failedCount} فشل`,
       });
       setForm((f) => ({ ...f, title: "", body: "" }));
     },
     onError: (e: Error) => {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
     },
   });
 
@@ -42,15 +42,15 @@ export default function NotificationsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Broadcast Notifications</h1>
-        <p className="text-sm text-muted-foreground mt-1">Send push notifications to all users or a specific group</p>
+        <h1 className="text-2xl font-bold tracking-tight">الإشعارات الجماعية</h1>
+        <p className="text-sm text-muted-foreground mt-1">إرسال إشعارات فورية لجميع المستخدمين أو مجموعة محددة</p>
       </div>
 
       <Card>
         <CardContent className="pt-6">
           <form onSubmit={handleSubmit} className="space-y-4 max-w-lg">
             <div className="space-y-1">
-              <Label>Title</Label>
+              <Label>العنوان</Label>
               <Input
                 value={form.title}
                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
@@ -60,7 +60,7 @@ export default function NotificationsPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label>Message</Label>
+              <Label>نص الإشعار</Label>
               <textarea
                 className="w-full border rounded-md px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring"
                 rows={4}
@@ -72,15 +72,15 @@ export default function NotificationsPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label>Audience</Label>
+              <Label>الجمهور المستهدف</Label>
               <select
                 className="w-full border rounded-md px-3 py-2 text-sm bg-background"
                 value={form.target}
                 onChange={(e) => setForm((f) => ({ ...f, target: e.target.value as "all" | "customers" | "couriers" }))}
               >
-                <option value="all">All users</option>
-                <option value="customers">Customers only</option>
-                <option value="couriers">Couriers only</option>
+                <option value="all">الجميع</option>
+                <option value="customers">العملاء فقط</option>
+                <option value="couriers">المندوبون فقط</option>
               </select>
             </div>
             <Button
@@ -88,32 +88,32 @@ export default function NotificationsPage() {
               disabled={broadcastMutation.isPending || !form.title.trim() || !form.body.trim()}
               className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              {broadcastMutation.isPending ? "Sending..." : "Send Notification 🔔"}
+              {broadcastMutation.isPending ? "جاري الإرسال..." : "إرسال الإشعار 🔔"}
             </Button>
           </form>
         </CardContent>
       </Card>
 
       <div>
-        <h2 className="text-lg font-semibold mb-3">Recent Broadcasts</h2>
+        <h2 className="text-lg font-semibold mb-3">الإشعارات الأخيرة</h2>
         <Card>
           <CardContent className="p-0">
             {history.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-32 gap-2 text-muted-foreground">
                 <span className="text-3xl">🔔</span>
-                <span className="text-sm">No notifications sent yet</span>
+                <span className="text-sm">لم يُرسَل أي إشعار بعد</span>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border bg-muted/50">
-                      <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Title</th>
-                      <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Message</th>
-                      <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Audience</th>
-                      <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Sent</th>
-                      <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Failed</th>
-                      <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Date</th>
+                      <th className="px-4 py-3 text-right font-semibold text-muted-foreground">العنوان</th>
+                      <th className="px-4 py-3 text-right font-semibold text-muted-foreground">النص</th>
+                      <th className="px-4 py-3 text-right font-semibold text-muted-foreground">المستهدف</th>
+                      <th className="px-4 py-3 text-right font-semibold text-muted-foreground">أُرسل</th>
+                      <th className="px-4 py-3 text-right font-semibold text-muted-foreground">فشل</th>
+                      <th className="px-4 py-3 text-right font-semibold text-muted-foreground">التاريخ</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -129,13 +129,13 @@ export default function NotificationsPage() {
                                 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                                 : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
                           }`}>
-                            {n.target === "all" ? "All" : n.target === "customers" ? "Customers" : "Couriers"}
+                            {n.target === "all" ? "الجميع" : n.target === "customers" ? "العملاء" : "المندوبون"}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-green-600 font-semibold">{n.sentCount}</td>
                         <td className="px-4 py-3 text-red-500 font-semibold">{n.failedCount}</td>
                         <td className="px-4 py-3 text-muted-foreground text-xs">
-                          {new Date(n.createdAt).toLocaleString("en-GB", {
+                          {new Date(n.createdAt).toLocaleString("ar-SY", {
                             day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"
                           })}
                         </td>

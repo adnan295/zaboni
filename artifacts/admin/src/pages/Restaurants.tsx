@@ -76,12 +76,12 @@ function RestaurantFormDialog({
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {initial.name ? "Edit Restaurant" : "New Restaurant"}
+            {initial.name ? "تعديل المطعم" : "مطعم جديد"}
           </DialogTitle>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-3 py-2">
           <div className="space-y-1">
-            <Label>Name (EN)</Label>
+            <Label>الاسم (إنجليزي)</Label>
             <Input
               value={form.name}
               onChange={(e) => set("name", e.target.value)}
@@ -89,7 +89,7 @@ function RestaurantFormDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label>Name (AR)</Label>
+            <Label>الاسم (عربي)</Label>
             <Input
               dir="rtl"
               value={form.nameAr}
@@ -98,7 +98,7 @@ function RestaurantFormDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label>Category (EN)</Label>
+            <Label>التصنيف (إنجليزي)</Label>
             <Input
               value={form.category}
               onChange={(e) => set("category", e.target.value)}
@@ -106,7 +106,7 @@ function RestaurantFormDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label>Category (AR)</Label>
+            <Label>التصنيف (عربي)</Label>
             <Input
               dir="rtl"
               value={form.categoryAr}
@@ -115,7 +115,7 @@ function RestaurantFormDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label>Rating (0–5)</Label>
+            <Label>التقييم (0–5)</Label>
             <Input
               type="number"
               min={0}
@@ -126,7 +126,7 @@ function RestaurantFormDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label>Review Count</Label>
+            <Label>عدد التقييمات</Label>
             <Input
               type="number"
               min={0}
@@ -135,7 +135,7 @@ function RestaurantFormDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label>Delivery Time</Label>
+            <Label>وقت التوصيل</Label>
             <Input
               value={form.deliveryTime}
               onChange={(e) => set("deliveryTime", e.target.value)}
@@ -143,7 +143,7 @@ function RestaurantFormDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label>Delivery Fee (ل.س)</Label>
+            <Label>رسوم التوصيل (ل.س)</Label>
             <Input
               type="number"
               min={0}
@@ -154,7 +154,7 @@ function RestaurantFormDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label>Min Order (ل.س)</Label>
+            <Label>الحد الأدنى للطلب (ل.س)</Label>
             <Input
               type="number"
               min={0}
@@ -165,15 +165,15 @@ function RestaurantFormDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label>Discount (optional)</Label>
+            <Label>الخصم (اختياري)</Label>
             <Input
               value={form.discount ?? ""}
               onChange={(e) => set("discount", e.target.value || null)}
-              placeholder="e.g. 20%"
+              placeholder="مثال: 20%"
             />
           </div>
           <div className="col-span-2 space-y-1">
-            <Label>Image URL</Label>
+            <Label>رابط الصورة</Label>
             <Input
               value={form.image}
               onChange={(e) => set("image", e.target.value)}
@@ -181,7 +181,7 @@ function RestaurantFormDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label>Latitude (خط العرض)</Label>
+            <Label>خط العرض (Latitude)</Label>
             <Input
               type="number"
               step="any"
@@ -191,7 +191,7 @@ function RestaurantFormDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label>Longitude (خط الطول)</Label>
+            <Label>خط الطول (Longitude)</Label>
             <Input
               type="number"
               step="any"
@@ -201,7 +201,7 @@ function RestaurantFormDialog({
             />
           </div>
           <div className="col-span-2 space-y-1">
-            <Label>Tags (comma-separated)</Label>
+            <Label>الوسوم (مفصولة بفاصلة)</Label>
             <Input
               value={form.tags.join(", ")}
               onChange={(e) => {
@@ -219,19 +219,19 @@ function RestaurantFormDialog({
               onChange={(e) => set("isOpen", e.target.checked)}
               className="w-4 h-4 accent-primary"
             />
-            <Label htmlFor="isOpen">Open for orders</Label>
+            <Label htmlFor="isOpen">مفتوح للطلبات</Label>
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            إلغاء
           </Button>
           <Button
             className="bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => onSave(form)}
             disabled={!form.name || !form.nameAr || saving}
           >
-            {saving ? "Saving..." : "Save"}
+            {saving ? "جاري الحفظ..." : "حفظ"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -312,7 +312,7 @@ function MenuDialog({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            Menu —{" "}
+            القائمة —{" "}
             <span dir="rtl" className="font-bold">
               {restaurant.nameAr}
             </span>
@@ -325,25 +325,25 @@ function MenuDialog({
             className="bg-primary text-primary-foreground hover:bg-primary/90 w-fit"
             onClick={() => setShowForm(true)}
           >
-            + Add Item
+            + إضافة صنف
           </Button>
         )}
 
         {(showForm || editItem) && (
           <div className="border rounded-lg p-4 space-y-3 bg-muted/40">
             <h3 className="font-semibold text-sm">
-              {editItem ? "Edit Item" : "New Menu Item"}
+              {editItem ? "تعديل الصنف" : "صنف جديد"}
             </h3>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>Name (EN)</Label>
+                <Label>الاسم (إنجليزي)</Label>
                 <Input
                   value={activeForm.name}
                   onChange={(e) => setField("name", e.target.value)}
                 />
               </div>
               <div className="space-y-1">
-                <Label>Name (AR)</Label>
+                <Label>الاسم (عربي)</Label>
                 <Input
                   dir="rtl"
                   value={activeForm.nameAr}
@@ -351,14 +351,14 @@ function MenuDialog({
                 />
               </div>
               <div className="space-y-1">
-                <Label>Category (EN)</Label>
+                <Label>التصنيف (إنجليزي)</Label>
                 <Input
                   value={activeForm.category}
                   onChange={(e) => setField("category", e.target.value)}
                 />
               </div>
               <div className="space-y-1">
-                <Label>Category (AR)</Label>
+                <Label>التصنيف (عربي)</Label>
                 <Input
                   dir="rtl"
                   value={activeForm.categoryAr}
@@ -366,7 +366,7 @@ function MenuDialog({
                 />
               </div>
               <div className="space-y-1">
-                <Label>Price (ل.س)</Label>
+                <Label>السعر (ل.س)</Label>
                 <Input
                   type="number"
                   min={0}
@@ -377,7 +377,7 @@ function MenuDialog({
                 />
               </div>
               <div className="space-y-1">
-                <Label>Image URL</Label>
+                <Label>رابط الصورة</Label>
                 <Input
                   value={activeForm.image}
                   onChange={(e) => setField("image", e.target.value)}
@@ -392,7 +392,7 @@ function MenuDialog({
                   onChange={(e) => setField("isPopular", e.target.checked)}
                   className="w-4 h-4 accent-primary"
                 />
-                <Label htmlFor="isPopular">Popular item</Label>
+                <Label htmlFor="isPopular">صنف شائع</Label>
               </div>
             </div>
             <div className="flex gap-2">
@@ -413,7 +413,7 @@ function MenuDialog({
                   !activeForm.nameAr
                 }
               >
-                {editItem ? "Update" : "Create"}
+                {editItem ? "تحديث" : "إنشاء"}
               </Button>
               <Button
                 size="sm"
@@ -424,17 +424,17 @@ function MenuDialog({
                   setForm(emptyMenuItem);
                 }}
               >
-                Cancel
+                إلغاء
               </Button>
             </div>
           </div>
         )}
 
         {isLoading ? (
-          <p className="text-muted-foreground text-sm py-4">Loading menu...</p>
+          <p className="text-muted-foreground text-sm py-4">جاري تحميل القائمة...</p>
         ) : items.length === 0 ? (
           <p className="text-muted-foreground text-sm py-4">
-            No menu items yet.
+            لا توجد أصناف بعد.
           </p>
         ) : (
           <div className="space-y-2 mt-2">
@@ -461,7 +461,7 @@ function MenuDialog({
                 </div>
                 {item.isPopular && (
                   <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full flex-shrink-0">
-                    Popular
+                    شائع
                   </span>
                 )}
                 <div className="flex gap-1 flex-shrink-0">
@@ -474,18 +474,18 @@ function MenuDialog({
                       setShowForm(false);
                     }}
                   >
-                    Edit
+                    تعديل
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
                     className="h-7 px-2 text-xs text-destructive hover:text-destructive"
                     onClick={() => {
-                      if (confirm(`Delete "${item.name}"?`))
+                      if (confirm(`حذف "${item.nameAr}"؟`))
                         deleteMutation.mutate(item);
                     }}
                   >
-                    Delete
+                    حذف
                   </Button>
                 </div>
               </div>
@@ -543,11 +543,11 @@ function HoursDialog({
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            Working Hours — <span dir="rtl">{restaurant.nameAr}</span>
+            أوقات العمل — <span dir="rtl">{restaurant.nameAr}</span>
           </DialogTitle>
         </DialogHeader>
         {isLoading ? (
-          <div className="py-8 text-center text-muted-foreground text-sm">Loading...</div>
+          <div className="py-8 text-center text-muted-foreground text-sm">جاري التحميل...</div>
         ) : (
           <div className="space-y-3 py-2">
             {displayHours.map((h) => (
@@ -558,7 +558,7 @@ function HoursDialog({
                   checked={h.isClosed}
                   onChange={(e) => updateHour(h.dayOfWeek, "isClosed", e.target.checked)}
                   className="w-4 h-4 accent-red-500"
-                  title="Closed all day"
+                  title="مغلق طوال اليوم"
                 />
                 <span className="text-xs text-muted-foreground w-12">مغلق</span>
                 <Input
@@ -581,13 +581,13 @@ function HoursDialog({
           </div>
         )}
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" onClick={onClose}>إلغاء</Button>
           <Button
             className="bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => saveMutation.mutate(displayHours)}
             disabled={saveMutation.isPending || isLoading}
           >
-            {saveMutation.isPending ? "Saving..." : "Save Hours"}
+            {saveMutation.isPending ? "جاري الحفظ..." : "حفظ الأوقات"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -643,40 +643,40 @@ export default function Restaurants() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Restaurants</h1>
+        <h1 className="text-2xl font-bold">المطاعم</h1>
         <Button
           className="bg-primary text-primary-foreground hover:bg-primary/90"
           onClick={() => setShowForm(true)}
         >
-          + Add Restaurant
+          + إضافة مطعم
         </Button>
       </div>
 
       <Input
         type="search"
-        placeholder="Search restaurants..."
+        placeholder="ابحث في المطاعم..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         className="max-w-sm"
       />
 
       {isLoading ? (
-        <p className="text-muted-foreground">Loading...</p>
+        <p className="text-muted-foreground">جاري التحميل...</p>
       ) : filtered.length === 0 ? (
-        <p className="text-muted-foreground">No restaurants found.</p>
+        <p className="text-muted-foreground">لا توجد مطاعم.</p>
       ) : (
         <div className="border rounded-lg overflow-hidden bg-card shadow-sm">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 border-b">
               <tr>
-                <th className="text-left px-4 py-3 font-medium">Name</th>
-                <th className="text-left px-4 py-3 font-medium">Category</th>
-                <th className="text-left px-4 py-3 font-medium">Rating</th>
-                <th className="text-left px-4 py-3 font-medium">Avg Courier Rating</th>
-                <th className="text-left px-4 py-3 font-medium">Fee (ل.س)</th>
-                <th className="text-left px-4 py-3 font-medium">Orders</th>
-                <th className="text-left px-4 py-3 font-medium">Status</th>
-                <th className="text-right px-4 py-3 font-medium">Actions</th>
+                <th className="text-right px-4 py-3 font-medium">الاسم</th>
+                <th className="text-right px-4 py-3 font-medium">التصنيف</th>
+                <th className="text-right px-4 py-3 font-medium">التقييم</th>
+                <th className="text-right px-4 py-3 font-medium">تقييم المندوب</th>
+                <th className="text-right px-4 py-3 font-medium">الرسوم (ل.س)</th>
+                <th className="text-right px-4 py-3 font-medium">الطلبات</th>
+                <th className="text-right px-4 py-3 font-medium">الحالة</th>
+                <th className="text-right px-4 py-3 font-medium">إجراءات</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -699,7 +699,7 @@ export default function Restaurants() {
                   </td>
                   <td className="px-4 py-3">
                     ⭐ {r.rating.toFixed(1)}
-                    <span className="text-xs text-muted-foreground ml-1">
+                    <span className="text-xs text-muted-foreground mr-1">
                       ({r.reviewCount})
                     </span>
                   </td>
@@ -712,7 +712,7 @@ export default function Restaurants() {
                             className={i < Math.floor(r.avgCourierRating!) ? "text-yellow-400" : "text-gray-300"}
                           >★</span>
                         ))}
-                        <span className="ml-1 text-muted-foreground">{(r.avgCourierRating as number).toFixed(1)}</span>
+                        <span className="mr-1 text-muted-foreground">{(r.avgCourierRating as number).toFixed(1)}</span>
                       </span>
                     ) : (
                       <span className="text-muted-foreground text-xs">—</span>
@@ -720,7 +720,7 @@ export default function Restaurants() {
                   </td>
                   <td className="px-4 py-3">
                     {r.deliveryFee === 0
-                      ? "Free"
+                      ? "مجاني"
                       : `${r.deliveryFee.toLocaleString("ar-SY")} ل.س`}
                   </td>
                   <td className="px-4 py-3">
@@ -732,7 +732,7 @@ export default function Restaurants() {
                     <span
                       className={`text-xs font-medium px-2 py-0.5 rounded-full ${r.isOpen ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}
                     >
-                      {r.isOpen ? "Open" : "Closed"}
+                      {r.isOpen ? "مفتوح" : "مغلق"}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -743,7 +743,7 @@ export default function Restaurants() {
                         className="h-7 px-2 text-xs"
                         onClick={() => setMenuRestaurant(r)}
                       >
-                        Menu
+                        القائمة
                       </Button>
                       <Button
                         size="sm"
@@ -751,7 +751,7 @@ export default function Restaurants() {
                         className="h-7 px-2 text-xs"
                         onClick={() => setHoursRestaurant(r)}
                       >
-                        Hours
+                        الأوقات
                       </Button>
                       <Button
                         size="sm"
@@ -759,7 +759,7 @@ export default function Restaurants() {
                         className="h-7 px-2 text-xs"
                         onClick={() => setEditRestaurant(r)}
                       >
-                        Edit
+                        تعديل
                       </Button>
                       <Button
                         size="sm"
@@ -768,14 +768,14 @@ export default function Restaurants() {
                         onClick={() => {
                           if (
                             confirm(
-                              `Delete "${r.name}"? This will also delete all menu items.`,
+                              `حذف "${r.nameAr}"؟ سيتم حذف جميع أصناف القائمة أيضاً.`,
                             )
                           ) {
                             deleteMutation.mutate(r.id);
                           }
                         }}
                       >
-                        Delete
+                        حذف
                       </Button>
                     </div>
                   </td>

@@ -10,13 +10,13 @@ function Stars({ value }: { value: number }) {
           ★
         </span>
       ))}
-      <span className="ml-1 text-xs text-muted-foreground font-medium">{value}/5</span>
+      <span className="mr-1 text-xs text-muted-foreground font-medium">{value}/5</span>
     </span>
   );
 }
 
 function RatingRow({ rating }: { rating: Rating }) {
-  const date = new Date(rating.createdAt).toLocaleString("en-GB", {
+  const date = new Date(rating.createdAt).toLocaleString("ar-SY", {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -44,7 +44,7 @@ function RatingRow({ rating }: { rating: Rating }) {
         <Stars value={rating.courierStars} />
       </td>
       <td className="px-4 py-3 text-sm text-muted-foreground max-w-[200px]">
-        {rating.comment || <span className="italic text-muted-foreground/50">No comment</span>}
+        {rating.comment || <span className="italic text-muted-foreground/50">بدون تعليق</span>}
       </td>
       <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{date}</td>
     </tr>
@@ -61,8 +61,8 @@ export default function RatingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Ratings</h1>
-        <p className="text-sm text-muted-foreground mt-1">Customer feedback on restaurants and couriers</p>
+        <h1 className="text-2xl font-bold tracking-tight">التقييمات</h1>
+        <p className="text-sm text-muted-foreground mt-1">آراء العملاء في المطاعم والمندوبين</p>
       </div>
 
       {data && (
@@ -70,7 +70,7 @@ export default function RatingsPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="text-3xl font-bold">{data.total}</div>
-              <div className="text-sm text-muted-foreground mt-1">Total Ratings</div>
+              <div className="text-sm text-muted-foreground mt-1">إجمالي التقييمات</div>
             </CardContent>
           </Card>
           <Card>
@@ -78,7 +78,7 @@ export default function RatingsPage() {
               <div className="text-3xl font-bold text-yellow-500">
                 {data.avgRestaurantStars != null ? `${data.avgRestaurantStars} ★` : "—"}
               </div>
-              <div className="text-sm text-muted-foreground mt-1">Avg Restaurant Rating</div>
+              <div className="text-sm text-muted-foreground mt-1">متوسط تقييم المطعم</div>
             </CardContent>
           </Card>
           <Card>
@@ -86,7 +86,7 @@ export default function RatingsPage() {
               <div className="text-3xl font-bold text-orange-500">
                 {data.avgCourierStars != null ? `${data.avgCourierStars} ★` : "—"}
               </div>
-              <div className="text-sm text-muted-foreground mt-1">Avg Courier Rating</div>
+              <div className="text-sm text-muted-foreground mt-1">متوسط تقييم المندوب</div>
             </CardContent>
           </Card>
         </div>
@@ -95,15 +95,15 @@ export default function RatingsPage() {
       <Card>
         <CardContent className="p-0">
           {isLoading && (
-            <div className="flex items-center justify-center h-40 text-muted-foreground">Loading...</div>
+            <div className="flex items-center justify-center h-40 text-muted-foreground">جاري التحميل...</div>
           )}
           {isError && (
-            <div className="flex items-center justify-center h-40 text-destructive">Failed to load ratings.</div>
+            <div className="flex items-center justify-center h-40 text-destructive">فشل في تحميل التقييمات.</div>
           )}
           {data && data.ratings.length === 0 && (
             <div className="flex flex-col items-center justify-center h-40 gap-2 text-muted-foreground">
               <span className="text-3xl">⭐</span>
-              <span className="text-sm">No ratings yet</span>
+              <span className="text-sm">لا توجد تقييمات بعد</span>
             </div>
           )}
           {data && data.ratings.length > 0 && (
@@ -111,13 +111,13 @@ export default function RatingsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/50">
-                    <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Customer</th>
-                    <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Courier</th>
-                    <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Restaurant</th>
-                    <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Restaurant ★</th>
-                    <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Courier ★</th>
-                    <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Comment</th>
-                    <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Date</th>
+                    <th className="px-4 py-3 text-right font-semibold text-muted-foreground">العميل</th>
+                    <th className="px-4 py-3 text-right font-semibold text-muted-foreground">المندوب</th>
+                    <th className="px-4 py-3 text-right font-semibold text-muted-foreground">المطعم</th>
+                    <th className="px-4 py-3 text-right font-semibold text-muted-foreground">تقييم المطعم ★</th>
+                    <th className="px-4 py-3 text-right font-semibold text-muted-foreground">تقييم المندوب ★</th>
+                    <th className="px-4 py-3 text-right font-semibold text-muted-foreground">التعليق</th>
+                    <th className="px-4 py-3 text-right font-semibold text-muted-foreground">التاريخ</th>
                   </tr>
                 </thead>
                 <tbody>

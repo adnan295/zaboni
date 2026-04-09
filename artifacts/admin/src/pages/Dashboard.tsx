@@ -24,11 +24,11 @@ import {
 } from "recharts";
 
 const STATUS_LABELS: Record<string, string> = {
-  searching: "Searching",
-  accepted: "Accepted",
-  picked_up: "Picked Up",
-  on_way: "On the Way",
-  delivered: "Delivered",
+  searching: "يبحث عن مندوب",
+  accepted: "قبِل المندوب",
+  picked_up: "جارٍ التوصيل",
+  on_way: "في الطريق",
+  delivered: "تم التوصيل",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -47,19 +47,19 @@ function TrendBadge({ today, yesterday }: { today: number; yesterday: number }) 
   if (yesterday === 0 && today === 0) return null;
   if (yesterday === 0) {
     return (
-      <span className="text-xs text-green-600 font-medium ml-1">+{today} ↑</span>
+      <span className="text-xs text-green-600 font-medium mr-1">+{today} ↑</span>
     );
   }
   const diff = today - yesterday;
   const pct = Math.round(Math.abs(diff / yesterday) * 100);
   if (diff === 0) {
-    return <span className="text-xs text-muted-foreground ml-1">= same as yesterday</span>;
+    return <span className="text-xs text-muted-foreground mr-1">= نفس أمس</span>;
   }
   return (
     <span
-      className={`text-xs font-medium ml-1 ${diff > 0 ? "text-green-600" : "text-red-500"}`}
+      className={`text-xs font-medium mr-1 ${diff > 0 ? "text-green-600" : "text-red-500"}`}
     >
-      {diff > 0 ? `+${diff}` : diff} ({pct}%) {diff > 0 ? "↑" : "↓"} vs yesterday
+      {diff > 0 ? `+${diff}` : diff} ({pct}%) {diff > 0 ? "↑" : "↓"} مقارنة بالأمس
     </span>
   );
 }
@@ -121,7 +121,7 @@ export default function Dashboard() {
   if (statsLoading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <h1 className="text-2xl font-bold">لوحة التحكم</h1>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           {[...Array(6)].map((_, i) => (
             <Card key={i} className="animate-pulse">
@@ -153,38 +153,38 @@ export default function Dashboard() {
 
   const statCards = [
     {
-      label: "Today's Orders",
+      label: "طلبات اليوم",
       value: todayOrders,
       icon: "📅",
       color: "text-orange-500",
       trend: <TrendBadge today={todayOrders} yesterday={yesterdayOrders} />,
     },
     {
-      label: "Total Orders",
+      label: "إجمالي الطلبات",
       value: stats.orders,
       icon: "📦",
       color: "text-blue-500",
     },
     {
-      label: "Restaurants",
+      label: "المطاعم",
       value: stats.restaurants,
       icon: "🍽️",
       color: "text-purple-500",
     },
     {
-      label: "Customers",
+      label: "العملاء",
       value: stats.users - stats.couriers,
       icon: "🛒",
       color: "text-green-500",
     },
     {
-      label: "Couriers",
+      label: "المندوبون",
       value: stats.couriers,
       icon: "🚴",
       color: "text-indigo-500",
     },
     {
-      label: "Menu Items",
+      label: "عناصر القائمة",
       value: stats.menuItems,
       icon: "🍔",
       color: "text-rose-500",
@@ -211,9 +211,9 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <h1 className="text-2xl font-bold">لوحة التحكم</h1>
         <span className="text-xs text-muted-foreground">
-          Live · refreshes every 10s
+          مباشر · يتحدث كل 10 ثوانٍ
         </span>
       </div>
 
@@ -231,8 +231,8 @@ export default function Dashboard() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500" />
               </span>
-              Active Orders Now — {totalActive}
-              <span className="text-xs font-normal text-orange-600/60">live · 10s</span>
+              الطلبات النشطة الآن — {totalActive}
+              <span className="text-xs font-normal text-orange-600/60">مباشر · 10 ثوانٍ</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -280,7 +280,7 @@ export default function Dashboard() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-base font-semibold">
-              Orders Trend
+              اتجاه الطلبات
             </CardTitle>
             <div className="flex gap-1">
               {([7, 14, 30] as Range[]).map((r) => (
@@ -293,7 +293,7 @@ export default function Dashboard() {
                       : "text-muted-foreground hover:bg-muted"
                   }`}
                 >
-                  {r}d
+                  {r} يوم
                 </button>
               ))}
             </div>
@@ -302,7 +302,7 @@ export default function Dashboard() {
         <CardContent>
           {chartData.length === 0 ? (
             <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
-              No data for this period
+              لا توجد بيانات لهذه الفترة
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={200}>
@@ -339,7 +339,7 @@ export default function Dashboard() {
                 <Area
                   type="monotone"
                   dataKey="count"
-                  name="Orders"
+                  name="الطلبات"
                   stroke="#FF6B00"
                   strokeWidth={2}
                   fill="url(#orangeGrad)"
@@ -357,7 +357,7 @@ export default function Dashboard() {
           <Card className="shadow-sm">
             <CardHeader>
               <CardTitle className="text-base font-semibold">
-                Orders by Status
+                الطلبات حسب الحالة
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -395,7 +395,7 @@ export default function Dashboard() {
           <Card className="shadow-sm">
             <CardHeader>
               <CardTitle className="text-base font-semibold">
-                Peak Hours
+                ساعات الذروة
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -423,7 +423,7 @@ export default function Dashboard() {
                       fontSize: 12,
                     }}
                   />
-                  <Bar dataKey="count" name="Orders" fill="#FF6B00" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="count" name="الطلبات" fill="#FF6B00" radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -433,11 +433,11 @@ export default function Dashboard() {
 
       <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle className="text-base font-semibold">Recent Orders</CardTitle>
+          <CardTitle className="text-base font-semibold">أحدث الطلبات</CardTitle>
         </CardHeader>
         <CardContent>
           {stats.recentOrders.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No orders yet.</p>
+            <p className="text-muted-foreground text-sm">لا توجد طلبات بعد.</p>
           ) : (
             <div className="space-y-3">
               {stats.recentOrders.map((order) => (
@@ -452,7 +452,7 @@ export default function Dashboard() {
                     <p className="text-xs text-muted-foreground">
                       {order.customerName || order.userId.slice(0, 8)} ·{" "}
                       {order.restaurantName || "—"} ·{" "}
-                      {new Date(order.createdAt).toLocaleString()}
+                      {new Date(order.createdAt).toLocaleString("ar-SY")}
                     </p>
                   </div>
                   <span
