@@ -684,14 +684,12 @@ router.get("/admin/financial", async (req, res) => {
           ),
           weekly AS (
             SELECT
-              DATE_TRUNC('week', o.created_at AT TIME ZONE 'Asia/Damascus')::date AS week_start,
-              COALESCE(SUM(r.delivery_fee) FILTER (WHERE o.status = 'delivered'), 0)::numeric AS revenue,
-              COUNT(*) FILTER (WHERE o.status = 'delivered')::int AS orders
-            FROM orders o
-            LEFT JOIN restaurants r
-              ON r.name = o.restaurant_name OR r.name_ar = o.restaurant_name
-            WHERE o.created_at >= NOW() - CAST(${days} || ' days' AS INTERVAL)
-            GROUP BY DATE_TRUNC('week', o.created_at AT TIME ZONE 'Asia/Damascus')
+              DATE_TRUNC('week', created_at AT TIME ZONE 'Asia/Damascus')::date AS week_start,
+              COALESCE(SUM(delivery_fee) FILTER (WHERE status = 'delivered'), 0)::numeric AS revenue,
+              COUNT(*) FILTER (WHERE status = 'delivered')::int AS orders
+            FROM orders
+            WHERE created_at >= NOW() - CAST(${days} || ' days' AS INTERVAL)
+            GROUP BY DATE_TRUNC('week', created_at AT TIME ZONE 'Asia/Damascus')
           )
           SELECT
             TO_CHAR(ws.week_start, 'YYYY-MM-DD') AS date,
@@ -717,14 +715,12 @@ router.get("/admin/financial", async (req, res) => {
           ),
           daily AS (
             SELECT
-              TO_CHAR(DATE_TRUNC('day', o.created_at AT TIME ZONE 'Asia/Damascus'), 'YYYY-MM-DD') AS date,
-              COALESCE(SUM(r.delivery_fee) FILTER (WHERE o.status = 'delivered'), 0)::numeric AS revenue,
-              COUNT(*) FILTER (WHERE o.status = 'delivered')::int AS orders
-            FROM orders o
-            LEFT JOIN restaurants r
-              ON r.name = o.restaurant_name OR r.name_ar = o.restaurant_name
-            WHERE o.created_at >= NOW() - CAST(${days} || ' days' AS INTERVAL)
-            GROUP BY DATE_TRUNC('day', o.created_at AT TIME ZONE 'Asia/Damascus')
+              TO_CHAR(DATE_TRUNC('day', created_at AT TIME ZONE 'Asia/Damascus'), 'YYYY-MM-DD') AS date,
+              COALESCE(SUM(delivery_fee) FILTER (WHERE status = 'delivered'), 0)::numeric AS revenue,
+              COUNT(*) FILTER (WHERE status = 'delivered')::int AS orders
+            FROM orders
+            WHERE created_at >= NOW() - CAST(${days} || ' days' AS INTERVAL)
+            GROUP BY DATE_TRUNC('day', created_at AT TIME ZONE 'Asia/Damascus')
           )
           SELECT d.date, COALESCE(dl.revenue, 0)::numeric AS revenue, COALESCE(dl.orders, 0)::int AS orders
           FROM date_series d
@@ -738,23 +734,19 @@ router.get("/admin/financial", async (req, res) => {
         COUNT(*)::int AS "totalOrders",
         COUNT(*) FILTER (WHERE status = 'delivered')::int AS "deliveredOrders",
         COUNT(*) FILTER (WHERE status = 'cancelled')::int AS "cancelledOrders",
-        COALESCE(SUM(r.delivery_fee) FILTER (WHERE o.status = 'delivered'), 0)::numeric AS "totalRevenue"
-      FROM orders o
-      LEFT JOIN restaurants r
-        ON r.name = o.restaurant_name OR r.name_ar = o.restaurant_name
-      WHERE o.created_at >= NOW() - CAST(${days} || ' days' AS INTERVAL)
+        COALESCE(SUM(delivery_fee) FILTER (WHERE status = 'delivered'), 0)::numeric AS "totalRevenue"
+      FROM orders
+      WHERE created_at >= NOW() - CAST(${days} || ' days' AS INTERVAL)
     `),
     db.execute(sql`
       SELECT
-        o.restaurant_name AS "restaurantName",
+        restaurant_name AS "restaurantName",
         COUNT(*)::int AS "totalOrders",
-        COUNT(*) FILTER (WHERE o.status = 'delivered')::int AS "deliveredOrders",
-        COALESCE(SUM(r.delivery_fee) FILTER (WHERE o.status = 'delivered'), 0)::numeric AS "revenue"
-      FROM orders o
-      LEFT JOIN restaurants r
-        ON r.name = o.restaurant_name OR r.name_ar = o.restaurant_name
-      WHERE o.created_at >= NOW() - CAST(${days} || ' days' AS INTERVAL)
-      GROUP BY o.restaurant_name
+        COUNT(*) FILTER (WHERE status = 'delivered')::int AS "deliveredOrders",
+        COALESCE(SUM(delivery_fee) FILTER (WHERE status = 'delivered'), 0)::numeric AS "revenue"
+      FROM orders
+      WHERE created_at >= NOW() - CAST(${days} || ' days' AS INTERVAL)
+      GROUP BY restaurant_name
       ORDER BY "revenue" DESC
       LIMIT 20
     `),

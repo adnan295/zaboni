@@ -1,46 +1,70 @@
 import { Router, type IRouter } from "express";
 import { db, restaurantsTable, menuItemsTable, restaurantHoursTable } from "@workspace/db";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-function getDamascusNow(): { dayOfWeek: number; nowMinutes: number } {
+function getDamascusNow(): { dayOfWeek: number; prevDayOfWeek: number; nowMinutes: number } {
   const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Damascus" }));
+  const dayOfWeek = now.getDay();
   return {
-    dayOfWeek: now.getDay(),
+    dayOfWeek,
+    prevDayOfWeek: (dayOfWeek + 6) % 7,
     nowMinutes: now.getHours() * 60 + now.getMinutes(),
   };
 }
 
+function parseTimeToMinutes(timeStr: string): number {
+  const parts = timeStr.split(":").map(Number);
+  return (parts[0] ?? 0) * 60 + (parts[1] ?? 0);
+}
+
 function computeIsOpenFromHours(
-  hours: { openTime: string; closeTime: string; isClosed: boolean } | undefined,
+  todayHours: { openTime: string; closeTime: string; isClosed: boolean } | undefined,
+  prevDayHours: { openTime: string; closeTime: string; isClosed: boolean } | undefined,
+  nowMinutes: number,
   fallbackIsOpen: boolean
 ): boolean {
-  if (!hours) return fallbackIsOpen;
-  if (hours.isClosed) return false;
-  const [oh = 0, om = 0] = hours.openTime.split(":").map(Number);
-  const [ch = 0, cm = 0] = hours.closeTime.split(":").map(Number);
-  const { nowMinutes } = getDamascusNow();
-  const openMinutes = oh * 60 + om;
-  const closeMinutes = ch * 60 + cm;
+  if (!todayHours && !prevDayHours) return fallbackIsOpen;
+
+  if (prevDayHours && !prevDayHours.isClosed) {
+    const openMinutes = parseTimeToMinutes(prevDayHours.openTime);
+    const closeMinutes = parseTimeToMinutes(prevDayHours.closeTime);
+    if (openMinutes > closeMinutes && nowMinutes < closeMinutes) {
+      return true;
+    }
+  }
+
+  if (!todayHours) return fallbackIsOpen;
+  if (todayHours.isClosed) return false;
+
+  const openMinutes = parseTimeToMinutes(todayHours.openTime);
+  const closeMinutes = parseTimeToMinutes(todayHours.closeTime);
   if (openMinutes <= closeMinutes) {
     return nowMinutes >= openMinutes && nowMinutes < closeMinutes;
   }
   return nowMinutes >= openMinutes || nowMinutes < closeMinutes;
 }
 
-async function getHoursForRestaurants(ids: string[], dayOfWeek: number): Promise<Map<string, { openTime: string; closeTime: string; isClosed: boolean }>> {
+type HoursRow = { openTime: string; closeTime: string; isClosed: boolean };
+
+async function getHoursForRestaurants(ids: string[], days: number[]): Promise<Map<string, Map<number, HoursRow>>> {
   if (ids.length === 0) return new Map();
   const rows = await db
     .select()
     .from(restaurantHoursTable)
     .where(
       and(
-        sql`${restaurantHoursTable.restaurantId} = ANY(ARRAY[${sql.join(ids.map((id) => sql`${id}`), sql`, `)}])`,
-        eq(restaurantHoursTable.dayOfWeek, dayOfWeek)
+        inArray(restaurantHoursTable.restaurantId, ids),
+        inArray(restaurantHoursTable.dayOfWeek, days)
       )
     );
-  return new Map(rows.map((h) => [h.restaurantId, { openTime: h.openTime, closeTime: h.closeTime, isClosed: h.isClosed }]));
+  const result = new Map<string, Map<number, HoursRow>>();
+  for (const h of rows) {
+    if (!result.has(h.restaurantId)) result.set(h.restaurantId, new Map());
+    result.get(h.restaurantId)!.set(h.dayOfWeek, { openTime: h.openTime, closeTime: h.closeTime, isClosed: h.isClosed });
+  }
+  return result;
 }
 
 router.get("/restaurants", async (req, res) => {
@@ -66,13 +90,16 @@ router.get("/restaurants", async (req, res) => {
   }
 
   const rows = await query.orderBy(desc(restaurantsTable.rating));
-  const { dayOfWeek } = getDamascusNow();
-  const hoursMap = await getHoursForRestaurants(rows.map((r) => r.id), dayOfWeek);
+  const { dayOfWeek, prevDayOfWeek, nowMinutes } = getDamascusNow();
+  const hoursMap = await getHoursForRestaurants(rows.map((r) => r.id), [dayOfWeek, prevDayOfWeek]);
 
-  const result = rows.map((r) => ({
-    ...r,
-    isOpen: computeIsOpenFromHours(hoursMap.get(r.id), r.isOpen),
-  }));
+  const result = rows.map((r) => {
+    const byDay = hoursMap.get(r.id);
+    return {
+      ...r,
+      isOpen: computeIsOpenFromHours(byDay?.get(dayOfWeek), byDay?.get(prevDayOfWeek), nowMinutes, r.isOpen),
+    };
+  });
 
   res.json(result);
 });
@@ -89,9 +116,10 @@ router.get("/restaurants/:id", async (req, res) => {
   }
 
   const restaurant = rows[0]!;
-  const { dayOfWeek } = getDamascusNow();
-  const hoursMap = await getHoursForRestaurants([restaurant.id], dayOfWeek);
-  const isOpen = computeIsOpenFromHours(hoursMap.get(restaurant.id), restaurant.isOpen);
+  const { dayOfWeek, prevDayOfWeek, nowMinutes } = getDamascusNow();
+  const hoursMap = await getHoursForRestaurants([restaurant.id], [dayOfWeek, prevDayOfWeek]);
+  const byDay = hoursMap.get(restaurant.id);
+  const isOpen = computeIsOpenFromHours(byDay?.get(dayOfWeek), byDay?.get(prevDayOfWeek), nowMinutes, restaurant.isOpen);
 
   res.json({ ...restaurant, isOpen });
 });
