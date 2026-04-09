@@ -35,6 +35,8 @@ const emptyRestaurant: RestaurantForm = {
   tags: [],
   isOpen: true,
   discount: null,
+  lat: null,
+  lon: null,
 };
 
 const emptyMenuItem: MenuItemForm = {
@@ -176,6 +178,26 @@ function RestaurantFormDialog({
               value={form.image}
               onChange={(e) => set("image", e.target.value)}
               placeholder="https://..."
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Latitude (خط العرض)</Label>
+            <Input
+              type="number"
+              step="any"
+              value={form.lat ?? ""}
+              onChange={(e) => set("lat", e.target.value === "" ? null : parseFloat(e.target.value))}
+              placeholder="33.5138"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Longitude (خط الطول)</Label>
+            <Input
+              type="number"
+              step="any"
+              value={form.lon ?? ""}
+              onChange={(e) => set("lon", e.target.value === "" ? null : parseFloat(e.target.value))}
+              placeholder="36.2765"
             />
           </div>
           <div className="col-span-2 space-y-1">

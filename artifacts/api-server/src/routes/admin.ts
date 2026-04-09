@@ -876,11 +876,13 @@ router.delete("/admin/delivery-zones/:id", async (req, res) => {
     return;
   }
 
-  const remainingZones = allZones.filter((z) => z.id !== id).sort((a, b) => a.fromKm - b.fromKm);
+  const remainingActiveZones = allZones
+    .filter((z) => z.id !== id && z.isActive)
+    .sort((a, b) => a.fromKm - b.fromKm);
 
   let hasGap = false;
-  for (let i = 1; i < remainingZones.length; i++) {
-    if ((remainingZones[i]?.fromKm ?? 0) > (remainingZones[i - 1]?.toKm ?? 0)) {
+  for (let i = 1; i < remainingActiveZones.length; i++) {
+    if ((remainingActiveZones[i]?.fromKm ?? 0) > (remainingActiveZones[i - 1]?.toKm ?? 0)) {
       hasGap = true;
       break;
     }
@@ -888,7 +890,7 @@ router.delete("/admin/delivery-zones/:id", async (req, res) => {
 
   if (hasGap) {
     res.status(409).json({
-      error: "لا يمكن حذف هذا النطاق لأن ذلك سيخلق فجوة في تغطية المسافات — عدّل النطاقات المجاورة أولاً",
+      error: "لا يمكن حذف هذا النطاق لأن ذلك سيخلق فجوة في تغطية النطاقات النشطة — عدّل النطاقات المجاورة أولاً",
     });
     return;
   }

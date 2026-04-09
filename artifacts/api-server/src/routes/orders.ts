@@ -145,6 +145,7 @@ router.post("/orders/validate-promo", async (req, res) => {
     deliveryFee: z.number().positive().optional(),
     lat: z.number().optional(),
     lon: z.number().optional(),
+    restaurantId: z.string().optional(),
   }).safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ error: "code required" });
@@ -152,7 +153,20 @@ router.post("/orders/validate-promo", async (req, res) => {
   }
   let feeForPromo = body.data.deliveryFee;
   if (!feeForPromo && body.data.lat != null && body.data.lon != null) {
-    const distKm = haversineKm(DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON, body.data.lat, body.data.lon);
+    let originLat = DAMASCUS_CENTER_LAT;
+    let originLon = DAMASCUS_CENTER_LON;
+    if (body.data.restaurantId) {
+      const [r] = await db
+        .select({ lat: restaurantsTable.lat, lon: restaurantsTable.lon })
+        .from(restaurantsTable)
+        .where(eq(restaurantsTable.id, body.data.restaurantId))
+        .limit(1);
+      if (r?.lat != null && r?.lon != null) {
+        originLat = r.lat;
+        originLon = r.lon;
+      }
+    }
+    const distKm = haversineKm(originLat, originLon, body.data.lat, body.data.lon);
     const { fee } = await getFeeForDistance(distKm);
     feeForPromo = fee;
   }
