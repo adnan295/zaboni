@@ -213,7 +213,7 @@ export default function RestaurantScreen() {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             router.push({
               pathname: "/order-request",
-              params: { restaurantName: restaurant.nameAr, deliveryFee: restaurant.deliveryFee.toString() },
+              params: { restaurantName: restaurant.nameAr, restaurantId: restaurant.id },
             });
           }}
           activeOpacity={restaurant.isOpen ? 0.85 : 1}

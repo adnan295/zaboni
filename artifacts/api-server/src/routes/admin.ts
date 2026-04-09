@@ -854,7 +854,7 @@ router.delete("/admin/delivery-zones/:id", async (req, res) => {
   const id = String(req.params["id"]);
 
   const existing = await db
-    .select({ id: deliveryZonesTable.id })
+    .select()
     .from(deliveryZonesTable)
     .where(eq(deliveryZonesTable.id, id))
     .limit(1);
@@ -864,13 +864,31 @@ router.delete("/admin/delivery-zones/:id", async (req, res) => {
     return;
   }
 
-  const [allZones] = await db
-    .select({ count: count() })
-    .from(deliveryZonesTable);
+  const allZones = await db
+    .select()
+    .from(deliveryZonesTable)
+    .orderBy(asc(deliveryZonesTable.fromKm));
 
-  if (Number(allZones?.count ?? 0) <= 1) {
+  if (allZones.length <= 1) {
     res.status(409).json({
       error: "لا يمكن حذف النطاق الوحيد — يجب أن يكون هناك نطاق واحد على الأقل لتحديد رسوم التوصيل",
+    });
+    return;
+  }
+
+  const remainingZones = allZones.filter((z) => z.id !== id).sort((a, b) => a.fromKm - b.fromKm);
+
+  let hasGap = false;
+  for (let i = 1; i < remainingZones.length; i++) {
+    if ((remainingZones[i]?.fromKm ?? 0) > (remainingZones[i - 1]?.toKm ?? 0)) {
+      hasGap = true;
+      break;
+    }
+  }
+
+  if (hasGap) {
+    res.status(409).json({
+      error: "لا يمكن حذف هذا النطاق لأن ذلك سيخلق فجوة في تغطية المسافات — عدّل النطاقات المجاورة أولاً",
     });
     return;
   }
