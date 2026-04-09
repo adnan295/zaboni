@@ -125,11 +125,11 @@ router.post("/auth/send-otp", async (req, res) => {
     return;
   }
 
-  const isDev = !process.env["TWILIO_ACCOUNT_SID"];
+  const isDevMode = process.env["NODE_ENV"] !== "production";
   res.json({
     success: true,
     expiresInMinutes: OTP_TTL_MINUTES,
-    ...(isDev ? { devCode: code } : {}),
+    ...(isDevMode ? { devCode: code } : {}),
   });
 });
 

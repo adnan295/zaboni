@@ -24,9 +24,17 @@ async function getGatewayConfig(): Promise<SmsGatewayConfig | null> {
   };
 }
 
-function interpolate(template: string, vars: Record<string, string>): string {
-  return template.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? "");
+function interpolateUrl(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{(\w+)\}/g, (_, key) =>
+    key in vars ? encodeURIComponent(vars[key]) : "",
+  );
 }
+
+function interpolatePlain(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{(\w+)\}/g, (_, key) => (key in vars ? vars[key] : ""));
+}
+
+const PLACEHOLDER_RE = /\{(phone|message|apiKey|sender)\}/;
 
 export async function sendSmsViaGateway(phone: string, message: string): Promise<void> {
   const config = await getGatewayConfig();
@@ -49,12 +57,15 @@ export async function sendSmsViaGateway(phone: string, message: string): Promise
   };
 
   if (config.method === "GET") {
-    const resolvedUrl = interpolate(config.url, vars);
-    const hasQuery = resolvedUrl.includes("?");
-    const needsAppend = !/{phone}|{message}|{apiKey}|{sender}/.test(config.url);
-    const finalUrl = needsAppend
-      ? `${resolvedUrl}${hasQuery ? "&" : "?"}phone=${encodeURIComponent(phone)}&message=${encodeURIComponent(message)}&apiKey=${encodeURIComponent(config.apiKey)}&sender=${encodeURIComponent(config.sender)}`
-      : resolvedUrl;
+    const hasPlaceholders = PLACEHOLDER_RE.test(config.url);
+    let finalUrl: string;
+
+    if (hasPlaceholders) {
+      finalUrl = interpolateUrl(config.url, vars);
+    } else {
+      const separator = config.url.includes("?") ? "&" : "?";
+      finalUrl = `${config.url}${separator}phone=${encodeURIComponent(phone)}&message=${encodeURIComponent(message)}&apiKey=${encodeURIComponent(config.apiKey)}&sender=${encodeURIComponent(config.sender)}`;
+    }
 
     const res = await fetch(finalUrl, { method: "GET" });
     if (!res.ok) {
@@ -63,7 +74,7 @@ export async function sendSmsViaGateway(phone: string, message: string): Promise
     }
     console.log(`[sms] GET SMS sent to ${phone} — status ${res.status}`);
   } else {
-    const resolvedUrl = interpolate(config.url, vars);
+    const resolvedUrl = interpolatePlain(config.url, vars);
     const res = await fetch(resolvedUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
