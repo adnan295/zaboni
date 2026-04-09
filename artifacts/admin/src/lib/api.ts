@@ -63,6 +63,8 @@ export type Restaurant = {
   tags: string[];
   isOpen: boolean;
   discount: string | null;
+  lat?: number | null;
+  lon?: number | null;
   ordersCount?: number;
   avgCourierRating?: number | null;
 };
