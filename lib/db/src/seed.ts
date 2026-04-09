@@ -100,12 +100,11 @@ const promoBanners = [
 ];
 
 const restaurantCategories = [
-  { id: "cat_all", nameAr: "الكل", nameEn: "All", iconName: "grid-view", sortOrder: 0, isActive: true },
-  { id: "cat_restaurants", nameAr: "مطاعم", nameEn: "Restaurants", iconName: "restaurant", sortOrder: 1, isActive: true },
-  { id: "cat_grocery", nameAr: "بقالة", nameEn: "Grocery", iconName: "storefront", sortOrder: 2, isActive: true },
-  { id: "cat_pharmacy", nameAr: "صيدلية", nameEn: "Pharmacy", iconName: "medical-services", sortOrder: 3, isActive: true },
-  { id: "cat_coffee", nameAr: "قهوة", nameEn: "Coffee", iconName: "coffee", sortOrder: 4, isActive: true },
-  { id: "cat_sweets", nameAr: "حلويات", nameEn: "Sweets", iconName: "cake", sortOrder: 5, isActive: true },
+  { id: "cat_restaurants", code: "restaurants", nameAr: "مطاعم", nameEn: "Restaurants", iconName: "restaurant", sortOrder: 1, isActive: true },
+  { id: "cat_grocery", code: "grocery", nameAr: "بقالة", nameEn: "Grocery", iconName: "storefront", sortOrder: 2, isActive: true },
+  { id: "cat_pharmacy", code: "pharmacy", nameAr: "صيدلية", nameEn: "Pharmacy", iconName: "medical-services", sortOrder: 3, isActive: true },
+  { id: "cat_coffee", code: "coffee", nameAr: "قهوة", nameEn: "Coffee", iconName: "coffee", sortOrder: 4, isActive: true },
+  { id: "cat_sweets", code: "sweets", nameAr: "حلويات", nameEn: "Sweets", iconName: "cake", sortOrder: 5, isActive: true },
 ];
 
 async function seed() {

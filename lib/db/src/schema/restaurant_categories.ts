@@ -3,6 +3,7 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
 export const restaurantCategoriesTable = pgTable("restaurant_categories", {
   id: text("id").primaryKey(),
+  code: text("code").notNull().default(""),
   nameAr: text("name_ar").notNull(),
   nameEn: text("name_en").notNull().default(""),
   iconName: text("icon_name").notNull().default("restaurant"),

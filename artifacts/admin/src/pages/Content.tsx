@@ -295,6 +295,7 @@ function CategoriesSection() {
   });
 
   const emptyCategory: Omit<RestaurantCategory, "id" | "createdAt" | "updatedAt"> = {
+    code: "",
     nameAr: "",
     nameEn: "",
     iconName: "restaurant",
@@ -315,6 +316,7 @@ function CategoriesSection() {
   function openEdit(c: RestaurantCategory) {
     setEditing(c);
     setForm({
+      code: c.code,
       nameAr: c.nameAr,
       nameEn: c.nameEn,
       iconName: c.iconName,
@@ -431,6 +433,11 @@ function CategoriesSection() {
             <DialogTitle>{editing ? "تعديل التصنيف" : "إضافة تصنيف جديد"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            <div className="space-y-1">
+              <Label>الكود (للفلترة) *</Label>
+              <Input dir="ltr" value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toLowerCase().replace(/\s+/g, "_") }))} placeholder="restaurants" />
+              <p className="text-xs text-muted-foreground">يجب أن يطابق قيمة category في المطعم (مثل: restaurants, grocery, coffee)</p>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <Label>الاسم (عربي) *</Label>

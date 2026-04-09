@@ -230,6 +230,7 @@ export type PromoBanner = {
 
 export type RestaurantCategory = {
   id: string;
+  code: string;
   nameAr: string;
   nameEn: string;
   iconName: string;
