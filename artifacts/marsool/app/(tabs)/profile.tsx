@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -11,6 +11,7 @@ import {
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
@@ -68,20 +69,29 @@ export default function ProfileScreen() {
 
   const displayPhone = user?.phone ?? "";
 
-  useEffect(() => {
+  const fetchApplication = useCallback(async () => {
     if (isCourier || !user) return;
     setAppLoading(true);
-    customFetch("/api/courier/my-application")
-      .then(async (data) => {
-        const app = data as CourierApplication | null;
-        setApplication(app);
-        if (app?.status === "approved") {
-          await refreshRole();
-        }
-      })
-      .catch(() => setApplication(null))
-      .finally(() => setAppLoading(false));
+    try {
+      const data = await customFetch("/api/courier/my-application");
+      const app = data as CourierApplication | null;
+      setApplication(app);
+      if (app?.status === "approved") {
+        await refreshRole();
+        await setCourierMode(true);
+      }
+    } catch {
+      setApplication(null);
+    } finally {
+      setAppLoading(false);
+    }
   }, [isCourier, user?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchApplication();
+    }, [fetchApplication])
+  );
 
   const handleSignOut = () => {
     Alert.alert(t("profile.signOutTitle"), t("profile.signOutMessage"), [
@@ -100,14 +110,6 @@ export default function ProfileScreen() {
   const handleLanguage = () => {
     const otherLang: AppLanguage = language === "ar" ? "en" : "ar";
     setLanguage(otherLang);
-  };
-
-  const handleSwitchToCourier = async () => {
-    await setCourierMode(true);
-  };
-
-  const handleSwitchToCustomer = async () => {
-    await setCourierMode(false);
   };
 
   const menuItems: MenuItemDef[] = [
@@ -139,6 +141,9 @@ export default function ProfileScreen() {
           <View style={styles.courierBadge}>
             <MaterialIcons name="verified" size={14} color="#FF6B00" />
             <Text style={styles.courierBadgeText}>{t("profile.courier.badge")}</Text>
+            {isCourierMode && (
+              <View style={[styles.modeDot, { backgroundColor: "#4CAF50" }]} />
+            )}
           </View>
         )}
       </View>
@@ -184,7 +189,7 @@ export default function ProfileScreen() {
             <ActivityIndicator color={colors.primary} />
           </View>
         ) : appStatus === "approved" ? (
-          /* Already a courier — show mode switcher */
+          /* Already a courier — show mode status card (no manual toggle) */
           <View style={[styles.courierCard, { backgroundColor: "#F0FFF4", borderColor: "#B0E8C0" }]}>
             <View style={styles.courierCardHeader}>
               <MaterialIcons name="verified" size={28} color="#4CAF50" />
@@ -192,34 +197,16 @@ export default function ProfileScreen() {
                 <Text style={[styles.courierCardTitle, { color: "#2E7D32" }]}>
                   {t("profile.courier.sectionTitle")}
                 </Text>
+                <Text style={[styles.courierCardBody, { color: "#388E3C" }]}>
+                  {isCourierMode
+                    ? t("profile.courier.badge")
+                    : t("profile.courier.switchToCourier")}
+                </Text>
               </View>
             </View>
-            {isCourierMode ? (
-              <TouchableOpacity
-                style={[styles.courierActionBtn, { backgroundColor: "#616161" }]}
-                onPress={handleSwitchToCustomer}
-                activeOpacity={0.8}
-              >
-                <MaterialIcons name="swap-horiz" size={20} color="#fff" />
-                <Text style={styles.courierActionBtnText}>
-                  {t("profile.courier.switchToCustomer")}
-                </Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[styles.courierActionBtn, { backgroundColor: "#4CAF50" }]}
-                onPress={handleSwitchToCourier}
-                activeOpacity={0.8}
-              >
-                <MaterialIcons name="delivery-dining" size={20} color="#fff" />
-                <Text style={styles.courierActionBtnText}>
-                  {t("profile.courier.switchToCourier")}
-                </Text>
-              </TouchableOpacity>
-            )}
           </View>
         ) : appStatus === "pending" ? (
-          /* Application pending — show waiting card */
+          /* Application pending */
           <View style={[styles.courierCard, { backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }]}>
             <View style={styles.courierCardHeader}>
               <MaterialIcons name="hourglass-empty" size={28} color="#D97706" />
@@ -234,7 +221,7 @@ export default function ProfileScreen() {
             </View>
           </View>
         ) : appStatus === "rejected" ? (
-          /* Application rejected — show rejection + reapply button */
+          /* Application rejected */
           <View style={[styles.courierCard, { backgroundColor: "#FFF1F2", borderColor: "#FECDD3" }]}>
             <View style={styles.courierCardHeader}>
               <MaterialIcons name="cancel" size={28} color="#E11D48" />
@@ -370,6 +357,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   courierBadgeText: { fontSize: 12, fontWeight: "700", color: "#FF6B00" },
+  modeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
   statsRow: {
     flexDirection: "row",
     marginHorizontal: 16,
