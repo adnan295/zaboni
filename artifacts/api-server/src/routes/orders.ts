@@ -23,9 +23,12 @@ const createOrderSchema = z.object({
   restaurantName: z.string().default(""),
   address: z.string().default(""),
   promoCode: z.string().optional(),
+  deliveryFee: z.number().positive().optional(),
 });
 
-async function validatePromoForUser(code: string, userId: string): Promise<{
+const DEFAULT_DELIVERY_FEE_SYP = 5000;
+
+async function validatePromoForUser(code: string, userId: string, deliveryFee?: number): Promise<{
   valid: false; error: string;
 } | {
   valid: true;
@@ -60,7 +63,11 @@ async function validatePromoForUser(code: string, userId: string): Promise<{
   const userUses = Number(userUseRow?.c ?? 0);
   if (userUses >= promo.maxUsesPerUser) return { valid: false, error: "already_used" };
 
-  const discountAmount = promo.value;
+  const base = deliveryFee ?? DEFAULT_DELIVERY_FEE_SYP;
+  const discountAmount = promo.type === "percent"
+    ? Math.min(Math.round((base * promo.value) / 100), base)
+    : promo.value;
+
   return { valid: true, promo, discountAmount };
 }
 
@@ -97,12 +104,15 @@ router.get("/orders", async (req, res) => {
 
 router.post("/orders/validate-promo", async (req, res) => {
   const userId = resolveUserId(req);
-  const body = z.object({ code: z.string().min(1) }).safeParse(req.body);
+  const body = z.object({
+    code: z.string().min(1),
+    deliveryFee: z.number().positive().optional(),
+  }).safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ error: "code required" });
     return;
   }
-  const result = await validatePromoForUser(body.data.code, userId);
+  const result = await validatePromoForUser(body.data.code, userId, body.data.deliveryFee);
   if (!result.valid) {
     res.status(422).json({ valid: false, error: result.error });
     return;
@@ -130,7 +140,7 @@ router.post("/orders", async (req, res) => {
 
   let promoUseData: { promoId: string; discountAmount: number } | null = null;
   if (body.data.promoCode) {
-    const promoResult = await validatePromoForUser(body.data.promoCode, userId);
+    const promoResult = await validatePromoForUser(body.data.promoCode, userId, body.data.deliveryFee);
     if (promoResult.valid) {
       promoUseData = { promoId: promoResult.promo.id, discountAmount: promoResult.discountAmount };
     }

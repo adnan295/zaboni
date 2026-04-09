@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db, usersTable, ordersTable, orderStatusHistoryTable, orderRatingsTable } from "@workspace/db";
-import { and, eq, ne, avg, count, sql, gte, desc } from "drizzle-orm";
+import { and, eq, ne, avg, count, sql } from "drizzle-orm";
 import { z } from "zod";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
 
@@ -334,6 +334,8 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
   res.json(updated[0]);
 });
 
+const DEFAULT_DELIVERY_FEE_SYP = 5000;
+
 router.get("/courier/earnings", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
 
@@ -342,64 +344,47 @@ router.get("/courier/earnings", requireCourier, async (req, res) => {
   const weekStart = new Date(todayStart);
   weekStart.setDate(weekStart.getDate() - 6);
 
-  const DELIVERY_FEE_SYP = 5000;
+  const deliveredOrders = await db.execute(sql`
+    SELECT
+      o.id,
+      o.restaurant_name AS "restaurantName",
+      o.address,
+      o.updated_at AS "updatedAt",
+      COALESCE(r.delivery_fee, ${DEFAULT_DELIVERY_FEE_SYP}) AS "deliveryFee"
+    FROM orders o
+    LEFT JOIN restaurants r
+      ON r.name = o.restaurant_name
+      OR r.name_ar = o.restaurant_name
+    WHERE o.courier_id = ${courierId}
+      AND o.status = 'delivered'
+    ORDER BY o.updated_at DESC
+  `);
 
-  const [todayRow, weekRow, totalRow, lastDeliveries] = await Promise.all([
-    db
-      .select({ c: count() })
-      .from(ordersTable)
-      .where(and(
-        eq(ordersTable.courierId, courierId),
-        eq(ordersTable.status, "delivered"),
-        gte(ordersTable.updatedAt, todayStart),
-      )),
-    db
-      .select({ c: count() })
-      .from(ordersTable)
-      .where(and(
-        eq(ordersTable.courierId, courierId),
-        eq(ordersTable.status, "delivered"),
-        gte(ordersTable.updatedAt, weekStart),
-      )),
-    db
-      .select({ c: count() })
-      .from(ordersTable)
-      .where(and(
-        eq(ordersTable.courierId, courierId),
-        eq(ordersTable.status, "delivered"),
-      )),
-    db
-      .select({
-        id: ordersTable.id,
-        restaurantName: ordersTable.restaurantName,
-        address: ordersTable.address,
-        updatedAt: ordersTable.updatedAt,
-      })
-      .from(ordersTable)
-      .where(and(
-        eq(ordersTable.courierId, courierId),
-        eq(ordersTable.status, "delivered"),
-      ))
-      .orderBy(desc(ordersTable.updatedAt))
-      .limit(50),
-  ]);
+  type DeliveryRow = { id: string; restaurantName: string; address: string; updatedAt: Date; deliveryFee: number };
+  const allDeliveries = (deliveredOrders.rows as DeliveryRow[]).map((row) => ({
+    id: row.id,
+    restaurantName: row.restaurantName,
+    address: row.address,
+    updatedAt: typeof row.updatedAt === "string" ? row.updatedAt : (row.updatedAt as Date).toISOString(),
+    earnings: Number(row.deliveryFee),
+  }));
 
-  const todayCount = Number(todayRow[0]?.c ?? 0);
-  const weekCount = Number(weekRow[0]?.c ?? 0);
-  const totalCount = Number(totalRow[0]?.c ?? 0);
+  const todayDeliveries = allDeliveries.filter((d) => new Date(d.updatedAt) >= todayStart);
+  const weekDeliveries = allDeliveries.filter((d) => new Date(d.updatedAt) >= weekStart);
+
+  const todayEarnings = todayDeliveries.reduce((s, d) => s + d.earnings, 0);
+  const weekEarnings = weekDeliveries.reduce((s, d) => s + d.earnings, 0);
+  const totalEarnings = allDeliveries.reduce((s, d) => s + d.earnings, 0);
 
   res.json({
-    todayEarnings: todayCount * DELIVERY_FEE_SYP,
-    weekEarnings: weekCount * DELIVERY_FEE_SYP,
-    totalEarnings: totalCount * DELIVERY_FEE_SYP,
-    todayDeliveries: todayCount,
-    weekDeliveries: weekCount,
-    totalDeliveries: totalCount,
-    deliveryFee: DELIVERY_FEE_SYP,
-    recentDeliveries: lastDeliveries.map((d) => ({
-      ...d,
-      earnings: DELIVERY_FEE_SYP,
-    })),
+    todayEarnings,
+    weekEarnings,
+    totalEarnings,
+    todayDeliveries: todayDeliveries.length,
+    weekDeliveries: weekDeliveries.length,
+    totalDeliveries: allDeliveries.length,
+    deliveryFee: DEFAULT_DELIVERY_FEE_SYP,
+    recentDeliveries: allDeliveries.slice(0, 50),
   });
 });
 
