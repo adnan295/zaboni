@@ -29,9 +29,9 @@ const SECTIONS: Section[] = [
     titleAr: "١. المعلومات التي نجمعها",
     titleEn: "1. Information We Collect",
     bodyAr:
-      "نجمع المعلومات التي تزودنا بها عند التسجيل مثل رقم هاتفك واسمك. كما نجمع بيانات الاستخدام كالطلبات والعناوين وتاريخ المعاملات.",
+      "نجمع المعلومات التي تزودنا بها عند التسجيل مثل رقم هاتفك واسمك. كما نجمع بيانات الموقع الجغرافي لتحديد عنوان التوصيل، وبيانات الاستخدام كالطلبات والعناوين وتاريخ المعاملات.",
     bodyEn:
-      "We collect information you provide when registering, such as your phone number and name. We also collect usage data like orders, addresses, and transaction history.",
+      "We collect information you provide when registering, such as your phone number and name. We also collect location data to determine your delivery address, and usage data like orders, addresses, and transaction history.",
   },
   {
     titleAr: "٢. كيف نستخدم معلوماتك",
