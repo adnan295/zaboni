@@ -17,7 +17,7 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useCourier, CourierOrderStatus, CourierDeliveryStatus } from "@/context/CourierContext";
 import { customFetch } from "@workspace/api-client-react";
-import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps";
+import { CourierMap } from "@/components/CourierMap";
 
 const STATUS_COLORS: Record<CourierOrderStatus, string> = {
   searching: "#9E9E9E",
@@ -312,50 +312,14 @@ export default function ActiveOrderScreen() {
           {/* Map */}
           {order.destinationLat && order.destinationLon ? (
             <View style={[styles.mapCard, { borderColor: colors.border }]}>
-              {Platform.OS === "web" ? (
-                <TouchableOpacity
-                  onPress={openNavigation}
-                  activeOpacity={0.9}
-                  style={styles.mapFallback}
-                >
-                  <MaterialIcons name="map" size={40} color="#FF6B00" />
-                  <Text style={styles.mapFallbackText}>
-                    {order.destinationLat?.toFixed(4)}, {order.destinationLon?.toFixed(4)}
-                  </Text>
-                  <Text style={[styles.mapFallbackSub]}>اضغط لفتح الخرائط</Text>
-                </TouchableOpacity>
-              ) : (
-                <MapView
-                  provider={PROVIDER_DEFAULT}
-                  style={styles.map}
-                  initialRegion={{
-                    latitude: order.destinationLat,
-                    longitude: order.destinationLon,
-                    latitudeDelta: 0.02,
-                    longitudeDelta: 0.02,
-                  }}
-                  scrollEnabled={true}
-                  zoomEnabled={true}
-                  pitchEnabled={true}
-                  rotateEnabled={false}
-                >
-                  <Marker
-                    coordinate={{
-                      latitude: order.destinationLat,
-                      longitude: order.destinationLon,
-                    }}
-                    pinColor="#FF6B00"
-                    title={order.address || "وجهة التوصيل"}
-                  />
-                  {courierLocation && (
-                    <Marker
-                      coordinate={courierLocation}
-                      pinColor="#1a73e8"
-                      title="موقعك الحالي"
-                    />
-                  )}
-                </MapView>
-              )}
+              <CourierMap
+                destinationLat={order.destinationLat}
+                destinationLon={order.destinationLon}
+                courierLat={courierLocation?.latitude}
+                courierLon={courierLocation?.longitude}
+                address={order.address}
+                onNavigate={openNavigation}
+              />
               <TouchableOpacity
                 style={styles.mapNavigateBtn}
                 onPress={openNavigation}
