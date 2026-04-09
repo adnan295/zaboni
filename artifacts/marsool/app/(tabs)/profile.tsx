@@ -110,7 +110,7 @@ export default function ProfileScreen() {
     { icon: "favorite", label: t("profile.menu.favorites"), onPress: () => router.push("/favorites"), badge: favorites.length > 0 ? favorites.length : undefined },
     { icon: "location-on", label: t("profile.menu.addresses"), onPress: () => router.push("/addresses") },
     { icon: "notifications", label: t("profile.menu.notifications"), onPress: () => router.push("/notifications"), badge: unreadCount > 0 ? unreadCount : undefined },
-    { icon: "payment", label: t("profile.menu.payments"), onPress: () => {} },
+    { icon: "payment", label: t("profile.menu.payments"), onPress: () => router.push("/payment-info") },
     { icon: "help-outline", label: t("profile.menu.support"), onPress: () => router.push("/support") },
     { icon: "info-outline", label: t("profile.menu.about"), onPress: () => router.push("/about") },
     { icon: "translate", label: t("profile.menu.language"), onPress: handleLanguage },

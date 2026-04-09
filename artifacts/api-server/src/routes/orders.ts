@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { db, ordersTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable, promoCodesTable, promoUsesTable } from "@workspace/db";
+import { db, ordersTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable, promoCodesTable, promoUsesTable, usersTable } from "@workspace/db";
 import { and, count, desc, eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { notifyOrderUpdate, notifyNearbyCouriers } from "../orders/server";
@@ -279,6 +279,42 @@ router.get("/orders/:id", async (req, res) => {
     return;
   }
   res.json(rows[0]);
+});
+
+router.get("/orders/:id/courier-location", async (req, res) => {
+  const userId = resolveUserId(req);
+  const { id } = req.params;
+
+  const orders = await db
+    .select({ courierId: ordersTable.courierId, status: ordersTable.status })
+    .from(ordersTable)
+    .where(and(eq(ordersTable.id, id), eq(ordersTable.userId, userId)))
+    .limit(1);
+
+  if (orders.length === 0) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+
+  const order = orders[0]!;
+  if (!order.courierId) {
+    res.status(404).json({ error: "No courier assigned yet" });
+    return;
+  }
+
+  const couriers = await db
+    .select({ courierLat: usersTable.courierLat, courierLon: usersTable.courierLon })
+    .from(usersTable)
+    .where(eq(usersTable.id, order.courierId))
+    .limit(1);
+
+  const courier = couriers[0];
+  if (!courier || courier.courierLat == null || courier.courierLon == null) {
+    res.status(404).json({ error: "Courier location not available" });
+    return;
+  }
+
+  res.json({ lat: courier.courierLat, lon: courier.courierLon });
 });
 
 router.delete("/orders/:id", async (req, res) => {

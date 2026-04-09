@@ -170,6 +170,24 @@ function OrderCard({ order }: { order: Order }) {
             <StarRow stars={rating.courierStars} />
           </View>
         )}
+
+        {(order.status === "delivered" || order.status === "cancelled") && (
+          <TouchableOpacity
+            style={[styles.reorderBtn, { backgroundColor: colors.secondary }]}
+            onPress={() =>
+              router.push({
+                pathname: "/order-request",
+                params: {
+                  restaurantName: order.restaurantName,
+                  reorderText: order.orderText,
+                },
+              })
+            }
+          >
+            <MaterialIcons name="replay" size={16} color={colors.primary} />
+            <Text style={[styles.reorderBtnText, { color: colors.primary }]}>{t("orders.reorder")}</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -356,5 +374,7 @@ const styles = StyleSheet.create({
   rateBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
   rateBtnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
   ratedRow: { flexDirection: "row", alignItems: "center", gap: 4, flexWrap: "wrap" },
+  reorderBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
+  reorderBtnText: { fontSize: 13, fontWeight: "700" },
   skeletonLine: { height: 16, borderRadius: 8, marginBottom: 4 },
 });

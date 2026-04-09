@@ -45,12 +45,12 @@ export default function OrderRequestScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const backIcon = useBackIcon();
-  const { restaurantName, restaurantId } = useLocalSearchParams<{ restaurantName?: string; restaurantId?: string }>();
+  const { restaurantName, restaurantId, reorderText } = useLocalSearchParams<{ restaurantName?: string; restaurantId?: string; reorderText?: string }>();
   const { placeOrder } = useOrders();
   const { defaultAddress } = useAddresses();
 
   const prefix = restaurantName ? `${t("orderRequest.from")} ${restaurantName}: ` : "";
-  const [orderText, setOrderText] = useState(prefix);
+  const [orderText, setOrderText] = useState(reorderText ?? prefix);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [promoCode, setPromoCode] = useState("");
   const [promoStatus, setPromoStatus] = useState<PromoStatus>("idle");
