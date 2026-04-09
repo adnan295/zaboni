@@ -1034,19 +1034,9 @@ router.post("/admin/subscriptions", async (req, res) => {
     ))
     .limit(1);
 
-  if (existing.length > 0) {
-    const [row] = await db
-      .update(courierSubscriptionsTable)
-      .set({ amount, status, note: note ?? null })
-      .where(eq(courierSubscriptionsTable.id, existing[0]!.id))
-      .returning();
-    res.json(row);
-    return;
-  }
+  const resolveWalletAndStatus = async (): Promise<{ finalStatus: "paid" | "waived" | "pending"; deductWallet: boolean }> => {
+    if (status !== "paid") return { finalStatus: status, deductWallet: false };
 
-  const id = `sub_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
-
-  if (status === "paid") {
     const [courierUser] = await db
       .select({ walletBalance: usersTable.walletBalance })
       .from(usersTable)
@@ -1054,12 +1044,24 @@ router.post("/admin/subscriptions", async (req, res) => {
       .limit(1);
 
     const balance = courierUser?.walletBalance ?? 0;
-
     if (balance >= amount) {
+      return { finalStatus: "paid", deductWallet: true };
+    }
+    return { finalStatus: "pending", deductWallet: false };
+  };
+
+  const { finalStatus, deductWallet } = await resolveWalletAndStatus();
+
+  if (existing.length > 0) {
+    const subId = existing[0]!.id;
+
+    let savedRow;
+    if (deductWallet) {
       await db.transaction(async (trx) => {
         await trx
-          .insert(courierSubscriptionsTable)
-          .values({ id, courierId, date, amount, status: "paid", note: note ?? null });
+          .update(courierSubscriptionsTable)
+          .set({ amount, status: "paid", note: note ?? null })
+          .where(eq(courierSubscriptionsTable.id, subId));
 
         await trx
           .update(usersTable)
@@ -1079,19 +1081,54 @@ router.post("/admin/subscriptions", async (req, res) => {
           });
       });
 
-      const [savedRow] = await db
-        .select()
-        .from(courierSubscriptionsTable)
-        .where(eq(courierSubscriptionsTable.id, id))
-        .limit(1);
-      res.status(201).json(savedRow);
-      return;
+      const [row] = await db.select().from(courierSubscriptionsTable).where(eq(courierSubscriptionsTable.id, subId)).limit(1);
+      savedRow = row;
+    } else {
+      const [row] = await db
+        .update(courierSubscriptionsTable)
+        .set({ amount, status: finalStatus, note: note ?? null })
+        .where(eq(courierSubscriptionsTable.id, subId))
+        .returning();
+      savedRow = row;
     }
+    res.json(savedRow);
+    return;
+  }
+
+  const id = `sub_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+
+  if (deductWallet) {
+    await db.transaction(async (trx) => {
+      await trx
+        .insert(courierSubscriptionsTable)
+        .values({ id, courierId, date, amount, status: "paid", note: note ?? null });
+
+      await trx
+        .update(usersTable)
+        .set({ walletBalance: sql`wallet_balance - ${amount}` })
+        .where(eq(usersTable.id, courierId));
+
+      const deductionId = `wded_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+      await trx
+        .insert(courierWalletTransactionsTable)
+        .values({
+          id: deductionId,
+          courierId,
+          amount: -amount,
+          type: "subscription_deduction",
+          status: "approved",
+          note: `اشتراك ${date}`,
+        });
+    });
+
+    const [savedRow] = await db.select().from(courierSubscriptionsTable).where(eq(courierSubscriptionsTable.id, id)).limit(1);
+    res.status(201).json(savedRow);
+    return;
   }
 
   const [row] = await db
     .insert(courierSubscriptionsTable)
-    .values({ id, courierId, date, amount, status, note: note ?? null })
+    .values({ id, courierId, date, amount, status: finalStatus, note: note ?? null })
     .returning();
   res.status(201).json(row);
 });
@@ -1187,41 +1224,54 @@ router.get("/admin/wallet/deposit-requests", async (_req, res) => {
 router.post("/admin/wallet/deposit-requests/:id/approve", async (req, res) => {
   const id = String(req.params["id"]);
 
-  const txRows = await db
-    .select()
-    .from(courierWalletTransactionsTable)
-    .where(and(
-      eq(courierWalletTransactionsTable.id, id),
-      eq(courierWalletTransactionsTable.status, "pending"),
-    ))
-    .limit(1);
+  let updatedBalance = 0;
 
-  if (txRows.length === 0) {
-    res.status(404).json({ error: "Deposit request not found or already processed" });
-    return;
+  try {
+    await db.transaction(async (trx) => {
+      const updated = await trx
+        .update(courierWalletTransactionsTable)
+        .set({ status: "approved" })
+        .where(and(
+          eq(courierWalletTransactionsTable.id, id),
+          eq(courierWalletTransactionsTable.status, "pending"),
+        ))
+        .returning();
+
+      if (updated.length === 0) {
+        throw new Error("NOT_FOUND");
+      }
+
+      const tx = updated[0]!;
+
+      const approvedId = `wapp_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+      await trx
+        .insert(courierWalletTransactionsTable)
+        .values({
+          id: approvedId,
+          courierId: tx.courierId,
+          amount: tx.amount,
+          type: "deposit_approved",
+          status: "approved",
+          note: tx.note,
+        });
+
+      const [userRow] = await trx
+        .update(usersTable)
+        .set({ walletBalance: sql`wallet_balance + ${tx.amount}` })
+        .where(eq(usersTable.id, tx.courierId))
+        .returning({ walletBalance: usersTable.walletBalance });
+
+      updatedBalance = userRow?.walletBalance ?? 0;
+    });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === "NOT_FOUND") {
+      res.status(404).json({ error: "Deposit request not found or already processed" });
+      return;
+    }
+    throw e;
   }
 
-  const tx = txRows[0]!;
-
-  await db.transaction(async (trx) => {
-    await trx
-      .update(courierWalletTransactionsTable)
-      .set({ status: "approved", type: "deposit_approved" })
-      .where(eq(courierWalletTransactionsTable.id, id));
-
-    await trx
-      .update(usersTable)
-      .set({ walletBalance: sql`wallet_balance + ${tx.amount}` })
-      .where(eq(usersTable.id, tx.courierId));
-  });
-
-  const [updatedUser] = await db
-    .select({ walletBalance: usersTable.walletBalance })
-    .from(usersTable)
-    .where(eq(usersTable.id, tx.courierId))
-    .limit(1);
-
-  res.json({ ok: true, newBalance: updatedUser?.walletBalance ?? 0 });
+  res.json({ ok: true, newBalance: updatedBalance });
 });
 
 router.post("/admin/wallet/deposit-requests/:id/reject", async (req, res) => {
