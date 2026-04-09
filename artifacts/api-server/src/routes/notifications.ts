@@ -101,12 +101,67 @@ router.post("/admin/notifications/broadcast", async (req, res) => {
   res.json({ success: true, sentCount, failedCount, total: tokens.length });
 });
 
+const sendToUserSchema = z.object({
+  phone: z.string().min(7).max(20),
+  title: z.string().min(1).max(200),
+  body: z.string().min(1).max(1000),
+});
+
+router.post("/admin/notifications/send-to-user", async (req, res) => {
+  const parsed = sendToUserSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { phone, title, body } = parsed.data;
+
+  const [user] = await db
+    .select({ id: usersTable.id, name: usersTable.name, phone: usersTable.phone, pushToken: usersTable.pushToken })
+    .from(usersTable)
+    .where(eq(usersTable.phone, phone))
+    .limit(1);
+
+  if (!user) {
+    res.status(404).json({ error: "لم يُعثر على مستخدم بهذا الرقم" });
+    return;
+  }
+
+  if (!user.pushToken || !Expo.isExpoPushToken(user.pushToken)) {
+    res.status(422).json({ error: "لا يمتلك هذا المستخدم رمز push نشط — لم يُرسَل الإشعار", userId: user.id, userName: user.name });
+    return;
+  }
+
+  let sentCount = 0;
+  let failedCount = 0;
+  try {
+    const [ticket] = await expo.sendPushNotificationsAsync([
+      { to: user.pushToken, title, body, sound: "default" as const },
+    ]);
+    if (ticket?.status === "ok") sentCount = 1;
+    else failedCount = 1;
+  } catch {
+    failedCount = 1;
+  }
+
+  const id = `notif_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+  await db.insert(notificationLogsTable).values({
+    id,
+    title,
+    body,
+    target: "targeted",
+    sentCount,
+    failedCount,
+  });
+
+  res.json({ success: sentCount === 1, sentCount, failedCount, userId: user.id, userName: user.name });
+});
+
 router.get("/admin/notifications/history", async (_req, res) => {
   const rows = await db
     .select()
     .from(notificationLogsTable)
     .orderBy(desc(notificationLogsTable.createdAt))
-    .limit(20);
+    .limit(50);
   res.json(rows);
 });
 
