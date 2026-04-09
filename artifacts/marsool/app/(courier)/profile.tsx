@@ -209,19 +209,87 @@ export default function CourierProfileScreen() {
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity
-            style={[styles.earningsBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={() => router.push("/(courier)/earnings")}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.earningsBtnIcon, { backgroundColor: "#fef9c3" }]}>
-              <MaterialIcons name="account-balance-wallet" size={22} color="#ca8a04" />
+          <View style={[styles.menuSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <TouchableOpacity
+              style={styles.menuRow}
+              onPress={() => router.push("/(courier)/earnings")}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.menuIcon, { backgroundColor: "#fef9c3" }]}>
+                <MaterialIcons name="account-balance-wallet" size={20} color="#ca8a04" />
+              </View>
+              <Text style={[styles.menuText, { color: colors.foreground }]}>
+                {t("courier.earnings.title")}
+              </Text>
+              <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
+            </TouchableOpacity>
+
+            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+
+            <TouchableOpacity
+              style={styles.menuRow}
+              onPress={() => router.push("/(courier)/order-history")}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.menuIcon, { backgroundColor: "#eff6ff" }]}>
+                <MaterialIcons name="history" size={20} color="#3b82f6" />
+              </View>
+              <Text style={[styles.menuText, { color: colors.foreground }]}>سجل التوصيلات</Text>
+              <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
+            </TouchableOpacity>
+
+            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+
+            <TouchableOpacity
+              style={styles.menuRow}
+              onPress={() => router.push("/(courier)/my-ratings")}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.menuIcon, { backgroundColor: "#fefce8" }]}>
+                <MaterialIcons name="star" size={20} color="#eab308" />
+              </View>
+              <Text style={[styles.menuText, { color: colors.foreground }]}>تقييمات الزبائن</Text>
+              {stats?.avgRating != null ? (
+                <View style={styles.ratingBadge}>
+                  <MaterialIcons name="star" size={12} color="#FFB800" />
+                  <Text style={styles.ratingBadgeText}>{stats.avgRating.toFixed(1)}</Text>
+                </View>
+              ) : null}
+              <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Support */}
+          <View style={[styles.menuSection, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 12 }]}>
+            <View style={styles.supportHeader}>
+              <MaterialIcons name="support-agent" size={18} color={colors.mutedForeground} />
+              <Text style={[styles.supportHeaderText, { color: colors.mutedForeground }]}>الدعم والمساعدة</Text>
             </View>
-            <Text style={[styles.earningsBtnText, { color: colors.foreground }]}>
-              {t("courier.earnings.title")}
-            </Text>
-            <MaterialIcons name="chevron-right" size={22} color={colors.mutedForeground} />
-          </TouchableOpacity>
+            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.menuRow}>
+              <View style={[styles.menuIcon, { backgroundColor: "#fdf4ff" }]}>
+                <MaterialIcons name="phone" size={20} color="#9333ea" />
+              </View>
+              <View style={styles.supportInfo}>
+                <Text style={[styles.menuText, { color: colors.foreground }]}>تواصل مع الإدارة</Text>
+                <Text style={[styles.supportSub, { color: colors.mutedForeground }]}>
+                  للاشتراك أو حل أي مشكلة
+                </Text>
+              </View>
+            </View>
+            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.menuRow}>
+              <View style={[styles.menuIcon, { backgroundColor: "#f0fdf4" }]}>
+                <MaterialIcons name="info-outline" size={20} color="#22c55e" />
+              </View>
+              <View style={styles.supportInfo}>
+                <Text style={[styles.menuText, { color: colors.foreground }]}>كيف يعمل التطبيق</Text>
+                <Text style={[styles.supportSub, { color: colors.mutedForeground }]}>
+                  اشتراك يومي — احتفظ بكامل رسوم التوصيل
+                </Text>
+              </View>
+            </View>
+          </View>
         </ScrollView>
       )}
     </View>
@@ -314,29 +382,53 @@ const styles = StyleSheet.create({
   availabilityDot: { width: 10, height: 10, borderRadius: 5 },
   availabilityTitle: { fontSize: 15, fontWeight: "700" },
   availabilitySub: { fontSize: 12, marginTop: 2 },
-  earningsBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
+  menuSection: {
     marginHorizontal: 16,
     marginTop: 12,
     borderRadius: 16,
     borderWidth: 1,
-    padding: 16,
+    overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
   },
-  earningsBtnIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+  menuRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+  },
+  menuIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
-  earningsBtnText: { flex: 1, fontSize: 15, fontWeight: "700" },
+  menuText: { flex: 1, fontSize: 15, fontWeight: "600" },
+  menuDivider: { height: 1, marginHorizontal: 14 },
+  ratingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: "#fef9c3",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  ratingBadgeText: { fontSize: 12, fontWeight: "700", color: "#ca8a04" },
+  supportHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  supportHeaderText: { fontSize: 13, fontWeight: "600" },
+  supportInfo: { flex: 1, gap: 2 },
+  supportSub: { fontSize: 12 },
   subscriptionCard: {
     flexDirection: "row",
     alignItems: "center",

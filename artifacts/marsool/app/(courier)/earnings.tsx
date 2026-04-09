@@ -32,7 +32,9 @@ interface EarningsData {
   todayDeliveries: number;
   weekDeliveries: number;
   totalDeliveries: number;
-  deliveryFee: number;
+  todaySubscriptionFee: number;
+  todaySubscriptionStatus: "paid" | "waived" | "pending";
+  todayNetEarnings: number;
   recentDeliveries: RecentDelivery[];
 }
 
@@ -121,44 +123,73 @@ export default function CourierEarningsScreen() {
           }
           showsVerticalScrollIndicator={false}
         >
-          <View style={[styles.summarySection, { backgroundColor: colors.primary }]}>
-            <Text style={styles.summaryLabel}>{t("courier.earnings.perDelivery", { amount: formatAmount(data!.deliveryFee) })}</Text>
+          {/* Today net earnings hero */}
+          <View style={[styles.heroCard, { backgroundColor: colors.primary }]}>
+            <Text style={styles.heroLabel}>صافي أرباح اليوم</Text>
+            <Text style={styles.heroAmount}>{formatAmount(data!.todayNetEarnings)}</Text>
+            <Text style={styles.heroCurrency}>ل.س</Text>
+            <Text style={styles.heroSub}>{data!.todayDeliveries} توصيلة اليوم</Text>
+          </View>
+
+          {/* Today subscription breakdown */}
+          <View style={[styles.subBreakCard, {
+            backgroundColor: data!.todaySubscriptionStatus === "pending" ? "#fff7ed" : "#f0fdf4",
+            borderColor: data!.todaySubscriptionStatus === "pending" ? "#fed7aa" : "#bbf7d0",
+          }]}>
+            <View style={styles.subBreakRow}>
+              <MaterialIcons name="account-balance-wallet" size={16} color={colors.mutedForeground} />
+              <Text style={[styles.subBreakLabel, { color: colors.mutedForeground }]}>إجمالي التوصيل اليوم</Text>
+              <Text style={[styles.subBreakValue, { color: colors.foreground }]}>
+                {formatAmount(data!.todayEarnings)} ل.س
+              </Text>
+            </View>
+            <View style={[styles.subBreakRow, { marginTop: 6 }]}>
+              <MaterialIcons
+                name={data!.todaySubscriptionStatus === "paid" ? "remove-circle-outline" : "warning"}
+                size={16}
+                color={data!.todaySubscriptionStatus === "pending" ? "#ea580c" : "#ef4444"}
+              />
+              <Text style={[styles.subBreakLabel, {
+                color: data!.todaySubscriptionStatus === "pending" ? "#ea580c" : "#ef4444"
+              }]}>
+                {data!.todaySubscriptionStatus === "paid"
+                  ? "رسوم الاشتراك اليومي"
+                  : data!.todaySubscriptionStatus === "waived"
+                  ? "اشتراك اليوم: معفى"
+                  : "اشتراك اليوم (غير مدفوع بعد)"}
+              </Text>
+              <Text style={[styles.subBreakValue, {
+                color: data!.todaySubscriptionStatus === "pending" ? "#ea580c" : "#ef4444"
+              }]}>
+                {data!.todaySubscriptionStatus === "waived"
+                  ? "0 ل.س"
+                  : `−${formatAmount(data!.todaySubscriptionFee)} ل.س`}
+              </Text>
+            </View>
           </View>
 
           <View style={styles.statsGrid}>
-            <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-              <MaterialIcons name="today" size={24} color={colors.primary} />
-              <Text style={[styles.statAmount, { color: colors.foreground }]}>
-                {formatAmount(data!.todayEarnings)}
-              </Text>
-              <Text style={[styles.statCurrency, { color: colors.primary }]}>ل.س</Text>
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{t("courier.earnings.today")}</Text>
-              <Text style={[styles.statSub, { color: colors.mutedForeground }]}>
-                {data!.todayDeliveries} {t("courier.earnings.deliveries")}
-              </Text>
-            </View>
-
             <View style={[styles.statCard, { backgroundColor: colors.card }]}>
               <MaterialIcons name="date-range" size={24} color="#8b5cf6" />
               <Text style={[styles.statAmount, { color: colors.foreground }]}>
                 {formatAmount(data!.weekEarnings)}
               </Text>
               <Text style={[styles.statCurrency, { color: "#8b5cf6" }]}>ل.س</Text>
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{t("courier.earnings.week")}</Text>
+              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>هذا الأسبوع</Text>
               <Text style={[styles.statSub, { color: colors.mutedForeground }]}>
-                {data!.weekDeliveries} {t("courier.earnings.deliveries")}
+                {data!.weekDeliveries} توصيلة
               </Text>
             </View>
 
-            <View style={[styles.statCard, styles.statCardFull, { backgroundColor: colors.card }]}>
-              <MaterialIcons name="account-balance-wallet" size={24} color="#22c55e" />
+            <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+              <MaterialIcons name="savings" size={24} color="#22c55e" />
               <Text style={[styles.statAmount, { color: colors.foreground }]}>
                 {formatAmount(data!.totalEarnings)}
               </Text>
               <Text style={[styles.statCurrency, { color: "#22c55e" }]}>ل.س</Text>
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{t("courier.earnings.total")}</Text>
+              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>إجمالي الكل</Text>
               <Text style={[styles.statSub, { color: colors.mutedForeground }]}>
-                {data!.totalDeliveries} {t("courier.earnings.deliveries")}
+                {data!.totalDeliveries} توصيلة
               </Text>
             </View>
           </View>
@@ -232,12 +263,31 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   retryText: { color: "#fff", fontWeight: "700", fontSize: 14 },
-  summarySection: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+  heroCard: {
     alignItems: "center",
+    paddingVertical: 28,
+    paddingHorizontal: 20,
+    gap: 4,
   },
-  summaryLabel: { color: "rgba(255,255,255,0.9)", fontSize: 13, fontWeight: "600" },
+  heroLabel: { color: "rgba(255,255,255,0.85)", fontSize: 14, fontWeight: "600" },
+  heroAmount: { color: "#fff", fontSize: 44, fontWeight: "900" },
+  heroCurrency: { color: "rgba(255,255,255,0.85)", fontSize: 16, fontWeight: "700", marginTop: -8 },
+  heroSub: { color: "rgba(255,255,255,0.7)", fontSize: 13, marginTop: 4 },
+  subBreakCard: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    gap: 2,
+  },
+  subBreakRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  subBreakLabel: { flex: 1, fontSize: 13, fontWeight: "600" },
+  subBreakValue: { fontSize: 13, fontWeight: "700" },
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
