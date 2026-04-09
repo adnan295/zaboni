@@ -105,6 +105,7 @@
     "status": {
       "searching": "Looking for courier",
       "accepted": "Accepted",
+      "picked_up": "Courier picked up your order",
       "on_way": "On the way",
       "delivered": "Delivered"
     },
