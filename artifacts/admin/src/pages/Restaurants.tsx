@@ -492,10 +492,11 @@ function HoursDialog({
 
   const [hours, setHours] = useState<Omit<RestaurantHour, "id" | "restaurantId">[] | null>(null);
 
+  const normalizeTime = (t: string) => t.slice(0, 5);
   const displayHours = hours ?? (initialHours ? initialHours.map((h) => ({
     dayOfWeek: h.dayOfWeek,
-    openTime: h.openTime,
-    closeTime: h.closeTime,
+    openTime: normalizeTime(h.openTime),
+    closeTime: normalizeTime(h.closeTime),
     isClosed: h.isClosed,
   })) : DAY_NAMES.map((_, i) => ({ dayOfWeek: i, openTime: "09:00", closeTime: "22:00", isClosed: false })));
 

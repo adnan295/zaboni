@@ -161,6 +161,7 @@ router.post("/orders", async (req, res) => {
     address: body.data.address,
     destinationLat: destination.lat,
     destinationLon: destination.lon,
+    deliveryFee: body.data.deliveryFee ?? 0,
     estimatedMinutes,
   };
 
