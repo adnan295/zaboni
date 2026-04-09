@@ -39,6 +39,16 @@ export default function SearchScreen() {
   const [sortBy, setSortBy] = useState<SortOption>("rating");
   const [freeDeliveryOnly, setFreeDeliveryOnly] = useState(false);
   const [minRating, setMinRating] = useState<number | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+  const CATEGORY_OPTIONS: { id: string; label: string }[] = [
+    { id: "برغر", label: "🍔 " + t("search.categories.burger") },
+    { id: "بيتزا", label: "🍕 " + t("search.categories.pizza") },
+    { id: "دجاج", label: "🍗 " + t("search.categories.chicken") },
+    { id: "مشاوي", label: "🥩 " + t("search.categories.grills") },
+    { id: "حلويات", label: "🍰 " + t("search.categories.sweets") },
+    { id: "مشروبات", label: "🥤 " + t("search.categories.drinks") },
+  ];
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
@@ -105,7 +115,7 @@ export default function SearchScreen() {
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!query.trim()) {
+    if (!query.trim() && !selectedCategory) {
       setApiResults([]);
       setSearching(false);
       return;
@@ -113,7 +123,10 @@ export default function SearchScreen() {
     setSearching(true);
     debounceRef.current = setTimeout(async () => {
       try {
-        const url = `/api/restaurants?search=${encodeURIComponent(query.trim())}`;
+        const params = new URLSearchParams();
+        if (query.trim()) params.set("search", query.trim());
+        if (selectedCategory) params.set("category", selectedCategory);
+        const url = `/api/restaurants?${params.toString()}`;
         const data = await customFetch(url) as Restaurant[];
         setApiResults(Array.isArray(data) ? data : []);
       } catch {
@@ -125,7 +138,7 @@ export default function SearchScreen() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query]);
+  }, [query, selectedCategory]);
 
   const filtered = apiResults.filter((r) => {
     const matchRating = minRating === null || r.rating >= minRating;
@@ -142,10 +155,10 @@ export default function SearchScreen() {
     return 0;
   });
 
-  const showResults = query.trim().length > 0;
+  const showResults = query.trim().length > 0 || selectedCategory !== null;
   const showHistory = !showResults && history.length > 0;
   const activeFiltersCount =
-    (sortBy !== "rating" ? 1 : 0) + (freeDeliveryOnly ? 1 : 0) + (minRating ? 1 : 0);
+    (sortBy !== "rating" ? 1 : 0) + (freeDeliveryOnly ? 1 : 0) + (minRating ? 1 : 0) + (selectedCategory ? 1 : 0);
 
   const suggestions = t("search.suggestionsList", { returnObjects: true }) as string[];
 
@@ -256,6 +269,33 @@ export default function SearchScreen() {
               {t("search.filters.stars")}
             </Text>
           </TouchableOpacity>
+        </ScrollView>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={[styles.filtersScroll, { paddingTop: 0, paddingBottom: 8 }]}
+        >
+          {CATEGORY_OPTIONS.map((cat) => (
+            <TouchableOpacity
+              key={cat.id}
+              style={[
+                styles.filterChip,
+                {
+                  backgroundColor: selectedCategory === cat.id ? colors.primary : colors.card,
+                  borderColor: selectedCategory === cat.id ? colors.primary : colors.border,
+                },
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setSelectedCategory((prev) => prev === cat.id ? null : cat.id);
+              }}
+            >
+              <Text style={[styles.filterChipText, { color: selectedCategory === cat.id ? "#fff" : colors.foreground }]}>
+                {cat.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </ScrollView>
       </View>
 

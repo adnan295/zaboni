@@ -171,6 +171,14 @@
       "freeDelivery": "توصيل مجاني",
       "stars": "4+ نجوم"
     },
+    "categories": {
+      "burger": "برغر",
+      "pizza": "بيتزا",
+      "chicken": "دجاج",
+      "grills": "مشاوي",
+      "sweets": "حلويات",
+      "drinks": "مشروبات"
+    },
     "history": {
       "title": "عمليات البحث الأخيرة",
       "clearAll": "مسح الكل"
