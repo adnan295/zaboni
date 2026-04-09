@@ -59,10 +59,11 @@ export default function HomeScreen() {
 
   const [activeBanner, setActiveBanner] = useState(0);
   const bannerScrollRef = useRef<ScrollView>(null);
+  const promoBanners = t("home.banners", { returnObjects: true }) as { title: string; subtitle: string }[];
 
   const handleBannerScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const idx = Math.round(e.nativeEvent.contentOffset.x / BANNER_WIDTH);
-    setActiveBanner(Math.max(0, Math.min(idx, BANNER_ICONS.length - 1)));
+    setActiveBanner(Math.max(0, Math.min(idx, promoBanners.length - 1)));
   };
 
   const allRestaurants = apiRestaurants ?? [];
@@ -146,54 +147,49 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
         {/* Promotional Banners Carousel */}
-        {(() => {
-          const banners = t("home.banners", { returnObjects: true }) as { title: string; subtitle: string }[];
-          return (
-            <View style={styles.bannersSection}>
-              <ScrollView
-                ref={bannerScrollRef}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                snapToInterval={BANNER_WIDTH + 12}
-                decelerationRate="fast"
-                contentContainerStyle={styles.bannersScroll}
-                onMomentumScrollEnd={handleBannerScroll}
-              >
-                {banners.map((banner, idx) => {
-                  const [icon, bg] = BANNER_ICONS[idx] ?? ["local-offer", "#FF6B00"];
-                  return (
-                    <View
-                      key={idx}
-                      style={[styles.bannerCard, { backgroundColor: bg, width: BANNER_WIDTH }]}
-                    >
-                      <View style={styles.bannerContent}>
-                        <View style={styles.bannerText}>
-                          <Text style={styles.bannerTitle}>{banner.title}</Text>
-                          <Text style={styles.bannerSubtitle}>{banner.subtitle}</Text>
-                        </View>
-                        <View style={[styles.bannerIconBg, { backgroundColor: "rgba(255,255,255,0.15)" }]}>
-                          <MaterialIcons name={icon} size={40} color="#fff" />
-                        </View>
-                      </View>
+        <View style={styles.bannersSection}>
+          <ScrollView
+            ref={bannerScrollRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            snapToInterval={BANNER_WIDTH + 12}
+            decelerationRate="fast"
+            contentContainerStyle={styles.bannersScroll}
+            onMomentumScrollEnd={handleBannerScroll}
+          >
+            {promoBanners.map((banner, idx) => {
+              const [icon, bg] = BANNER_ICONS[idx] ?? ["local-offer", "#FF6B00"];
+              return (
+                <View
+                  key={idx}
+                  style={[styles.bannerCard, { backgroundColor: bg, width: BANNER_WIDTH }]}
+                >
+                  <View style={styles.bannerContent}>
+                    <View style={styles.bannerText}>
+                      <Text style={styles.bannerTitle}>{banner.title}</Text>
+                      <Text style={styles.bannerSubtitle}>{banner.subtitle}</Text>
                     </View>
-                  );
-                })}
-              </ScrollView>
-              <View style={styles.dotsRow}>
-                {banners.map((_, i) => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.dot,
-                      { backgroundColor: i === activeBanner ? colors.primary : colors.border },
-                    ]}
-                  />
-                ))}
-              </View>
-            </View>
-          );
-        })()}
+                    <View style={[styles.bannerIconBg, { backgroundColor: "rgba(255,255,255,0.15)" }]}>
+                      <MaterialIcons name={icon} size={40} color="#fff" />
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
+          </ScrollView>
+          <View style={styles.dotsRow}>
+            {promoBanners.map((_, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.dot,
+                  { backgroundColor: i === activeBanner ? colors.primary : colors.border },
+                ]}
+              />
+            ))}
+          </View>
+        </View>
 
         {/* Categories */}
         <ScrollView
