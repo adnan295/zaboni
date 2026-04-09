@@ -128,6 +128,23 @@ export type Courier = {
   lastDelivery: string | null;
 };
 
+export type ActiveOrderLocation = {
+  id: string;
+  status: string;
+  orderText: string;
+  restaurantName: string;
+  address: string;
+  destinationLat: number | null;
+  destinationLon: number | null;
+  updatedAt: string;
+  customerName: string | null;
+  customerPhone: string | null;
+  courierName: string | null;
+  courierPhone: string | null;
+  restaurantLat: number | null;
+  restaurantLon: number | null;
+};
+
 export type CourierLocation = {
   id: string;
   name: string;
@@ -421,6 +438,7 @@ export const api = {
 
   getCouriers: () => apiFetch<Courier[]>("/admin/couriers"),
   getCourierLocations: () => apiFetch<CourierLocation[]>("/admin/couriers/locations"),
+  getActiveOrderLocations: () => apiFetch<ActiveOrderLocation[]>("/admin/orders/active/locations"),
 
   getUsers: () => apiFetch<User[]>("/admin/users"),
   updateUserRole: (id: string, role: "customer" | "courier") =>
