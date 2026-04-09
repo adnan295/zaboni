@@ -41,6 +41,8 @@ Arabic RTL delivery app. Features:
 - `menu_items` — menu items per restaurant (name, nameAr, price, image, category)
 - `orders` — orders with status (searching → accepted → on_way → delivered), courier info
 - `addresses` — user delivery addresses with default flag
+- `promo_codes` — discount codes (percent/fixed, max_uses, expiry, isActive)
+- `promo_uses` — tracks per-user promo code redemptions (promoId, userId, orderId)
 
 ## API Endpoints (`artifacts/api-server/`)
 
@@ -56,6 +58,12 @@ Arabic RTL delivery app. Features:
 - `PUT /api/addresses/:id` — update address
 - `DELETE /api/addresses/:id` — delete address
 - `PATCH /api/addresses/:id/default` — set default address
+- `POST /api/orders/validate-promo` — validate a promo code for the current user
+- `GET /api/courier/earnings` — courier earnings summary (today/week/total + recent deliveries)
+- `GET /api/admin/promos` — list all promo codes with use count
+- `POST /api/admin/promos` — create a promo code
+- `PUT /api/admin/promos/:id` — update a promo code
+- `DELETE /api/admin/promos/:id` — delete a promo code
 
 ## API Client
 

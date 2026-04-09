@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -8,6 +8,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -19,6 +20,18 @@ import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import { useOrders } from "@/context/OrderContext";
 import { useAddresses } from "@/context/AddressContext";
+import { customFetch } from "@workspace/api-client-react";
+
+type PromoStatus = "idle" | "checking" | "valid" | "invalid" | "expired" | "exhausted" | "already_used";
+
+interface PromoResult {
+  valid: boolean;
+  type?: "percent" | "fixed";
+  value?: number;
+  discountAmount?: number;
+  code?: string;
+  error?: string;
+}
 
 export default function OrderRequestScreen() {
   const colors = useColors();
@@ -33,6 +46,10 @@ export default function OrderRequestScreen() {
   const prefix = restaurantName ? `${t("orderRequest.from")} ${restaurantName}: ` : "";
   const [orderText, setOrderText] = useState(prefix);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
+  const [promoStatus, setPromoStatus] = useState<PromoStatus>("idle");
+  const [promoResult, setPromoResult] = useState<PromoResult | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isValid = orderText.trim().length >= 5 && orderText.trim() !== prefix.trim();
   const canSubmit = isValid && !!defaultAddress;
@@ -40,8 +57,60 @@ export default function OrderRequestScreen() {
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
 
   const steps = t("orderRequest.steps", { returnObjects: true }) as string[];
-
   const stepIcons: Array<keyof typeof MaterialIcons.glyphMap> = ["send", "check-circle", "chat"];
+
+  const checkPromo = useCallback(async (code: string) => {
+    if (!code.trim()) {
+      setPromoStatus("idle");
+      setPromoResult(null);
+      return;
+    }
+    setPromoStatus("checking");
+    try {
+      const res = await customFetch("/api/orders/validate-promo", {
+        method: "POST",
+        body: JSON.stringify({ code: code.trim() }),
+      }) as PromoResult;
+      setPromoResult(res);
+      setPromoStatus("valid");
+    } catch (err: unknown) {
+      const apiErr = err as { data?: { error?: string } };
+      const errorCode = apiErr?.data?.error ?? "invalid";
+      setPromoResult({ valid: false, error: errorCode });
+      setPromoStatus(errorCode as PromoStatus);
+    }
+  }, []);
+
+  const handlePromoChange = (text: string) => {
+    setPromoCode(text);
+    setPromoStatus("idle");
+    setPromoResult(null);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (text.trim().length >= 3) {
+      debounceRef.current = setTimeout(() => checkPromo(text), 500);
+    }
+  };
+
+  const getPromoStatusText = (): string | null => {
+    switch (promoStatus) {
+      case "checking": return t("orderRequest.promoChecking");
+      case "valid": return promoResult?.discountAmount
+        ? t("orderRequest.promoDiscount", { amount: promoResult.discountAmount.toLocaleString() })
+        : t("orderRequest.promoApplied");
+      case "invalid": return t("orderRequest.promoInvalid");
+      case "expired": return t("orderRequest.promoExpired");
+      case "exhausted": return t("orderRequest.promoExhausted");
+      case "already_used": return t("orderRequest.promoAlreadyUsed");
+      default: return null;
+    }
+  };
+
+  const getPromoStatusColor = (): string => {
+    if (promoStatus === "valid") return "#22c55e";
+    if (promoStatus === "checking") return colors.mutedForeground;
+    if (promoStatus !== "idle") return "#ef4444";
+    return colors.mutedForeground;
+  };
 
   const handleSubmit = async () => {
     if (!isValid || isSubmitting) return;
@@ -59,8 +128,9 @@ export default function OrderRequestScreen() {
     setIsSubmitting(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const address = defaultAddress.label;
+    const appliedPromo = promoStatus === "valid" && promoCode.trim() ? promoCode.trim() : undefined;
     try {
-      const order = await placeOrder(orderText.trim(), restaurantName ?? t("orderRequest.title"), address);
+      const order = await placeOrder(orderText.trim(), restaurantName ?? t("orderRequest.title"), address, appliedPromo);
       router.replace({
         pathname: "/order-tracking/[id]",
         params: { id: order.id },
@@ -69,6 +139,9 @@ export default function OrderRequestScreen() {
       setIsSubmitting(false);
     }
   };
+
+  const promoStatusText = getPromoStatusText();
+  const promoStatusColor = getPromoStatusColor();
 
   return (
     <KeyboardAvoidingView
@@ -149,6 +222,36 @@ export default function OrderRequestScreen() {
           </View>
         </View>
 
+        <View style={[styles.promoCard, {
+          backgroundColor: colors.card,
+          borderColor: promoStatus === "valid" ? "#22c55e" : promoStatus !== "idle" && promoStatus !== "checking" ? "#ef4444" : colors.border,
+        }]}>
+          <MaterialIcons name="local-offer" size={20} color={promoStatus === "valid" ? "#22c55e" : colors.primary} />
+          <View style={styles.promoContent}>
+            <Text style={[styles.addrLabel, { color: colors.mutedForeground }]}>{t("orderRequest.promoCode")}</Text>
+            <TextInput
+              style={[styles.promoInput, { color: colors.foreground }]}
+              placeholder={t("orderRequest.promoPlaceholder")}
+              placeholderTextColor={colors.mutedForeground}
+              value={promoCode}
+              onChangeText={handlePromoChange}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={30}
+            />
+            {promoStatusText ? (
+              <Text style={[styles.promoStatusText, { color: promoStatusColor }]}>
+                {promoStatusText}
+              </Text>
+            ) : null}
+          </View>
+          {promoStatus === "checking" ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : promoStatus === "valid" ? (
+            <MaterialIcons name="check-circle" size={20} color="#22c55e" />
+          ) : null}
+        </View>
+
         <View style={[styles.howCard, { backgroundColor: colors.secondary }]}>
           <Text style={[styles.howTitle, { color: colors.foreground }]}>{t("orderRequest.howItWorks")}</Text>
           {steps.map((step, i) => (
@@ -221,6 +324,17 @@ const styles = StyleSheet.create({
   addrLabel: { fontSize: 11, fontWeight: "600", marginBottom: 2 },
   addrText: { fontSize: 14, fontWeight: "600" },
   changeAddr: { fontSize: 13, fontWeight: "700" },
+  promoCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 14,
+  },
+  promoContent: { flex: 1, gap: 2 },
+  promoInput: { fontSize: 14, fontWeight: "600", paddingVertical: 0 },
+  promoStatusText: { fontSize: 12, fontWeight: "600", marginTop: 2 },
   howCard: {
     borderRadius: 14,
     padding: 16,

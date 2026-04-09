@@ -34,7 +34,7 @@ export interface Order {
 interface OrderContextValue {
   orders: Order[];
   activeOrder: Order | null;
-  placeOrder: (orderText: string, restaurantName: string, address: string) => Promise<Order>;
+  placeOrder: (orderText: string, restaurantName: string, address: string, promoCode?: string) => Promise<Order>;
   getOrder: (id: string) => Order | undefined;
   setStatusChangeHandler: (handler: (order: Order, newStatus: OrderStatus) => void) => void;
 }
@@ -149,13 +149,14 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   );
 
   const placeOrder = useCallback(
-    async (orderText: string, restaurantName: string, address: string): Promise<Order> => {
+    async (orderText: string, restaurantName: string, address: string, promoCode?: string): Promise<Order> => {
       let newOrder: Order;
       try {
         const result = await apiCreateOrder({
           orderText,
           restaurantName,
           address,
+          ...(promoCode ? { promoCode } : {}),
         });
         newOrder = apiOrderToLocal(result);
       } catch {

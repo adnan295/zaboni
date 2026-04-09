@@ -285,6 +285,22 @@
         "on_way": "On the Way to Customer",
         "delivered": "Delivered"
       }
+    },
+    "earnings": {
+      "title": "My Earnings",
+      "today": "Today",
+      "week": "This Week",
+      "total": "Total",
+      "deliveries": "deliveries",
+      "currency": "SYP",
+      "perDelivery": "{{amount}} SYP / delivery",
+      "recentTitle": "Recent Deliveries",
+      "noDeliveries": "No deliveries yet",
+      "restaurant": "Restaurant",
+      "address": "Address",
+      "earningsLabel": "Earnings",
+      "loading": "Loading...",
+      "error": "Failed to load earnings"
     }
   },
   "restaurant": {
@@ -321,7 +337,16 @@
     "sending": "Sending...",
     "noAddressTitle": "No Address Set",
     "noAddressBody": "Please add a delivery address before placing your order.",
-    "addAddress": "Add Address"
+    "addAddress": "Add Address",
+    "promoCode": "Promo Code",
+    "promoPlaceholder": "Enter promo code (optional)",
+    "promoApplied": "Discount applied",
+    "promoInvalid": "Invalid code",
+    "promoExpired": "Code has expired",
+    "promoExhausted": "Code is exhausted",
+    "promoAlreadyUsed": "You've already used this code",
+    "promoChecking": "Checking...",
+    "promoDiscount": "Discount: {{amount}} SYP"
   },
   "payment": {
     "cashOnDelivery": "Cash on Delivery 💵",

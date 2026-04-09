@@ -150,6 +150,19 @@ export type RatingsPage = {
   avgCourierStars: number | null;
 };
 
+export type PromoCode = {
+  id: string;
+  code: string;
+  type: "percent" | "fixed";
+  value: number;
+  maxUses: number | null;
+  maxUsesPerUser: number;
+  expiresAt: string | null;
+  isActive: boolean;
+  createdAt: string;
+  usesCount?: number;
+};
+
 export const ORDER_STATUSES = [
   "searching",
   "accepted",
@@ -223,4 +236,18 @@ export const api = {
 
   getRatings: (limit = 50, offset = 0) =>
     apiFetch<RatingsPage>(`/admin/ratings?limit=${limit}&offset=${offset}`),
+
+  getPromos: () => apiFetch<PromoCode[]>("/admin/promos"),
+  createPromo: (data: Partial<PromoCode> & { code: string; type: "percent" | "fixed"; value: number }) =>
+    apiFetch<PromoCode>("/admin/promos", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updatePromo: (id: string, data: Partial<PromoCode>) =>
+    apiFetch<PromoCode>(`/admin/promos/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deletePromo: (id: string) =>
+    apiFetch<void>(`/admin/promos/${id}`, { method: "DELETE" }),
 };

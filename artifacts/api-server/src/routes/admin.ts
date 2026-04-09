@@ -6,6 +6,8 @@ import {
   ordersTable,
   usersTable,
   orderRatingsTable,
+  promoCodesTable,
+  promoUsesTable,
 } from "@workspace/db";
 import { eq, count, desc, gte, getTableColumns, and, sql, avg } from "drizzle-orm";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
@@ -500,6 +502,89 @@ router.get("/admin/ratings", async (req, res) => {
     avgRestaurantStars: totals?.avgRestaurant ? Number(Number(totals.avgRestaurant).toFixed(1)) : null,
     avgCourierStars: totals?.avgCourier ? Number(Number(totals.avgCourier).toFixed(1)) : null,
   });
+});
+
+const promoBodySchema = z.object({
+  code: z.string().min(1).max(50).toUpperCase(),
+  type: z.enum(["percent", "fixed"]),
+  value: z.number().positive(),
+  maxUses: z.number().int().positive().nullable().optional(),
+  maxUsesPerUser: z.number().int().positive().default(1),
+  expiresAt: z.string().datetime().nullable().optional(),
+  isActive: z.boolean().default(true),
+});
+
+router.get("/admin/promos", async (_req, res) => {
+  const promos = await db
+    .select({
+      ...getTableColumns(promoCodesTable),
+      usesCount: sql<number>`(SELECT COUNT(*) FROM promo_uses WHERE promo_id = ${promoCodesTable.id})`,
+    })
+    .from(promoCodesTable)
+    .orderBy(desc(promoCodesTable.createdAt));
+  res.json(promos.map((p) => ({ ...p, usesCount: Number(p.usesCount) })));
+});
+
+router.post("/admin/promos", async (req, res) => {
+  const parsed = promoBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const existing = await db
+    .select({ id: promoCodesTable.id })
+    .from(promoCodesTable)
+    .where(eq(promoCodesTable.code, parsed.data.code))
+    .limit(1);
+  if (existing.length > 0) {
+    res.status(409).json({ error: "Promo code already exists" });
+    return;
+  }
+  const id = `promo_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+  const [row] = await db
+    .insert(promoCodesTable)
+    .values({
+      id,
+      code: parsed.data.code,
+      type: parsed.data.type,
+      value: parsed.data.value,
+      maxUses: parsed.data.maxUses ?? null,
+      maxUsesPerUser: parsed.data.maxUsesPerUser,
+      expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null,
+      isActive: parsed.data.isActive,
+    })
+    .returning();
+  res.status(201).json(row);
+});
+
+router.put("/admin/promos/:id", async (req, res) => {
+  const id = String(req.params["id"]);
+  const parsed = promoBodySchema.partial().safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const update: Record<string, unknown> = { ...parsed.data };
+  if (parsed.data.expiresAt !== undefined) {
+    update["expiresAt"] = parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null;
+  }
+  const [row] = await db
+    .update(promoCodesTable)
+    .set(update)
+    .where(eq(promoCodesTable.id, id))
+    .returning();
+  if (!row) {
+    res.status(404).json({ error: "Promo not found" });
+    return;
+  }
+  res.json(row);
+});
+
+router.delete("/admin/promos/:id", async (req, res) => {
+  const id = String(req.params["id"]);
+  await db.delete(promoUsesTable).where(eq(promoUsesTable.promoId, id));
+  await db.delete(promoCodesTable).where(eq(promoCodesTable.id, id));
+  res.status(204).end();
 });
 
 export default router;
