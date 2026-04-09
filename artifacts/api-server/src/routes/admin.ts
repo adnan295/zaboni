@@ -39,8 +39,10 @@ router.use("/admin", requireAdmin);
 router.get("/admin/stats", async (_req, res) => {
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
+  const yesterdayStart = new Date(todayStart);
+  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
 
-  const [[restaurantRow], [orderRow], [userRow], [menuRow], [todayOrderRow], [courierRow]] =
+  const [[restaurantRow], [orderRow], [userRow], [menuRow], [todayOrderRow], [courierRow], [yesterdayOrderRow]] =
     await Promise.all([
       db.select({ count: count() }).from(restaurantsTable),
       db.select({ count: count() }).from(ordersTable),
@@ -54,6 +56,15 @@ router.get("/admin/stats", async (_req, res) => {
         .select({ count: count() })
         .from(usersTable)
         .where(eq(usersTable.role, "courier")),
+      db
+        .select({ count: count() })
+        .from(ordersTable)
+        .where(
+          and(
+            gte(ordersTable.createdAt, yesterdayStart),
+            sql`${ordersTable.createdAt} < ${todayStart}`,
+          ),
+        ),
     ]);
 
   const ordersByStatus = await db
@@ -75,6 +86,7 @@ router.get("/admin/stats", async (_req, res) => {
     restaurants: restaurantRow?.count ?? 0,
     orders: orderRow?.count ?? 0,
     todayOrders: todayOrderRow?.count ?? 0,
+    yesterdayOrders: yesterdayOrderRow?.count ?? 0,
     users: userRow?.count ?? 0,
     couriers: courierRow?.count ?? 0,
     menuItems: menuRow?.count ?? 0,
@@ -83,14 +95,15 @@ router.get("/admin/stats", async (_req, res) => {
   });
 });
 
-router.get("/admin/charts/daily", async (_req, res) => {
+router.get("/admin/charts/daily", async (req, res) => {
+  const daysRaw = parseInt(String(req.query["days"] ?? "30"));
+  const days = [7, 14, 30].includes(daysRaw) ? daysRaw : 30;
   const rows = await db.execute(sql`
     SELECT
-      TO_CHAR(DATE_TRUNC('day', created_at AT TIME ZONE 'Asia/Damascus'), 'MM/DD') AS day,
       TO_CHAR(DATE_TRUNC('day', created_at AT TIME ZONE 'Asia/Damascus'), 'YYYY-MM-DD') AS date,
-      COUNT(*)::int AS orders
+      COUNT(*)::int AS count
     FROM orders
-    WHERE created_at >= NOW() - INTERVAL '30 days'
+    WHERE created_at >= NOW() - CAST(${days} || ' days' AS INTERVAL)
     GROUP BY DATE_TRUNC('day', created_at AT TIME ZONE 'Asia/Damascus')
     ORDER BY DATE_TRUNC('day', created_at AT TIME ZONE 'Asia/Damascus')
   `);
@@ -101,7 +114,7 @@ router.get("/admin/charts/hourly", async (_req, res) => {
   const rows = await db.execute(sql`
     SELECT
       EXTRACT(hour FROM created_at AT TIME ZONE 'Asia/Damascus')::int AS hour,
-      COUNT(*)::int AS orders
+      COUNT(*)::int AS count
     FROM orders
     GROUP BY hour
     ORDER BY hour

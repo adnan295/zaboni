@@ -1,6 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, type Courier } from "@/lib/api";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { useState } from "react";
 
 function StarRating({ rating }: { rating: number | null }) {
@@ -30,11 +32,21 @@ function StarRating({ rating }: { rating: number | null }) {
 
 export default function Couriers() {
   const [search, setSearch] = useState("");
+  const qc = useQueryClient();
 
   const { data: couriers = [], isLoading } = useQuery({
     queryKey: ["admin", "couriers"],
     queryFn: api.getCouriers,
     refetchInterval: 30_000,
+  });
+
+  const roleMutation = useMutation({
+    mutationFn: (id: string) => api.updateUserRole(id, "customer"),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "couriers"] });
+      qc.invalidateQueries({ queryKey: ["admin", "users"] });
+      qc.invalidateQueries({ queryKey: ["admin", "stats"] });
+    },
   });
 
   const filtered = couriers.filter(
@@ -77,7 +89,22 @@ export default function Couriers() {
       </div>
 
       {isLoading ? (
-        <p className="text-muted-foreground">Loading...</p>
+        <div className="space-y-2">
+          {[...Array(5)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="p-4">
+                <div className="flex gap-4">
+                  <div className="w-8 h-8 bg-muted rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-muted rounded w-1/4" />
+                    <div className="h-3 bg-muted rounded w-1/6" />
+                  </div>
+                  <div className="h-4 bg-muted rounded w-16" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       ) : filtered.length === 0 ? (
         <p className="text-muted-foreground">No couriers found.</p>
       ) : (
@@ -92,11 +119,25 @@ export default function Couriers() {
                 <th className="text-left px-4 py-3 font-medium">Rating</th>
                 <th className="text-left px-4 py-3 font-medium">Last Delivery</th>
                 <th className="text-left px-4 py-3 font-medium">Joined</th>
+                <th className="text-right px-4 py-3 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {filtered.map((courier) => (
-                <CourierRow key={courier.id} courier={courier} />
+                <CourierRow
+                  key={courier.id}
+                  courier={courier}
+                  onConvert={() => {
+                    if (
+                      confirm(
+                        `Convert "${courier.name || courier.phone}" to customer? They will lose courier access.`,
+                      )
+                    ) {
+                      roleMutation.mutate(courier.id);
+                    }
+                  }}
+                  converting={roleMutation.isPending}
+                />
               ))}
             </tbody>
           </table>
@@ -106,7 +147,15 @@ export default function Couriers() {
   );
 }
 
-function CourierRow({ courier }: { courier: Courier }) {
+function CourierRow({
+  courier,
+  onConvert,
+  converting,
+}: {
+  courier: Courier;
+  onConvert: () => void;
+  converting: boolean;
+}) {
   const successRate =
     courier.totalAssigned > 0
       ? Math.round((courier.deliveredCount / courier.totalAssigned) * 100)
@@ -136,9 +185,7 @@ function CourierRow({ courier }: { courier: Courier }) {
         <div className="flex items-center gap-1.5">
           <span>{courier.totalAssigned ?? 0}</span>
           {successRate !== null && (
-            <span className="text-xs text-muted-foreground">
-              ({successRate}%)
-            </span>
+            <span className="text-xs text-muted-foreground">({successRate}%)</span>
           )}
         </div>
       </td>
@@ -152,6 +199,19 @@ function CourierRow({ courier }: { courier: Courier }) {
       </td>
       <td className="px-4 py-3 text-xs text-muted-foreground">
         {new Date(courier.createdAt).toLocaleDateString()}
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-xs"
+            disabled={converting}
+            onClick={onConvert}
+          >
+            Make Customer
+          </Button>
+        </div>
       </td>
     </tr>
   );

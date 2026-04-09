@@ -37,6 +37,7 @@ export type Stats = {
   restaurants: number;
   orders: number;
   todayOrders: number;
+  yesterdayOrders: number;
   users: number;
   couriers: number;
   menuItems: number;
@@ -44,8 +45,8 @@ export type Stats = {
   recentOrders: (Order & { customerName: string | null })[];
 };
 
-export type DailyChart = { day: string; date: string; orders: number };
-export type HourlyChart = { hour: number; orders: number };
+export type DailyChart = { date: string; count: number };
+export type HourlyChart = { hour: number; count: number };
 
 export type Restaurant = {
   id: string;
@@ -141,7 +142,8 @@ export const api = {
   },
 
   getStats: () => apiFetch<Stats>("/admin/stats"),
-  getDailyChart: () => apiFetch<DailyChart[]>("/admin/charts/daily"),
+  getDailyChart: (days?: number) =>
+    apiFetch<DailyChart[]>(`/admin/charts/daily${days ? `?days=${days}` : ""}`),
   getHourlyChart: () => apiFetch<HourlyChart[]>("/admin/charts/hourly"),
 
   getRestaurants: () => apiFetch<Restaurant[]>("/admin/restaurants"),
