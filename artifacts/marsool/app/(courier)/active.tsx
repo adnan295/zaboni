@@ -115,15 +115,35 @@ export default function ActiveOrderScreen() {
 
   const openNavigation = () => {
     if (!order) return;
-    const dest = encodeURIComponent(order.address || "Damascus, Syria");
-    const googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=driving`;
-    const appleUrl = `maps://maps.apple.com/?daddr=${dest}&dirflg=d`;
+    const lat = order.destinationLat;
+    const lon = order.destinationLon;
+    const label = encodeURIComponent(order.address || "وجهة التوصيل");
+
     if (Platform.OS === "ios") {
+      const appleUrl = lat && lon
+        ? `maps://maps.apple.com/?daddr=${lat},${lon}&q=${label}&dirflg=d`
+        : `maps://maps.apple.com/?daddr=${encodeURIComponent(order.address || "Damascus, Syria")}&dirflg=d`;
+      const webFallback = lat && lon
+        ? `https://maps.google.com/maps?daddr=${lat},${lon}`
+        : `https://maps.google.com/maps?daddr=${encodeURIComponent(order.address || "Damascus, Syria")}`;
       Linking.canOpenURL("maps://").then((ok) => {
-        Linking.openURL(ok ? appleUrl : googleUrl);
+        Linking.openURL(ok ? appleUrl : webFallback);
       });
     } else {
-      Linking.openURL(googleUrl);
+      const deepLink = lat && lon
+        ? `google.navigation:q=${lat},${lon}&mode=d`
+        : null;
+      const webFallback = lat && lon
+        ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`
+        : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(order.address || "Damascus, Syria")}&travelmode=driving`;
+
+      if (deepLink) {
+        Linking.canOpenURL(deepLink).then((ok) => {
+          Linking.openURL(ok ? deepLink : webFallback);
+        }).catch(() => Linking.openURL(webFallback));
+      } else {
+        Linking.openURL(webFallback);
+      }
     }
   };
 

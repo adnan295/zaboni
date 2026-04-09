@@ -25,6 +25,8 @@ export interface CourierOrder {
   estimatedMinutes: number;
   createdAt: string;
   distanceKm?: number;
+  destinationLat?: number | null;
+  destinationLon?: number | null;
 }
 
 export type CourierDeliveryStatus = "picked_up" | "on_way" | "delivered";
