@@ -108,9 +108,14 @@ export default function ActiveOrderScreen() {
 
   const doStatusUpdate = async (status: CourierDeliveryStatus) => {
     if (!order) return;
+    const orderId = order.id;
     setUpdating(true);
     try {
-      await updateDeliveryStatus(order.id, status);
+      await updateDeliveryStatus(orderId, status);
+      if (status === "delivered") {
+        router.push(`/(courier)/rate-customer?orderId=${orderId}`);
+        refreshActiveOrders();
+      }
     } catch {
       Alert.alert(t("common.error"), t("common.retry"));
     } finally {
@@ -354,6 +359,23 @@ export default function ActiveOrderScreen() {
                 </View>
               </>
             ) : null}
+
+            {order.deliveryFee != null && order.deliveryFee > 0 ? (
+              <>
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                <View style={styles.infoRow}>
+                  <MaterialIcons name="account-balance-wallet" size={18} color="#ea580c" />
+                  <View style={styles.infoContent}>
+                    <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>
+                      رسوم التوصيل
+                    </Text>
+                    <Text style={[styles.infoValue, { color: "#ea580c", fontWeight: "800" }]}>
+                      {order.deliveryFee.toLocaleString("ar-SY")} ل.س
+                    </Text>
+                  </View>
+                </View>
+              </>
+            ) : null}
           </View>
 
           <View style={styles.actionRow}>
@@ -396,7 +418,7 @@ export default function ActiveOrderScreen() {
           ) : null}
 
           {/* Action button */}
-          {currentStep?.nextStatus && order.status !== "delivered" ? (
+          {currentStep?.nextStatus ? (
             <View style={[styles.statusCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <Text style={[styles.statusTitle, { color: colors.foreground }]}>
                 {t("courier.active.statusTitle")}
@@ -415,23 +437,6 @@ export default function ActiveOrderScreen() {
                     ? t("courier.active.updating")
                     : t(currentStep.nextLabel ?? "courier.active.updateStatus")}
                 </Text>
-              </TouchableOpacity>
-            </View>
-          ) : order.status === "delivered" ? (
-            <View style={{ gap: 10 }}>
-              <View style={[styles.deliveredBanner, { backgroundColor: "#4CAF5020" }]}>
-                <MaterialIcons name="check-circle" size={24} color="#4CAF50" />
-                <Text style={[styles.deliveredText, { color: "#4CAF50" }]}>
-                  {t("courier.active.status.delivered")} ✅
-                </Text>
-              </View>
-              <TouchableOpacity
-                style={[styles.rateCustomerBtn, { backgroundColor: "#FF6B00" }]}
-                onPress={() => router.push(`/(courier)/rate-customer?orderId=${order.id}`)}
-                activeOpacity={0.85}
-              >
-                <MaterialIcons name="star" size={20} color="#fff" />
-                <Text style={styles.rateCustomerBtnText}>قيّم الزبون</Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -550,27 +555,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   statusBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
-  deliveredBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    marginHorizontal: 16,
-    marginTop: 12,
-    paddingVertical: 14,
-    borderRadius: 12,
-  },
-  deliveredText: { fontSize: 16, fontWeight: "700" },
-  rateCustomerBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    marginHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 12,
-  },
-  rateCustomerBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
   cancelBtn: {
     flexDirection: "row",
     alignItems: "center",
