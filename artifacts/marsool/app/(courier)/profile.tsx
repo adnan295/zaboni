@@ -154,10 +154,10 @@ export default function CourierProfileScreen() {
         <ScrollView contentContainerStyle={{ paddingBottom: bottomPadding + 24 }}>
           <View style={[styles.avatarSection, { backgroundColor: colors.primary }]}>
             <TouchableOpacity style={styles.avatarWrapper} onPress={() => router.push("/edit-profile")} activeOpacity={0.8}>
-              {(stats?.avatarUrl || user?.avatarUrl) ? (
+              {(user?.avatarUrl || stats?.avatarUrl) ? (
                 <Image
                   source={{ uri: (() => {
-                    const url = stats?.avatarUrl || user?.avatarUrl || "";
+                    const url = user?.avatarUrl || stats?.avatarUrl || "";
                     return url.startsWith("/") ? `/api${url}` : url;
                   })() }}
                   style={[styles.avatar, { borderRadius: 42 }]}
@@ -173,12 +173,12 @@ export default function CourierProfileScreen() {
               </View>
             </TouchableOpacity>
             <View style={styles.userNameRow}>
-              <Text style={styles.userName}>{stats?.name || user?.name || t("profile.defaultUser")}</Text>
+              <Text style={styles.userName}>{user?.name || stats?.name || t("profile.defaultUser")}</Text>
               <TouchableOpacity onPress={() => router.push("/edit-profile")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <MaterialIcons name="edit" size={18} color="rgba(255,255,255,0.8)" />
               </TouchableOpacity>
             </View>
-            <Text style={styles.userPhone}>{stats?.phone || user?.phone || ""}</Text>
+            <Text style={styles.userPhone}>{user?.phone || stats?.phone || ""}</Text>
             <View style={[styles.badge, { backgroundColor: "rgba(255,255,255,0.25)" }]}>
               <MaterialIcons name="verified" size={14} color="#fff" />
               <Text style={styles.badgeText}>{t("profile.courier.badge")}</Text>

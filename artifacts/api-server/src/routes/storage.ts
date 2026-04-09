@@ -18,6 +18,9 @@ const DEV_JWT_SECRET = "marsool-dev-secret-change-in-production-please";
 function getJwtSecret(): string {
   const secret = process.env["JWT_SECRET"];
   if (!secret) {
+    if (process.env["NODE_ENV"] === "production") {
+      throw new Error("JWT_SECRET is not set in production");
+    }
     return DEV_JWT_SECRET;
   }
   return secret;
@@ -130,9 +133,9 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
  * GET /storage/objects/*
  *
  * Serve object entities from PRIVATE_OBJECT_DIR.
- * Admin-only: requires Authorization Bearer <ADMIN_SECRET> header.
+ * Requires admin secret or valid user JWT.
  */
-router.get("/storage/objects/*path", requireAdminStorage, async (req: Request, res: Response) => {
+router.get("/storage/objects/*path", requireUploadAuth, async (req: Request, res: Response) => {
   try {
     const raw = req.params.path;
     const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
