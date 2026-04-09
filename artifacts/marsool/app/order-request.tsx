@@ -35,6 +35,7 @@ export default function OrderRequestScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isValid = orderText.trim().length >= 5 && orderText.trim() !== prefix.trim();
+  const canSubmit = isValid && !!defaultAddress;
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
 
@@ -120,18 +121,25 @@ export default function OrderRequestScreen() {
           </Text>
         </View>
 
-        <View style={[styles.addressRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <MaterialIcons name="location-on" size={20} color={colors.primary} />
+        <TouchableOpacity
+          style={[styles.addressRow, {
+            backgroundColor: colors.card,
+            borderColor: defaultAddress ? colors.border : "#ef4444",
+          }]}
+          onPress={() => router.push("/addresses")}
+          activeOpacity={0.8}
+        >
+          <MaterialIcons name="location-on" size={20} color={defaultAddress ? colors.primary : "#ef4444"} />
           <View style={styles.addrInfo}>
             <Text style={[styles.addrLabel, { color: colors.mutedForeground }]}>{t("orderRequest.deliveryAddress")}</Text>
-            <Text style={[styles.addrText, { color: colors.foreground }]}>
-              {defaultAddress?.label ?? t("home.addAddress")}
+            <Text style={[styles.addrText, { color: defaultAddress ? colors.foreground : "#ef4444" }]}>
+              {defaultAddress?.label ?? t("orderRequest.noAddressTitle")}
             </Text>
           </View>
-          <TouchableOpacity onPress={() => router.push("/addresses")}>
-            <Text style={[styles.changeAddr, { color: colors.primary }]}>{t("orderRequest.changeAddress")}</Text>
-          </TouchableOpacity>
-        </View>
+          <Text style={[styles.changeAddr, { color: colors.primary }]}>
+            {defaultAddress ? t("orderRequest.changeAddress") : t("orderRequest.addAddress")}
+          </Text>
+        </TouchableOpacity>
 
         <View style={[styles.addressRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <MaterialIcons name="payments" size={20} color={colors.primary} />
@@ -154,13 +162,13 @@ export default function OrderRequestScreen() {
 
       <View style={[styles.footer, { paddingBottom: bottomPadding + 16, backgroundColor: colors.background, borderTopColor: colors.border }]}>
         <TouchableOpacity
-          style={[styles.submitBtn, { backgroundColor: isValid ? colors.primary : colors.muted }]}
+          style={[styles.submitBtn, { backgroundColor: canSubmit ? colors.primary : colors.muted }]}
           onPress={handleSubmit}
-          disabled={!isValid || isSubmitting}
+          disabled={!canSubmit || isSubmitting}
           activeOpacity={0.85}
         >
-          <MaterialIcons name="send" size={20} color={isValid ? "#fff" : colors.mutedForeground} />
-          <Text style={[styles.submitText, { color: isValid ? "#fff" : colors.mutedForeground }]}>
+          <MaterialIcons name="send" size={20} color={canSubmit ? "#fff" : colors.mutedForeground} />
+          <Text style={[styles.submitText, { color: canSubmit ? "#fff" : colors.mutedForeground }]}>
             {isSubmitting ? t("orderRequest.sending") : t("orderRequest.sendOrder")}
           </Text>
         </TouchableOpacity>
