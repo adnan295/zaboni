@@ -37,17 +37,9 @@ function checkRateLimit(
   return true;
 }
 
-const DEV_JWT_SECRET = "marsool-dev-secret-change-in-production-please";
-
 function getJwtSecret(): string {
   const secret = process.env["JWT_SECRET"];
-  if (!secret) {
-    if (process.env["NODE_ENV"] !== "production") {
-      console.warn("[auth] JWT_SECRET not set — using insecure dev default");
-      return DEV_JWT_SECRET;
-    }
-    throw new Error("JWT_SECRET is not set");
-  }
+  if (!secret) throw new Error("JWT_SECRET is not configured");
   return secret;
 }
 
