@@ -28,6 +28,8 @@ function getNotificationTargetRoute(
   return null;
 }
 
+const handledResponseIds = new Set<string>();
+
 export function usePushNotifications(onNewOrderTap?: () => void) {
   const { token } = useAuth();
   const router = useRouter();
@@ -72,18 +74,26 @@ export function usePushNotifications(onNewOrderTap?: () => void) {
   useEffect(() => {
     if (Platform.OS === "web") return;
 
+    const handleResponse = (
+      response: Notifications.NotificationResponse,
+      route: string
+    ) => {
+      const id = response.notification.request.identifier;
+      if (handledResponseIds.has(id)) return;
+      handledResponseIds.add(id);
+      routerRef.current.push(route as Parameters<typeof routerRef.current.push>[0]);
+      const data = response.notification.request.content.data;
+      if (data?.type === "new_order") {
+        onNewOrderTapRef.current?.();
+      }
+    };
+
     (async () => {
       try {
         const lastResponse = await Notifications.getLastNotificationResponseAsync();
         if (lastResponse) {
           const route = getNotificationTargetRoute(lastResponse);
-          if (route) {
-            routerRef.current.push(route as Parameters<typeof routerRef.current.push>[0]);
-            const data = lastResponse.notification.request.content.data;
-            if (data?.type === "new_order") {
-              onNewOrderTapRef.current?.();
-            }
-          }
+          if (route) handleResponse(lastResponse, route);
         }
       } catch {
       }
@@ -92,13 +102,7 @@ export function usePushNotifications(onNewOrderTap?: () => void) {
     const subscription = Notifications.addNotificationResponseReceivedListener(
       (response) => {
         const route = getNotificationTargetRoute(response);
-        if (route) {
-          routerRef.current.push(route as Parameters<typeof routerRef.current.push>[0]);
-          const data = response.notification.request.content.data;
-          if (data?.type === "new_order") {
-            onNewOrderTapRef.current?.();
-          }
-        }
+        if (route) handleResponse(response, route);
       }
     );
 

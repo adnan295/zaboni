@@ -102,7 +102,11 @@ export default function CourierProfileScreen() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: trimmed }),
       }) as { name: string };
-      setStats((prev) => prev ? { ...prev, name: updated.name ?? trimmed } : prev);
+      const newName = updated.name ?? trimmed;
+      setStats((prev) => prev
+        ? { ...prev, name: newName }
+        : { name: newName, phone: user?.phone ?? "", role: "courier", deliveredCount: 0, avgRating: null }
+      );
       setEditNameVisible(false);
     } catch {
       Alert.alert("خطأ", "تعذّر حفظ الاسم، حاول مجدداً");
