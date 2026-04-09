@@ -1,11 +1,32 @@
 import { Router, type IRouter } from "express";
 import { db, restaurantsTable, menuItemsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-router.get("/restaurants", async (_req, res) => {
-  const rows = await db.select().from(restaurantsTable).orderBy(restaurantsTable.rating);
+router.get("/restaurants", async (req, res) => {
+  const search = typeof req.query["search"] === "string" ? req.query["search"].trim() : "";
+  const category = typeof req.query["category"] === "string" ? req.query["category"].trim() : "";
+
+  let query = db.select().from(restaurantsTable).$dynamic();
+
+  const conditions = [];
+  if (search) {
+    conditions.push(
+      sql`(${restaurantsTable.name} ILIKE ${"%" + search + "%"} OR ${restaurantsTable.nameAr} ILIKE ${"%" + search + "%"} OR ${restaurantsTable.category} ILIKE ${"%" + search + "%"} OR ${restaurantsTable.categoryAr} ILIKE ${"%" + search + "%"})`
+    );
+  }
+  if (category) {
+    conditions.push(
+      sql`(${restaurantsTable.category} ILIKE ${"%" + category + "%"} OR ${restaurantsTable.categoryAr} ILIKE ${"%" + category + "%"})`
+    );
+  }
+
+  if (conditions.length > 0) {
+    query = query.where(and(...conditions));
+  }
+
+  const rows = await query.orderBy(desc(restaurantsTable.rating));
   res.json(rows);
 });
 

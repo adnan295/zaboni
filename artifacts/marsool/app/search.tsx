@@ -7,6 +7,7 @@ import {
   TextInput,
   ScrollView,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -18,7 +19,7 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import RestaurantCard from "@/components/RestaurantCard";
-import { useGetRestaurants } from "@workspace/api-client-react";
+import { customFetch } from "@workspace/api-client-react";
 
 type SortOption = "fastest" | "rating" | "delivery_fee";
 
@@ -81,20 +82,55 @@ export default function SearchScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const { data: apiRestaurants } = useGetRestaurants();
-  const allRestaurants = apiRestaurants ?? [];
+  type Restaurant = {
+    id: string;
+    name: string;
+    nameAr: string;
+    category: string;
+    categoryAr: string;
+    rating: number;
+    reviewCount: number;
+    deliveryTime: string;
+    deliveryFee: number;
+    minOrder: number;
+    image: string;
+    tags: string[];
+    isOpen: boolean;
+    discount: string | null;
+  };
 
-  const filtered = allRestaurants.filter((r) => {
-    if (!query.trim()) return false;
-    const q = query.trim().toLowerCase();
-    const tags = (r.tags as string[]) ?? [];
-    const matchName =
-      r.nameAr.includes(q) ||
-      r.name.toLowerCase().includes(q) ||
-      tags.some((tag) => tag.toLowerCase().includes(q));
+  const [apiResults, setApiResults] = useState<Restaurant[]>([]);
+  const [searching, setSearching] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!query.trim()) {
+      setApiResults([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const url = `/api/restaurants?search=${encodeURIComponent(query.trim())}`;
+        const data = await customFetch(url) as Restaurant[];
+        setApiResults(Array.isArray(data) ? data : []);
+      } catch {
+        setApiResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [query]);
+
+  const filtered = apiResults.filter((r) => {
     const matchRating = minRating === null || r.rating >= minRating;
     const matchFree = !freeDeliveryOnly || r.deliveryFee === 0;
-    return matchName && matchRating && matchFree;
+    return matchRating && matchFree;
   }).sort((a, b) => {
     if (sortBy === "fastest") {
       const aMin = parseInt(a.deliveryTime.split("-")[0]);
@@ -265,7 +301,13 @@ export default function SearchScreen() {
               </View>
             )}
 
-            {showResults && filtered.length === 0 && (
+            {showResults && searching && (
+              <View style={styles.emptyContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+            )}
+
+            {showResults && !searching && filtered.length === 0 && (
               <View style={styles.emptyContainer}>
                 <View style={[styles.emptyIcon, { backgroundColor: colors.secondary }]}>
                   <MaterialIcons name="search-off" size={40} color={colors.primary} />

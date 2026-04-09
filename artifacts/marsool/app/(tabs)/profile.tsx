@@ -111,8 +111,8 @@ export default function ProfileScreen() {
     { icon: "location-on", label: t("profile.menu.addresses"), onPress: () => router.push("/addresses") },
     { icon: "notifications", label: t("profile.menu.notifications"), onPress: () => router.push("/notifications"), badge: unreadCount > 0 ? unreadCount : undefined },
     { icon: "payment", label: t("profile.menu.payments"), onPress: () => {} },
-    { icon: "help-outline", label: t("profile.menu.support"), onPress: () => {} },
-    { icon: "info-outline", label: t("profile.menu.about"), onPress: () => {} },
+    { icon: "help-outline", label: t("profile.menu.support"), onPress: () => router.push("/support") },
+    { icon: "info-outline", label: t("profile.menu.about"), onPress: () => router.push("/about") },
     { icon: "translate", label: t("profile.menu.language"), onPress: handleLanguage },
   ];
 

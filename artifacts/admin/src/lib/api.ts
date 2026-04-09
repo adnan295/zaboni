@@ -64,6 +64,7 @@ export type Restaurant = {
   isOpen: boolean;
   discount: string | null;
   ordersCount?: number;
+  avgCourierRating?: number | null;
 };
 
 export type MenuItem = {

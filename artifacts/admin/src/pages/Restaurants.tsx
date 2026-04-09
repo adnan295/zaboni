@@ -551,6 +551,7 @@ export default function Restaurants() {
                 <th className="text-left px-4 py-3 font-medium">Name</th>
                 <th className="text-left px-4 py-3 font-medium">Category</th>
                 <th className="text-left px-4 py-3 font-medium">Rating</th>
+                <th className="text-left px-4 py-3 font-medium">Avg Courier Rating</th>
                 <th className="text-left px-4 py-3 font-medium">Fee (ل.س)</th>
                 <th className="text-left px-4 py-3 font-medium">Orders</th>
                 <th className="text-left px-4 py-3 font-medium">Status</th>
@@ -580,6 +581,21 @@ export default function Restaurants() {
                     <span className="text-xs text-muted-foreground ml-1">
                       ({r.reviewCount})
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {r.avgCourierRating != null ? (
+                      <span className="flex items-center gap-1 text-xs">
+                        {[...Array(5)].map((_, i) => (
+                          <span
+                            key={i}
+                            className={i < Math.floor(r.avgCourierRating!) ? "text-yellow-400" : "text-gray-300"}
+                          >★</span>
+                        ))}
+                        <span className="ml-1 text-muted-foreground">{(r.avgCourierRating as number).toFixed(1)}</span>
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     {r.deliveryFee === 0

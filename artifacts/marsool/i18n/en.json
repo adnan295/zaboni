@@ -114,7 +114,8 @@
     "track": "Track Order",
     "chat": "Chat",
     "rate": "Rate Order",
-    "reorder": "Order Again"
+    "reorder": "Order Again",
+    "allLoaded": "All orders loaded"
   },
   "favorites": {
     "title": "Favorites",
@@ -422,6 +423,56 @@
     "pickLocation": "Tap to pick a location",
     "searchPlaceholder": "Search for a neighborhood or street...",
     "webFallback": "Type your address manually or search above"
+  },
+  "support": {
+    "title": "Support",
+    "hero": {
+      "title": "We're here to help",
+      "sub": "Our team is available 7 days a week to assist you with any issue"
+    },
+    "hours": {
+      "title": "Support Hours",
+      "value": "Daily from {{start}} to {{end}}"
+    },
+    "contact": {
+      "title": "Contact Us",
+      "whatsapp": "WhatsApp",
+      "email": "Email",
+      "phone": "Phone"
+    },
+    "faq": {
+      "title": "Common Questions",
+      "items": [
+        { "q": "How do I cancel my order?", "a": "You can cancel your order before a courier accepts it from the order tracking screen." },
+        { "q": "How do I track my order?", "a": "Once a courier accepts your order, you can track them live from the order tracking screen." },
+        { "q": "What payment methods are accepted?", "a": "We currently accept cash on delivery only." }
+      ]
+    }
+  },
+  "about": {
+    "title": "About the App",
+    "tagline": "Fast delivery across Damascus",
+    "version": "Version {{version}} (Build {{build}})",
+    "description": {
+      "title": "About Marsool",
+      "body": "Marsool is a fast delivery app connecting you with the best restaurants in Damascus. Order from our wide selection of restaurants and get your food delivered to your door quickly."
+    },
+    "features": {
+      "title": "Key Features",
+      "items": [
+        "Fast delivery across Damascus",
+        "Real-time order tracking",
+        "Live chat with your courier",
+        "Cash on delivery payment",
+        "Arabic and English support"
+      ]
+    },
+    "legal": {
+      "title": "Legal",
+      "privacy": "Privacy Policy",
+      "terms": "Terms of Service"
+    },
+    "copyright": "© 2025 Marsool. All rights reserved."
   },
   "common": {
     "back": "Back",
