@@ -118,9 +118,10 @@ export function RatingsProvider({ children }: { children: React.ReactNode }) {
         });
       } catch (err: unknown) {
         const status = (err as { status?: number })?.status;
-        if (status !== 409) {
-          throw err;
+        if (status === 409) {
+          return;
         }
+        throw err;
       }
 
       setRatings((prev) => {
