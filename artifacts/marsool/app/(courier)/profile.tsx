@@ -26,6 +26,13 @@ interface CourierStats {
   role: string;
 }
 
+interface SubscriptionStatus {
+  status: "paid" | "waived" | "pending";
+  amount: number;
+  date: string;
+  note?: string | null;
+}
+
 export default function CourierProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -33,6 +40,7 @@ export default function CourierProfileScreen() {
   const { user } = useAuth();
   const { isOnline, isTogglingOnline, toggleAvailability } = useCourier();
   const [stats, setStats] = useState<CourierStats | null>(null);
+  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -42,10 +50,15 @@ export default function CourierProfileScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const data = await customFetch("/api/courier/stats") as CourierStats;
-        setStats(data);
+        const [statsData, subData] = await Promise.all([
+          customFetch("/api/courier/stats") as Promise<CourierStats>,
+          customFetch("/api/courier/subscription/today") as Promise<SubscriptionStatus>,
+        ]);
+        setStats(statsData);
+        setSubscription(subData);
       } catch {
         setStats(null);
+        setSubscription(null);
       } finally {
         setLoading(false);
       }
@@ -152,6 +165,44 @@ export default function CourierProfileScreen() {
               />
             )}
           </View>
+
+          {subscription !== null && (
+            <View style={[
+              styles.subscriptionCard,
+              {
+                backgroundColor: subscription.status === "pending" ? "#fff7ed" : "#f0fdf4",
+                borderColor: subscription.status === "pending" ? "#fed7aa" : "#bbf7d0",
+              },
+            ]}>
+              <View style={styles.subscriptionLeft}>
+                <MaterialIcons
+                  name={subscription.status === "pending" ? "warning" : "check-circle"}
+                  size={22}
+                  color={subscription.status === "pending" ? "#ea580c" : "#16a34a"}
+                />
+                <View>
+                  <Text style={[
+                    styles.subscriptionTitle,
+                    { color: subscription.status === "pending" ? "#c2410c" : "#15803d" },
+                  ]}>
+                    {subscription.status === "paid"
+                      ? "اشتراك اليوم مدفوع ✓"
+                      : subscription.status === "waived"
+                      ? "اشتراك اليوم: معفى ✓"
+                      : "اشتراك اليوم غير مدفوع"}
+                  </Text>
+                  <Text style={[
+                    styles.subscriptionSub,
+                    { color: subscription.status === "pending" ? "#9a3412" : "#166534" },
+                  ]}>
+                    {subscription.status === "pending"
+                      ? "تواصل مع الإدارة لتسوية الاشتراك"
+                      : `${subscription.amount.toLocaleString("ar-SY")} ل.س`}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
 
           <TouchableOpacity
             style={[styles.earningsBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -281,4 +332,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   earningsBtnText: { flex: 1, fontSize: 15, fontWeight: "700" },
+  subscriptionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+  },
+  subscriptionLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
+  subscriptionTitle: { fontSize: 15, fontWeight: "700" },
+  subscriptionSub: { fontSize: 12, marginTop: 2 },
 });

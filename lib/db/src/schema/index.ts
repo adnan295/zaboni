@@ -12,3 +12,5 @@ export * from "./promo_codes";
 export * from "./restaurant_hours";
 export * from "./notification_logs";
 export * from "./delivery_zones";
+export * from "./courier_subscriptions";
+export * from "./system_settings";

@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { db, usersTable, ordersTable, orderStatusHistoryTable, orderRatingsTable } from "@workspace/db";
+import { db, usersTable, ordersTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, systemSettingsTable } from "@workspace/db";
 import { and, eq, ne, avg, count, sql } from "drizzle-orm";
 import { haversineKm as _haversineKm } from "../lib/deliveryZones";
 import { z } from "zod";
@@ -373,6 +373,41 @@ router.get("/courier/earnings", requireCourier, async (req, res) => {
     totalDeliveries: allDeliveries.length,
     recentDeliveries: allDeliveries.slice(0, 50),
   });
+});
+
+const DEFAULT_DAILY_FEE = 5000;
+
+router.get("/courier/subscription/today", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+  const today = new Date().toISOString().slice(0, 10);
+
+  const [subRow, settingRow] = await Promise.all([
+    db
+      .select()
+      .from(courierSubscriptionsTable)
+      .where(and(
+        eq(courierSubscriptionsTable.courierId, courierId),
+        eq(courierSubscriptionsTable.date, today),
+      ))
+      .limit(1),
+    db
+      .select()
+      .from(systemSettingsTable)
+      .where(eq(systemSettingsTable.key, "daily_subscription_fee"))
+      .limit(1),
+  ]);
+
+  const defaultAmount = settingRow[0]?.value
+    ? parseInt(settingRow[0].value, 10) || DEFAULT_DAILY_FEE
+    : DEFAULT_DAILY_FEE;
+
+  if (subRow.length === 0) {
+    res.json({ status: "pending", amount: defaultAmount, date: today });
+    return;
+  }
+
+  const sub = subRow[0]!;
+  res.json({ status: sub.status, amount: sub.amount, date: today, note: sub.note });
 });
 
 export default router;
