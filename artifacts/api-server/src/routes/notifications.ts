@@ -56,9 +56,11 @@ router.post("/admin/notifications/broadcast", async (req, res) => {
   }
 
   const users = await usersQuery;
-  const tokens = users
-    .map((u) => u.pushToken)
-    .filter((t): t is string => !!t && Expo.isExpoPushToken(t));
+  const tokens = [...new Set(
+    users
+      .map((u) => u.pushToken)
+      .filter((t): t is string => !!t && Expo.isExpoPushToken(t))
+  )];
 
   const CHUNK_SIZE = 100;
   let sentCount = 0;
