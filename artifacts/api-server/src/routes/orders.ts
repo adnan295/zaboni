@@ -3,10 +3,7 @@ import { db, ordersTable, orderStatusHistoryTable, orderRatingsTable, restaurant
 import { and, count, desc, eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { notifyOrderUpdate } from "../orders/server";
-import { haversineKm, getFeeForDistance, DEFAULT_DELIVERY_FEE_SYP } from "../lib/deliveryZones";
-
-const DAMASCUS_CENTER_LAT = 33.5138;
-const DAMASCUS_CENTER_LON = 36.2765;
+import { haversineKm, getFeeForDistance, DEFAULT_DELIVERY_FEE_SYP, DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON } from "../lib/deliveryZones";
 
 function randomDamascusCoord(): { lat: number; lon: number } {
   const latSpread = 0.12;
@@ -26,6 +23,7 @@ const createOrderSchema = z.object({
   promoCode: z.string().optional(),
   lat: z.number().min(-90).max(90).optional(),
   lon: z.number().min(-180).max(180).optional(),
+  restaurantId: z.string().optional(),
 });
 
 async function validatePromoForUser(code: string, userId: string, deliveryFee?: number): Promise<{
@@ -74,13 +72,30 @@ async function validatePromoForUser(code: string, userId: string, deliveryFee?: 
 router.get("/delivery-fee-preview", async (req, res) => {
   const latRaw = parseFloat(String(req.query["lat"] ?? ""));
   const lonRaw = parseFloat(String(req.query["lon"] ?? ""));
+  const restaurantId = String(req.query["restaurantId"] ?? "");
 
   if (isNaN(latRaw) || isNaN(lonRaw)) {
     res.status(400).json({ error: "lat and lon query params required" });
     return;
   }
 
-  const distanceKm = haversineKm(DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON, latRaw, lonRaw);
+  let originLat = DAMASCUS_CENTER_LAT;
+  let originLon = DAMASCUS_CENTER_LON;
+
+  if (restaurantId) {
+    const restaurant = await db
+      .select({ lat: restaurantsTable.lat, lon: restaurantsTable.lon })
+      .from(restaurantsTable)
+      .where(eq(restaurantsTable.id, restaurantId))
+      .limit(1);
+    const r = restaurant[0];
+    if (r?.lat != null && r?.lon != null) {
+      originLat = r.lat;
+      originLon = r.lon;
+    }
+  }
+
+  const distanceKm = haversineKm(originLat, originLon, latRaw, lonRaw);
   const { fee, zone } = await getFeeForDistance(distanceKm);
 
   res.json({
@@ -169,7 +184,22 @@ router.post("/orders", async (req, res) => {
   const destLat = body.data.lat ?? (DAMASCUS_CENTER_LAT + (Math.random() - 0.5) * 0.24);
   const destLon = body.data.lon ?? (DAMASCUS_CENTER_LON + (Math.random() - 0.5) * 0.30);
 
-  const distanceKm = haversineKm(DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON, destLat, destLon);
+  let originLat = DAMASCUS_CENTER_LAT;
+  let originLon = DAMASCUS_CENTER_LON;
+  if (body.data.restaurantId) {
+    const restaurant = await db
+      .select({ lat: restaurantsTable.lat, lon: restaurantsTable.lon })
+      .from(restaurantsTable)
+      .where(eq(restaurantsTable.id, body.data.restaurantId))
+      .limit(1);
+    const r = restaurant[0];
+    if (r?.lat != null && r?.lon != null) {
+      originLat = r.lat;
+      originLon = r.lon;
+    }
+  }
+
+  const distanceKm = haversineKm(originLat, originLon, destLat, destLon);
   const { fee: zoneFee } = await getFeeForDistance(distanceKm);
 
   let promoUseData: { promoId: string; discountAmount: number } | null = null;

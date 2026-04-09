@@ -1,5 +1,5 @@
 import { db, deliveryZonesTable } from "@workspace/db";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, desc } from "drizzle-orm";
 
 export function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
@@ -13,9 +13,16 @@ export function haversineKm(lat1: number, lon1: number, lat2: number, lon2: numb
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+export const DAMASCUS_CENTER_LAT = 33.5138;
+export const DAMASCUS_CENTER_LON = 36.2765;
+
 export const DEFAULT_DELIVERY_FEE_SYP = 5000;
 
-export async function getFeeForDistance(distanceKm: number): Promise<{ fee: number; zone: typeof deliveryZonesTable.$inferSelect | null }> {
+export type ZoneFeeResult =
+  | { found: true; fee: number; zone: typeof deliveryZonesTable.$inferSelect }
+  | { found: false; fee: number; zone: null };
+
+export async function getFeeForDistance(distanceKm: number): Promise<ZoneFeeResult> {
   const zones = await db
     .select()
     .from(deliveryZonesTable)
@@ -24,18 +31,25 @@ export async function getFeeForDistance(distanceKm: number): Promise<{ fee: numb
 
   for (const zone of zones) {
     if (distanceKm >= zone.fromKm && distanceKm < zone.toKm) {
-      return { fee: zone.fee, zone };
+      return { found: true, fee: zone.fee, zone };
     }
   }
 
   if (zones.length === 0) {
-    return { fee: DEFAULT_DELIVERY_FEE_SYP, zone: null };
+    return { found: false, fee: DEFAULT_DELIVERY_FEE_SYP, zone: null };
   }
 
-  const lastZone = zones[zones.length - 1]!;
-  if (distanceKm >= lastZone.toKm) {
-    return { fee: lastZone.fee, zone: lastZone };
-  }
+  const highestZone = await db
+    .select()
+    .from(deliveryZonesTable)
+    .where(eq(deliveryZonesTable.isActive, true))
+    .orderBy(desc(deliveryZonesTable.fee))
+    .limit(1);
 
-  return { fee: DEFAULT_DELIVERY_FEE_SYP, zone: null };
+  const fallbackZone = highestZone[0] ?? null;
+  return {
+    found: false,
+    fee: fallbackZone?.fee ?? DEFAULT_DELIVERY_FEE_SYP,
+    zone: null,
+  };
 }
