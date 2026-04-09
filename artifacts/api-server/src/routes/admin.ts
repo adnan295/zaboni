@@ -9,8 +9,9 @@ import {
   promoCodesTable,
   promoUsesTable,
   restaurantHoursTable,
+  deliveryZonesTable,
 } from "@workspace/db";
-import { eq, count, desc, gte, getTableColumns, and, sql, avg } from "drizzle-orm";
+import { eq, count, desc, gte, getTableColumns, and, sql, avg, asc } from "drizzle-orm";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
 import { z } from "zod";
 
@@ -781,6 +782,76 @@ router.get("/admin/financial", async (req, res) => {
     groupBy,
     days,
   });
+});
+
+const deliveryZoneBodySchema = z.object({
+  label: z.string().max(100).nullable().optional(),
+  fromKm: z.number().min(0),
+  toKm: z.number().positive(),
+  fee: z.number().int().min(0),
+  isActive: z.boolean().default(true),
+});
+
+router.get("/admin/delivery-zones", async (_req, res) => {
+  const rows = await db
+    .select()
+    .from(deliveryZonesTable)
+    .orderBy(asc(deliveryZonesTable.fromKm));
+  res.json(rows);
+});
+
+router.post("/admin/delivery-zones", async (req, res) => {
+  const parsed = deliveryZoneBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  if (parsed.data.toKm <= parsed.data.fromKm) {
+    res.status(400).json({ error: "toKm must be greater than fromKm" });
+    return;
+  }
+  const id = `zone_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+  const [row] = await db
+    .insert(deliveryZonesTable)
+    .values({
+      id,
+      label: parsed.data.label ?? null,
+      fromKm: parsed.data.fromKm,
+      toKm: parsed.data.toKm,
+      fee: parsed.data.fee,
+      isActive: parsed.data.isActive,
+    })
+    .returning();
+  res.status(201).json(row);
+});
+
+router.put("/admin/delivery-zones/:id", async (req, res) => {
+  const id = String(req.params["id"]);
+  const parsed = deliveryZoneBodySchema.partial().safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  if (parsed.data.fromKm !== undefined && parsed.data.toKm !== undefined && parsed.data.toKm <= parsed.data.fromKm) {
+    res.status(400).json({ error: "toKm must be greater than fromKm" });
+    return;
+  }
+  const [row] = await db
+    .update(deliveryZonesTable)
+    .set(parsed.data)
+    .where(eq(deliveryZonesTable.id, id))
+    .returning();
+  if (!row) {
+    res.status(404).json({ error: "Zone not found" });
+    return;
+  }
+  res.json(row);
+});
+
+router.delete("/admin/delivery-zones/:id", async (req, res) => {
+  const id = String(req.params["id"]);
+  await db.delete(deliveryZonesTable).where(eq(deliveryZonesTable.id, id));
+  res.status(204).end();
 });
 
 export default router;

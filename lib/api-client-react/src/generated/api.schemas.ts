@@ -73,7 +73,10 @@ export interface CreateOrderRequest {
   orderText: string;
   restaurantName?: string;
   address?: string;
+  userId?: string;
   promoCode?: string;
+  lat?: number;
+  lon?: number;
 }
 
 export type UpdateOrderStatusRequestStatus =
@@ -96,27 +99,34 @@ export interface Address {
   label: string;
   address: string;
   isDefault: boolean;
-  latitude?: number | null;
-  longitude?: number | null;
 }
 
 export interface UpsertAddressRequest {
   label: string;
   address: string;
   isDefault?: boolean;
-  latitude?: number | null;
-  longitude?: number | null;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export type GetOrdersParams = {};
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export type GetAddressesParams = {};
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export type CreateAddressParams = {};
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export type UpdateAddressParams = {};
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export type DeleteAddressParams = {};
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export type SetDefaultAddressParams = {};
+export type GetOrdersParams = {
+  userId?: string;
+};
+
+export type GetAddressesParams = {
+  userId?: string;
+};
+
+export type CreateAddressParams = {
+  userId?: string;
+};
+
+export type UpdateAddressParams = {
+  userId?: string;
+};
+
+export type DeleteAddressParams = {
+  userId?: string;
+};
+
+export type SetDefaultAddressParams = {
+  userId?: string;
+};

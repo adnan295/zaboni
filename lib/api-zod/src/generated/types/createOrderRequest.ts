@@ -11,4 +11,7 @@ export interface CreateOrderRequest {
   restaurantName?: string;
   address?: string;
   userId?: string;
+  promoCode?: string;
+  lat?: number;
+  lon?: number;
 }

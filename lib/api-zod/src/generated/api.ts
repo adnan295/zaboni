@@ -116,6 +116,9 @@ export const CreateOrderBody = zod.object({
   restaurantName: zod.string().optional(),
   address: zod.string().optional(),
   userId: zod.string().optional(),
+  promoCode: zod.string().optional(),
+  lat: zod.number().optional(),
+  lon: zod.number().optional(),
 });
 
 /**

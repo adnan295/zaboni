@@ -45,6 +45,7 @@ Arabic RTL delivery app. Features:
 - `promo_uses` — tracks per-user promo code redemptions (promoId, userId, orderId)
 - `restaurant_hours` — weekly schedules per restaurant (dayOfWeek 0-6, openTime, closeTime, isClosed)
 - `notification_logs` — broadcast push notification history (title, body, target, sentCount, failedCount)
+- `delivery_zones` — zone-based delivery pricing (id, label, fromKm, toKm, fee, isActive); admin-managed; courier keeps 100% of fee
 
 ## API Endpoints (`artifacts/api-server/`)
 
@@ -61,11 +62,16 @@ Arabic RTL delivery app. Features:
 - `DELETE /api/addresses/:id` — delete address
 - `PATCH /api/addresses/:id/default` — set default address
 - `POST /api/orders/validate-promo` — validate a promo code for the current user
-- `GET /api/courier/earnings` — courier earnings summary (today/week/total + recent deliveries)
+- `GET /api/courier/earnings` — courier earnings summary; uses orders.delivery_fee directly (fixed bug)
+- `GET /api/delivery-fee-preview?lat=&lon=` — preview delivery fee by Haversine distance from Damascus center
 - `GET /api/admin/promos` — list all promo codes with use count
 - `POST /api/admin/promos` — create a promo code
 - `PUT /api/admin/promos/:id` — update a promo code
 - `DELETE /api/admin/promos/:id` — delete a promo code
+- `GET /api/admin/delivery-zones` — list delivery zones sorted by fromKm
+- `POST /api/admin/delivery-zones` — create a delivery zone
+- `PUT /api/admin/delivery-zones/:id` — update a delivery zone
+- `DELETE /api/admin/delivery-zones/:id` — delete a delivery zone
 
 ## API Client
 
