@@ -17,6 +17,7 @@ const navItems = [
   { href: "/orders", label: "الطلبات", icon: "📦" },
   { href: "/couriers", label: "المندوبون", icon: "🚴" },
   { href: "/live-map", label: "الخريطة الحية", icon: "🗺️" },
+  { href: "/chats", label: "المحادثات", icon: "💬" },
   { href: "/content", label: "المحتوى", icon: "🖼️" },
   { href: "/courier-applications", label: "طلبات الانضمام", icon: "📋" },
   { href: "/users", label: "المستخدمون", icon: "👤" },

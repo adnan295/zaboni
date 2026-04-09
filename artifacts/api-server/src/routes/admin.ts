@@ -16,6 +16,7 @@ import {
   courierApplicationsTable,
   promoBannersTable,
   restaurantCategoriesTable,
+  chatMessagesTable,
 } from "@workspace/db";
 import { eq, count, desc, gte, lte, getTableColumns, and, sql, avg, asc, lt } from "drizzle-orm";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
@@ -277,6 +278,81 @@ router.get("/admin/orders/active/locations", async (_req, res) => {
       restaurantLon: r["restaurantLon"] != null ? Number(r["restaurantLon"]) : null,
     })),
   );
+});
+
+// ─── Chat Monitor endpoints ───────────────────────────────────────────────
+
+router.get("/admin/chats", async (req, res) => {
+  const search = typeof req.query["q"] === "string" ? req.query["q"].trim() : "";
+
+  const rows = await db.execute(sql`
+    SELECT
+      o.id AS "orderId",
+      o.order_text AS "orderText",
+      o.status,
+      o.created_at AS "orderCreatedAt",
+      cu.name AS "customerName",
+      cu.phone AS "customerPhone",
+      co.name AS "courierName",
+      co.phone AS "courierPhone",
+      COUNT(m.id)::int AS "messageCount",
+      MAX(m.created_at) AS "lastMessageAt",
+      (
+        SELECT m2.text FROM chat_messages m2
+        WHERE m2.order_id = o.id
+        ORDER BY m2.created_at DESC
+        LIMIT 1
+      ) AS "lastMessageText"
+    FROM orders o
+    INNER JOIN chat_messages m ON m.order_id = o.id
+    LEFT JOIN users cu ON cu.id = o.user_id
+    LEFT JOIN users co ON co.id = o.courier_id
+    ${
+      search
+        ? sql`WHERE (cu.name ILIKE ${"%" + search + "%"} OR cu.phone ILIKE ${"%" + search + "%"} OR co.name ILIKE ${"%" + search + "%"} OR co.phone ILIKE ${"%" + search + "%"} OR CAST(o.id AS text) ILIKE ${"%" + search + "%"})`
+        : sql``
+    }
+    GROUP BY o.id, o.order_text, o.status, o.created_at, cu.name, cu.phone, co.name, co.phone
+    ORDER BY MAX(m.created_at) DESC
+    LIMIT 200
+  `);
+
+  res.json(rows.rows);
+});
+
+router.get("/admin/chats/:orderId", async (req, res) => {
+  const orderId = String(req.params["orderId"]);
+
+  const [[order], messages] = await Promise.all([
+    db
+      .select({
+        id: ordersTable.id,
+        orderText: ordersTable.orderText,
+        status: ordersTable.status,
+        createdAt: ordersTable.createdAt,
+      })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId))
+      .limit(1),
+    db
+      .select({
+        id: chatMessagesTable.id,
+        senderId: chatMessagesTable.senderId,
+        senderRole: chatMessagesTable.senderRole,
+        text: chatMessagesTable.text,
+        createdAt: chatMessagesTable.createdAt,
+      })
+      .from(chatMessagesTable)
+      .where(eq(chatMessagesTable.orderId, orderId))
+      .orderBy(asc(chatMessagesTable.createdAt)),
+  ]);
+
+  if (!order) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+
+  res.json({ order, messages });
 });
 
 router.get("/admin/restaurants", async (_req, res) => {
