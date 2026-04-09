@@ -68,7 +68,7 @@ export default function ActiveOrderScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t } = useTranslation();
-  const { activeOrders, updateDeliveryStatus, refreshActiveOrders, refreshAvailableOrders, isOnline } = useCourier();
+  const { activeOrders, updateDeliveryStatus, refreshActiveOrders, refreshAvailableOrders } = useCourier();
   const [updating, setUpdating] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 

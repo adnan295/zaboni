@@ -5,7 +5,6 @@ import { inArray } from "drizzle-orm";
 const router: IRouter = Router();
 
 const DEFAULT_PHONE = process.env.ADMIN_PHONE || "+963999000111";
-const DEFAULT_WHATSAPP = process.env.ADMIN_WHATSAPP || DEFAULT_PHONE;
 
 router.get("/config/contact", async (_req, res) => {
   try {
@@ -19,12 +18,12 @@ router.get("/config/contact", async (_req, res) => {
       map[r.key] = r.value;
     }
 
-    res.json({
-      phone: map["contact_phone"] || DEFAULT_PHONE,
-      whatsapp: map["contact_whatsapp"] || DEFAULT_WHATSAPP,
-    });
+    const phone = map["contact_phone"] || DEFAULT_PHONE;
+    const whatsapp = map["contact_whatsapp"] || phone;
+
+    res.json({ phone, whatsapp });
   } catch {
-    res.json({ phone: DEFAULT_PHONE, whatsapp: DEFAULT_WHATSAPP });
+    res.json({ phone: DEFAULT_PHONE, whatsapp: DEFAULT_PHONE });
   }
 });
 
