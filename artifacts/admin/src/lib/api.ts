@@ -150,6 +150,53 @@ export type RatingsPage = {
   avgCourierStars: number | null;
 };
 
+export type RestaurantHour = {
+  id: string;
+  restaurantId: string;
+  dayOfWeek: number;
+  openTime: string;
+  closeTime: string;
+  isClosed: boolean;
+};
+
+export type NotificationLog = {
+  id: string;
+  title: string;
+  body: string;
+  target: "all" | "customers" | "couriers";
+  sentCount: number;
+  failedCount: number;
+  createdAt: string;
+};
+
+export type BroadcastResult = {
+  success: boolean;
+  sentCount: number;
+  failedCount: number;
+  total: number;
+};
+
+export type FinancialReport = {
+  summary: {
+    totalOrders: number;
+    deliveredOrders: number;
+    cancelledOrders: number;
+    totalRevenue: number;
+  };
+  byRestaurant: {
+    restaurantName: string;
+    totalOrders: number;
+    deliveredOrders: number;
+    revenue: number;
+  }[];
+  dailyRevenue: {
+    date: string;
+    revenue: number;
+    orders: number;
+  }[];
+  days: number;
+};
+
 export type PromoCode = {
   id: string;
   code: string;
@@ -250,4 +297,23 @@ export const api = {
     }),
   deletePromo: (id: string) =>
     apiFetch<void>(`/admin/promos/${id}`, { method: "DELETE" }),
+
+  getRestaurantHours: (restaurantId: string) =>
+    apiFetch<RestaurantHour[]>(`/admin/restaurants/${restaurantId}/hours`),
+  updateRestaurantHours: (restaurantId: string, hours: Omit<RestaurantHour, "id" | "restaurantId">[]) =>
+    apiFetch<RestaurantHour[]>(`/admin/restaurants/${restaurantId}/hours`, {
+      method: "PUT",
+      body: JSON.stringify(hours),
+    }),
+
+  broadcastNotification: (data: { title: string; body: string; target: "all" | "customers" | "couriers" }) =>
+    apiFetch<BroadcastResult>("/admin/notifications/broadcast", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  getNotificationHistory: () =>
+    apiFetch<NotificationLog[]>("/admin/notifications/history"),
+
+  getFinancialReport: (days?: number) =>
+    apiFetch<FinancialReport>(`/admin/financial${days ? `?days=${days}` : ""}`),
 };
