@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, type Restaurant, type MenuItem } from "@/lib/api";
+import { api, type Restaurant, type MenuItem, type RestaurantHour } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -475,11 +475,109 @@ function MenuDialog({
   );
 }
 
+const DAY_NAMES = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+
+function HoursDialog({
+  restaurant,
+  onClose,
+}: {
+  restaurant: Restaurant;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const { data: initialHours, isLoading } = useQuery({
+    queryKey: ["admin", "restaurant-hours", restaurant.id],
+    queryFn: () => api.getRestaurantHours(restaurant.id),
+  });
+
+  const [hours, setHours] = useState<Omit<RestaurantHour, "id" | "restaurantId">[] | null>(null);
+
+  const displayHours = hours ?? (initialHours ? initialHours.map((h) => ({
+    dayOfWeek: h.dayOfWeek,
+    openTime: h.openTime,
+    closeTime: h.closeTime,
+    isClosed: h.isClosed,
+  })) : DAY_NAMES.map((_, i) => ({ dayOfWeek: i, openTime: "09:00", closeTime: "22:00", isClosed: false })));
+
+  const updateHour = (dayOfWeek: number, field: string, value: unknown) => {
+    setHours(displayHours.map((h) =>
+      h.dayOfWeek === dayOfWeek ? { ...h, [field]: value } : h
+    ));
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: (h: Omit<RestaurantHour, "id" | "restaurantId">[]) =>
+      api.updateRestaurantHours(restaurant.id, h),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "restaurant-hours", restaurant.id] });
+      qc.invalidateQueries({ queryKey: ["admin", "restaurants"] });
+      onClose();
+    },
+  });
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            Working Hours — <span dir="rtl">{restaurant.nameAr}</span>
+          </DialogTitle>
+        </DialogHeader>
+        {isLoading ? (
+          <div className="py-8 text-center text-muted-foreground text-sm">Loading...</div>
+        ) : (
+          <div className="space-y-3 py-2">
+            {displayHours.map((h) => (
+              <div key={h.dayOfWeek} className="flex items-center gap-3">
+                <div className="w-20 text-sm font-medium text-right" dir="rtl">{DAY_NAMES[h.dayOfWeek]}</div>
+                <input
+                  type="checkbox"
+                  checked={h.isClosed}
+                  onChange={(e) => updateHour(h.dayOfWeek, "isClosed", e.target.checked)}
+                  className="w-4 h-4 accent-red-500"
+                  title="Closed all day"
+                />
+                <span className="text-xs text-muted-foreground w-12">مغلق</span>
+                <Input
+                  type="time"
+                  value={h.openTime}
+                  onChange={(e) => updateHour(h.dayOfWeek, "openTime", e.target.value)}
+                  disabled={h.isClosed}
+                  className="h-8 text-xs w-28"
+                />
+                <span className="text-xs text-muted-foreground">—</span>
+                <Input
+                  type="time"
+                  value={h.closeTime}
+                  onChange={(e) => updateHour(h.dayOfWeek, "closeTime", e.target.value)}
+                  disabled={h.isClosed}
+                  className="h-8 text-xs w-28"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={() => saveMutation.mutate(displayHours)}
+            disabled={saveMutation.isPending || isLoading}
+          >
+            {saveMutation.isPending ? "Saving..." : "Save Hours"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Restaurants() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editRestaurant, setEditRestaurant] = useState<Restaurant | null>(null);
   const [menuRestaurant, setMenuRestaurant] = useState<Restaurant | null>(null);
+  const [hoursRestaurant, setHoursRestaurant] = useState<Restaurant | null>(null);
   const [search, setSearch] = useState("");
 
   const { data: restaurants = [], isLoading } = useQuery({
@@ -628,6 +726,14 @@ export default function Restaurants() {
                         size="sm"
                         variant="outline"
                         className="h-7 px-2 text-xs"
+                        onClick={() => setHoursRestaurant(r)}
+                      >
+                        Hours
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-xs"
                         onClick={() => setEditRestaurant(r)}
                       >
                         Edit
@@ -683,6 +789,13 @@ export default function Restaurants() {
         <MenuDialog
           restaurant={menuRestaurant}
           onClose={() => setMenuRestaurant(null)}
+        />
+      )}
+
+      {hoursRestaurant && (
+        <HoursDialog
+          restaurant={hoursRestaurant}
+          onClose={() => setHoursRestaurant(null)}
         />
       )}
     </div>

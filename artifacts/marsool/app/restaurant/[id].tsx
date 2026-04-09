@@ -198,19 +198,31 @@ export default function RestaurantScreen() {
       </ScrollView>
 
       <View style={[styles.orderFooter, { backgroundColor: colors.background, paddingBottom: bottomPadding + 12, borderTopColor: colors.border }]}>
+        {!restaurant.isOpen && (
+          <View style={[styles.closedBanner, { backgroundColor: "rgba(0,0,0,0.08)" }]}>
+            <MaterialIcons name="access-time" size={16} color={colors.mutedForeground} />
+            <Text style={[styles.closedBannerText, { color: colors.mutedForeground }]}>
+              {t("restaurant.closed")}
+            </Text>
+          </View>
+        )}
         <TouchableOpacity
-          style={[styles.orderBtn, { backgroundColor: colors.primary }]}
+          style={[styles.orderBtn, { backgroundColor: restaurant.isOpen ? colors.primary : colors.muted }]}
           onPress={() => {
+            if (!restaurant.isOpen) return;
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             router.push({
               pathname: "/order-request",
               params: { restaurantName: restaurant.nameAr, deliveryFee: restaurant.deliveryFee.toString() },
             });
           }}
-          activeOpacity={0.85}
+          activeOpacity={restaurant.isOpen ? 0.85 : 1}
+          disabled={!restaurant.isOpen}
         >
-          <MaterialIcons name="edit-note" size={22} color="#fff" />
-          <Text style={styles.orderBtnText}>{t("restaurant.orderNow")}</Text>
+          <MaterialIcons name="edit-note" size={22} color={restaurant.isOpen ? "#fff" : colors.mutedForeground} />
+          <Text style={[styles.orderBtnText, { color: restaurant.isOpen ? "#fff" : colors.mutedForeground }]}>
+            {restaurant.isOpen ? t("restaurant.orderNow") : t("restaurant.closed")}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -322,5 +334,15 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 6,
   },
-  orderBtnText: { color: "#fff", fontSize: 17, fontWeight: "700" },
+  orderBtnText: { fontSize: 17, fontWeight: "700" },
+  closedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 10,
+    marginBottom: 8,
+  },
+  closedBannerText: { fontSize: 14, fontWeight: "700" },
 });

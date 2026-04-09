@@ -8,6 +8,7 @@ import {
   orderRatingsTable,
   promoCodesTable,
   promoUsesTable,
+  restaurantHoursTable,
 } from "@workspace/db";
 import { eq, count, desc, gte, getTableColumns, and, sql, avg } from "drizzle-orm";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
@@ -585,6 +586,171 @@ router.delete("/admin/promos/:id", async (req, res) => {
   await db.delete(promoUsesTable).where(eq(promoUsesTable.promoId, id));
   await db.delete(promoCodesTable).where(eq(promoCodesTable.id, id));
   res.status(204).end();
+});
+
+const DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+
+function buildDefaultHours(restaurantId: string) {
+  return DAYS.map((_, i) => ({
+    id: `rh_${restaurantId}_${i}`,
+    restaurantId,
+    dayOfWeek: i,
+    openTime: "09:00",
+    closeTime: "22:00",
+    isClosed: false,
+  }));
+}
+
+router.get("/admin/restaurants/:id/hours", async (req, res) => {
+  const id = String(req.params["id"]);
+  const rows = await db
+    .select()
+    .from(restaurantHoursTable)
+    .where(eq(restaurantHoursTable.restaurantId, id))
+    .orderBy(restaurantHoursTable.dayOfWeek);
+
+  if (rows.length === 0) {
+    res.json(buildDefaultHours(id));
+    return;
+  }
+  res.json(rows);
+});
+
+const hoursBodySchema = z.array(
+  z.object({
+    dayOfWeek: z.number().int().min(0).max(6),
+    openTime: z.string().regex(/^\d{2}:\d{2}$/),
+    closeTime: z.string().regex(/^\d{2}:\d{2}$/),
+    isClosed: z.boolean(),
+  })
+);
+
+router.put("/admin/restaurants/:id/hours", async (req, res) => {
+  const restaurantId = String(req.params["id"]);
+  const parsed = hoursBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  await db.delete(restaurantHoursTable).where(eq(restaurantHoursTable.restaurantId, restaurantId));
+
+  const rows = parsed.data.map((h) => ({
+    id: `rh_${restaurantId}_${h.dayOfWeek}`,
+    restaurantId,
+    dayOfWeek: h.dayOfWeek,
+    openTime: h.openTime,
+    closeTime: h.closeTime,
+    isClosed: h.isClosed,
+  }));
+
+  await db.insert(restaurantHoursTable).values(rows);
+
+  const nowDamascus = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Damascus" }));
+  const dayOfWeek = nowDamascus.getDay();
+  const todayHours = rows.find((r) => r.dayOfWeek === dayOfWeek);
+  const isOpen = computeIsOpen(todayHours ?? null, nowDamascus);
+  await db.update(restaurantsTable).set({ isOpen }).where(eq(restaurantsTable.id, restaurantId));
+
+  res.json(rows);
+});
+
+function computeIsOpen(
+  hours: { openTime: string; closeTime: string; isClosed: boolean } | null,
+  nowDamascus: Date
+): boolean {
+  if (!hours || hours.isClosed) return false;
+  const [oh, om] = hours.openTime.split(":").map(Number) as [number, number];
+  const [ch, cm] = hours.closeTime.split(":").map(Number) as [number, number];
+  const nowMinutes = nowDamascus.getHours() * 60 + nowDamascus.getMinutes();
+  const openMinutes = oh * 60 + (om ?? 0);
+  const closeMinutes = ch * 60 + (cm ?? 0);
+  if (openMinutes <= closeMinutes) {
+    return nowMinutes >= openMinutes && nowMinutes < closeMinutes;
+  }
+  return nowMinutes >= openMinutes || nowMinutes < closeMinutes;
+}
+
+router.get("/admin/financial", async (req, res) => {
+  const daysRaw = parseInt(String(req.query["days"] ?? "30"));
+  const days = [7, 14, 30, 90].includes(daysRaw) ? daysRaw : 30;
+
+  const [totalRow, byRestaurant, dailyRevenue] = await Promise.all([
+    db.execute(sql`
+      SELECT
+        COUNT(*)::int AS "totalOrders",
+        COUNT(*) FILTER (WHERE status = 'delivered')::int AS "deliveredOrders",
+        COUNT(*) FILTER (WHERE status = 'cancelled')::int AS "cancelledOrders",
+        COALESCE(SUM(r.delivery_fee) FILTER (WHERE o.status = 'delivered'), 0)::numeric AS "totalRevenue"
+      FROM orders o
+      LEFT JOIN restaurants r
+        ON r.name = o.restaurant_name OR r.name_ar = o.restaurant_name
+      WHERE o.created_at >= NOW() - CAST(${days} || ' days' AS INTERVAL)
+    `),
+    db.execute(sql`
+      SELECT
+        o.restaurant_name AS "restaurantName",
+        COUNT(*)::int AS "totalOrders",
+        COUNT(*) FILTER (WHERE o.status = 'delivered')::int AS "deliveredOrders",
+        COALESCE(SUM(r.delivery_fee) FILTER (WHERE o.status = 'delivered'), 0)::numeric AS "revenue"
+      FROM orders o
+      LEFT JOIN restaurants r
+        ON r.name = o.restaurant_name OR r.name_ar = o.restaurant_name
+      WHERE o.created_at >= NOW() - CAST(${days} || ' days' AS INTERVAL)
+      GROUP BY o.restaurant_name
+      ORDER BY "revenue" DESC
+      LIMIT 20
+    `),
+    db.execute(sql`
+      WITH date_series AS (
+        SELECT TO_CHAR(
+          generate_series(
+            (NOW() AT TIME ZONE 'Asia/Damascus' - CAST(${days - 1} || ' days' AS INTERVAL))::date,
+            (NOW() AT TIME ZONE 'Asia/Damascus')::date,
+            '1 day'::interval
+          ),
+          'YYYY-MM-DD'
+        ) AS date
+      ),
+      daily AS (
+        SELECT
+          TO_CHAR(DATE_TRUNC('day', o.created_at AT TIME ZONE 'Asia/Damascus'), 'YYYY-MM-DD') AS date,
+          COALESCE(SUM(r.delivery_fee) FILTER (WHERE o.status = 'delivered'), 0)::numeric AS revenue,
+          COUNT(*) FILTER (WHERE o.status = 'delivered')::int AS orders
+        FROM orders o
+        LEFT JOIN restaurants r
+          ON r.name = o.restaurant_name OR r.name_ar = o.restaurant_name
+        WHERE o.created_at >= NOW() - CAST(${days} || ' days' AS INTERVAL)
+        GROUP BY DATE_TRUNC('day', o.created_at AT TIME ZONE 'Asia/Damascus')
+      )
+      SELECT d.date, COALESCE(dl.revenue, 0)::numeric AS revenue, COALESCE(dl.orders, 0)::int AS orders
+      FROM date_series d
+      LEFT JOIN daily dl ON dl.date = d.date
+      ORDER BY d.date
+    `),
+  ]);
+
+  const summary = totalRow.rows[0] as Record<string, unknown>;
+  res.json({
+    summary: {
+      totalOrders: Number(summary["totalOrders"] ?? 0),
+      deliveredOrders: Number(summary["deliveredOrders"] ?? 0),
+      cancelledOrders: Number(summary["cancelledOrders"] ?? 0),
+      totalRevenue: Number(summary["totalRevenue"] ?? 0),
+    },
+    byRestaurant: byRestaurant.rows.map((r: Record<string, unknown>) => ({
+      restaurantName: r["restaurantName"],
+      totalOrders: Number(r["totalOrders"] ?? 0),
+      deliveredOrders: Number(r["deliveredOrders"] ?? 0),
+      revenue: Number(r["revenue"] ?? 0),
+    })),
+    dailyRevenue: dailyRevenue.rows.map((r: Record<string, unknown>) => ({
+      date: r["date"],
+      revenue: Number(r["revenue"] ?? 0),
+      orders: Number(r["orders"] ?? 0),
+    })),
+    days,
+  });
 });
 
 export default router;

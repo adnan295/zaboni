@@ -43,6 +43,8 @@ Arabic RTL delivery app. Features:
 - `addresses` — user delivery addresses with default flag
 - `promo_codes` — discount codes (percent/fixed, max_uses, expiry, isActive)
 - `promo_uses` — tracks per-user promo code redemptions (promoId, userId, orderId)
+- `restaurant_hours` — weekly schedules per restaurant (dayOfWeek 0-6, openTime, closeTime, isClosed)
+- `notification_logs` — broadcast push notification history (title, body, target, sentCount, failedCount)
 
 ## API Endpoints (`artifacts/api-server/`)
 
