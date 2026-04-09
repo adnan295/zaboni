@@ -82,8 +82,14 @@ export default function ProfileScreen() {
       await customFetch("/api/courier/register", { method: "POST" });
       await refreshRole();
       Alert.alert(t("profile.courier.successTitle"), t("profile.courier.successMsg"));
-    } catch {
-      Alert.alert(t("common.error"), t("common.retry"));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[courier/register]", msg);
+      if (msg.includes("401") || msg.includes("Authentication")) {
+        Alert.alert(t("common.error"), t("auth.sessionExpired"));
+      } else {
+        Alert.alert(t("common.error"), t("common.retry"));
+      }
     } finally {
       setRegistering(false);
     }
