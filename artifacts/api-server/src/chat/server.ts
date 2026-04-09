@@ -10,11 +10,7 @@ import { logger } from "../lib/logger";
 import type { AuthPayload } from "../middleware/auth";
 
 function getJwtSecret(): string | null {
-  const secret = process.env["JWT_SECRET"];
-  if (!secret && process.env["NODE_ENV"] !== "production") {
-    return "marsool-dev-secret-change-in-production-please";
-  }
-  return secret ?? null;
+  return process.env["JWT_SECRET"] ?? null;
 }
 
 const expo = new Expo();

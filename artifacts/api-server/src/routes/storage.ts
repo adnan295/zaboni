@@ -13,16 +13,9 @@ const objectStorageService = new ObjectStorageService();
 const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
-const DEV_JWT_SECRET = "marsool-dev-secret-change-in-production-please";
-
 function getJwtSecret(): string {
   const secret = process.env["JWT_SECRET"];
-  if (!secret) {
-    if (process.env["NODE_ENV"] === "production") {
-      throw new Error("JWT_SECRET is not set in production");
-    }
-    return DEV_JWT_SECRET;
-  }
+  if (!secret) throw new Error("JWT_SECRET is not configured");
   return secret;
 }
 

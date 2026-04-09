@@ -20,12 +20,8 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-const DEV_JWT_SECRET = "marsool-dev-secret-change-in-production-please";
-
 function getJwtSecret(): string | null {
-  const secret = process.env["JWT_SECRET"];
-  if (!secret && process.env["NODE_ENV"] !== "production") return DEV_JWT_SECRET;
-  return secret ?? null;
+  return process.env["JWT_SECRET"] ?? null;
 }
 
 interface AuthenticatedSocket extends Socket {

@@ -1,12 +1,8 @@
 import { type Request, type Response, type NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
-const DEV_JWT_SECRET = "marsool-dev-secret-change-in-production-please";
-
 function getJwtSecret(): string | null {
-  const secret = process.env["JWT_SECRET"];
-  if (!secret && process.env["NODE_ENV"] !== "production") return DEV_JWT_SECRET;
-  return secret ?? null;
+  return process.env["JWT_SECRET"] ?? null;
 }
 
 export interface AuthPayload {
