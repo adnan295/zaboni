@@ -25,6 +25,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useGetRestaurants } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { getApiBaseUrl } from "@/lib/apiConfig";
+import { CATEGORIES } from "@/data/restaurants";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const BANNER_WIDTH = SCREEN_WIDTH - 32;
@@ -50,18 +51,32 @@ type RestaurantCategory = {
   isActive: boolean;
 };
 
+const FALLBACK_BANNERS: PromoBanner[] = [
+  { id: "f1", titleAr: "توصيل سريع لباب بيتك", titleEn: "Fast delivery to your door", subtitleAr: "أطلب الآن وتابع المندوب مباشرة على الخريطة", subtitleEn: "Order now and track your courier on the map", iconName: "delivery-dining", bgColor: "#FF6B00", sortOrder: 0, isActive: true },
+  { id: "f2", titleAr: "أفضل المطاعم في دمشق", titleEn: "Best restaurants in Damascus", subtitleAr: "اكتشف قائمة متنوعة من البرغر، البيتزا، المشاوي وأكثر", subtitleEn: "Discover burgers, pizza, grills and more", iconName: "restaurant", bgColor: "#1e40af", sortOrder: 1, isActive: true },
+  { id: "f3", titleAr: "ادفع عند الاستلام", titleEn: "Pay on delivery", subtitleAr: "لا حاجة لبطاقة بنكية — ادفع نقداً عند وصول طلبك", subtitleEn: "No bank card needed — pay cash when your order arrives", iconName: "payments", bgColor: "#065f46", sortOrder: 2, isActive: true },
+];
+
+const FALLBACK_CATEGORIES: RestaurantCategory[] = CATEGORIES
+  .filter((c) => c.id !== "all")
+  .map((c, i) => ({ id: c.id, nameAr: c.name, nameEn: c.id, iconName: c.icon, sortOrder: i, isActive: true }));
+
 async function fetchBanners(): Promise<PromoBanner[]> {
   const base = getApiBaseUrl();
   const res = await fetch(`${base}/api/banners`);
-  if (!res.ok) return [];
-  return res.json();
+  if (!res.ok) throw new Error("fetch failed");
+  const data: PromoBanner[] = await res.json();
+  if (data.length === 0) return FALLBACK_BANNERS;
+  return data;
 }
 
 async function fetchCategories(): Promise<RestaurantCategory[]> {
   const base = getApiBaseUrl();
   const res = await fetch(`${base}/api/categories`);
-  if (!res.ok) return [];
-  return res.json();
+  if (!res.ok) throw new Error("fetch failed");
+  const data: RestaurantCategory[] = await res.json();
+  if (data.length === 0) return FALLBACK_CATEGORIES;
+  return data;
 }
 
 const ALL_CATEGORY = { id: "all", nameAr: "الكل", nameEn: "All", iconName: "grid-view" };
@@ -79,8 +94,8 @@ export default function HomeScreen() {
   const { user } = useAuth();
 
   const { data: apiRestaurants, isLoading: restaurantsLoading, refetch } = useGetRestaurants();
-  const { data: apiBanners = [] } = useQuery({ queryKey: ["banners"], queryFn: fetchBanners, staleTime: 5 * 60 * 1000 });
-  const { data: apiCategories = [] } = useQuery({ queryKey: ["categories"], queryFn: fetchCategories, staleTime: 5 * 60 * 1000 });
+  const { data: apiBanners = FALLBACK_BANNERS } = useQuery({ queryKey: ["banners"], queryFn: fetchBanners, staleTime: 5 * 60 * 1000, placeholderData: FALLBACK_BANNERS });
+  const { data: apiCategories = FALLBACK_CATEGORIES } = useQuery({ queryKey: ["categories"], queryFn: fetchCategories, staleTime: 5 * 60 * 1000, placeholderData: FALLBACK_CATEGORIES });
 
   const [refreshing, setRefreshing] = useState(false);
 

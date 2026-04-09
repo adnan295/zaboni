@@ -439,7 +439,7 @@ export const api = {
   createBanner: (data: Omit<PromoBanner, "id" | "createdAt" | "updatedAt">) =>
     apiFetch<PromoBanner>("/admin/banners", { method: "POST", body: JSON.stringify(data) }),
   updateBanner: (id: string, data: Partial<Omit<PromoBanner, "id" | "createdAt" | "updatedAt">>) =>
-    apiFetch<PromoBanner>(`/admin/banners/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    apiFetch<PromoBanner>(`/admin/banners/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteBanner: (id: string) =>
     apiFetch<void>(`/admin/banners/${id}`, { method: "DELETE" }),
 
@@ -447,7 +447,7 @@ export const api = {
   createCategory: (data: Omit<RestaurantCategory, "id" | "createdAt" | "updatedAt">) =>
     apiFetch<RestaurantCategory>("/admin/categories", { method: "POST", body: JSON.stringify(data) }),
   updateCategory: (id: string, data: Partial<Omit<RestaurantCategory, "id" | "createdAt" | "updatedAt">>) =>
-    apiFetch<RestaurantCategory>(`/admin/categories/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    apiFetch<RestaurantCategory>(`/admin/categories/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteCategory: (id: string) =>
     apiFetch<void>(`/admin/categories/${id}`, { method: "DELETE" }),
 
