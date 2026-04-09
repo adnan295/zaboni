@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Platform,
   RefreshControl,
+  TextInput,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -50,6 +51,7 @@ export default function OrderHistoryScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
@@ -75,7 +77,17 @@ export default function OrderHistoryScreen() {
     loadData(true);
   };
 
-  const totalEarnings = orders.reduce((s, o) => s + o.deliveryFee, 0);
+  const filteredOrders = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return orders;
+    return orders.filter((o) =>
+      (o.restaurantName || "").toLowerCase().includes(q) ||
+      (o.address || "").toLowerCase().includes(q) ||
+      (o.orderText || "").toLowerCase().includes(q)
+    );
+  }, [orders, searchQuery]);
+
+  const totalEarnings = filteredOrders.reduce((s, o) => s + o.deliveryFee, 0);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -107,8 +119,8 @@ export default function OrderHistoryScreen() {
           {orders.length > 0 && (
             <View style={[styles.summaryBar, { backgroundColor: colors.primary }]}>
               <View style={styles.summaryItem}>
-                <Text style={styles.summaryValue}>{orders.length}</Text>
-                <Text style={styles.summaryLabel}>توصيلة</Text>
+                <Text style={styles.summaryValue}>{filteredOrders.length}</Text>
+                <Text style={styles.summaryLabel}>توصيلة{searchQuery ? " (نتائج)" : ""}</Text>
               </View>
               <View style={styles.summaryDivider} />
               <View style={styles.summaryItem}>
@@ -118,8 +130,29 @@ export default function OrderHistoryScreen() {
             </View>
           )}
 
+          {/* Search bar */}
+          {orders.length > 0 && (
+            <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <MaterialIcons name="search" size={20} color={colors.mutedForeground} />
+              <TextInput
+                style={[styles.searchInput, { color: colors.foreground }]}
+                placeholder="بحث في السجل..."
+                placeholderTextColor={colors.mutedForeground}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                textAlign="right"
+                returnKeyType="search"
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery("")}>
+                  <MaterialIcons name="close" size={18} color={colors.mutedForeground} />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
           <FlatList
-            data={orders}
+            data={filteredOrders}
             keyExtractor={(item) => item.id}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
@@ -127,14 +160,16 @@ export default function OrderHistoryScreen() {
             contentContainerStyle={[
               styles.list,
               { paddingBottom: bottomPadding + 20 },
-              orders.length === 0 && styles.emptyContainer,
+              filteredOrders.length === 0 && styles.emptyContainer,
             ]}
             ListEmptyComponent={
               <View style={styles.emptyBox}>
                 <MaterialIcons name="history" size={56} color={colors.border} />
-                <Text style={[styles.emptyTitle, { color: colors.foreground }]}>لا توجد توصيلات بعد</Text>
+                <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+                  {searchQuery ? "لا توجد نتائج مطابقة" : "لا توجد توصيلات بعد"}
+                </Text>
                 <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
-                  ستظهر هنا جميع توصيلاتك المكتملة
+                  {searchQuery ? "جرّب كلمة بحث مختلفة" : "ستظهر هنا جميع توصيلاتك المكتملة"}
                 </Text>
               </View>
             }
@@ -219,6 +254,22 @@ const styles = StyleSheet.create({
   summaryValue: { fontSize: 22, fontWeight: "900", color: "#fff" },
   summaryLabel: { fontSize: 12, color: "rgba(255,255,255,0.8)", fontWeight: "600" },
   summaryDivider: { width: 1, height: 36, backgroundColor: "rgba(255,255,255,0.3)" },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 16,
+    marginVertical: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    paddingVertical: 0,
+  },
   list: { padding: 16, gap: 10 },
   emptyContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   emptyBox: { alignItems: "center", gap: 12, paddingVertical: 60 },

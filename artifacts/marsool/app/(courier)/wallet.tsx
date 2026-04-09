@@ -186,7 +186,7 @@ export default function WalletScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPadding + 16, backgroundColor: colors.primary }]}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <MaterialIcons name="arrow-forward-ios" size={22} color="#fff" />
+          <MaterialIcons name="arrow-back" size={22} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>محفظتي</Text>
       </View>

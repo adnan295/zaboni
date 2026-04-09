@@ -68,7 +68,7 @@ export default function ActiveOrderScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t } = useTranslation();
-  const { activeOrders, updateDeliveryStatus, refreshActiveOrders, refreshAvailableOrders } = useCourier();
+  const { activeOrders, updateDeliveryStatus, refreshActiveOrders, refreshAvailableOrders, isOnline } = useCourier();
   const [updating, setUpdating] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
@@ -114,7 +114,7 @@ export default function ActiveOrderScreen() {
       await updateDeliveryStatus(orderId, status);
       if (status === "delivered") {
         router.push(`/(courier)/rate-customer?orderId=${orderId}`);
-        refreshActiveOrders();
+        await Promise.all([refreshActiveOrders(), refreshAvailableOrders()]);
       }
     } catch {
       Alert.alert(t("common.error"), t("common.retry"));
@@ -287,8 +287,8 @@ export default function ActiveOrderScreen() {
                     latitudeDelta: 0.01,
                     longitudeDelta: 0.01,
                   }}
-                  scrollEnabled={false}
-                  zoomEnabled={false}
+                  scrollEnabled={true}
+                  zoomEnabled={true}
                   pitchEnabled={false}
                   rotateEnabled={false}
                 >

@@ -9,12 +9,14 @@ import courierRouter from "./courier";
 import adminRouter from "./admin";
 import favoritesRouter from "./favorites";
 import notificationsRouter from "./notifications";
+import configRouter from "./config";
 import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(authRouter);
+router.use(configRouter);
 router.use(restaurantsRouter);
 router.use(adminRouter);
 router.use(notificationsRouter);

@@ -138,8 +138,6 @@ function OrderCard({
   );
 }
 
-const AUTO_OFFLINE_THRESHOLD = 3;
-
 export default function AvailableOrdersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -155,51 +153,9 @@ export default function AvailableOrdersScreen() {
     toggleAvailability,
   } = useCourier();
   const locationWatcher = useRef<Location.LocationSubscription | null>(null);
-  const prevOrderIds = useRef<Set<string>>(new Set());
-  const missedCount = useRef(0);
-  const isFirstLoad = useRef(true);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
-
-  useEffect(() => {
-    if (!isOnline) {
-      missedCount.current = 0;
-      prevOrderIds.current = new Set();
-      isFirstLoad.current = true;
-      return;
-    }
-
-    const currentIds = new Set(availableOrders.map((o) => o.id));
-
-    if (isFirstLoad.current) {
-      prevOrderIds.current = currentIds;
-      isFirstLoad.current = false;
-      return;
-    }
-
-    let disappeared = 0;
-    for (const id of prevOrderIds.current) {
-      if (!currentIds.has(id)) disappeared++;
-    }
-
-    if (disappeared > 0) {
-      missedCount.current += disappeared;
-      if (missedCount.current >= AUTO_OFFLINE_THRESHOLD) {
-        missedCount.current = 0;
-        prevOrderIds.current = new Set();
-        Alert.alert(
-          "تم تحويلك إلى أوفلاين",
-          `فاتتك ${AUTO_OFFLINE_THRESHOLD} طلبات متتالية. سيتم تحويلك إلى وضع غير متاح تلقائياً.`,
-          [{ text: "حسناً", style: "default" }]
-        );
-        toggleAvailability();
-        return;
-      }
-    }
-
-    prevOrderIds.current = currentIds;
-  }, [availableOrders, isOnline]);
 
   useEffect(() => {
     if (Platform.OS === "web") return;
@@ -236,7 +192,6 @@ export default function AvailableOrdersScreen() {
 
   const handleAccept = useCallback(
     async (orderId: string) => {
-      missedCount.current = 0;
       try {
         await acceptOrder(orderId);
       } catch {
@@ -245,6 +200,14 @@ export default function AvailableOrdersScreen() {
     },
     [acceptOrder, t]
   );
+
+  const handleToggleAvailability = useCallback(async () => {
+    try {
+      await toggleAvailability();
+    } catch {
+      Alert.alert("خطأ", "تعذّر تغيير حالة التوافر، تحقق من اتصالك وحاول مجدداً");
+    }
+  }, [toggleAvailability]);
 
   const handleRefresh = useCallback(async () => {
     if (Platform.OS !== "web") {
@@ -287,7 +250,7 @@ export default function AvailableOrdersScreen() {
         ) : (
           <Switch
             value={isOnline}
-            onValueChange={toggleAvailability}
+            onValueChange={handleToggleAvailability}
             trackColor={{ false: "#fca5a5", true: "#86efac" }}
             thumbColor={isOnline ? "#22c55e" : "#ef4444"}
             ios_backgroundColor="#fca5a5"
@@ -338,7 +301,7 @@ export default function AvailableOrdersScreen() {
                   </Text>
                   <TouchableOpacity
                     style={[styles.goOnlineBtn, { backgroundColor: "#22c55e" }]}
-                    onPress={toggleAvailability}
+                    onPress={handleToggleAvailability}
                     disabled={isTogglingOnline}
                   >
                     <MaterialIcons name="power-settings-new" size={18} color="#fff" />

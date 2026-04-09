@@ -28,15 +28,26 @@ interface RecentDelivery {
 interface EarningsData {
   todayEarnings: number;
   weekEarnings: number;
+  monthEarnings: number;
   totalEarnings: number;
   todayDeliveries: number;
   weekDeliveries: number;
+  monthDeliveries: number;
   totalDeliveries: number;
   todaySubscriptionFee: number;
   todaySubscriptionStatus: "paid" | "waived" | "pending";
   todayNetEarnings: number;
   recentDeliveries: RecentDelivery[];
 }
+
+type Period = "today" | "week" | "month" | "total";
+
+const PERIODS: { key: Period; label: string }[] = [
+  { key: "today", label: "اليوم" },
+  { key: "week", label: "الأسبوع" },
+  { key: "month", label: "الشهر" },
+  { key: "total", label: "الكل" },
+];
 
 function formatAmount(amount: number): string {
   return amount.toLocaleString("ar-SY");
@@ -53,6 +64,7 @@ export default function CourierEarningsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
+  const [period, setPeriod] = useState<Period>("today");
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
@@ -85,6 +97,35 @@ export default function CourierEarningsScreen() {
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  const getPeriodEarnings = () => {
+    if (!data) return 0;
+    if (period === "today") return data.todayEarnings;
+    if (period === "week") return data.weekEarnings;
+    if (period === "month") return data.monthEarnings ?? 0;
+    return data.totalEarnings;
+  };
+
+  const getPeriodDeliveries = () => {
+    if (!data) return 0;
+    if (period === "today") return data.todayDeliveries;
+    if (period === "week") return data.weekDeliveries;
+    if (period === "month") return data.monthDeliveries ?? 0;
+    return data.totalDeliveries;
+  };
+
+  const getHeroLabel = () => {
+    if (period === "today") return "صافي أرباح اليوم";
+    if (period === "week") return "أرباح الأسبوع";
+    if (period === "month") return "أرباح الشهر";
+    return "إجمالي الأرباح";
+  };
+
+  const getHeroAmount = () => {
+    if (!data) return 0;
+    if (period === "today") return data.todayNetEarnings;
+    return getPeriodEarnings();
   };
 
   return (
@@ -123,77 +164,93 @@ export default function CourierEarningsScreen() {
           }
           showsVerticalScrollIndicator={false}
         >
-          {/* Today net earnings hero */}
+          {/* Period filter tabs */}
+          <View style={[styles.periodTabs, { backgroundColor: colors.primary }]}>
+            {PERIODS.map((p) => (
+              <TouchableOpacity
+                key={p.key}
+                style={[styles.periodTab, period === p.key && styles.periodTabActive]}
+                onPress={() => setPeriod(p.key)}
+                activeOpacity={0.7}
+              >
+                <Text style={[
+                  styles.periodTabText,
+                  period === p.key ? styles.periodTabTextActive : { color: "rgba(255,255,255,0.7)" }
+                ]}>
+                  {p.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Hero earnings card */}
           <View style={[styles.heroCard, { backgroundColor: colors.primary }]}>
-            <Text style={styles.heroLabel}>صافي أرباح اليوم</Text>
-            <Text style={styles.heroAmount}>{formatAmount(data!.todayNetEarnings)}</Text>
+            <Text style={styles.heroLabel}>{getHeroLabel()}</Text>
+            <Text style={styles.heroAmount}>{formatAmount(getHeroAmount())}</Text>
             <Text style={styles.heroCurrency}>ل.س</Text>
-            <Text style={styles.heroSub}>{data!.todayDeliveries} توصيلة اليوم</Text>
+            <Text style={styles.heroSub}>{getPeriodDeliveries()} توصيلة</Text>
           </View>
 
-          {/* Today subscription breakdown */}
-          <View style={[styles.subBreakCard, {
-            backgroundColor: data!.todaySubscriptionStatus === "pending" ? "#fff7ed" : "#f0fdf4",
-            borderColor: data!.todaySubscriptionStatus === "pending" ? "#fed7aa" : "#bbf7d0",
-          }]}>
-            <View style={styles.subBreakRow}>
-              <MaterialIcons name="account-balance-wallet" size={16} color={colors.mutedForeground} />
-              <Text style={[styles.subBreakLabel, { color: colors.mutedForeground }]}>إجمالي التوصيل اليوم</Text>
-              <Text style={[styles.subBreakValue, { color: colors.foreground }]}>
-                {formatAmount(data!.todayEarnings)} ل.س
-              </Text>
+          {/* Today subscription breakdown (only shown for "today" period) */}
+          {period === "today" && (
+            <View style={[styles.subBreakCard, {
+              backgroundColor: data!.todaySubscriptionStatus === "pending" ? "#fff7ed" : "#f0fdf4",
+              borderColor: data!.todaySubscriptionStatus === "pending" ? "#fed7aa" : "#bbf7d0",
+            }]}>
+              <View style={styles.subBreakRow}>
+                <MaterialIcons name="account-balance-wallet" size={16} color={colors.mutedForeground} />
+                <Text style={[styles.subBreakLabel, { color: colors.mutedForeground }]}>إجمالي التوصيل اليوم</Text>
+                <Text style={[styles.subBreakValue, { color: colors.foreground }]}>
+                  {formatAmount(data!.todayEarnings)} ل.س
+                </Text>
+              </View>
+              <View style={[styles.subBreakRow, { marginTop: 6 }]}>
+                <MaterialIcons
+                  name={data!.todaySubscriptionStatus === "paid" ? "remove-circle-outline" : "warning"}
+                  size={16}
+                  color={data!.todaySubscriptionStatus === "pending" ? "#ea580c" : "#ef4444"}
+                />
+                <Text style={[styles.subBreakLabel, {
+                  color: data!.todaySubscriptionStatus === "pending" ? "#ea580c" : "#ef4444"
+                }]}>
+                  {data!.todaySubscriptionStatus === "paid"
+                    ? "رسوم الاشتراك اليومي"
+                    : data!.todaySubscriptionStatus === "waived"
+                    ? "اشتراك اليوم: معفى"
+                    : "اشتراك اليوم (غير مدفوع بعد)"}
+                </Text>
+                <Text style={[styles.subBreakValue, {
+                  color: data!.todaySubscriptionStatus === "pending" ? "#ea580c" : "#ef4444"
+                }]}>
+                  {data!.todaySubscriptionStatus === "waived"
+                    ? "0 ل.س"
+                    : `−${formatAmount(data!.todaySubscriptionFee)} ل.س`}
+                </Text>
+              </View>
             </View>
-            <View style={[styles.subBreakRow, { marginTop: 6 }]}>
-              <MaterialIcons
-                name={data!.todaySubscriptionStatus === "paid" ? "remove-circle-outline" : "warning"}
-                size={16}
-                color={data!.todaySubscriptionStatus === "pending" ? "#ea580c" : "#ef4444"}
-              />
-              <Text style={[styles.subBreakLabel, {
-                color: data!.todaySubscriptionStatus === "pending" ? "#ea580c" : "#ef4444"
-              }]}>
-                {data!.todaySubscriptionStatus === "paid"
-                  ? "رسوم الاشتراك اليومي"
-                  : data!.todaySubscriptionStatus === "waived"
-                  ? "اشتراك اليوم: معفى"
-                  : "اشتراك اليوم (غير مدفوع بعد)"}
-              </Text>
-              <Text style={[styles.subBreakValue, {
-                color: data!.todaySubscriptionStatus === "pending" ? "#ea580c" : "#ef4444"
-              }]}>
-                {data!.todaySubscriptionStatus === "waived"
-                  ? "0 ل.س"
-                  : `−${formatAmount(data!.todaySubscriptionFee)} ل.س`}
-              </Text>
-            </View>
-          </View>
+          )}
 
-          <View style={styles.statsGrid}>
-            <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-              <MaterialIcons name="date-range" size={24} color="#8b5cf6" />
-              <Text style={[styles.statAmount, { color: colors.foreground }]}>
-                {formatAmount(data!.weekEarnings)}
-              </Text>
-              <Text style={[styles.statCurrency, { color: "#8b5cf6" }]}>ل.س</Text>
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>هذا الأسبوع</Text>
-              <Text style={[styles.statSub, { color: colors.mutedForeground }]}>
-                {data!.weekDeliveries} توصيلة
-              </Text>
+          {/* Stats summary row (compact, for non-today periods) */}
+          {period !== "today" && (
+            <View style={styles.statsGrid}>
+              <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+                <MaterialIcons name="local-shipping" size={22} color={colors.primary} />
+                <Text style={[styles.statAmount, { color: colors.foreground }]}>
+                  {getPeriodDeliveries()}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>توصيلة</Text>
+              </View>
+              <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+                <MaterialIcons name="today" size={22} color="#22c55e" />
+                <Text style={[styles.statAmount, { color: colors.foreground }]}>
+                  {formatAmount(data!.todayEarnings)}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>صافي اليوم (ل.س)</Text>
+              </View>
             </View>
+          )}
 
-            <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-              <MaterialIcons name="savings" size={24} color="#22c55e" />
-              <Text style={[styles.statAmount, { color: colors.foreground }]}>
-                {formatAmount(data!.totalEarnings)}
-              </Text>
-              <Text style={[styles.statCurrency, { color: "#22c55e" }]}>ل.س</Text>
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>إجمالي الكل</Text>
-              <Text style={[styles.statSub, { color: colors.mutedForeground }]}>
-                {data!.totalDeliveries} توصيلة
-              </Text>
-            </View>
-          </View>
-
+          {/* Recent deliveries */}
           <View style={[styles.recentSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.recentTitle, { color: colors.foreground }]}>
               {t("courier.earnings.recentTitle")}
@@ -248,7 +305,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingBottom: 8,
     gap: 10,
   },
   backBtn: { padding: 4, width: 40 },
@@ -263,6 +320,28 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   retryText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+  periodTabs: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 8,
+  },
+  periodTab: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  periodTabActive: {
+    backgroundColor: "rgba(255,255,255,0.25)",
+  },
+  periodTabText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  periodTabTextActive: {
+    color: "#fff",
+  },
   heroCard: {
     alignItems: "center",
     paddingVertical: 28,
@@ -290,13 +369,11 @@ const styles = StyleSheet.create({
   subBreakValue: { fontSize: 13, fontWeight: "700" },
   statsGrid: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: 12,
     padding: 16,
   },
   statCard: {
     flex: 1,
-    minWidth: "44%",
     alignItems: "center",
     padding: 16,
     borderRadius: 16,
@@ -307,16 +384,11 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  statCardFull: {
-    width: "100%",
-    flex: 0,
-  },
-  statAmount: { fontSize: 28, fontWeight: "800" },
-  statCurrency: { fontSize: 13, fontWeight: "700", marginTop: -4 },
-  statLabel: { fontSize: 13, fontWeight: "600", marginTop: 4 },
-  statSub: { fontSize: 11 },
+  statAmount: { fontSize: 22, fontWeight: "800" },
+  statLabel: { fontSize: 12, fontWeight: "600", textAlign: "center" },
   recentSection: {
     marginHorizontal: 16,
+    marginTop: 8,
     borderRadius: 16,
     borderWidth: 1,
     overflow: "hidden",

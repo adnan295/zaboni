@@ -152,6 +152,7 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
 
   const toggleAvailability = useCallback(async () => {
     setIsTogglingOnline(true);
+    const prevStatus = isOnline;
     try {
       const newStatus = !isOnline;
       await customFetch("/api/courier/availability", {
@@ -169,6 +170,8 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
         isFirstFetchRef.current = true;
       }
     } catch {
+      setIsOnline(prevStatus);
+      throw new Error("toggle_failed");
     } finally {
       setIsTogglingOnline(false);
     }
