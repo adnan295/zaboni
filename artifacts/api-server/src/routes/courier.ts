@@ -227,10 +227,15 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   }
 
   const courierUsers = await db
-    .select({ name: usersTable.name, phone: usersTable.phone })
+    .select({ name: usersTable.name, phone: usersTable.phone, isOnline: usersTable.isOnline })
     .from(usersTable)
     .where(eq(usersTable.id, courierId))
     .limit(1);
+
+  if (!courierUsers[0]?.isOnline) {
+    res.status(409).json({ error: "You must be online to accept orders" });
+    return;
+  }
 
   const courierName = courierUsers[0]?.name || "مندوب";
   const courierPhone = courierUsers[0]?.phone || "";
