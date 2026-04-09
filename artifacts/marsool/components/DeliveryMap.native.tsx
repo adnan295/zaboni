@@ -34,7 +34,7 @@ export function DeliveryMap({ userCoords, courierCoords, isSearching, etaMinutes
         toolbarEnabled={false}
         zoomEnabled
         scrollEnabled
-        pitchEnabled={false}
+        pitchEnabled={true}
         rotateEnabled={false}
       >
         {userCoords && (
