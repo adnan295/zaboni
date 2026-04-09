@@ -674,8 +674,65 @@ function computeIsOpen(
 router.get("/admin/financial", async (req, res) => {
   const daysRaw = parseInt(String(req.query["days"] ?? "30"));
   const days = [7, 14, 30, 90].includes(daysRaw) ? daysRaw : 30;
+  const groupBy = req.query["groupBy"] === "week" ? "week" : "day";
 
-  const [totalRow, byRestaurant, dailyRevenue] = await Promise.all([
+  const revenueSeriesQuery =
+    groupBy === "week"
+      ? db.execute(sql`
+          WITH week_series AS (
+            SELECT generate_series(0, CEIL(${days}::numeric / 7)::int - 1) AS week_offset
+          ),
+          weekly AS (
+            SELECT
+              DATE_TRUNC('week', o.created_at AT TIME ZONE 'Asia/Damascus')::date AS week_start,
+              COALESCE(SUM(r.delivery_fee) FILTER (WHERE o.status = 'delivered'), 0)::numeric AS revenue,
+              COUNT(*) FILTER (WHERE o.status = 'delivered')::int AS orders
+            FROM orders o
+            LEFT JOIN restaurants r
+              ON r.name = o.restaurant_name OR r.name_ar = o.restaurant_name
+            WHERE o.created_at >= NOW() - CAST(${days} || ' days' AS INTERVAL)
+            GROUP BY DATE_TRUNC('week', o.created_at AT TIME ZONE 'Asia/Damascus')
+          )
+          SELECT
+            TO_CHAR(ws.week_start, 'YYYY-MM-DD') AS date,
+            COALESCE(w.revenue, 0)::numeric AS revenue,
+            COALESCE(w.orders, 0)::int AS orders
+          FROM (
+            SELECT (DATE_TRUNC('week', NOW() AT TIME ZONE 'Asia/Damascus') - (week_offset * '1 week'::interval))::date AS week_start
+            FROM week_series
+          ) ws
+          LEFT JOIN weekly w ON w.week_start = ws.week_start
+          ORDER BY ws.week_start
+        `)
+      : db.execute(sql`
+          WITH date_series AS (
+            SELECT TO_CHAR(
+              generate_series(
+                (NOW() AT TIME ZONE 'Asia/Damascus' - CAST(${days - 1} || ' days' AS INTERVAL))::date,
+                (NOW() AT TIME ZONE 'Asia/Damascus')::date,
+                '1 day'::interval
+              ),
+              'YYYY-MM-DD'
+            ) AS date
+          ),
+          daily AS (
+            SELECT
+              TO_CHAR(DATE_TRUNC('day', o.created_at AT TIME ZONE 'Asia/Damascus'), 'YYYY-MM-DD') AS date,
+              COALESCE(SUM(r.delivery_fee) FILTER (WHERE o.status = 'delivered'), 0)::numeric AS revenue,
+              COUNT(*) FILTER (WHERE o.status = 'delivered')::int AS orders
+            FROM orders o
+            LEFT JOIN restaurants r
+              ON r.name = o.restaurant_name OR r.name_ar = o.restaurant_name
+            WHERE o.created_at >= NOW() - CAST(${days} || ' days' AS INTERVAL)
+            GROUP BY DATE_TRUNC('day', o.created_at AT TIME ZONE 'Asia/Damascus')
+          )
+          SELECT d.date, COALESCE(dl.revenue, 0)::numeric AS revenue, COALESCE(dl.orders, 0)::int AS orders
+          FROM date_series d
+          LEFT JOIN daily dl ON dl.date = d.date
+          ORDER BY d.date
+        `);
+
+  const [totalRow, byRestaurant, revenueSeriesResult] = await Promise.all([
     db.execute(sql`
       SELECT
         COUNT(*)::int AS "totalOrders",
@@ -701,33 +758,7 @@ router.get("/admin/financial", async (req, res) => {
       ORDER BY "revenue" DESC
       LIMIT 20
     `),
-    db.execute(sql`
-      WITH date_series AS (
-        SELECT TO_CHAR(
-          generate_series(
-            (NOW() AT TIME ZONE 'Asia/Damascus' - CAST(${days - 1} || ' days' AS INTERVAL))::date,
-            (NOW() AT TIME ZONE 'Asia/Damascus')::date,
-            '1 day'::interval
-          ),
-          'YYYY-MM-DD'
-        ) AS date
-      ),
-      daily AS (
-        SELECT
-          TO_CHAR(DATE_TRUNC('day', o.created_at AT TIME ZONE 'Asia/Damascus'), 'YYYY-MM-DD') AS date,
-          COALESCE(SUM(r.delivery_fee) FILTER (WHERE o.status = 'delivered'), 0)::numeric AS revenue,
-          COUNT(*) FILTER (WHERE o.status = 'delivered')::int AS orders
-        FROM orders o
-        LEFT JOIN restaurants r
-          ON r.name = o.restaurant_name OR r.name_ar = o.restaurant_name
-        WHERE o.created_at >= NOW() - CAST(${days} || ' days' AS INTERVAL)
-        GROUP BY DATE_TRUNC('day', o.created_at AT TIME ZONE 'Asia/Damascus')
-      )
-      SELECT d.date, COALESCE(dl.revenue, 0)::numeric AS revenue, COALESCE(dl.orders, 0)::int AS orders
-      FROM date_series d
-      LEFT JOIN daily dl ON dl.date = d.date
-      ORDER BY d.date
-    `),
+    revenueSeriesQuery,
   ]);
 
   const summary = totalRow.rows[0] as Record<string, unknown>;
@@ -744,11 +775,12 @@ router.get("/admin/financial", async (req, res) => {
       deliveredOrders: Number(r["deliveredOrders"] ?? 0),
       revenue: Number(r["revenue"] ?? 0),
     })),
-    dailyRevenue: dailyRevenue.rows.map((r: Record<string, unknown>) => ({
+    revenueSeries: revenueSeriesResult.rows.map((r: Record<string, unknown>) => ({
       date: r["date"],
       revenue: Number(r["revenue"] ?? 0),
       orders: Number(r["orders"] ?? 0),
     })),
+    groupBy,
     days,
   });
 });

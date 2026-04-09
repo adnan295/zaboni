@@ -23,18 +23,42 @@ function SYP(n: number) {
   return `${n.toLocaleString("ar-SY")} ل.س`;
 }
 
+function FilterButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+        active
+          ? "bg-primary text-primary-foreground border-primary"
+          : "bg-background border-border text-muted-foreground hover:bg-muted"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function FinancialPage() {
   const [days, setDays] = useState(30);
+  const [groupBy, setGroupBy] = useState<"day" | "week">("day");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["admin", "financial", days],
-    queryFn: () => api.getFinancialReport(days),
+    queryKey: ["admin", "financial", days, groupBy],
+    queryFn: () => api.getFinancialReport(days, groupBy),
     refetchInterval: 30_000,
   });
 
-  const chartData = (data?.dailyRevenue ?? []).map((d) => ({
+  const chartData = (data?.revenueSeries ?? []).map((d) => ({
     ...d,
-    date: d.date.slice(5),
+    label: groupBy === "week" ? `W ${d.date.slice(5)}` : d.date.slice(5),
   }));
 
   return (
@@ -44,20 +68,18 @@ export default function FinancialPage() {
           <h1 className="text-2xl font-bold tracking-tight">Financial Reports</h1>
           <p className="text-sm text-muted-foreground mt-1">Delivery revenue and order breakdown</p>
         </div>
-        <div className="flex gap-2">
-          {RANGE_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => setDays(opt.value)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
-                days === opt.value
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-background border-border text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="flex gap-1 border border-border rounded-md p-0.5">
+            <FilterButton active={groupBy === "day"} onClick={() => setGroupBy("day")}>Daily</FilterButton>
+            <FilterButton active={groupBy === "week"} onClick={() => setGroupBy("week")}>Weekly</FilterButton>
+          </div>
+          <div className="flex gap-2">
+            {RANGE_OPTIONS.map((opt) => (
+              <FilterButton key={opt.value} active={days === opt.value} onClick={() => setDays(opt.value)}>
+                {opt.label}
+              </FilterButton>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -94,14 +116,16 @@ export default function FinancialPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Daily Revenue (ل.س)</CardTitle>
+              <CardTitle className="text-base">
+                {groupBy === "week" ? "Weekly" : "Daily"} Revenue (ل.س)
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={chartData} margin={{ top: 4, right: 16, left: 16, bottom: 4 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis
-                    dataKey="date"
+                    dataKey="label"
                     tick={{ fontSize: 11 }}
                     tickLine={false}
                     interval={Math.max(0, Math.floor(chartData.length / 10) - 1)}
@@ -114,7 +138,7 @@ export default function FinancialPage() {
                   />
                   <Tooltip
                     formatter={(value: number) => [SYP(value), "Revenue"]}
-                    labelFormatter={(l) => `Date: ${l}`}
+                    labelFormatter={(l) => `${groupBy === "week" ? "Week of" : "Date"}: ${l}`}
                     contentStyle={{ fontSize: 12 }}
                   />
                   <Bar dataKey="revenue" fill="#FF6B00" radius={[4, 4, 0, 0]} />

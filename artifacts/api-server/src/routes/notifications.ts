@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, usersTable, notificationLogsTable } from "@workspace/db";
-import { eq, inArray, isNotNull } from "drizzle-orm";
+import { eq, isNotNull, desc } from "drizzle-orm";
 import { z } from "zod";
 import type { Request, Response, NextFunction } from "express";
 import { Expo } from "expo-server-sdk";
@@ -100,9 +100,9 @@ router.get("/admin/notifications/history", async (_req, res) => {
   const rows = await db
     .select()
     .from(notificationLogsTable)
-    .orderBy(notificationLogsTable.createdAt)
+    .orderBy(desc(notificationLogsTable.createdAt))
     .limit(20);
-  res.json(rows.reverse());
+  res.json(rows);
 });
 
 export default router;

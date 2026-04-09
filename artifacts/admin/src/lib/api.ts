@@ -189,11 +189,12 @@ export type FinancialReport = {
     deliveredOrders: number;
     revenue: number;
   }[];
-  dailyRevenue: {
+  revenueSeries: {
     date: string;
     revenue: number;
     orders: number;
   }[];
+  groupBy: "day" | "week";
   days: number;
 };
 
@@ -314,6 +315,11 @@ export const api = {
   getNotificationHistory: () =>
     apiFetch<NotificationLog[]>("/admin/notifications/history"),
 
-  getFinancialReport: (days?: number) =>
-    apiFetch<FinancialReport>(`/admin/financial${days ? `?days=${days}` : ""}`),
+  getFinancialReport: (days?: number, groupBy?: 'day' | 'week') => {
+    const params = new URLSearchParams();
+    if (days) params.set('days', String(days));
+    if (groupBy) params.set('groupBy', groupBy);
+    const qs = params.toString();
+    return apiFetch<FinancialReport>(`/admin/financial${qs ? `?${qs}` : ''}`);
+  },
 };
