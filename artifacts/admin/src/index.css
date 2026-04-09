@@ -66,6 +66,10 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+body {
+  font-family: 'Tajawal', 'Inter', sans-serif;
+}
+
 /* LIGHT MODE */
 :root {
   --button-outline: rgba(0,0,0, .10);

@@ -12,12 +12,12 @@ import {
 } from "@/components/ui/select";
 
 const STATUS_LABELS: Record<string, string> = {
-  searching: "Searching",
-  accepted: "Accepted",
-  picked_up: "Picked Up",
-  on_way: "On the Way",
-  delivered: "Delivered",
-  cancelled: "Cancelled",
+  searching: "يبحث عن مندوب",
+  accepted: "قبِل المندوب",
+  picked_up: "جارٍ التوصيل",
+  on_way: "في الطريق",
+  delivered: "تم التوصيل",
+  cancelled: "ملغي",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -33,19 +33,19 @@ const PAGE_SIZE = 50;
 
 function exportCSV(orders: Order[]) {
   const headers = [
-    "ID",
-    "Order Text",
-    "Customer",
-    "Customer Phone",
-    "Restaurant",
-    "Status",
-    "Courier",
-    "Courier Phone",
-    "Address",
-    "Payment",
-    "Est. Minutes",
-    "Created At",
-    "Updated At",
+    "المعرف",
+    "نص الطلب",
+    "العميل",
+    "هاتف العميل",
+    "المطعم",
+    "الحالة",
+    "المندوب",
+    "هاتف المندوب",
+    "العنوان",
+    "الدفع",
+    "الوقت المقدر (دقيقة)",
+    "تاريخ الإنشاء",
+    "تاريخ التحديث",
   ];
 
   const rows = orders.map((o) => [
@@ -104,21 +104,21 @@ export default function Orders() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Orders</h1>
+        <h1 className="text-2xl font-bold">الطلبات</h1>
         <Button
           size="sm"
           variant="outline"
           onClick={() => exportCSV(filtered)}
           disabled={filtered.length === 0}
         >
-          ⬇ Export CSV ({filtered.length})
+          ⬇ تصدير CSV ({filtered.length})
         </Button>
       </div>
 
       <div className="flex gap-3 flex-wrap items-center">
         <Input
           type="search"
-          placeholder="Search orders..."
+          placeholder="ابحث في الطلبات..."
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
@@ -134,10 +134,10 @@ export default function Orders() {
           }}
         >
           <SelectTrigger className="w-44">
-            <SelectValue placeholder="All statuses" />
+            <SelectValue placeholder="كل الحالات" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="all">كل الحالات</SelectItem>
             {Object.entries(STATUS_LABELS).map(([k, v]) => (
               <SelectItem key={k} value={k}>
                 {v}
@@ -146,7 +146,7 @@ export default function Orders() {
           </SelectContent>
         </Select>
         <span className="text-sm text-muted-foreground">
-          {total} total orders
+          {total} طلب إجمالاً
         </span>
       </div>
 
@@ -166,19 +166,19 @@ export default function Orders() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <p className="text-muted-foreground">No orders found.</p>
+        <p className="text-muted-foreground">لا توجد طلبات.</p>
       ) : (
         <div className="border rounded-lg overflow-hidden bg-card shadow-sm">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 border-b">
               <tr>
-                <th className="text-left px-4 py-3 font-medium">Order</th>
-                <th className="text-left px-4 py-3 font-medium">Customer</th>
-                <th className="text-left px-4 py-3 font-medium">Restaurant</th>
-                <th className="text-left px-4 py-3 font-medium">Status</th>
-                <th className="text-left px-4 py-3 font-medium">Courier</th>
-                <th className="text-left px-4 py-3 font-medium">Payment</th>
-                <th className="text-left px-4 py-3 font-medium">Date</th>
+                <th className="text-right px-4 py-3 font-medium">الطلب</th>
+                <th className="text-right px-4 py-3 font-medium">العميل</th>
+                <th className="text-right px-4 py-3 font-medium">المطعم</th>
+                <th className="text-right px-4 py-3 font-medium">الحالة</th>
+                <th className="text-right px-4 py-3 font-medium">المندوب</th>
+                <th className="text-right px-4 py-3 font-medium">الدفع</th>
+                <th className="text-right px-4 py-3 font-medium">التاريخ</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -198,10 +198,10 @@ export default function Orders() {
             disabled={page <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
-            Previous
+            السابق
           </Button>
           <span className="text-sm text-muted-foreground">
-            Page {page} of {totalPages}
+            صفحة {page} من {totalPages}
           </span>
           <Button
             variant="outline"
@@ -209,7 +209,7 @@ export default function Orders() {
             disabled={page >= totalPages}
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
           >
-            Next
+            التالي
           </Button>
         </div>
       )}
@@ -265,12 +265,12 @@ function OrderRow({ order }: { order: Order }) {
         </td>
         <td className="px-4 py-3 text-sm">
           {order.courierName || (
-            <span className="text-muted-foreground">Unassigned</span>
+            <span className="text-muted-foreground">غير معين</span>
           )}
         </td>
         <td className="px-4 py-3 text-sm capitalize">{order.paymentMethod}</td>
         <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-          {new Date(order.createdAt).toLocaleString()}
+          {new Date(order.createdAt).toLocaleString("ar-SY")}
         </td>
       </tr>
       {expanded && (
@@ -279,7 +279,7 @@ function OrderRow({ order }: { order: Order }) {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mb-4">
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1">
-                  Order Text
+                  نص الطلب
                 </p>
                 <p dir="rtl" className="text-sm">
                   {order.orderText}
@@ -287,7 +287,7 @@ function OrderRow({ order }: { order: Order }) {
               </div>
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1">
-                  Customer
+                  العميل
                 </p>
                 <p>{order.customerName || "—"}</p>
                 {order.customerPhone && (
@@ -298,13 +298,13 @@ function OrderRow({ order }: { order: Order }) {
               </div>
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1">
-                  Order ID
+                  معرف الطلب
                 </p>
                 <p className="font-mono text-xs">{order.id}</p>
               </div>
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1">
-                  Courier
+                  المندوب
                 </p>
                 <p>
                   {order.courierName || "—"}{" "}
@@ -317,21 +317,21 @@ function OrderRow({ order }: { order: Order }) {
               </div>
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1">
-                  Address
+                  العنوان
                 </p>
                 <p>{order.address || "—"}</p>
               </div>
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1">
-                  Est. Time
+                  الوقت المقدر
                 </p>
-                <p>{order.estimatedMinutes} min</p>
+                <p>{order.estimatedMinutes} دقيقة</p>
               </div>
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1">
-                  Updated
+                  آخر تحديث
                 </p>
-                <p>{new Date(order.updatedAt).toLocaleString()}</p>
+                <p>{new Date(order.updatedAt).toLocaleString("ar-SY")}</p>
               </div>
             </div>
 
@@ -340,7 +340,7 @@ function OrderRow({ order }: { order: Order }) {
               onClick={(e) => e.stopPropagation()}
             >
               <p className="text-xs font-medium text-muted-foreground">
-                Force Status:
+                تغيير الحالة:
               </p>
               <Select
                 value={pendingStatus}
@@ -366,14 +366,14 @@ function OrderRow({ order }: { order: Order }) {
                 }
                 onClick={() => statusMutation.mutate(pendingStatus)}
               >
-                {statusMutation.isPending ? "Saving…" : "Save"}
+                {statusMutation.isPending ? "جاري الحفظ…" : "حفظ"}
               </Button>
               {statusMutation.isSuccess && (
-                <span className="text-xs text-green-600">✓ Updated</span>
+                <span className="text-xs text-green-600">✓ تم التحديث</span>
               )}
               {statusMutation.isError && (
                 <span className="text-xs text-destructive">
-                  Failed: {(statusMutation.error as Error).message}
+                  فشل: {(statusMutation.error as Error).message}
                 </span>
               )}
             </div>

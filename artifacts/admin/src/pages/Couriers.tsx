@@ -25,7 +25,7 @@ function StarRating({ rating }: { rating: number | null }) {
           ★
         </span>
       ))}
-      <span className="ml-1 text-muted-foreground">{rating.toFixed(1)}</span>
+      <span className="mr-1 text-muted-foreground">{rating.toFixed(1)}</span>
     </span>
   );
 }
@@ -62,29 +62,29 @@ export default function Couriers() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Couriers</h1>
+      <h1 className="text-2xl font-bold">المندوبون</h1>
 
       <div className="flex gap-4 flex-wrap">
         <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-100 dark:border-orange-900/40 rounded-lg px-4 py-3">
           <p className="text-2xl font-bold text-orange-600">{couriers.length}</p>
-          <p className="text-xs text-orange-600/70 font-medium">Total Couriers</p>
+          <p className="text-xs text-orange-600/70 font-medium">إجمالي المندوبين</p>
         </div>
         <div className="bg-green-50 dark:bg-green-950/30 border border-green-100 dark:border-green-900/40 rounded-lg px-4 py-3">
           <p className="text-2xl font-bold text-green-600">{totalDeliveries}</p>
-          <p className="text-xs text-green-600/70 font-medium">Total Deliveries</p>
+          <p className="text-xs text-green-600/70 font-medium">إجمالي التوصيلات</p>
         </div>
       </div>
 
       <div className="flex gap-3 flex-wrap">
         <Input
           type="search"
-          placeholder="Search by name or phone..."
+          placeholder="ابحث بالاسم أو الهاتف..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-xs"
         />
         <span className="text-sm text-muted-foreground self-center">
-          {filtered.length} couriers
+          {filtered.length} مندوب
         </span>
       </div>
 
@@ -106,20 +106,20 @@ export default function Couriers() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <p className="text-muted-foreground">No couriers found.</p>
+        <p className="text-muted-foreground">لا يوجد مندوبون.</p>
       ) : (
         <div className="border rounded-lg overflow-hidden bg-card shadow-sm">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 border-b">
               <tr>
-                <th className="text-left px-4 py-3 font-medium">Courier</th>
-                <th className="text-left px-4 py-3 font-medium">Phone</th>
-                <th className="text-left px-4 py-3 font-medium">Delivered</th>
-                <th className="text-left px-4 py-3 font-medium">Assigned</th>
-                <th className="text-left px-4 py-3 font-medium">Rating</th>
-                <th className="text-left px-4 py-3 font-medium">Last Delivery</th>
-                <th className="text-left px-4 py-3 font-medium">Joined</th>
-                <th className="text-right px-4 py-3 font-medium">Actions</th>
+                <th className="text-right px-4 py-3 font-medium">المندوب</th>
+                <th className="text-right px-4 py-3 font-medium">الهاتف</th>
+                <th className="text-right px-4 py-3 font-medium">التوصيلات</th>
+                <th className="text-right px-4 py-3 font-medium">المُسنَدة</th>
+                <th className="text-right px-4 py-3 font-medium">التقييم</th>
+                <th className="text-right px-4 py-3 font-medium">آخر توصيل</th>
+                <th className="text-right px-4 py-3 font-medium">تاريخ الانضمام</th>
+                <th className="text-right px-4 py-3 font-medium">إجراءات</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -130,7 +130,7 @@ export default function Couriers() {
                   onConvert={() => {
                     if (
                       confirm(
-                        `Convert "${courier.name || courier.phone}" to customer? They will lose courier access.`,
+                        `تحويل "${courier.name || courier.phone}" إلى عميل؟ سيفقد صلاحية المندوب.`,
                       )
                     ) {
                       roleMutation.mutate(courier.id);
@@ -170,7 +170,7 @@ function CourierRow({
           </div>
           <span className="font-medium">
             {courier.name || (
-              <span className="text-muted-foreground italic">No name</span>
+              <span className="text-muted-foreground italic">بدون اسم</span>
             )}
           </span>
         </div>
@@ -194,11 +194,11 @@ function CourierRow({
       </td>
       <td className="px-4 py-3 text-xs text-muted-foreground">
         {courier.lastDelivery
-          ? new Date(courier.lastDelivery).toLocaleDateString()
+          ? new Date(courier.lastDelivery).toLocaleDateString("ar-SY")
           : "—"}
       </td>
       <td className="px-4 py-3 text-xs text-muted-foreground">
-        {new Date(courier.createdAt).toLocaleDateString()}
+        {new Date(courier.createdAt).toLocaleDateString("ar-SY")}
       </td>
       <td className="px-4 py-3">
         <div className="flex justify-end">
@@ -209,7 +209,7 @@ function CourierRow({
             disabled={converting}
             onClick={onConvert}
           >
-            Make Customer
+            تحويل لعميل
           </Button>
         </div>
       </td>
