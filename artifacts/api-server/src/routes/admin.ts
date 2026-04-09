@@ -1014,6 +1014,16 @@ router.post("/admin/subscriptions", async (req, res) => {
   }
   const { courierId, date, amount, status, note } = parsed.data;
 
+  const courierCheck = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(and(eq(usersTable.id, courierId), eq(usersTable.role, "courier")))
+    .limit(1);
+  if (courierCheck.length === 0) {
+    res.status(400).json({ error: "Invalid courierId: not a courier" });
+    return;
+  }
+
   const existing = await db
     .select()
     .from(courierSubscriptionsTable)
