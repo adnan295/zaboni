@@ -86,14 +86,13 @@ function FitBounds({ couriers, orders }: FitBoundsProps) {
 
     if (points.length === 0) return;
 
-    if (!didFit.current || points.length !== 0) {
-      didFit.current = true;
-      if (points.length === 1) {
-        map.setView(points[0], 14);
-      } else {
-        map.fitBounds(L.latLngBounds(points), { padding: [60, 60], maxZoom: 14 });
-      }
+    // Fit bounds on every polling refresh so the viewport stays up to date
+    if (points.length === 1) {
+      map.setView(points[0], 14);
+    } else {
+      map.fitBounds(L.latLngBounds(points), { padding: [60, 60], maxZoom: 14 });
     }
+    didFit.current = true;
   }, [couriers, orders, map]);
 
   return null;
@@ -171,15 +170,20 @@ function OrderDestPopup({ o }: { o: ActiveOrderLocation }) {
 
 function RestaurantPopup({ o }: { o: ActiveOrderLocation }) {
   return (
-    <div dir="rtl" style={{ minWidth: 180, fontSize: 13 }}>
+    <div dir="rtl" style={{ minWidth: 200, fontSize: 13 }}>
       <p style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>📍 موقع المطعم</p>
       <p style={{ fontSize: 13 }}><strong>{o.restaurantName}</strong></p>
-      {o.courierName && (
-        <p style={{ fontSize: 12, marginTop: 4 }}>المندوب: <strong>{o.courierName}</strong></p>
-      )}
       <span style={{ padding: "1px 8px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: "#fef9c3", color: "#92400e", marginTop: 4, display: "inline-block" }}>
         {STATUS_LABELS[o.status] ?? o.status}
       </span>
+      {o.customerName && (
+        <p style={{ fontSize: 12, marginTop: 6 }}>العميل: <strong>{o.customerName}</strong></p>
+      )}
+      {o.courierName ? (
+        <p style={{ fontSize: 12, marginTop: 2 }}>المندوب: <strong>{o.courierName}</strong></p>
+      ) : (
+        <p style={{ fontSize: 12, marginTop: 2, color: "#6366f1" }}>لم يُسنَد بعد</p>
+      )}
     </div>
   );
 }
