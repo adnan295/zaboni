@@ -1,19 +1,46 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, type UserLookupResult } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 
+type LookupUser = UserLookupResult[number];
+
 export default function NotificationsPage() {
   const qc = useQueryClient();
   const { toast } = useToast();
 
-  const [broadcastForm, setBroadcastForm] = useState({ title: "", body: "", target: "all" as "all" | "customers" | "couriers" });
+  const [broadcastForm, setBroadcastForm] = useState({
+    title: "",
+    body: "",
+    target: "all" as "all" | "customers" | "couriers",
+  });
 
-  const [targetedForm, setTargetedForm] = useState({ phone: "", title: "", body: "" });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [selectedUser, setSelectedUser] = useState<LookupUser | null>(null);
+  const [noTokenAlert, setNoTokenAlert] = useState(false);
+  const [targetedForm, setTargetedForm] = useState({ title: "", body: "" });
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (searchQuery.length >= 3) {
+      debounceRef.current = setTimeout(() => setDebouncedQuery(searchQuery), 400);
+    } else {
+      setDebouncedQuery("");
+    }
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [searchQuery]);
+
+  const { data: lookupResults = [], isFetching: lookupLoading } = useQuery({
+    queryKey: ["admin", "notifications", "lookup", debouncedQuery],
+    queryFn: () => api.lookupUser(debouncedQuery),
+    enabled: debouncedQuery.length >= 3,
+  });
 
   const { data: history = [] } = useQuery({
     queryKey: ["admin", "notifications", "history"],
@@ -45,14 +72,10 @@ export default function NotificationsPage() {
           title: "تم الإرسال!",
           description: `وصل الإشعار إلى ${data.userName || "المستخدم"} بنجاح`,
         });
+        setTargetedForm({ title: "", body: "" });
       } else {
-        toast({
-          title: "فشل الإرسال",
-          description: "المستخدم موجود لكن تعذر الإرسال",
-          variant: "destructive",
-        });
+        toast({ title: "فشل الإرسال", description: "المستخدم موجود لكن تعذر إرسال الإشعار", variant: "destructive" });
       }
-      setTargetedForm((f) => ({ ...f, title: "", body: "" }));
     },
     onError: (e: Error) => {
       toast({ title: "خطأ", description: e.message, variant: "destructive" });
@@ -67,9 +90,29 @@ export default function NotificationsPage() {
 
   const handleTargeted = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!targetedForm.phone.trim() || !targetedForm.title.trim() || !targetedForm.body.trim()) return;
-    targetedMutation.mutate(targetedForm);
+    if (!selectedUser || !targetedForm.title.trim() || !targetedForm.body.trim()) return;
+    if (!selectedUser.hasPushToken) {
+      setNoTokenAlert(true);
+      return;
+    }
+    setNoTokenAlert(false);
+    targetedMutation.mutate({ phone: selectedUser.phone, title: targetedForm.title, body: targetedForm.body });
   };
+
+  const handleSelectUser = (user: LookupUser) => {
+    setSelectedUser(user);
+    setSearchQuery("");
+    setDebouncedQuery("");
+    setNoTokenAlert(false);
+  };
+
+  const handleClearUser = () => {
+    setSelectedUser(null);
+    setNoTokenAlert(false);
+    setTargetedForm({ title: "", body: "" });
+  };
+
+  const showDropdown = debouncedQuery.length >= 3 && !selectedUser;
 
   return (
     <div className="space-y-6">
@@ -82,21 +125,74 @@ export default function NotificationsPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold">إشعار لمستخدم محدد</CardTitle>
-            <p className="text-xs text-muted-foreground">ابحث برقم الهاتف وأرسل إشعاراً مباشراً</p>
+            <p className="text-xs text-muted-foreground">ابحث باسم المستخدم أو رقم هاتفه، ثم أرسل إشعاراً مباشراً</p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleTargeted} className="space-y-3">
-              <div className="space-y-1">
-                <Label className="text-xs">رقم الهاتف</Label>
-                <Input
-                  dir="ltr"
-                  value={targetedForm.phone}
-                  onChange={(e) => setTargetedForm((f) => ({ ...f, phone: e.target.value.trim() }))}
-                  placeholder="+963912345678"
-                  maxLength={20}
-                  required
-                />
-              </div>
+              {!selectedUser ? (
+                <div className="space-y-1 relative">
+                  <Label className="text-xs">البحث عن مستخدم</Label>
+                  <Input
+                    dir="rtl"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="ابحث بالاسم أو رقم الهاتف..."
+                    autoComplete="off"
+                  />
+                  {showDropdown && (
+                    <div className="absolute z-10 top-full mt-1 w-full bg-card border rounded-md shadow-lg max-h-52 overflow-y-auto">
+                      {lookupLoading ? (
+                        <p className="px-3 py-2 text-sm text-muted-foreground">جاري البحث...</p>
+                      ) : lookupResults.length === 0 ? (
+                        <p className="px-3 py-2 text-sm text-muted-foreground">لا توجد نتائج</p>
+                      ) : (
+                        lookupResults.map((u) => (
+                          <button
+                            key={u.id}
+                            type="button"
+                            onClick={() => handleSelectUser(u)}
+                            className="w-full text-right px-3 py-2 hover:bg-muted/60 flex items-center justify-between gap-2 text-sm"
+                          >
+                            <div>
+                              <p className="font-medium">{u.name || "—"}</p>
+                              <p className="text-xs text-muted-foreground font-mono">{u.phone}</p>
+                            </div>
+                            <div className="flex flex-col items-end gap-1 shrink-0">
+                              <span className={`text-xs px-1.5 py-0.5 rounded-full ${u.role === "courier" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
+                                {u.role === "courier" ? "مندوب" : "عميل"}
+                              </span>
+                              {!u.hasPushToken && (
+                                <span className="text-xs text-amber-600">بدون إشعارات</span>
+                              )}
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                  {searchQuery.length > 0 && searchQuery.length < 3 && (
+                    <p className="text-xs text-muted-foreground">ادخل 3 أحرف على الأقل للبحث</p>
+                  )}
+                </div>
+              ) : (
+                <div className={`rounded-md border p-3 flex items-start justify-between gap-3 ${!selectedUser.hasPushToken ? "border-amber-400 bg-amber-50 dark:bg-amber-950/20" : "border-border bg-muted/30"}`}>
+                  <div>
+                    <p className="font-semibold text-sm">{selectedUser.name || "—"}</p>
+                    <p className="text-xs font-mono text-muted-foreground">{selectedUser.phone}</p>
+                    <span className={`inline-block mt-1 text-xs px-1.5 py-0.5 rounded-full ${selectedUser.role === "courier" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
+                      {selectedUser.role === "courier" ? "مندوب" : "عميل"}
+                    </span>
+                  </div>
+                  <button type="button" onClick={handleClearUser} className="text-muted-foreground hover:text-foreground text-xs mt-0.5">✕</button>
+                </div>
+              )}
+
+              {noTokenAlert && (
+                <div className="rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-400 px-3 py-2 text-xs text-amber-800 dark:text-amber-400">
+                  ⚠️ هذا المستخدم لا يمتلك رمز push نشط — لا يمكن إرسال إشعار إليه. يجب أن يفتح التطبيق أولاً.
+                </div>
+              )}
+
               <div className="space-y-1">
                 <Label className="text-xs">العنوان</Label>
                 <Input
@@ -104,24 +200,32 @@ export default function NotificationsPage() {
                   onChange={(e) => setTargetedForm((f) => ({ ...f, title: e.target.value }))}
                   placeholder="رسالة من المرسول"
                   maxLength={200}
+                  disabled={!selectedUser || noTokenAlert}
                   required
                 />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">نص الإشعار</Label>
                 <textarea
-                  className="w-full border rounded-md px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="w-full border rounded-md px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
                   rows={3}
                   value={targetedForm.body}
                   onChange={(e) => setTargetedForm((f) => ({ ...f, body: e.target.value }))}
                   placeholder="نص الرسالة..."
                   maxLength={1000}
+                  disabled={!selectedUser || noTokenAlert}
                   required
                 />
               </div>
               <Button
                 type="submit"
-                disabled={targetedMutation.isPending || !targetedForm.phone.trim() || !targetedForm.title.trim() || !targetedForm.body.trim()}
+                disabled={
+                  targetedMutation.isPending ||
+                  !selectedUser ||
+                  noTokenAlert ||
+                  !targetedForm.title.trim() ||
+                  !targetedForm.body.trim()
+                }
                 className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
                 size="sm"
               >
@@ -165,7 +269,9 @@ export default function NotificationsPage() {
                 <select
                   className="w-full border rounded-md px-3 py-2 text-sm bg-background"
                   value={broadcastForm.target}
-                  onChange={(e) => setBroadcastForm((f) => ({ ...f, target: e.target.value as "all" | "customers" | "couriers" }))}
+                  onChange={(e) =>
+                    setBroadcastForm((f) => ({ ...f, target: e.target.value as "all" | "customers" | "couriers" }))
+                  }
                 >
                   <option value="all">الجميع</option>
                   <option value="customers">العملاء فقط</option>
@@ -219,7 +325,10 @@ export default function NotificationsPage() {
                         <td className="px-4 py-3 text-red-500 font-semibold">{n.failedCount}</td>
                         <td className="px-4 py-3 text-muted-foreground text-xs">
                           {new Date(n.createdAt).toLocaleString("ar-SY", {
-                            day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"
+                            day: "numeric",
+                            month: "short",
+                            hour: "2-digit",
+                            minute: "2-digit",
                           })}
                         </td>
                       </tr>
