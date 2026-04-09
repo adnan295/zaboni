@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, varchar, doublePrecision, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, varchar, doublePrecision, boolean, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
 export const usersTable = pgTable("users", {
@@ -10,6 +10,7 @@ export const usersTable = pgTable("users", {
   courierLat: doublePrecision("courier_lat"),
   courierLon: doublePrecision("courier_lon"),
   isOnline: boolean("is_online").notNull().default(true),
+  walletBalance: integer("wallet_balance").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

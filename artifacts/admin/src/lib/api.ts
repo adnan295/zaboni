@@ -272,6 +272,19 @@ export type SubscriptionReport = {
 
 export type SystemSettings = Record<string, string>;
 
+export type WalletDepositRequest = {
+  id: string;
+  courierId: string;
+  courierName: string;
+  courierPhone: string;
+  walletBalance: number;
+  amount: number;
+  type: string;
+  status: string;
+  note: string | null;
+  createdAt: string;
+};
+
 export const api = {
   async verifyToken(token: string): Promise<boolean> {
     const res = await fetch(`${API_BASE}/admin/stats`, {
@@ -417,4 +430,15 @@ export const api = {
     const qs = month ? `?month=${month}` : "";
     return apiFetch<SubscriptionReport>(`/admin/subscriptions/report${qs}`);
   },
+
+  getWalletDepositRequests: () =>
+    apiFetch<WalletDepositRequest[]>("/admin/wallet/deposit-requests"),
+  approveDepositRequest: (id: string) =>
+    apiFetch<{ ok: boolean; newBalance: number }>(`/admin/wallet/deposit-requests/${id}/approve`, {
+      method: "POST",
+    }),
+  rejectDepositRequest: (id: string) =>
+    apiFetch<{ ok: boolean }>(`/admin/wallet/deposit-requests/${id}/reject`, {
+      method: "POST",
+    }),
 };
