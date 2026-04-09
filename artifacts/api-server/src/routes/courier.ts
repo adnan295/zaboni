@@ -778,4 +778,30 @@ router.post("/courier/wallet/deposit-request", requireCourier, async (req, res) 
   res.status(201).json(row);
 });
 
+const updateCourierProfileSchema = z.object({
+  name: z.string().min(1).max(60).trim(),
+});
+
+router.patch("/courier/profile", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+  const body = updateCourierProfileSchema.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "الاسم مطلوب ويجب أن يكون بين 1 و 60 حرفاً" });
+    return;
+  }
+
+  const rows = await db
+    .update(usersTable)
+    .set({ name: body.data.name })
+    .where(eq(usersTable.id, courierId))
+    .returning({ id: usersTable.id, name: usersTable.name });
+
+  if (rows.length === 0) {
+    res.status(404).json({ error: "Courier not found" });
+    return;
+  }
+
+  res.json(rows[0]);
+});
+
 export default router;

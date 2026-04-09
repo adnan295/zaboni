@@ -97,7 +97,7 @@ export default function CourierProfileScreen() {
     if (!trimmed) return;
     setSavingName(true);
     try {
-      const updated = await customFetch("/api/auth/me", {
+      const updated = await customFetch("/api/courier/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: trimmed }),

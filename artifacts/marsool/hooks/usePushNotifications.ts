@@ -28,11 +28,13 @@ function getNotificationTargetRoute(
   return null;
 }
 
-export function usePushNotifications() {
+export function usePushNotifications(onNewOrderTap?: () => void) {
   const { token } = useAuth();
   const router = useRouter();
   const routerRef = useRef(router);
+  const onNewOrderTapRef = useRef(onNewOrderTap);
   routerRef.current = router;
+  onNewOrderTapRef.current = onNewOrderTap;
 
   useEffect(() => {
     if (Platform.OS === "web" || !token) return;
@@ -77,6 +79,10 @@ export function usePushNotifications() {
           const route = getNotificationTargetRoute(lastResponse);
           if (route) {
             routerRef.current.push(route as Parameters<typeof routerRef.current.push>[0]);
+            const data = lastResponse.notification.request.content.data;
+            if (data?.type === "new_order") {
+              onNewOrderTapRef.current?.();
+            }
           }
         }
       } catch {
@@ -88,6 +94,10 @@ export function usePushNotifications() {
         const route = getNotificationTargetRoute(response);
         if (route) {
           routerRef.current.push(route as Parameters<typeof routerRef.current.push>[0]);
+          const data = response.notification.request.content.data;
+          if (data?.type === "new_order") {
+            onNewOrderTapRef.current?.();
+          }
         }
       }
     );
