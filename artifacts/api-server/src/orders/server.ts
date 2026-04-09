@@ -1,10 +1,24 @@
 import { Server as SocketServer, Namespace, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
 import { db, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { Expo } from "expo-server-sdk";
 import { logger } from "../lib/logger";
 import type { AuthPayload } from "../middleware/auth";
+
+const NEARBY_RADIUS_KM = 30;
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 const DEV_JWT_SECRET = "marsool-dev-secret-change-in-production-please";
 
@@ -52,6 +66,65 @@ export async function sendOrderPush(
     ]);
   } catch (err) {
     logger.warn({ err, recipientId }, "Failed to send order push notification");
+  }
+}
+
+export async function notifyNearbyCouriers(
+  destLat: number,
+  destLon: number,
+  restaurantName: string,
+  deliveryFee: number,
+): Promise<void> {
+  try {
+    const couriers = await db
+      .select({
+        id: usersTable.id,
+        pushToken: usersTable.pushToken,
+        courierLat: usersTable.courierLat,
+        courierLon: usersTable.courierLon,
+      })
+      .from(usersTable)
+      .where(
+        and(
+          eq(usersTable.role, "courier"),
+          eq(usersTable.isOnline, true),
+          isNotNull(usersTable.pushToken),
+        ),
+      );
+
+    const DAMASCUS_LAT = 33.5138;
+    const DAMASCUS_LON = 36.2765;
+
+    const messages: Parameters<typeof expo.sendPushNotificationsAsync>[0] = [];
+
+    for (const courier of couriers) {
+      const lat = courier.courierLat ?? DAMASCUS_LAT;
+      const lon = courier.courierLon ?? DAMASCUS_LON;
+      const dist = haversineKm(lat, lon, destLat, destLon);
+      if (dist > NEARBY_RADIUS_KM) continue;
+      const token = courier.pushToken;
+      if (!token || !Expo.isExpoPushToken(token)) continue;
+
+      messages.push({
+        to: token,
+        sound: "default",
+        title: "🛵 طلب جديد قريب منك!",
+        body: restaurantName
+          ? `طلب من ${restaurantName} — رسوم التوصيل: ${deliveryFee.toLocaleString("ar-SY")} ل.س`
+          : `طلب جديد — رسوم التوصيل: ${deliveryFee.toLocaleString("ar-SY")} ل.س`,
+        data: { type: "new_order" },
+      });
+    }
+
+    if (messages.length > 0) {
+      const chunks = expo.chunkPushNotifications(messages);
+      for (const chunk of chunks) {
+        await expo.sendPushNotificationsAsync(chunk);
+      }
+      logger.info({ count: messages.length }, "Sent new-order push to nearby couriers");
+    }
+  } catch (err) {
+    logger.warn({ err }, "Failed to notify nearby couriers");
   }
 }
 

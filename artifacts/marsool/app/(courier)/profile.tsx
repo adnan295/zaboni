@@ -167,13 +167,17 @@ export default function CourierProfileScreen() {
           </View>
 
           {subscription !== null && (
-            <View style={[
-              styles.subscriptionCard,
-              {
-                backgroundColor: subscription.status === "pending" ? "#fff7ed" : "#f0fdf4",
-                borderColor: subscription.status === "pending" ? "#fed7aa" : "#bbf7d0",
-              },
-            ]}>
+            <TouchableOpacity
+              style={[
+                styles.subscriptionCard,
+                {
+                  backgroundColor: subscription.status === "pending" ? "#fff7ed" : "#f0fdf4",
+                  borderColor: subscription.status === "pending" ? "#fed7aa" : "#bbf7d0",
+                },
+              ]}
+              onPress={() => router.push("/(courier)/subscription-history")}
+              activeOpacity={0.8}
+            >
               <View style={styles.subscriptionLeft}>
                 <MaterialIcons
                   name={subscription.status === "pending" ? "warning" : "check-circle"}
@@ -201,7 +205,8 @@ export default function CourierProfileScreen() {
                   </Text>
                 </View>
               </View>
-            </View>
+              <MaterialIcons name="chevron-left" size={20} color={subscription.status === "pending" ? "#ea580c" : "#16a34a"} />
+            </TouchableOpacity>
           )}
 
           <TouchableOpacity

@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { db, usersTable, ordersTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, systemSettingsTable } from "@workspace/db";
+import { db, usersTable, ordersTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, systemSettingsTable, courierCustomerRatingsTable } from "@workspace/db";
 import { and, eq, ne, avg, count, sql } from "drizzle-orm";
 import { haversineKm as _haversineKm } from "../lib/deliveryZones";
 import { z } from "zod";
@@ -408,6 +408,79 @@ router.get("/courier/subscription/today", requireCourier, async (req, res) => {
 
   const sub = subRow[0]!;
   res.json({ status: sub.status, amount: sub.amount, date: today, note: sub.note });
+});
+
+const rateCustomerSchema = z.object({
+  stars: z.number().int().min(1).max(5),
+  comment: z.string().max(500).optional().default(""),
+});
+
+router.post("/courier/orders/:orderId/rate-customer", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+  const orderId = String(req.params["orderId"]);
+
+  const parsed = rateCustomerSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { stars, comment } = parsed.data;
+
+  const order = await db
+    .select({ status: ordersTable.status, courierId: ordersTable.courierId, userId: ordersTable.userId })
+    .from(ordersTable)
+    .where(eq(ordersTable.id, orderId))
+    .limit(1);
+
+  if (order.length === 0) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+
+  const o = order[0]!;
+  if (o.courierId !== courierId) {
+    res.status(403).json({ error: "Not your order" });
+    return;
+  }
+  if (o.status !== "delivered") {
+    res.status(409).json({ error: "Order must be delivered first" });
+    return;
+  }
+
+  const existing = await db
+    .select({ id: courierCustomerRatingsTable.id })
+    .from(courierCustomerRatingsTable)
+    .where(and(
+      eq(courierCustomerRatingsTable.orderId, orderId),
+      eq(courierCustomerRatingsTable.courierId, courierId),
+    ))
+    .limit(1);
+
+  if (existing.length > 0) {
+    res.status(409).json({ error: "Already rated this customer" });
+    return;
+  }
+
+  const id = `ccr_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+  const [row] = await db
+    .insert(courierCustomerRatingsTable)
+    .values({ id, orderId, courierId, customerId: o.userId, stars, comment })
+    .returning();
+
+  res.status(201).json(row);
+});
+
+router.get("/courier/subscription/history", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+
+  const rows = await db
+    .select()
+    .from(courierSubscriptionsTable)
+    .where(eq(courierSubscriptionsTable.courierId, courierId))
+    .orderBy(sql`${courierSubscriptionsTable.date} DESC`)
+    .limit(60);
+
+  res.json(rows);
 });
 
 export default router;

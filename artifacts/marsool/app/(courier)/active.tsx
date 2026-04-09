@@ -15,6 +15,7 @@ import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useCourier, CourierOrderStatus, CourierDeliveryStatus } from "@/context/CourierContext";
+import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps";
 
 const STATUS_COLORS: Record<CourierOrderStatus, string> = {
   searching: "#9E9E9E",
@@ -228,6 +229,57 @@ export default function ActiveOrderScreen() {
             })}
           </View>
 
+          {/* Map */}
+          {order.destinationLat && order.destinationLon ? (
+            <View style={[styles.mapCard, { borderColor: colors.border }]}>
+              {Platform.OS === "web" ? (
+                <TouchableOpacity
+                  onPress={openNavigation}
+                  activeOpacity={0.9}
+                  style={styles.mapFallback}
+                >
+                  <MaterialIcons name="map" size={40} color="#FF6B00" />
+                  <Text style={styles.mapFallbackText}>
+                    {order.destinationLat?.toFixed(4)}, {order.destinationLon?.toFixed(4)}
+                  </Text>
+                  <Text style={[styles.mapFallbackSub]}>اضغط لفتح الخرائط</Text>
+                </TouchableOpacity>
+              ) : (
+                <MapView
+                  provider={PROVIDER_DEFAULT}
+                  style={styles.map}
+                  initialRegion={{
+                    latitude: order.destinationLat,
+                    longitude: order.destinationLon,
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
+                  }}
+                  scrollEnabled={false}
+                  zoomEnabled={false}
+                  pitchEnabled={false}
+                  rotateEnabled={false}
+                >
+                  <Marker
+                    coordinate={{
+                      latitude: order.destinationLat,
+                      longitude: order.destinationLon,
+                    }}
+                    pinColor="#FF6B00"
+                    title={order.address || "وجهة التوصيل"}
+                  />
+                </MapView>
+              )}
+              <TouchableOpacity
+                style={styles.mapNavigateBtn}
+                onPress={openNavigation}
+                activeOpacity={0.85}
+              >
+                <MaterialIcons name="navigation" size={16} color="#fff" />
+                <Text style={styles.mapNavigateBtnText}>ابدأ الملاحة</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
           {/* Order details */}
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             {order.restaurantName ? (
@@ -323,11 +375,21 @@ export default function ActiveOrderScreen() {
               </TouchableOpacity>
             </View>
           ) : order.status === "delivered" ? (
-            <View style={[styles.deliveredBanner, { backgroundColor: "#4CAF5020" }]}>
-              <MaterialIcons name="check-circle" size={24} color="#4CAF50" />
-              <Text style={[styles.deliveredText, { color: "#4CAF50" }]}>
-                {t("courier.active.status.delivered")} ✅
-              </Text>
+            <View style={{ gap: 10 }}>
+              <View style={[styles.deliveredBanner, { backgroundColor: "#4CAF5020" }]}>
+                <MaterialIcons name="check-circle" size={24} color="#4CAF50" />
+                <Text style={[styles.deliveredText, { color: "#4CAF50" }]}>
+                  {t("courier.active.status.delivered")} ✅
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.rateCustomerBtn, { backgroundColor: "#FF6B00" }]}
+                onPress={() => router.push(`/(courier)/rate-customer?orderId=${order.id}`)}
+                activeOpacity={0.85}
+              >
+                <MaterialIcons name="star" size={20} color="#fff" />
+                <Text style={styles.rateCustomerBtnText}>قيّم الزبون</Text>
+              </TouchableOpacity>
             </View>
           ) : null}
         </ScrollView>
@@ -456,4 +518,44 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   deliveredText: { fontSize: 16, fontWeight: "700" },
+  rateCustomerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  rateCustomerBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  mapCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  map: {
+    width: "100%",
+    height: 200,
+  },
+  mapFallback: {
+    width: "100%",
+    height: 180,
+    backgroundColor: "#f3f4f6",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  mapFallbackText: { fontSize: 14, fontWeight: "600", color: "#374151" },
+  mapFallbackSub: { fontSize: 12, color: "#FF6B00", fontWeight: "600" },
+  mapNavigateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "#1a73e8",
+    paddingVertical: 12,
+  },
+  mapNavigateBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
 });
