@@ -1034,51 +1034,51 @@ router.post("/admin/subscriptions", async (req, res) => {
     ))
     .limit(1);
 
-  const resolveWalletAndStatus = async (): Promise<{ finalStatus: "paid" | "waived" | "pending"; deductWallet: boolean }> => {
-    if (status !== "paid") return { finalStatus: status, deductWallet: false };
-
-    const [courierUser] = await db
+  const tryDeductFromWallet = async (trx: Parameters<Parameters<(typeof db)["transaction"]>[0]>[0]): Promise<boolean> => {
+    const [courierUser] = await trx
       .select({ walletBalance: usersTable.walletBalance })
       .from(usersTable)
       .where(eq(usersTable.id, courierId))
       .limit(1);
 
     const balance = courierUser?.walletBalance ?? 0;
-    if (balance >= amount) {
-      return { finalStatus: "paid", deductWallet: true };
-    }
-    return { finalStatus: "pending", deductWallet: false };
-  };
+    if (balance < amount) return false;
 
-  const { finalStatus, deductWallet } = await resolveWalletAndStatus();
+    await trx
+      .update(usersTable)
+      .set({ walletBalance: sql`wallet_balance - ${amount}` })
+      .where(eq(usersTable.id, courierId));
+
+    const deductionId = `wded_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+    await trx
+      .insert(courierWalletTransactionsTable)
+      .values({
+        id: deductionId,
+        courierId,
+        amount: -amount,
+        type: "subscription_deduction",
+        status: "approved",
+        note: `اشتراك ${date}`,
+      });
+
+    return true;
+  };
 
   if (existing.length > 0) {
     const subId = existing[0]!.id;
+    const existingStatus = existing[0]!.status;
 
     let savedRow;
-    if (deductWallet) {
+
+    if (status === "paid" && existingStatus !== "paid") {
+      let walletDeducted = false;
       await db.transaction(async (trx) => {
+        walletDeducted = await tryDeductFromWallet(trx);
+        const finalStatus = walletDeducted ? "paid" : "pending";
         await trx
           .update(courierSubscriptionsTable)
-          .set({ amount, status: "paid", note: note ?? null })
+          .set({ amount, status: finalStatus, note: note ?? null })
           .where(eq(courierSubscriptionsTable.id, subId));
-
-        await trx
-          .update(usersTable)
-          .set({ walletBalance: sql`wallet_balance - ${amount}` })
-          .where(eq(usersTable.id, courierId));
-
-        const deductionId = `wded_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
-        await trx
-          .insert(courierWalletTransactionsTable)
-          .values({
-            id: deductionId,
-            courierId,
-            amount: -amount,
-            type: "subscription_deduction",
-            status: "approved",
-            note: `اشتراك ${date}`,
-          });
       });
 
       const [row] = await db.select().from(courierSubscriptionsTable).where(eq(courierSubscriptionsTable.id, subId)).limit(1);
@@ -1086,39 +1086,26 @@ router.post("/admin/subscriptions", async (req, res) => {
     } else {
       const [row] = await db
         .update(courierSubscriptionsTable)
-        .set({ amount, status: finalStatus, note: note ?? null })
+        .set({ amount, status, note: note ?? null })
         .where(eq(courierSubscriptionsTable.id, subId))
         .returning();
       savedRow = row;
     }
+
     res.json(savedRow);
     return;
   }
 
   const id = `sub_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
 
-  if (deductWallet) {
+  if (status === "paid") {
+    let walletDeducted = false;
     await db.transaction(async (trx) => {
+      walletDeducted = await tryDeductFromWallet(trx);
+      const finalStatus = walletDeducted ? "paid" : "pending";
       await trx
         .insert(courierSubscriptionsTable)
-        .values({ id, courierId, date, amount, status: "paid", note: note ?? null });
-
-      await trx
-        .update(usersTable)
-        .set({ walletBalance: sql`wallet_balance - ${amount}` })
-        .where(eq(usersTable.id, courierId));
-
-      const deductionId = `wded_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
-      await trx
-        .insert(courierWalletTransactionsTable)
-        .values({
-          id: deductionId,
-          courierId,
-          amount: -amount,
-          type: "subscription_deduction",
-          status: "approved",
-          note: `اشتراك ${date}`,
-        });
+        .values({ id, courierId, date, amount, status: finalStatus, note: note ?? null });
     });
 
     const [savedRow] = await db.select().from(courierSubscriptionsTable).where(eq(courierSubscriptionsTable.id, id)).limit(1);
@@ -1128,7 +1115,7 @@ router.post("/admin/subscriptions", async (req, res) => {
 
   const [row] = await db
     .insert(courierSubscriptionsTable)
-    .values({ id, courierId, date, amount, status: finalStatus, note: note ?? null })
+    .values({ id, courierId, date, amount, status, note: note ?? null })
     .returning();
   res.status(201).json(row);
 });
@@ -1189,6 +1176,7 @@ router.get("/admin/wallet/deposit-requests", async (_req, res) => {
     FROM courier_wallet_transactions t
     JOIN users u ON u.id = t.courier_id
     WHERE t.status = 'pending'
+      AND t.type = 'deposit_request'
     ORDER BY t.created_at ASC
   `);
 
