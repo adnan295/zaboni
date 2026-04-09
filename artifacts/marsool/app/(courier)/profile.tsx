@@ -7,6 +7,8 @@ import {
   Platform,
   Switch,
   TouchableOpacity,
+  Alert,
+  Linking,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -17,6 +19,8 @@ import { useAuth } from "@/context/AuthContext";
 import { customFetch } from "@workspace/api-client-react";
 import { useCourier } from "@/context/CourierContext";
 import { useRouter } from "expo-router";
+
+const ADMIN_PHONE = "+963999000111";
 
 interface CourierStats {
   deliveredCount: number;
@@ -37,8 +41,29 @@ export default function CourierProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { isOnline, isTogglingOnline, toggleAvailability } = useCourier();
+
+  const handleSignOut = () => {
+    Alert.alert("تسجيل الخروج", "هل أنت متأكد من تسجيل الخروج؟", [
+      { text: "تراجع", style: "cancel" },
+      {
+        text: "تسجيل الخروج",
+        style: "destructive",
+        onPress: async () => { await signOut(); },
+      },
+    ]);
+  };
+
+  const handleCallAdmin = () => {
+    Linking.openURL(`tel:${ADMIN_PHONE}`);
+  };
+
+  const handleWhatsAppAdmin = () => {
+    const cleaned = ADMIN_PHONE.replace(/\+/g, "");
+    Linking.openURL(`https://wa.me/${cleaned}`);
+  };
+
   const [stats, setStats] = useState<CourierStats | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -266,21 +291,35 @@ export default function CourierProfileScreen() {
               <Text style={[styles.supportHeaderText, { color: colors.mutedForeground }]}>الدعم والمساعدة</Text>
             </View>
             <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
-            <View style={styles.menuRow}>
+            <TouchableOpacity style={styles.menuRow} onPress={handleCallAdmin} activeOpacity={0.7}>
               <View style={[styles.menuIcon, { backgroundColor: "#fdf4ff" }]}>
                 <MaterialIcons name="phone" size={20} color="#9333ea" />
               </View>
               <View style={styles.supportInfo}>
-                <Text style={[styles.menuText, { color: colors.foreground }]}>تواصل مع الإدارة</Text>
+                <Text style={[styles.menuText, { color: colors.foreground }]}>اتصل بالإدارة</Text>
+                <Text style={[styles.supportSub, { color: colors.mutedForeground }]}>
+                  {ADMIN_PHONE}
+                </Text>
+              </View>
+              <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
+            </TouchableOpacity>
+            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+            <TouchableOpacity style={styles.menuRow} onPress={handleWhatsAppAdmin} activeOpacity={0.7}>
+              <View style={[styles.menuIcon, { backgroundColor: "#f0fdf4" }]}>
+                <MaterialIcons name="chat" size={20} color="#22c55e" />
+              </View>
+              <View style={styles.supportInfo}>
+                <Text style={[styles.menuText, { color: colors.foreground }]}>واتساب الإدارة</Text>
                 <Text style={[styles.supportSub, { color: colors.mutedForeground }]}>
                   للاشتراك أو حل أي مشكلة
                 </Text>
               </View>
-            </View>
+              <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
+            </TouchableOpacity>
             <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
             <View style={styles.menuRow}>
-              <View style={[styles.menuIcon, { backgroundColor: "#f0fdf4" }]}>
-                <MaterialIcons name="info-outline" size={20} color="#22c55e" />
+              <View style={[styles.menuIcon, { backgroundColor: "#fef9c3" }]}>
+                <MaterialIcons name="info-outline" size={20} color="#ca8a04" />
               </View>
               <View style={styles.supportInfo}>
                 <Text style={[styles.menuText, { color: colors.foreground }]}>كيف يعمل التطبيق</Text>
@@ -290,6 +329,16 @@ export default function CourierProfileScreen() {
               </View>
             </View>
           </View>
+
+          {/* Sign Out */}
+          <TouchableOpacity
+            style={[styles.signOutBtn, { backgroundColor: colors.card, borderColor: "#fecaca" }]}
+            onPress={handleSignOut}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="logout" size={20} color="#ef4444" />
+            <Text style={styles.signOutText}>تسجيل الخروج</Text>
+          </TouchableOpacity>
         </ScrollView>
       )}
     </View>
@@ -429,6 +478,19 @@ const styles = StyleSheet.create({
   supportHeaderText: { fontSize: 13, fontWeight: "600" },
   supportInfo: { flex: 1, gap: 2 },
   supportSub: { fontSize: 12 },
+  signOutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+  },
+  signOutText: { fontSize: 15, fontWeight: "700", color: "#ef4444" },
   subscriptionCard: {
     flexDirection: "row",
     alignItems: "center",

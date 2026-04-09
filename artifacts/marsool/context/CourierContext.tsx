@@ -6,7 +6,7 @@ import React, {
   useEffect,
   useRef,
 } from "react";
-import { AppState, AppStateStatus } from "react-native";
+import { AppState, AppStateStatus, Vibration } from "react-native";
 import { customFetch } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -62,12 +62,32 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
   const [isTogglingOnline, setIsTogglingOnline] = useState(false);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const isOnlineRef = useRef(isOnline);
+  useEffect(() => {
+    isOnlineRef.current = isOnline;
+  }, [isOnline]);
+
+  const lastKnownIdsRef = useRef<Set<string>>(new Set());
+  const isFirstFetchRef = useRef(true);
+
   const refreshAvailableOrders = useCallback(async () => {
     if (!user || !isCourier) return;
     setIsLoadingAvailable(true);
     try {
       const data = await customFetch<CourierOrder[]>("/api/courier/orders/available");
-      setAvailableOrders(Array.isArray(data) ? data : []);
+      const newOrders = Array.isArray(data) ? data : [];
+
+      if (!isFirstFetchRef.current) {
+        const hasNew = newOrders.some((o) => !lastKnownIdsRef.current.has(o.id));
+        if (hasNew) {
+          Vibration.vibrate([0, 400, 200, 400]);
+        }
+      } else {
+        isFirstFetchRef.current = false;
+      }
+
+      lastKnownIdsRef.current = new Set(newOrders.map((o) => o.id));
+      setAvailableOrders(newOrders);
     } catch {
       setAvailableOrders([]);
     } finally {
@@ -112,7 +132,9 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ status }),
         headers: { "Content-Type": "application/json" },
       });
-      await refreshActiveOrders();
+      if (status !== "delivered") {
+        await refreshActiveOrders();
+      }
     },
     [refreshActiveOrders]
   );
@@ -139,9 +161,12 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
       });
       setIsOnline(newStatus);
       if (newStatus) {
+        isFirstFetchRef.current = true;
         await refreshAvailableOrders();
       } else {
         setAvailableOrders([]);
+        lastKnownIdsRef.current = new Set();
+        isFirstFetchRef.current = true;
       }
     } catch {
     } finally {
@@ -152,7 +177,9 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
   const startPolling = useCallback(() => {
     if (pollTimerRef.current) clearInterval(pollTimerRef.current);
     pollTimerRef.current = setInterval(() => {
-      refreshAvailableOrders();
+      if (isOnlineRef.current) {
+        refreshAvailableOrders();
+      }
       refreshActiveOrders();
     }, POLL_INTERVAL_MS);
   }, [refreshAvailableOrders, refreshActiveOrders]);

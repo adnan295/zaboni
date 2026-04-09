@@ -18,11 +18,19 @@ import * as Location from "expo-location";
 import { useColors } from "@/hooks/useColors";
 import { useCourier, CourierOrder } from "@/context/CourierContext";
 
+function ageMinutes(isoString: string): number {
+  return Math.floor((Date.now() - new Date(isoString).getTime()) / 60000);
+}
+
 function timeAgo(isoString: string): string {
-  const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 60000);
+  const diff = ageMinutes(isoString);
   if (diff < 1) return "الآن";
   if (diff < 60) return `منذ ${diff} د`;
   return `منذ ${Math.floor(diff / 60)} س`;
+}
+
+function estimatedMinutes(distanceKm: number): number {
+  return Math.max(5, Math.round((distanceKm / 30) * 60));
 }
 
 function OrderCard({
@@ -45,8 +53,14 @@ function OrderCard({
     }
   };
 
+  const age = ageMinutes(order.createdAt);
+  const isOld = age >= 20;
+
   return (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <View style={[
+      styles.card,
+      { backgroundColor: colors.card, borderColor: isOld ? "#fca5a5" : colors.border },
+    ]}>
       <View style={styles.cardHeader}>
         <View style={styles.row}>
           {order.restaurantName ? (
@@ -65,6 +79,14 @@ function OrderCard({
               </Text>
             </View>
           ) : null}
+          {order.distanceKm !== undefined ? (
+            <View style={[styles.timeBadge, { backgroundColor: "#f3f4f6" }]}>
+              <MaterialIcons name="schedule" size={12} color="#6b7280" />
+              <Text style={[styles.timeText, { color: "#6b7280" }]}>
+                ~{estimatedMinutes(order.distanceKm)} د
+              </Text>
+            </View>
+          ) : null}
           {order.deliveryFee != null && order.deliveryFee > 0 ? (
             <View style={[styles.feeBadge, { backgroundColor: "#fff7ed" }]}>
               <MaterialIcons name="account-balance-wallet" size={12} color="#ea580c" />
@@ -73,7 +95,13 @@ function OrderCard({
               </Text>
             </View>
           ) : null}
-          <Text style={[styles.timeAgo, { color: colors.mutedForeground }]}>
+          {isOld ? (
+            <View style={[styles.oldBadge]}>
+              <MaterialIcons name="warning" size={11} color="#dc2626" />
+              <Text style={styles.oldBadgeText}>قديم</Text>
+            </View>
+          ) : null}
+          <Text style={[styles.timeAgo, { color: isOld ? "#dc2626" : colors.mutedForeground }]}>
             {timeAgo(order.createdAt)}
           </Text>
         </View>
@@ -390,6 +418,25 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   feeText: { fontSize: 12, fontWeight: "700" },
+  timeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  timeText: { fontSize: 12, fontWeight: "600" },
+  oldBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: "#fee2e2",
+  },
+  oldBadgeText: { fontSize: 11, fontWeight: "700", color: "#dc2626" },
   timeAgo: { fontSize: 12 },
   detailRow: {
     flexDirection: "row",
