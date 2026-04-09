@@ -103,7 +103,8 @@ export default function NotificationsPage() {
     setSelectedUser(user);
     setSearchQuery("");
     setDebouncedQuery("");
-    setNoTokenAlert(false);
+    // Show warning immediately if user has no push token
+    setNoTokenAlert(!user.hasPushToken);
   };
 
   const handleClearUser = () => {

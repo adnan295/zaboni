@@ -148,6 +148,9 @@ router.post("/admin/notifications/send-to-user", async (req, res) => {
   }
 
   if (!user.pushToken || !Expo.isExpoPushToken(user.pushToken)) {
+    // Log the failed attempt for auditability
+    const failId = `notif_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+    await db.insert(notificationLogsTable).values({ id: failId, title, body, target: "targeted", sentCount: 0, failedCount: 1 });
     res.status(422).json({ error: "لا يمتلك هذا المستخدم رمز push نشط — لم يُرسَل الإشعار", userId: user.id, userName: user.name });
     return;
   }
