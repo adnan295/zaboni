@@ -482,6 +482,12 @@ components:
           type: string
         userId:
           type: string
+        promoCode:
+          type: string
+        lat:
+          type: number
+        lon:
+          type: number
 
     UpdateOrderStatusRequest:
       type: object

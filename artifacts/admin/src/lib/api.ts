@@ -198,6 +198,16 @@ export type FinancialReport = {
   days: number;
 };
 
+export type DeliveryZone = {
+  id: string;
+  label: string | null;
+  fromKm: number;
+  toKm: number;
+  fee: number;
+  isActive: boolean;
+  createdAt: string;
+};
+
 export type PromoCode = {
   id: string;
   code: string;
@@ -314,6 +324,20 @@ export const api = {
     }),
   getNotificationHistory: () =>
     apiFetch<NotificationLog[]>("/admin/notifications/history"),
+
+  getDeliveryZones: () => apiFetch<DeliveryZone[]>("/admin/delivery-zones"),
+  createDeliveryZone: (data: Omit<DeliveryZone, "id" | "createdAt">) =>
+    apiFetch<DeliveryZone>("/admin/delivery-zones", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateDeliveryZone: (id: string, data: Partial<Omit<DeliveryZone, "id" | "createdAt">>) =>
+    apiFetch<DeliveryZone>(`/admin/delivery-zones/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteDeliveryZone: (id: string) =>
+    apiFetch<void>(`/admin/delivery-zones/${id}`, { method: "DELETE" }),
 
   getFinancialReport: (days?: number, groupBy?: 'day' | 'week') => {
     const params = new URLSearchParams();

@@ -21,6 +21,7 @@ const navItems = [
   { href: "/promos", label: "Promos", icon: "🎟️" },
   { href: "/notifications", label: "Notifications", icon: "🔔" },
   { href: "/financial", label: "Financial", icon: "💰" },
+  { href: "/delivery-zones", label: "Delivery Zones", icon: "📍" },
 ];
 
 export default function Layout({ children, onLogout }: LayoutProps) {

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -33,14 +33,19 @@ interface PromoResult {
   error?: string;
 }
 
+interface FeePreview {
+  fee: number;
+  distanceKm: number;
+  zoneLabel: string | null;
+}
+
 export default function OrderRequestScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const backIcon = useBackIcon();
-  const { restaurantName, deliveryFee: deliveryFeeParam } = useLocalSearchParams<{ restaurantName?: string; deliveryFee?: string }>();
-  const deliveryFee = deliveryFeeParam ? parseFloat(deliveryFeeParam) : undefined;
+  const { restaurantName } = useLocalSearchParams<{ restaurantName?: string }>();
   const { placeOrder } = useOrders();
   const { defaultAddress } = useAddresses();
 
@@ -50,6 +55,8 @@ export default function OrderRequestScreen() {
   const [promoCode, setPromoCode] = useState("");
   const [promoStatus, setPromoStatus] = useState<PromoStatus>("idle");
   const [promoResult, setPromoResult] = useState<PromoResult | null>(null);
+  const [feePreview, setFeePreview] = useState<FeePreview | null>(null);
+  const [feeLoading, setFeeLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isValid = orderText.trim().length >= 5 && orderText.trim() !== prefix.trim();
@@ -60,6 +67,26 @@ export default function OrderRequestScreen() {
   const steps = t("orderRequest.steps", { returnObjects: true }) as string[];
   const stepIcons: Array<keyof typeof MaterialIcons.glyphMap> = ["send", "check-circle", "chat"];
 
+  const addrLat = defaultAddress?.latitude;
+  const addrLon = defaultAddress?.longitude;
+
+  useEffect(() => {
+    if (addrLat == null || addrLon == null) {
+      setFeePreview(null);
+      return;
+    }
+    setFeeLoading(true);
+    customFetch(`/api/delivery-fee-preview?lat=${addrLat}&lon=${addrLon}`)
+      .then((res) => {
+        const data = res as FeePreview;
+        setFeePreview(data);
+      })
+      .catch(() => setFeePreview(null))
+      .finally(() => setFeeLoading(false));
+  }, [addrLat, addrLon]);
+
+  const deliveryFee = feePreview?.fee ?? undefined;
+
   const checkPromo = useCallback(async (code: string) => {
     if (!code.trim()) {
       setPromoStatus("idle");
@@ -68,8 +95,13 @@ export default function OrderRequestScreen() {
     }
     setPromoStatus("checking");
     try {
-      const body: { code: string; deliveryFee?: number } = { code: code.trim() };
-      if (deliveryFee && !isNaN(deliveryFee)) body.deliveryFee = deliveryFee;
+      const body: { code: string; deliveryFee?: number; lat?: number; lon?: number } = { code: code.trim() };
+      if (deliveryFee != null) {
+        body.deliveryFee = deliveryFee;
+      } else if (addrLat != null && addrLon != null) {
+        body.lat = addrLat;
+        body.lon = addrLon;
+      }
       const res = await customFetch("/api/orders/validate-promo", {
         method: "POST",
         body: JSON.stringify(body),
@@ -82,7 +114,7 @@ export default function OrderRequestScreen() {
       setPromoResult({ valid: false, error: errorCode });
       setPromoStatus(errorCode as PromoStatus);
     }
-  }, [deliveryFee]);
+  }, [deliveryFee, addrLat, addrLon]);
 
   const handlePromoChange = (text: string) => {
     setPromoCode(text);
@@ -132,8 +164,10 @@ export default function OrderRequestScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const address = defaultAddress.label;
     const appliedPromo = promoStatus === "valid" && promoCode.trim() ? promoCode.trim() : undefined;
+    const lat = defaultAddress.latitude ?? undefined;
+    const lon = defaultAddress.longitude ?? undefined;
     try {
-      const order = await placeOrder(orderText.trim(), restaurantName ?? t("orderRequest.title"), address, appliedPromo);
+      const order = await placeOrder(orderText.trim(), restaurantName ?? t("orderRequest.title"), address, appliedPromo, lat, lon);
       router.replace({
         pathname: "/order-tracking/[id]",
         params: { id: order.id },
@@ -224,6 +258,27 @@ export default function OrderRequestScreen() {
             <Text style={[styles.addrText, { color: colors.foreground }]}>{t("payment.cashOnDelivery")}</Text>
           </View>
         </View>
+
+        {(feeLoading || feePreview != null) ? (
+          <View style={[styles.feeCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <MaterialIcons name="delivery-dining" size={20} color={colors.primary} />
+            <View style={styles.addrInfo}>
+              <Text style={[styles.addrLabel, { color: colors.mutedForeground }]}>رسوم التوصيل</Text>
+              {feeLoading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : feePreview ? (
+                <View style={styles.feeRow}>
+                  <Text style={[styles.feeAmount, { color: colors.foreground }]}>
+                    {feePreview.fee.toLocaleString()} ل.س
+                  </Text>
+                  <Text style={[styles.feeDistance, { color: colors.mutedForeground }]}>
+                    ({feePreview.distanceKm} كم{feePreview.zoneLabel ? ` · ${feePreview.zoneLabel}` : ""})
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
 
         <View style={[styles.promoCard, {
           backgroundColor: colors.card,
@@ -323,6 +378,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 14,
   },
+  feeCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+  },
+  feeRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
+  feeAmount: { fontSize: 15, fontWeight: "700" },
+  feeDistance: { fontSize: 12 },
   addrInfo: { flex: 1 },
   addrLabel: { fontSize: 11, fontWeight: "600", marginBottom: 2 },
   addrText: { fontSize: 14, fontWeight: "600" },

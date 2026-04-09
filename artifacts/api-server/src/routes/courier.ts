@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db, usersTable, ordersTable, orderStatusHistoryTable, orderRatingsTable } from "@workspace/db";
 import { and, eq, ne, avg, count, sql } from "drizzle-orm";
+import { haversineKm as _haversineKm } from "../lib/deliveryZones";
 import { z } from "zod";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
 
@@ -54,15 +55,7 @@ router.get("/courier/stats", requireCourier, async (req, res) => {
 });
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return _haversineKm(lat1, lon1, lat2, lon2);
 }
 
 router.post("/courier/register", async (req, res) => {
@@ -334,8 +327,6 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
   res.json(updated[0]);
 });
 
-const DEFAULT_DELIVERY_FEE_SYP = 5000;
-
 router.get("/courier/earnings", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
 
@@ -350,11 +341,8 @@ router.get("/courier/earnings", requireCourier, async (req, res) => {
       o.restaurant_name AS "restaurantName",
       o.address,
       o.updated_at AS "updatedAt",
-      COALESCE(r.delivery_fee, ${DEFAULT_DELIVERY_FEE_SYP}) AS "deliveryFee"
+      COALESCE(o.delivery_fee, 0) AS "deliveryFee"
     FROM orders o
-    LEFT JOIN restaurants r
-      ON r.name = o.restaurant_name
-      OR r.name_ar = o.restaurant_name
     WHERE o.courier_id = ${courierId}
       AND o.status = 'delivered'
     ORDER BY o.updated_at DESC
@@ -383,7 +371,6 @@ router.get("/courier/earnings", requireCourier, async (req, res) => {
     todayDeliveries: todayDeliveries.length,
     weekDeliveries: weekDeliveries.length,
     totalDeliveries: allDeliveries.length,
-    deliveryFee: DEFAULT_DELIVERY_FEE_SYP,
     recentDeliveries: allDeliveries.slice(0, 50),
   });
 });

@@ -11,3 +11,4 @@ export * from "./user_favorites";
 export * from "./promo_codes";
 export * from "./restaurant_hours";
 export * from "./notification_logs";
+export * from "./delivery_zones";

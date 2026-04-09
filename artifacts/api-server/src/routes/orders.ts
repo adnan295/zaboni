@@ -3,6 +3,7 @@ import { db, ordersTable, orderStatusHistoryTable, orderRatingsTable, restaurant
 import { and, count, desc, eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { notifyOrderUpdate } from "../orders/server";
+import { haversineKm, getFeeForDistance, DEFAULT_DELIVERY_FEE_SYP } from "../lib/deliveryZones";
 
 const DAMASCUS_CENTER_LAT = 33.5138;
 const DAMASCUS_CENTER_LON = 36.2765;
@@ -23,10 +24,9 @@ const createOrderSchema = z.object({
   restaurantName: z.string().default(""),
   address: z.string().default(""),
   promoCode: z.string().optional(),
-  deliveryFee: z.number().positive().optional(),
+  lat: z.number().min(-90).max(90).optional(),
+  lon: z.number().min(-180).max(180).optional(),
 });
-
-const DEFAULT_DELIVERY_FEE_SYP = 5000;
 
 async function validatePromoForUser(code: string, userId: string, deliveryFee?: number): Promise<{
   valid: false; error: string;
@@ -71,6 +71,27 @@ async function validatePromoForUser(code: string, userId: string, deliveryFee?: 
   return { valid: true, promo, discountAmount };
 }
 
+router.get("/delivery-fee-preview", async (req, res) => {
+  const latRaw = parseFloat(String(req.query["lat"] ?? ""));
+  const lonRaw = parseFloat(String(req.query["lon"] ?? ""));
+
+  if (isNaN(latRaw) || isNaN(lonRaw)) {
+    res.status(400).json({ error: "lat and lon query params required" });
+    return;
+  }
+
+  const distanceKm = haversineKm(DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON, latRaw, lonRaw);
+  const { fee, zone } = await getFeeForDistance(distanceKm);
+
+  res.json({
+    fee,
+    distanceKm: Number(distanceKm.toFixed(2)),
+    zoneLabel: zone?.label ?? null,
+    fromKm: zone?.fromKm ?? null,
+    toKm: zone?.toKm ?? null,
+  });
+});
+
 function resolveUserId(req: Request): string {
   return req.auth!.userId;
 }
@@ -107,12 +128,20 @@ router.post("/orders/validate-promo", async (req, res) => {
   const body = z.object({
     code: z.string().min(1),
     deliveryFee: z.number().positive().optional(),
+    lat: z.number().optional(),
+    lon: z.number().optional(),
   }).safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ error: "code required" });
     return;
   }
-  const result = await validatePromoForUser(body.data.code, userId, body.data.deliveryFee);
+  let feeForPromo = body.data.deliveryFee;
+  if (!feeForPromo && body.data.lat != null && body.data.lon != null) {
+    const distKm = haversineKm(DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON, body.data.lat, body.data.lon);
+    const { fee } = await getFeeForDistance(distKm);
+    feeForPromo = fee;
+  }
+  const result = await validatePromoForUser(body.data.code, userId, feeForPromo);
   if (!result.valid) {
     res.status(422).json({ valid: false, error: result.error });
     return;
@@ -136,11 +165,16 @@ router.post("/orders", async (req, res) => {
   const userId = resolveUserId(req);
   const id = `${Date.now()}${Math.random().toString(36).slice(2, 9)}`;
   const estimatedMinutes = Math.floor(Math.random() * 15) + 30;
-  const destination = randomDamascusCoord();
+
+  const destLat = body.data.lat ?? (DAMASCUS_CENTER_LAT + (Math.random() - 0.5) * 0.24);
+  const destLon = body.data.lon ?? (DAMASCUS_CENTER_LON + (Math.random() - 0.5) * 0.30);
+
+  const distanceKm = haversineKm(DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON, destLat, destLon);
+  const { fee: zoneFee } = await getFeeForDistance(distanceKm);
 
   let promoUseData: { promoId: string; discountAmount: number } | null = null;
   if (body.data.promoCode) {
-    const promoResult = await validatePromoForUser(body.data.promoCode, userId, body.data.deliveryFee);
+    const promoResult = await validatePromoForUser(body.data.promoCode, userId, zoneFee);
     if (!promoResult.valid) {
       res.status(422).json({ error: "invalid_promo", reason: promoResult.error });
       return;
@@ -159,9 +193,9 @@ router.post("/orders", async (req, res) => {
     courierRating: 0,
     courierId: "",
     address: body.data.address,
-    destinationLat: destination.lat,
-    destinationLon: destination.lon,
-    deliveryFee: body.data.deliveryFee ?? 0,
+    destinationLat: destLat,
+    destinationLon: destLon,
+    deliveryFee: zoneFee,
     estimatedMinutes,
   };
 
