@@ -165,10 +165,18 @@ export type NotificationLog = {
   id: string;
   title: string;
   body: string;
-  target: "all" | "customers" | "couriers";
+  target: "all" | "customers" | "couriers" | "targeted";
   sentCount: number;
   failedCount: number;
   createdAt: string;
+};
+
+export type SendToUserResult = {
+  success: boolean;
+  sentCount: number;
+  failedCount: number;
+  userId: string;
+  userName: string;
 };
 
 export type BroadcastResult = {
@@ -420,6 +428,11 @@ export const api = {
 
   broadcastNotification: (data: { title: string; body: string; target: "all" | "customers" | "couriers" }) =>
     apiFetch<BroadcastResult>("/admin/notifications/broadcast", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  sendNotificationToUser: (data: { phone: string; title: string; body: string }) =>
+    apiFetch<SendToUserResult>("/admin/notifications/send-to-user", {
       method: "POST",
       body: JSON.stringify(data),
     }),

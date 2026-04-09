@@ -4,7 +4,7 @@ export const notificationLogsTable = pgTable("notification_logs", {
   id: text("id").primaryKey(),
   title: text("title").notNull(),
   body: text("body").notNull(),
-  target: text("target", { enum: ["all", "customers", "couriers"] }).notNull().default("all"),
+  target: text("target", { enum: ["all", "customers", "couriers", "targeted"] }).notNull().default("all"),
   sentCount: integer("sent_count").notNull().default(0),
   failedCount: integer("failed_count").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

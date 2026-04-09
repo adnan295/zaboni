@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +10,10 @@ import { useToast } from "@/hooks/use-toast";
 export default function NotificationsPage() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [form, setForm] = useState({ title: "", body: "", target: "all" as "all" | "customers" | "couriers" });
+
+  const [broadcastForm, setBroadcastForm] = useState({ title: "", body: "", target: "all" as "all" | "customers" | "couriers" });
+
+  const [targetedForm, setTargetedForm] = useState({ phone: "", title: "", body: "" });
 
   const { data: history = [] } = useQuery({
     queryKey: ["admin", "notifications", "history"],
@@ -26,76 +29,164 @@ export default function NotificationsPage() {
         title: "تم الإرسال!",
         description: `${data.sentCount} أُرسل، ${data.failedCount} فشل`,
       });
-      setForm((f) => ({ ...f, title: "", body: "" }));
+      setBroadcastForm((f) => ({ ...f, title: "", body: "" }));
     },
     onError: (e: Error) => {
       toast({ title: "خطأ", description: e.message, variant: "destructive" });
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const targetedMutation = useMutation({
+    mutationFn: api.sendNotificationToUser,
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["admin", "notifications", "history"] });
+      if (data.success) {
+        toast({
+          title: "تم الإرسال!",
+          description: `وصل الإشعار إلى ${data.userName || "المستخدم"} بنجاح`,
+        });
+      } else {
+        toast({
+          title: "فشل الإرسال",
+          description: "المستخدم موجود لكن تعذر الإرسال",
+          variant: "destructive",
+        });
+      }
+      setTargetedForm((f) => ({ ...f, title: "", body: "" }));
+    },
+    onError: (e: Error) => {
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const handleBroadcast = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.title.trim() || !form.body.trim()) return;
-    broadcastMutation.mutate(form);
+    if (!broadcastForm.title.trim() || !broadcastForm.body.trim()) return;
+    broadcastMutation.mutate(broadcastForm);
+  };
+
+  const handleTargeted = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!targetedForm.phone.trim() || !targetedForm.title.trim() || !targetedForm.body.trim()) return;
+    targetedMutation.mutate(targetedForm);
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">الإشعارات الجماعية</h1>
-        <p className="text-sm text-muted-foreground mt-1">إرسال إشعارات فورية لجميع المستخدمين أو مجموعة محددة</p>
+        <h1 className="text-2xl font-bold tracking-tight">الإشعارات</h1>
+        <p className="text-sm text-muted-foreground mt-1">إرسال إشعارات فورية لمستخدم محدد أو لجميع المستخدمين</p>
       </div>
 
-      <Card>
-        <CardContent className="pt-6">
-          <form onSubmit={handleSubmit} className="space-y-4 max-w-lg">
-            <div className="space-y-1">
-              <Label>العنوان</Label>
-              <Input
-                value={form.title}
-                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                placeholder="عرض خاص اليوم!"
-                maxLength={200}
-                required
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>نص الإشعار</Label>
-              <textarea
-                className="w-full border rounded-md px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-                rows={4}
-                value={form.body}
-                onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
-                placeholder="نص الإشعار..."
-                maxLength={1000}
-                required
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>الجمهور المستهدف</Label>
-              <select
-                className="w-full border rounded-md px-3 py-2 text-sm bg-background"
-                value={form.target}
-                onChange={(e) => setForm((f) => ({ ...f, target: e.target.value as "all" | "customers" | "couriers" }))}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold">إشعار لمستخدم محدد</CardTitle>
+            <p className="text-xs text-muted-foreground">ابحث برقم الهاتف وأرسل إشعاراً مباشراً</p>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleTargeted} className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs">رقم الهاتف</Label>
+                <Input
+                  dir="ltr"
+                  value={targetedForm.phone}
+                  onChange={(e) => setTargetedForm((f) => ({ ...f, phone: e.target.value.trim() }))}
+                  placeholder="+963912345678"
+                  maxLength={20}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">العنوان</Label>
+                <Input
+                  value={targetedForm.title}
+                  onChange={(e) => setTargetedForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder="رسالة من المرسول"
+                  maxLength={200}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">نص الإشعار</Label>
+                <textarea
+                  className="w-full border rounded-md px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                  rows={3}
+                  value={targetedForm.body}
+                  onChange={(e) => setTargetedForm((f) => ({ ...f, body: e.target.value }))}
+                  placeholder="نص الرسالة..."
+                  maxLength={1000}
+                  required
+                />
+              </div>
+              <Button
+                type="submit"
+                disabled={targetedMutation.isPending || !targetedForm.phone.trim() || !targetedForm.title.trim() || !targetedForm.body.trim()}
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                size="sm"
               >
-                <option value="all">الجميع</option>
-                <option value="customers">العملاء فقط</option>
-                <option value="couriers">المندوبون فقط</option>
-              </select>
-            </div>
-            <Button
-              type="submit"
-              disabled={broadcastMutation.isPending || !form.title.trim() || !form.body.trim()}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              {broadcastMutation.isPending ? "جاري الإرسال..." : "إرسال الإشعار 🔔"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+                {targetedMutation.isPending ? "جاري الإرسال..." : "إرسال لهذا المستخدم 🎯"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold">إشعار جماعي</CardTitle>
+            <p className="text-xs text-muted-foreground">إرسال إشعارات لجميع المستخدمين أو مجموعة محددة</p>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleBroadcast} className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs">العنوان</Label>
+                <Input
+                  value={broadcastForm.title}
+                  onChange={(e) => setBroadcastForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder="عرض خاص اليوم!"
+                  maxLength={200}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">نص الإشعار</Label>
+                <textarea
+                  className="w-full border rounded-md px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                  rows={3}
+                  value={broadcastForm.body}
+                  onChange={(e) => setBroadcastForm((f) => ({ ...f, body: e.target.value }))}
+                  placeholder="نص الإشعار..."
+                  maxLength={1000}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">الجمهور المستهدف</Label>
+                <select
+                  className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                  value={broadcastForm.target}
+                  onChange={(e) => setBroadcastForm((f) => ({ ...f, target: e.target.value as "all" | "customers" | "couriers" }))}
+                >
+                  <option value="all">الجميع</option>
+                  <option value="customers">العملاء فقط</option>
+                  <option value="couriers">المندوبون فقط</option>
+                </select>
+              </div>
+              <Button
+                type="submit"
+                disabled={broadcastMutation.isPending || !broadcastForm.title.trim() || !broadcastForm.body.trim()}
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                size="sm"
+              >
+                {broadcastMutation.isPending ? "جاري الإرسال..." : "إرسال للجميع 🔔"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
 
       <div>
-        <h2 className="text-lg font-semibold mb-3">الإشعارات الأخيرة</h2>
+        <h2 className="text-lg font-semibold mb-3">سجل الإشعارات</h2>
         <Card>
           <CardContent className="p-0">
             {history.length === 0 ? (
@@ -110,7 +201,7 @@ export default function NotificationsPage() {
                     <tr className="border-b border-border bg-muted/50">
                       <th className="px-4 py-3 text-right font-semibold text-muted-foreground">العنوان</th>
                       <th className="px-4 py-3 text-right font-semibold text-muted-foreground">النص</th>
-                      <th className="px-4 py-3 text-right font-semibold text-muted-foreground">المستهدف</th>
+                      <th className="px-4 py-3 text-right font-semibold text-muted-foreground">النوع</th>
                       <th className="px-4 py-3 text-right font-semibold text-muted-foreground">أُرسل</th>
                       <th className="px-4 py-3 text-right font-semibold text-muted-foreground">فشل</th>
                       <th className="px-4 py-3 text-right font-semibold text-muted-foreground">التاريخ</th>
@@ -122,15 +213,7 @@ export default function NotificationsPage() {
                         <td className="px-4 py-3 font-medium max-w-[160px] truncate">{n.title}</td>
                         <td className="px-4 py-3 text-muted-foreground max-w-[200px] truncate">{n.body}</td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
-                            n.target === "couriers"
-                              ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                              : n.target === "customers"
-                                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                                : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
-                          }`}>
-                            {n.target === "all" ? "الجميع" : n.target === "customers" ? "العملاء" : "المندوبون"}
-                          </span>
+                          <TargetBadge target={n.target} />
                         </td>
                         <td className="px-4 py-3 text-green-600 font-semibold">{n.sentCount}</td>
                         <td className="px-4 py-3 text-red-500 font-semibold">{n.failedCount}</td>
@@ -149,5 +232,34 @@ export default function NotificationsPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+function TargetBadge({ target }: { target: string }) {
+  if (target === "targeted") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+        🎯 فردي
+      </span>
+    );
+  }
+  if (target === "couriers") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+        المندوبون
+      </span>
+    );
+  }
+  if (target === "customers") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+        العملاء
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+      الجميع
+    </span>
   );
 }
