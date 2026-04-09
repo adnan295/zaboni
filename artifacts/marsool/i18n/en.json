@@ -171,6 +171,14 @@
       "freeDelivery": "Free Delivery",
       "stars": "4+ Stars"
     },
+    "categories": {
+      "burger": "Burger",
+      "pizza": "Pizza",
+      "chicken": "Chicken",
+      "grills": "Grills",
+      "sweets": "Sweets",
+      "drinks": "Drinks"
+    },
     "history": {
       "title": "Recent Searches",
       "clearAll": "Clear All"

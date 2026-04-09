@@ -465,7 +465,16 @@ router.get("/admin/ratings", async (req, res) => {
 
   const rows = await db.execute(sql`
     SELECT
-      r.*,
+      r.id,
+      r.order_id AS "orderId",
+      r.user_id AS "userId",
+      r.courier_id AS "courierId",
+      r.restaurant_id AS "restaurantId",
+      r.restaurant_stars AS "restaurantStars",
+      r.courier_stars AS "courierStars",
+      r.comment,
+      r.restaurant_name AS "restaurantName",
+      r.created_at AS "createdAt",
       cu.name AS "userName",
       cu.phone AS "userPhone",
       cou.name AS "courierName",
@@ -475,7 +484,7 @@ router.get("/admin/ratings", async (req, res) => {
     LEFT JOIN users cou ON r.courier_id = cou.id
     ORDER BY r.created_at DESC
     LIMIT ${limit} OFFSET ${offset}
-  `) as { rows: Record<string, unknown>[] };
+  `);
 
   const [totals] = await db
     .select({
@@ -485,12 +494,8 @@ router.get("/admin/ratings", async (req, res) => {
     })
     .from(orderRatingsTable);
 
-  const ratingRows = Array.isArray((rows as unknown as { rows: unknown[] }).rows)
-    ? (rows as unknown as { rows: Record<string, unknown>[] }).rows
-    : (rows as unknown as Record<string, unknown>[]);
-
   res.json({
-    ratings: ratingRows,
+    ratings: rows.rows,
     total: totals?.total ?? 0,
     avgRestaurantStars: totals?.avgRestaurant ? Number(Number(totals.avgRestaurant).toFixed(1)) : null,
     avgCourierStars: totals?.avgCourier ? Number(Number(totals.avgCourier).toFixed(1)) : null,
