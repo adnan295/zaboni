@@ -10,6 +10,16 @@
     "newArchEnabled": true,
     "description": "مرسول — خدمة توصيل سريعة وموثوقة في سوريا. اطلب من أي مطعم وتابع طلبك لحظة بلحظة.",
     "primaryLanguage": "ar",
+    "locales": {
+      "ar": {
+        "name": "مرسول",
+        "description": "مرسول — خدمة توصيل سريعة وموثوقة في سوريا. اطلب من أي مطعم وتابع طلبك لحظة بلحظة."
+      },
+      "en": {
+        "name": "Marsool",
+        "description": "Marsool — Fast and reliable delivery service in Syria. Order from any restaurant and track your delivery in real time."
+      }
+    },
     "splash": {
       "image": "./assets/images/icon.png",
       "resizeMode": "contain",
