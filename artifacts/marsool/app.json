@@ -8,15 +8,20 @@
     "scheme": "marsool",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "description": "مرسول — خدمة توصيل سريعة وموثوقة في سوريا. اطلب من أي مطعم وتابع طلبك لحظة بلحظة.",
     "splash": {
       "image": "./assets/images/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#FF6B00"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.marsool.delivery",
+      "buildNumber": "1"
     },
     "android": {
+      "package": "com.marsool.delivery",
+      "versionCode": 1,
       "config": {
         "googleMaps": {
           "apiKey": ""

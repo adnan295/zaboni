@@ -34,11 +34,14 @@ interface CourierContextValue {
   activeOrders: CourierOrder[];
   isLoadingAvailable: boolean;
   isLoadingActive: boolean;
+  isOnline: boolean;
+  isTogglingOnline: boolean;
   refreshAvailableOrders: () => Promise<void>;
   refreshActiveOrders: () => Promise<void>;
   acceptOrder: (orderId: string) => Promise<void>;
   updateDeliveryStatus: (orderId: string, status: CourierDeliveryStatus) => Promise<void>;
   updateLocation: (lat: number, lon: number) => Promise<void>;
+  toggleAvailability: () => Promise<void>;
 }
 
 const CourierContext = createContext<CourierContextValue | null>(null);
@@ -49,6 +52,8 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
   const [activeOrders, setActiveOrders] = useState<CourierOrder[]>([]);
   const [isLoadingAvailable, setIsLoadingAvailable] = useState(false);
   const [isLoadingActive, setIsLoadingActive] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [isTogglingOnline, setIsTogglingOnline] = useState(false);
 
   const refreshAvailableOrders = useCallback(async () => {
     if (!user || !isCourier) return;
@@ -73,6 +78,15 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
       setActiveOrders([]);
     } finally {
       setIsLoadingActive(false);
+    }
+  }, [user, isCourier]);
+
+  const fetchOnlineStatus = useCallback(async () => {
+    if (!user || !isCourier) return;
+    try {
+      const data = await customFetch<{ isOnline: boolean }>("/api/courier/me");
+      setIsOnline(data.isOnline ?? true);
+    } catch {
     }
   }, [user, isCourier]);
 
@@ -107,8 +121,30 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const toggleAvailability = useCallback(async () => {
+    setIsTogglingOnline(true);
+    try {
+      const newStatus = !isOnline;
+      await customFetch("/api/courier/availability", {
+        method: "PATCH",
+        body: JSON.stringify({ isOnline: newStatus }),
+        headers: { "Content-Type": "application/json" },
+      });
+      setIsOnline(newStatus);
+      if (newStatus) {
+        await refreshAvailableOrders();
+      } else {
+        setAvailableOrders([]);
+      }
+    } catch {
+    } finally {
+      setIsTogglingOnline(false);
+    }
+  }, [isOnline, refreshAvailableOrders]);
+
   useEffect(() => {
     if (!isCourier) return;
+    fetchOnlineStatus();
     refreshAvailableOrders();
     refreshActiveOrders();
   }, [isCourier, user?.id]);
@@ -131,11 +167,14 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
         activeOrders,
         isLoadingAvailable,
         isLoadingActive,
+        isOnline,
+        isTogglingOnline,
         refreshAvailableOrders,
         refreshActiveOrders,
         acceptOrder,
         updateDeliveryStatus,
         updateLocation,
+        toggleAvailability,
       }}
     >
       {children}

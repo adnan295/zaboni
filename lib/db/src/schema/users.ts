@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, varchar, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, varchar, doublePrecision, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
 export const usersTable = pgTable("users", {
@@ -9,6 +9,7 @@ export const usersTable = pgTable("users", {
   pushToken: varchar("push_token", { length: 512 }),
   courierLat: doublePrecision("courier_lat"),
   courierLon: doublePrecision("courier_lon"),
+  isOnline: boolean("is_online").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

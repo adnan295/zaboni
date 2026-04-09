@@ -5,6 +5,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Platform,
+  Switch,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -13,6 +14,7 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
 import { customFetch } from "@workspace/api-client-react";
+import { useCourier } from "@/context/CourierContext";
 
 interface CourierStats {
   deliveredCount: number;
@@ -27,6 +29,7 @@ export default function CourierProfileScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const { user } = useAuth();
+  const { isOnline, isTogglingOnline, toggleAvailability } = useCourier();
   const [stats, setStats] = useState<CourierStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -118,6 +121,34 @@ export default function CourierProfileScreen() {
               </View>
             </View>
           </View>
+
+          <View style={[styles.availabilityCard, {
+            backgroundColor: isOnline ? "#f0fdf4" : "#fef2f2",
+            borderColor: isOnline ? "#bbf7d0" : "#fecaca",
+          }]}>
+            <View style={styles.availabilityLeft}>
+              <View style={[styles.availabilityDot, { backgroundColor: isOnline ? "#22c55e" : "#ef4444" }]} />
+              <View>
+                <Text style={[styles.availabilityTitle, { color: isOnline ? "#15803d" : "#dc2626" }]}>
+                  {isOnline ? t("courier.available.online") : t("courier.available.offline")}
+                </Text>
+                <Text style={[styles.availabilitySub, { color: isOnline ? "#16a34a" : "#b91c1c" }]}>
+                  {isOnline ? t("courier.available.onlineSub") : t("courier.available.offlineSub")}
+                </Text>
+              </View>
+            </View>
+            {isTogglingOnline ? (
+              <ActivityIndicator size="small" color={isOnline ? "#22c55e" : "#ef4444"} />
+            ) : (
+              <Switch
+                value={isOnline}
+                onValueChange={toggleAvailability}
+                trackColor={{ false: "#fca5a5", true: "#86efac" }}
+                thumbColor={isOnline ? "#22c55e" : "#ef4444"}
+                ios_backgroundColor="#fca5a5"
+              />
+            )}
+          </View>
         </ScrollView>
       )}
     </View>
@@ -196,4 +227,18 @@ const styles = StyleSheet.create({
   infoLabel: { fontSize: 12 },
   infoValue: { fontSize: 15, fontWeight: "600" },
   divider: { height: 1, marginHorizontal: 16 },
+  availabilityCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+  },
+  availabilityLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
+  availabilityDot: { width: 10, height: 10, borderRadius: 5 },
+  availabilityTitle: { fontSize: 15, fontWeight: "700" },
+  availabilitySub: { fontSize: 12, marginTop: 2 },
 });
