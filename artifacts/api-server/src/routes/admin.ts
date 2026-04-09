@@ -619,10 +619,16 @@ router.get("/admin/restaurants/:id/hours", async (req, res) => {
 const hoursBodySchema = z.array(
   z.object({
     dayOfWeek: z.number().int().min(0).max(6),
-    openTime: z.string().regex(/^\d{2}:\d{2}$/),
-    closeTime: z.string().regex(/^\d{2}:\d{2}$/),
+    openTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).transform((t) => t.slice(0, 5)),
+    closeTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).transform((t) => t.slice(0, 5)),
     isClosed: z.boolean(),
   })
+).length(7).refine(
+  (arr) => {
+    const days = arr.map((h) => h.dayOfWeek).sort((a, b) => a - b);
+    return days.every((d, i) => d === i);
+  },
+  { message: "Must include exactly one entry for each day of week (0-6)" }
 );
 
 router.put("/admin/restaurants/:id/hours", async (req, res) => {
