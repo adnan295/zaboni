@@ -10,6 +10,7 @@ export const orderStatusHistoryTable = pgTable("order_status_history", {
   status: text("status", {
     enum: ORDER_STATUSES,
   }).notNull(),
+  note: text("note"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

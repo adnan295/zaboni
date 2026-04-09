@@ -17,7 +17,9 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { useEffect, useState } from "react";
+import { ONBOARDING_SEEN_KEY } from "./onboarding";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -44,29 +46,46 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, isLoading, isCourierMode, isCourier } = useAuth();
   const router = useRouter();
   const segments = useSegments();
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
 
   useEffect(() => {
-    if (isLoading) return;
+    AsyncStorage.getItem(ONBOARDING_SEEN_KEY).then((val) => {
+      setHasSeenOnboarding(!!val);
+      setOnboardingChecked(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (isLoading || !onboardingChecked) return;
     const inAuthGroup = segments[0] === "auth";
     const inCourierGroup = segments[0] === "(courier)";
     const inTabsGroup = segments[0] === "(tabs)";
+    const inOnboarding = segments[0] === "onboarding";
+    const inLegal = segments[0] === "privacy" || segments[0] === "terms";
 
-    if (!user && !inAuthGroup) {
-      router.replace("/auth/phone");
+    if (!user && !inAuthGroup && !inOnboarding && !inLegal) {
+      if (!hasSeenOnboarding) {
+        router.replace("/onboarding");
+      } else {
+        router.replace("/auth/phone");
+      }
     } else if (user && inAuthGroup) {
       if (isCourier && isCourierMode) {
         router.replace("/(courier)/available");
       } else {
         router.replace("/(tabs)");
       }
+    } else if (user && inOnboarding) {
+      router.replace("/(tabs)");
     } else if (user && isCourier && isCourierMode && inTabsGroup) {
       router.replace("/(courier)/available");
     } else if (user && (!isCourier || !isCourierMode) && inCourierGroup) {
       router.replace("/(tabs)");
     }
-  }, [user, isLoading, segments, isCourierMode, isCourier]);
+  }, [user, isLoading, segments, isCourierMode, isCourier, hasSeenOnboarding, onboardingChecked]);
 
-  if (isLoading) {
+  if (isLoading || !onboardingChecked) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#F8F8F8" }}>
         <ActivityIndicator size="large" color="#FF6B00" />
@@ -88,6 +107,7 @@ function RootLayoutNav() {
     <View style={layoutStyles.root}>
       <AuthGate>
         <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="(courier)" options={{ headerShown: false }} />
           <Stack.Screen name="auth/phone" options={{ headerShown: false, gestureEnabled: false }} />
@@ -104,6 +124,8 @@ function RootLayoutNav() {
           <Stack.Screen name="notifications" options={{ headerShown: false }} />
           <Stack.Screen name="rate-order" options={{ headerShown: false, presentation: "modal" }} />
           <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
+          <Stack.Screen name="privacy" options={{ headerShown: false }} />
+          <Stack.Screen name="terms" options={{ headerShown: false }} />
         </Stack>
       </AuthGate>
       <ToastBanner />

@@ -1,6 +1,7 @@
 import { createServer } from "http";
 import app from "./app";
 import { createChatServer } from "./chat/server";
+import { startOrderExpiryJob } from "./lib/orderExpiry";
 import { logger } from "./lib/logger";
 
 const rawPort = process.env["PORT"];
@@ -26,4 +27,5 @@ httpServer.listen(port, (err?: Error) => {
     process.exit(1);
   }
   logger.info({ port }, "Server listening");
+  startOrderExpiryJob();
 });
