@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { db, usersTable, ordersTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, systemSettingsTable, courierCustomerRatingsTable, courierWalletTransactionsTable } from "@workspace/db";
+import { db, usersTable, ordersTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, systemSettingsTable, courierCustomerRatingsTable, courierWalletTransactionsTable, courierApplicationsTable } from "@workspace/db";
 import { and, eq, ne, avg, count, sql, desc } from "drizzle-orm";
 import { haversineKm as _haversineKm } from "../lib/deliveryZones";
 import { z } from "zod";
@@ -58,21 +58,80 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
   return _haversineKm(lat1, lon1, lat2, lon2);
 }
 
-router.post("/courier/register", async (req, res) => {
+router.post("/courier/register", (_req, res) => {
+  res.status(410).json({ error: "Self-registration is disabled. Please submit a courier application via /api/courier/apply." });
+});
+
+const courierApplySchema = z.object({
+  fullName: z.string().min(2),
+  vehicleType: z.enum(["motorcycle", "car", "bicycle"]),
+  vehiclePlate: z.string().default(""),
+  idNumber: z.string().default(""),
+  notes: z.string().default(""),
+});
+
+router.post("/courier/apply", async (req, res) => {
   const userId = resolveUserId(req);
 
-  const rows = await db
-    .update(usersTable)
-    .set({ role: "courier" })
-    .where(eq(usersTable.id, userId))
-    .returning({ id: usersTable.id, phone: usersTable.phone, name: usersTable.name, role: usersTable.role });
-
-  if (rows.length === 0) {
-    res.status(404).json({ error: "User not found" });
+  const body = courierApplySchema.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "Invalid application data", details: body.error.issues });
     return;
   }
 
-  res.json(rows[0]);
+  const user = await db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  if (user[0]?.role === "courier") {
+    res.status(400).json({ error: "already_courier" });
+    return;
+  }
+
+  const existing = await db
+    .select({ id: courierApplicationsTable.id, status: courierApplicationsTable.status })
+    .from(courierApplicationsTable)
+    .where(and(
+      eq(courierApplicationsTable.userId, userId),
+      ne(courierApplicationsTable.status, "rejected"),
+    ))
+    .limit(1);
+
+  if (existing.length > 0) {
+    res.status(400).json({ error: "application_exists", status: existing[0]!.status });
+    return;
+  }
+
+  const id = crypto.randomUUID();
+  const [app] = await db
+    .insert(courierApplicationsTable)
+    .values({
+      id,
+      userId,
+      fullName: body.data.fullName,
+      vehicleType: body.data.vehicleType,
+      vehiclePlate: body.data.vehiclePlate,
+      idNumber: body.data.idNumber,
+      notes: body.data.notes,
+    })
+    .returning();
+
+  res.status(201).json(app);
+});
+
+router.get("/courier/my-application", async (req, res) => {
+  const userId = resolveUserId(req);
+
+  const [app] = await db
+    .select()
+    .from(courierApplicationsTable)
+    .where(eq(courierApplicationsTable.userId, userId))
+    .orderBy(desc(courierApplicationsTable.createdAt))
+    .limit(1);
+
+  if (!app) {
+    res.json(null);
+    return;
+  }
+
+  res.json(app);
 });
 
 const availabilitySchema = z.object({

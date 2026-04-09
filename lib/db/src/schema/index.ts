@@ -16,3 +16,4 @@ export * from "./courier_subscriptions";
 export * from "./system_settings";
 export * from "./courier_customer_ratings";
 export * from "./courier_wallet_transactions";
+export * from "./courier_applications";

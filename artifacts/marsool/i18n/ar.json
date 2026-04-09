@@ -99,15 +99,18 @@
     },
     "courier": {
       "sectionTitle": "وضع المندوب",
-      "registerTitle": "هل تريد التوصيل وكسب المال؟",
-      "registerBody": "سجّل كمندوب لتبدأ قبول الطلبات وكسب الأرباح",
-      "registerBtn": "التسجيل كمندوب",
-      "registering": "جاري التسجيل...",
       "badge": "مندوب معتمد",
       "switchToCourier": "التبديل لوضع المندوب",
       "switchToCustomer": "العودة لوضع العميل",
-      "successTitle": "تم التسجيل!",
-      "successMsg": "أنت الآن مندوب معتمد، يمكنك قبول الطلبات"
+      "registerTitle": "هل تريد التوصيل وكسب المال؟",
+      "registerBody": "قدّم طلب انضمام ليراجعه الفريق، وسيتم تفعيل حسابك عند الموافقة",
+      "applyBtn": "تقديم طلب انضمام",
+      "pendingTitle": "طلبك قيد المراجعة",
+      "pendingBody": "سيتم مراجعة طلبك من قبل الفريق وسنخبرك بالنتيجة قريباً",
+      "rejectedTitle": "تم رفض طلبك",
+      "rejectedBody": "سبب الرفض: {{reason}}",
+      "rejectedBodyNoReason": "يمكنك تقديم طلب جديد بمعلومات محدّثة",
+      "reapplyBtn": "تقديم طلب جديد"
     }
   },
   "orders": {
@@ -570,6 +573,32 @@
       "terms": "شروط الاستخدام"
     },
     "copyright": "© 2025 مرسول. جميع الحقوق محفوظة."
+  },
+  "courierApply": {
+    "title": "طلب انضمام كمندوب",
+    "subtitle": "أكمل المعلومات التالية وسيتم مراجعة طلبك",
+    "fullName": "الاسم الكامل",
+    "fullNamePlaceholder": "أدخل اسمك الكامل",
+    "vehicleType": "نوع المركبة",
+    "vehicleTypePlaceholder": "اختر نوع المركبة",
+    "motorcycle": "دراجة نارية",
+    "car": "سيارة",
+    "bicycle": "دراجة هوائية",
+    "vehiclePlate": "رقم اللوحة",
+    "vehiclePlatePlaceholder": "مثال: أ ب ج 1234",
+    "idNumber": "رقم الهوية الوطنية",
+    "idNumberPlaceholder": "أدخل رقم هويتك",
+    "notes": "ملاحظات إضافية",
+    "notesPlaceholder": "أي معلومات إضافية تريد إضافتها (اختياري)",
+    "submit": "تقديم الطلب",
+    "submitting": "جاري الإرسال...",
+    "successTitle": "تم تقديم الطلب!",
+    "successMsg": "سيتم مراجعة طلبك من قبل الفريق وستصلك النتيجة قريباً",
+    "errorTitle": "خطأ",
+    "errorMsg": "تعذّر تقديم الطلب، يرجى المحاولة مجدداً",
+    "validationName": "الرجاء إدخال الاسم الكامل (حرفان على الأقل)",
+    "validationVehicle": "الرجاء اختيار نوع المركبة",
+    "requiredFields": "الحقول المطلوبة غير مكتملة"
   },
   "common": {
     "back": "رجوع",

@@ -13,6 +13,7 @@ import {
   courierSubscriptionsTable,
   systemSettingsTable,
   courierWalletTransactionsTable,
+  courierApplicationsTable,
 } from "@workspace/db";
 import { eq, count, desc, gte, getTableColumns, and, sql, avg, asc, lt } from "drizzle-orm";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
@@ -1309,6 +1310,96 @@ router.post("/admin/wallet/deposit-requests/:id/reject", async (req, res) => {
     res.status(404).json({ error: "Deposit request not found or already processed" });
     return;
   }
+
+  res.json({ ok: true });
+});
+
+router.get("/admin/courier-applications", requireAdmin, async (_req, res) => {
+  const apps = await db
+    .select({
+      id: courierApplicationsTable.id,
+      userId: courierApplicationsTable.userId,
+      status: courierApplicationsTable.status,
+      fullName: courierApplicationsTable.fullName,
+      vehicleType: courierApplicationsTable.vehicleType,
+      vehiclePlate: courierApplicationsTable.vehiclePlate,
+      idNumber: courierApplicationsTable.idNumber,
+      notes: courierApplicationsTable.notes,
+      adminNote: courierApplicationsTable.adminNote,
+      createdAt: courierApplicationsTable.createdAt,
+      updatedAt: courierApplicationsTable.updatedAt,
+      phone: usersTable.phone,
+      userName: usersTable.name,
+    })
+    .from(courierApplicationsTable)
+    .leftJoin(usersTable, eq(courierApplicationsTable.userId, usersTable.id))
+    .orderBy(desc(courierApplicationsTable.createdAt));
+
+  res.json(apps);
+});
+
+const rejectApplicationSchema = z.object({
+  adminNote: z.string().default(""),
+});
+
+router.patch("/admin/courier-applications/:id/approve", requireAdmin, async (req, res) => {
+  const id = String(req.params["id"]);
+
+  const [app] = await db
+    .select()
+    .from(courierApplicationsTable)
+    .where(eq(courierApplicationsTable.id, id))
+    .limit(1);
+
+  if (!app) {
+    res.status(404).json({ error: "Application not found" });
+    return;
+  }
+
+  if (app.status !== "pending") {
+    res.status(400).json({ error: "Application is not pending" });
+    return;
+  }
+
+  await db.update(courierApplicationsTable)
+    .set({ status: "approved", updatedAt: new Date() })
+    .where(eq(courierApplicationsTable.id, id));
+
+  await db.update(usersTable)
+    .set({ role: "courier" })
+    .where(eq(usersTable.id, app.userId));
+
+  res.json({ ok: true });
+});
+
+router.patch("/admin/courier-applications/:id/reject", requireAdmin, async (req, res) => {
+  const id = String(req.params["id"]);
+
+  const body = rejectApplicationSchema.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "Invalid payload" });
+    return;
+  }
+
+  const [app] = await db
+    .select()
+    .from(courierApplicationsTable)
+    .where(eq(courierApplicationsTable.id, id))
+    .limit(1);
+
+  if (!app) {
+    res.status(404).json({ error: "Application not found" });
+    return;
+  }
+
+  if (app.status !== "pending") {
+    res.status(400).json({ error: "Application is not pending" });
+    return;
+  }
+
+  await db.update(courierApplicationsTable)
+    .set({ status: "rejected", adminNote: body.data.adminNote, updatedAt: new Date() })
+    .where(eq(courierApplicationsTable.id, id));
 
   res.json({ ok: true });
 });
