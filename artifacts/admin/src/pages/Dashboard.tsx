@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import {
@@ -40,18 +41,41 @@ const STATUS_COLORS: Record<string, string> = {
 
 const PIE_COLORS = ["#FF6B00", "#3b82f6", "#8b5cf6", "#6366f1", "#22c55e"];
 
+type Range = 7 | 14 | 30;
+
+function TrendBadge({ today, yesterday }: { today: number; yesterday: number }) {
+  if (yesterday === 0 && today === 0) return null;
+  if (yesterday === 0) {
+    return (
+      <span className="text-xs text-green-600 font-medium ml-1">+{today} ↑</span>
+    );
+  }
+  const diff = today - yesterday;
+  const pct = Math.round(Math.abs(diff / yesterday) * 100);
+  if (diff === 0) {
+    return <span className="text-xs text-muted-foreground ml-1">= same as yesterday</span>;
+  }
+  return (
+    <span
+      className={`text-xs font-medium ml-1 ${diff > 0 ? "text-green-600" : "text-red-500"}`}
+    >
+      {diff > 0 ? `+${diff}` : diff} ({pct}%) {diff > 0 ? "↑" : "↓"} vs yesterday
+    </span>
+  );
+}
+
 function StatCard({
   label,
   value,
   icon,
   color,
-  sublabel,
+  trend,
 }: {
   label: string;
   value: number | string;
   icon: string;
   color: string;
-  sublabel?: string;
+  trend?: React.ReactNode;
 }) {
   return (
     <Card className="shadow-sm">
@@ -61,24 +85,24 @@ function StatCard({
           <span className={`text-3xl font-bold ${color}`}>{value}</span>
         </div>
         <p className="text-sm font-medium text-foreground/80">{label}</p>
-        {sublabel && (
-          <p className="text-xs text-muted-foreground mt-0.5">{sublabel}</p>
-        )}
+        {trend && <div className="mt-0.5">{trend}</div>}
       </CardContent>
     </Card>
   );
 }
 
 export default function Dashboard() {
+  const [range, setRange] = useState<Range>(30);
+
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["admin", "stats"],
     queryFn: api.getStats,
-    refetchInterval: 30_000,
+    refetchInterval: 10_000,
   });
 
   const { data: dailyData = [] } = useQuery({
-    queryKey: ["admin", "charts", "daily"],
-    queryFn: api.getDailyChart,
+    queryKey: ["admin", "charts", "daily", range],
+    queryFn: () => api.getDailyChart(range),
     refetchInterval: 60_000,
   });
 
@@ -103,7 +127,7 @@ export default function Dashboard() {
           ))}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {[...Array(2)].map((_, i) => (
+          {[...Array(3)].map((_, i) => (
             <Card key={i} className="animate-pulse h-64">
               <CardContent className="p-5">
                 <div className="h-4 bg-muted rounded w-1/3 mb-4" />
@@ -118,12 +142,16 @@ export default function Dashboard() {
 
   if (!stats) return null;
 
+  const todayOrders = stats.todayOrders;
+  const yesterdayOrders = stats.yesterdayOrders;
+
   const statCards = [
     {
       label: "Today's Orders",
-      value: stats.todayOrders,
+      value: todayOrders,
       icon: "📅",
       color: "text-orange-500",
+      trend: <TrendBadge today={todayOrders} yesterday={yesterdayOrders} />,
     },
     {
       label: "Total Orders",
@@ -167,9 +195,14 @@ export default function Dashboard() {
     value: Number(s.count),
   }));
 
+  const chartData = dailyData.map((d) => ({
+    date: d.date.slice(5),
+    count: Number(d.count),
+  }));
+
   const hourlyFormatted = hourlyData.map((h) => ({
     hour: `${h.hour}:00`,
-    orders: h.orders,
+    count: Number(h.count),
   }));
 
   return (
@@ -177,7 +210,7 @@ export default function Dashboard() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <span className="text-xs text-muted-foreground">
-          Auto-refreshes every 30s
+          Live · refreshes every 10s
         </span>
       </div>
 
@@ -190,8 +223,12 @@ export default function Dashboard() {
       {totalActive > 0 && (
         <Card className="shadow-sm border-orange-200 dark:border-orange-900/40 bg-orange-50/50 dark:bg-orange-950/20">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold text-orange-700 dark:text-orange-400">
-              🔴 Live Active Orders — {totalActive}
+            <CardTitle className="text-base font-semibold text-orange-700 dark:text-orange-400 flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500" />
+              </span>
+              Active Orders Now — {totalActive}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -225,16 +262,37 @@ export default function Dashboard() {
         </Card>
       )}
 
-      {dailyData.length > 0 && (
-        <Card className="shadow-sm">
-          <CardHeader>
+      <Card className="shadow-sm">
+        <CardHeader>
+          <div className="flex items-center justify-between">
             <CardTitle className="text-base font-semibold">
-              Orders — Last 30 Days
+              Orders Trend
             </CardTitle>
-          </CardHeader>
-          <CardContent>
+            <div className="flex gap-1">
+              {([7, 14, 30] as Range[]).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setRange(r)}
+                  className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors ${
+                    range === r
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {r}d
+                </button>
+              ))}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {chartData.length === 0 ? (
+            <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
+              No data for this period
+            </div>
+          ) : (
             <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={dailyData}>
+              <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="orangeGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#FF6B00" stopOpacity={0.25} />
@@ -243,11 +301,11 @@ export default function Dashboard() {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis
-                  dataKey="day"
+                  dataKey="date"
                   tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
                   tickLine={false}
                   axisLine={false}
-                  interval={Math.floor(dailyData.length / 6)}
+                  interval={Math.max(0, Math.floor(chartData.length / 6))}
                 />
                 <YAxis
                   tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
@@ -266,7 +324,8 @@ export default function Dashboard() {
                 />
                 <Area
                   type="monotone"
-                  dataKey="orders"
+                  dataKey="count"
+                  name="Orders"
                   stroke="#FF6B00"
                   strokeWidth={2}
                   fill="url(#orangeGrad)"
@@ -275,9 +334,9 @@ export default function Dashboard() {
                 />
               </AreaChart>
             </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {pieData.length > 0 && (
@@ -300,10 +359,7 @@ export default function Dashboard() {
                     paddingAngle={2}
                   >
                     {pieData.map((_, i) => (
-                      <Cell
-                        key={i}
-                        fill={PIE_COLORS[i % PIE_COLORS.length]}
-                      />
+                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip
@@ -314,11 +370,7 @@ export default function Dashboard() {
                       fontSize: 12,
                     }}
                   />
-                  <Legend
-                    iconType="circle"
-                    iconSize={8}
-                    wrapperStyle={{ fontSize: 12 }}
-                  />
+                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
                 </PieChart>
               </ResponsiveContainer>
             </CardContent>
@@ -329,7 +381,7 @@ export default function Dashboard() {
           <Card className="shadow-sm">
             <CardHeader>
               <CardTitle className="text-base font-semibold">
-                Orders by Hour of Day
+                Peak Hours
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -357,7 +409,7 @@ export default function Dashboard() {
                       fontSize: 12,
                     }}
                   />
-                  <Bar dataKey="orders" fill="#FF6B00" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="count" name="Orders" fill="#FF6B00" radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -367,9 +419,7 @@ export default function Dashboard() {
 
       <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle className="text-base font-semibold">
-            Recent Orders
-          </CardTitle>
+          <CardTitle className="text-base font-semibold">Recent Orders</CardTitle>
         </CardHeader>
         <CardContent>
           {stats.recentOrders.length === 0 ? (

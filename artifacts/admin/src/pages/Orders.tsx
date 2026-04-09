@@ -204,6 +204,7 @@ export default function Orders() {
 
 function OrderRow({ order }: { order: Order }) {
   const [expanded, setExpanded] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState(order.status);
   const qc = useQueryClient();
 
   const statusMutation = useMutation({
@@ -327,8 +328,8 @@ function OrderRow({ order }: { order: Order }) {
                 Force Status:
               </p>
               <Select
-                value={order.status}
-                onValueChange={(v) => statusMutation.mutate(v)}
+                value={pendingStatus}
+                onValueChange={setPendingStatus}
                 disabled={statusMutation.isPending}
               >
                 <SelectTrigger className="w-44 h-8 text-xs">
@@ -342,11 +343,16 @@ function OrderRow({ order }: { order: Order }) {
                   ))}
                 </SelectContent>
               </Select>
-              {statusMutation.isPending && (
-                <span className="text-xs text-muted-foreground">
-                  Updating…
-                </span>
-              )}
+              <Button
+                size="sm"
+                className="h-8 px-3 text-xs bg-primary text-primary-foreground hover:bg-primary/90"
+                disabled={
+                  statusMutation.isPending || pendingStatus === order.status
+                }
+                onClick={() => statusMutation.mutate(pendingStatus)}
+              >
+                {statusMutation.isPending ? "Saving…" : "Save"}
+              </Button>
               {statusMutation.isSuccess && (
                 <span className="text-xs text-green-600">✓ Updated</span>
               )}
