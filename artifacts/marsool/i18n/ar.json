@@ -390,7 +390,8 @@
     "reorder": "اطلب مجدداً",
     "eta": "وقت الوصول المتوقع: {{minutes}} دقيقة",
     "onWayLabel": "في الطريق",
-    "comingLabel": "قادم إليك"
+    "comingLabel": "قادم إليك",
+    "waitingLocation": "في انتظار موقع المندوب..."
   },
   "chat": {
     "notFound": "الطلب غير موجود",
