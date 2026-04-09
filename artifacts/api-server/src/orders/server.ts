@@ -24,7 +24,8 @@ const expo = new Expo();
 export function notifyOrderUpdate(customerId: string, order: unknown): void {
   if (!_ordersNs) return;
   _ordersNs.to(`user:${customerId}`).emit("order_updated", order);
-  logger.debug({ customerId }, "Emitted order_updated to customer");
+  _ordersNs.to(`user:${customerId}`).emit("order_status_update", order);
+  logger.debug({ customerId }, "Emitted order_updated + order_status_update to customer");
 }
 
 export async function sendOrderPush(

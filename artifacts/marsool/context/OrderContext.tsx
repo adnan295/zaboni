@@ -117,7 +117,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
 
     socketRef.current = socket;
 
-    socket.on("order_updated", (updatedOrder: Parameters<typeof apiOrderToLocal>[0]) => {
+    const handleOrderUpdate = (updatedOrder: Parameters<typeof apiOrderToLocal>[0]) => {
       const local = apiOrderToLocal(updatedOrder);
       setOrders((prev) => {
         const idx = prev.findIndex((o) => o.id === local.id);
@@ -129,7 +129,10 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         }
         return updated;
       });
-    });
+    };
+
+    socket.on("order_updated", handleOrderUpdate);
+    socket.on("order_status_update", handleOrderUpdate);
 
     return () => {
       socket.disconnect();
@@ -185,7 +188,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     [orders]
   );
 
-  const activeOrder = orders.find((o) => o.status !== "delivered") ?? null;
+  const activeOrder = orders.find((o) => o.status !== "delivered" && o.status !== "cancelled") ?? null;
 
   return (
     <OrderContext.Provider value={{ orders, activeOrder, placeOrder, getOrder, setStatusChangeHandler }}>
