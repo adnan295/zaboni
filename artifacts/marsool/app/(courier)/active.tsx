@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -8,6 +8,7 @@ import {
   Alert,
   Linking,
 } from "react-native";
+import * as Location from "expo-location";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -63,6 +64,11 @@ const STEPS: StepDef[] = [
   },
 ];
 
+interface CourierCoord {
+  latitude: number;
+  longitude: number;
+}
+
 export default function ActiveOrderScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -71,6 +77,43 @@ export default function ActiveOrderScreen() {
   const { activeOrders, updateDeliveryStatus, refreshActiveOrders, refreshAvailableOrders } = useCourier();
   const [updating, setUpdating] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [courierLocation, setCourierLocation] = useState<CourierCoord | null>(null);
+  const locationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+
+    let cancelled = false;
+
+    const fetchLocation = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted" || cancelled) return;
+        const pos = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        if (!cancelled) {
+          setCourierLocation({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          });
+        }
+      } catch {
+      }
+    };
+
+    fetchLocation();
+
+    locationIntervalRef.current = setInterval(fetchLocation, 15000);
+
+    return () => {
+      cancelled = true;
+      if (locationIntervalRef.current) {
+        clearInterval(locationIntervalRef.current);
+        locationIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
@@ -284,8 +327,8 @@ export default function ActiveOrderScreen() {
                   initialRegion={{
                     latitude: order.destinationLat,
                     longitude: order.destinationLon,
-                    latitudeDelta: 0.01,
-                    longitudeDelta: 0.01,
+                    latitudeDelta: 0.02,
+                    longitudeDelta: 0.02,
                   }}
                   scrollEnabled={true}
                   zoomEnabled={true}
@@ -300,6 +343,13 @@ export default function ActiveOrderScreen() {
                     pinColor="#FF6B00"
                     title={order.address || "وجهة التوصيل"}
                   />
+                  {courierLocation && (
+                    <Marker
+                      coordinate={courierLocation}
+                      pinColor="#1a73e8"
+                      title="موقعك الحالي"
+                    />
+                  )}
                 </MapView>
               )}
               <TouchableOpacity
