@@ -118,31 +118,29 @@ export default function ActiveOrderScreen() {
     const lat = order.destinationLat;
     const lon = order.destinationLon;
     const label = encodeURIComponent(order.address || "وجهة التوصيل");
+    const addressEnc = encodeURIComponent(order.address || "Damascus, Syria");
 
-    if (Platform.OS === "ios") {
+    const googleWebUrl = lat && lon
+      ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`
+      : `https://www.google.com/maps/dir/?api=1&destination=${addressEnc}&travelmode=driving`;
+
+    if (Platform.OS === "web") {
+      Linking.openURL(googleWebUrl);
+    } else if (Platform.OS === "ios") {
       const appleUrl = lat && lon
         ? `maps://maps.apple.com/?daddr=${lat},${lon}&q=${label}&dirflg=d`
-        : `maps://maps.apple.com/?daddr=${encodeURIComponent(order.address || "Damascus, Syria")}&dirflg=d`;
-      const webFallback = lat && lon
-        ? `https://maps.google.com/maps?daddr=${lat},${lon}`
-        : `https://maps.google.com/maps?daddr=${encodeURIComponent(order.address || "Damascus, Syria")}`;
+        : `maps://maps.apple.com/?daddr=${addressEnc}&dirflg=d`;
       Linking.canOpenURL("maps://").then((ok) => {
-        Linking.openURL(ok ? appleUrl : webFallback);
+        Linking.openURL(ok ? appleUrl : googleWebUrl);
       });
     } else {
-      const deepLink = lat && lon
-        ? `google.navigation:q=${lat},${lon}&mode=d`
-        : null;
-      const webFallback = lat && lon
-        ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`
-        : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(order.address || "Damascus, Syria")}&travelmode=driving`;
-
+      const deepLink = lat && lon ? `google.navigation:q=${lat},${lon}&mode=d` : null;
       if (deepLink) {
         Linking.canOpenURL(deepLink).then((ok) => {
-          Linking.openURL(ok ? deepLink : webFallback);
-        }).catch(() => Linking.openURL(webFallback));
+          Linking.openURL(ok ? deepLink : googleWebUrl);
+        }).catch(() => Linking.openURL(googleWebUrl));
       } else {
-        Linking.openURL(webFallback);
+        Linking.openURL(googleWebUrl);
       }
     }
   };
