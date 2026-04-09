@@ -110,15 +110,24 @@ export function RatingsProvider({ children }: { children: React.ReactNode }) {
         restaurantName,
         createdAt: Date.now(),
       };
+
+      try {
+        await customFetch(`/api/orders/${orderId}/rate`, {
+          method: "POST",
+          body: JSON.stringify({ restaurantStars, courierStars, comment, restaurantName }),
+        });
+      } catch (err: unknown) {
+        const status = (err as { status?: number })?.status;
+        if (status !== 409) {
+          throw err;
+        }
+      }
+
       setRatings((prev) => {
         const next = [entry, ...prev.filter((r) => r.orderId !== orderId)];
         AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
         return next;
       });
-      customFetch(`/api/orders/${orderId}/rate`, {
-        method: "POST",
-        body: JSON.stringify({ restaurantStars, courierStars, comment, restaurantName }),
-      }).catch(() => {});
     },
     []
   );

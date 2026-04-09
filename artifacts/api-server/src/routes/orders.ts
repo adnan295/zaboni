@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request } from "express";
-import { db, ordersTable, orderStatusHistoryTable, orderRatingsTable } from "@workspace/db";
-import { and, eq } from "drizzle-orm";
+import { db, ordersTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable } from "@workspace/db";
+import { and, eq, or } from "drizzle-orm";
 import { z } from "zod";
 
 const DAMASCUS_CENTER_LAT = 33.5138;
@@ -76,6 +76,16 @@ router.post("/orders", async (req, res) => {
   res.status(201).json(rows[0]);
 });
 
+router.get("/orders/ratings", async (req, res) => {
+  const userId = resolveUserId(req);
+  const rows = await db
+    .select()
+    .from(orderRatingsTable)
+    .where(eq(orderRatingsTable.userId, userId))
+    .orderBy(orderRatingsTable.createdAt);
+  res.json(rows);
+});
+
 router.get("/orders/:id", async (req, res) => {
   const userId = resolveUserId(req);
   const { id } = req.params;
@@ -95,16 +105,6 @@ const rateOrderSchema = z.object({
   courierStars: z.number().int().min(1).max(5),
   comment: z.string().max(500).default(""),
   restaurantName: z.string().default(""),
-});
-
-router.get("/orders/ratings", async (req, res) => {
-  const userId = resolveUserId(req);
-  const rows = await db
-    .select()
-    .from(orderRatingsTable)
-    .where(eq(orderRatingsTable.userId, userId))
-    .orderBy(orderRatingsTable.createdAt);
-  res.json(rows);
 });
 
 router.post("/orders/:id/rate", async (req, res) => {
@@ -139,8 +139,25 @@ router.post("/orders/:id/rate", async (req, res) => {
     return;
   }
 
-  const ratingId = `${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
   const o = order[0]!;
+  const restaurantName = o.restaurantName || body.data.restaurantName;
+
+  let restaurantId: string | null = null;
+  if (restaurantName) {
+    const found = await db
+      .select({ id: restaurantsTable.id })
+      .from(restaurantsTable)
+      .where(
+        or(
+          eq(restaurantsTable.name, restaurantName),
+          eq(restaurantsTable.nameAr, restaurantName),
+        ),
+      )
+      .limit(1);
+    restaurantId = found[0]?.id ?? null;
+  }
+
+  const ratingId = `${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
   const rows = await db
     .insert(orderRatingsTable)
     .values({
@@ -148,10 +165,11 @@ router.post("/orders/:id/rate", async (req, res) => {
       orderId,
       userId,
       courierId: o.courierId,
+      restaurantId,
       restaurantStars: body.data.restaurantStars,
       courierStars: body.data.courierStars,
       comment: body.data.comment,
-      restaurantName: o.restaurantName || body.data.restaurantName,
+      restaurantName,
     })
     .returning();
 

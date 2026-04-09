@@ -130,6 +130,7 @@ export type Rating = {
   orderId: string;
   userId: string;
   courierId: string;
+  restaurantId: string | null;
   restaurantStars: number;
   courierStars: number;
   comment: string;
