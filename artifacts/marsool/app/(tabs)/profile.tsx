@@ -11,6 +11,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
 } from "react-native";
+import { Image } from "expo-image";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -191,16 +192,27 @@ export default function ProfileScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPadding + 16, backgroundColor: colors.primary }]}>
-        <View style={styles.avatarContainer}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarInitial}>
-              {user?.name ? user.name.charAt(0) : "؟"}
-            </Text>
+        <TouchableOpacity style={styles.avatarContainer} onPress={() => router.push("/edit-profile")} activeOpacity={0.8}>
+          {user?.avatarUrl ? (
+            <Image
+              source={{ uri: user.avatarUrl.startsWith("/") ? `/api${user.avatarUrl}` : user.avatarUrl }}
+              style={styles.avatar}
+              contentFit="cover"
+            />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarInitial}>
+                {user?.name ? user.name.charAt(0) : "؟"}
+              </Text>
+            </View>
+          )}
+          <View style={styles.editAvatarOverlay}>
+            <MaterialIcons name="photo-camera" size={14} color="#fff" />
           </View>
-        </View>
+        </TouchableOpacity>
         <View style={styles.nameRow}>
           <Text style={styles.name}>{user?.name ?? t("profile.defaultUser")}</Text>
-          <TouchableOpacity onPress={openEditName} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity onPress={() => router.push("/edit-profile")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <MaterialIcons name="edit" size={18} color="rgba(255,255,255,0.8)" />
           </TouchableOpacity>
         </View>
@@ -487,7 +499,7 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
     paddingHorizontal: 16,
   },
-  avatarContainer: { marginBottom: 12 },
+  avatarContainer: { marginBottom: 12, position: "relative" },
   avatar: {
     width: 80,
     height: 80,
@@ -496,8 +508,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  editAvatarOverlay: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   avatarInitial: { fontSize: 32, fontWeight: "800", color: "#fff" },
-  nameRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 2 },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   name: { fontSize: 20, fontWeight: "800", color: "#fff" },
   phone: { fontSize: 14, color: "rgba(255,255,255,0.8)", marginTop: 4 },
   courierBadge: {

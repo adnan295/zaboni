@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { Readable } from "stream";
+import jwt from "jsonwebtoken";
 import {
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
@@ -12,33 +13,54 @@ const objectStorageService = new ObjectStorageService();
 const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
-function requireAdminStorage(req: Request, res: Response, next: NextFunction): void {
-  const adminSecret = process.env["ADMIN_SECRET"];
-  if (!adminSecret) {
-    res.status(503).json({ error: "Admin storage not configured" });
-    return;
+const DEV_JWT_SECRET = "marsool-dev-secret-change-in-production-please";
+
+function getJwtSecret(): string {
+  const secret = process.env["JWT_SECRET"];
+  if (!secret) {
+    if (process.env["NODE_ENV"] === "production") {
+      throw new Error("JWT_SECRET is not set in production");
+    }
+    return DEV_JWT_SECRET;
   }
+  return secret;
+}
+
+function requireUploadAuth(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers["authorization"];
   const token =
     typeof authHeader === "string" && authHeader.startsWith("Bearer ")
       ? authHeader.slice(7)
       : null;
-  if (!token || token !== adminSecret) {
+
+  if (!token) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  next();
+
+  const adminSecret = process.env["ADMIN_SECRET"];
+  if (adminSecret && token === adminSecret) {
+    next();
+    return;
+  }
+
+  try {
+    jwt.verify(token, getJwtSecret());
+    next();
+  } catch {
+    res.status(401).json({ error: "Unauthorized" });
+  }
 }
 
 /**
  * POST /storage/uploads/request-url
  *
- * Admin-only: Request a presigned URL for file upload.
+ * Authenticated (admin secret OR valid user JWT): Request a presigned URL for file upload.
  * The client sends JSON metadata (name, size, contentType) — NOT the file.
  * Then uploads the file directly to the returned presigned URL.
  * Enforces: max 5MB, only image/jpeg | image/png | image/webp.
  */
-router.post("/storage/uploads/request-url", requireAdminStorage, async (req: Request, res: Response) => {
+router.post("/storage/uploads/request-url", requireUploadAuth, async (req: Request, res: Response) => {
   const parsed = RequestUploadUrlBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Missing or invalid required fields" });
@@ -111,9 +133,9 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
  * GET /storage/objects/*
  *
  * Serve object entities from PRIVATE_OBJECT_DIR.
- * Admin-only: requires Authorization Bearer <ADMIN_SECRET> header.
+ * Requires admin secret or valid user JWT.
  */
-router.get("/storage/objects/*path", requireAdminStorage, async (req: Request, res: Response) => {
+router.get("/storage/objects/*path", requireUploadAuth, async (req: Request, res: Response) => {
   try {
     const raw = req.params.path;
     const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;

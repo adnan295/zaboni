@@ -608,5 +608,20 @@
     "loading": "جاري التحميل...",
     "error": "حدث خطأ",
     "retry": "إعادة المحاولة"
+  },
+  "editProfile": {
+    "title": "تعديل البروفايل",
+    "changePhoto": "اضغط على الصورة لتغييرها",
+    "nameLabel": "الاسم الكامل",
+    "namePlaceholder": "أدخل اسمك",
+    "phoneLabel": "رقم الهاتف",
+    "phonePlaceholder": "+963...",
+    "save": "حفظ التغييرات",
+    "successTitle": "تم الحفظ",
+    "successMessage": "تم تحديث بياناتك بنجاح",
+    "errorTitle": "خطأ",
+    "nameRequired": "الاسم لا يمكن أن يكون فارغاً",
+    "permissionDenied": "لا يوجد صلاحية",
+    "permissionMessage": "نحتاج الوصول لمعرض الصور لتغيير صورتك الشخصية"
   }
 }

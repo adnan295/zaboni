@@ -103,6 +103,7 @@ function RootLayoutNav() {
           <Stack.Screen name="search" options={{ headerShown: false }} />
           <Stack.Screen name="notifications" options={{ headerShown: false }} />
           <Stack.Screen name="rate-order" options={{ headerShown: false, presentation: "modal" }} />
+          <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
         </Stack>
       </AuthGate>
       <ToastBanner />

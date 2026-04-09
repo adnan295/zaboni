@@ -173,6 +173,7 @@ router.get("/admin/couriers", async (_req, res) => {
       u.id,
       u.name,
       u.phone,
+      u.avatar_url AS "avatarUrl",
       u.created_at AS "createdAt",
       COUNT(o.id) FILTER (WHERE o.status = 'delivered') AS "deliveredCount",
       COUNT(o.id) FILTER (WHERE o.status <> 'searching') AS "totalAssigned",
@@ -181,7 +182,7 @@ router.get("/admin/couriers", async (_req, res) => {
     FROM users u
     LEFT JOIN orders o ON o.courier_id = u.id
     WHERE u.role = 'courier'
-    GROUP BY u.id, u.name, u.phone, u.created_at
+    GROUP BY u.id, u.name, u.phone, u.avatar_url, u.created_at
     ORDER BY u.created_at DESC
   `);
   res.json(

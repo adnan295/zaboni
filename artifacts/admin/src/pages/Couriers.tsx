@@ -165,9 +165,17 @@ function CourierRow({
     <tr className="hover:bg-muted/30 transition-colors">
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
-            {courier.name ? courier.name.charAt(0).toUpperCase() : "?"}
-          </div>
+          {courier.avatarUrl ? (
+            <img
+              src={courier.avatarUrl.startsWith("/") ? `/api${courier.avatarUrl}` : courier.avatarUrl}
+              alt={courier.name}
+              className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
+              {courier.name ? courier.name.charAt(0).toUpperCase() : "?"}
+            </div>
+          )}
           <span className="font-medium">
             {courier.name || (
               <span className="text-muted-foreground italic">بدون اسم</span>

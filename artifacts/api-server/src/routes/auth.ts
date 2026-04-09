@@ -182,11 +182,13 @@ router.post("/auth/verify-otp", async (req, res) => {
   let userName: string;
 
   let userRole: "customer" | "courier" = "customer";
+  let userAvatarUrl: string | null = null;
 
   if (existingUser.length > 0) {
     userId = existingUser[0].id;
     userName = name ?? existingUser[0].name;
     userRole = (existingUser[0].role as "customer" | "courier") ?? "customer";
+    userAvatarUrl = existingUser[0].avatarUrl ?? null;
     if (name && name !== existingUser[0].name) {
       await db.update(usersTable).set({ name }).where(eq(usersTable.id, userId));
     }
@@ -214,7 +216,7 @@ router.post("/auth/verify-otp", async (req, res) => {
 
   res.json({
     token,
-    user: { id: userId, phone, name: userName, role: userRole },
+    user: { id: userId, phone, name: userName, role: userRole, avatarUrl: userAvatarUrl },
     isNewUser,
   });
 });
@@ -243,7 +245,7 @@ router.get("/auth/me", async (req, res) => {
   }
 
   const users = await db
-    .select({ id: usersTable.id, phone: usersTable.phone, name: usersTable.name, role: usersTable.role })
+    .select({ id: usersTable.id, phone: usersTable.phone, name: usersTable.name, role: usersTable.role, avatarUrl: usersTable.avatarUrl })
     .from(usersTable)
     .where(eq(usersTable.id, userId))
     .limit(1);
@@ -257,7 +259,9 @@ router.get("/auth/me", async (req, res) => {
 });
 
 const updateProfileSchema = z.object({
-  name: z.string().min(1).max(60),
+  name: z.string().min(1).max(60).optional(),
+  phone: e164Phone.optional(),
+  avatarUrl: z.string().max(1024).nullable().optional(),
 });
 
 router.patch("/auth/me", async (req, res) => {
@@ -280,11 +284,34 @@ router.patch("/auth/me", async (req, res) => {
   }
 
   const body = updateProfileSchema.safeParse(req.body);
-  if (!body.success) { res.status(400).json({ error: "Invalid name" }); return; }
+  if (!body.success) { res.status(400).json({ error: "Invalid profile data", details: body.error.issues }); return; }
+
+  const updates: Partial<{ name: string; phone: string; avatarUrl: string | null }> = {};
+  if (body.data.name !== undefined) updates.name = body.data.name;
+  if (body.data.phone !== undefined) {
+    const existingWithPhone = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.phone, body.data.phone))
+      .limit(1);
+    if (existingWithPhone.length > 0 && existingWithPhone[0].id !== userId) {
+      res.status(409).json({ error: "رقم الهاتف مستخدم من قِبَل حساب آخر" });
+      return;
+    }
+    updates.phone = body.data.phone;
+  }
+  if (body.data.avatarUrl !== undefined) updates.avatarUrl = body.data.avatarUrl;
+
+  if (Object.keys(updates).length === 0) {
+    const existing = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    if (existing.length === 0) { res.status(404).json({ error: "User not found" }); return; }
+    res.json(existing[0]);
+    return;
+  }
 
   const rows = await db
     .update(usersTable)
-    .set({ name: body.data.name })
+    .set(updates)
     .where(eq(usersTable.id, userId))
     .returning();
 

@@ -13,6 +13,7 @@ export interface AuthUser {
   phone: string;
   name: string;
   role: "customer" | "courier";
+  avatarUrl?: string | null;
 }
 
 interface AuthContextValue {
@@ -25,6 +26,7 @@ interface AuthContextValue {
   signIn: (token: string, user: AuthUser) => Promise<void>;
   signOut: () => Promise<void>;
   updateName: (name: string) => void;
+  updateProfile: (updates: Partial<Pick<AuthUser, "name" | "phone" | "avatarUrl">>) => void;
   refreshRole: () => Promise<void>;
 }
 
@@ -153,6 +155,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const updateProfile = useCallback((updates: Partial<Pick<AuthUser, "name" | "phone" | "avatarUrl">>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, ...updates };
+      AsyncStorage.setItem(STORAGE_USER_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
   const isCourier = user?.role === "courier";
 
   return (
@@ -167,6 +178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signIn,
         signOut,
         updateName,
+        updateProfile,
         refreshRole,
       }}
     >

@@ -6,6 +6,7 @@ export const usersTable = pgTable("users", {
   phone: text("phone").notNull().unique(),
   name: text("name").notNull().default(""),
   role: text("role", { enum: ["customer", "courier"] }).notNull().default("customer"),
+  avatarUrl: text("avatar_url"),
   pushToken: varchar("push_token", { length: 512 }),
   courierLat: doublePrecision("courier_lat"),
   courierLon: doublePrecision("courier_lon"),

@@ -608,5 +608,20 @@
     "loading": "Loading...",
     "error": "An error occurred",
     "retry": "Retry"
+  },
+  "editProfile": {
+    "title": "Edit Profile",
+    "changePhoto": "Tap photo to change",
+    "nameLabel": "Full Name",
+    "namePlaceholder": "Enter your name",
+    "phoneLabel": "Phone Number",
+    "phonePlaceholder": "+963...",
+    "save": "Save Changes",
+    "successTitle": "Saved",
+    "successMessage": "Your profile has been updated successfully",
+    "errorTitle": "Error",
+    "nameRequired": "Name cannot be empty",
+    "permissionDenied": "Permission Denied",
+    "permissionMessage": "We need access to your photo library to change your profile picture"
   }
 }

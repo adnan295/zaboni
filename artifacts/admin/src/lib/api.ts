@@ -114,6 +114,7 @@ export type User = {
   phone: string;
   name: string;
   role: "customer" | "courier";
+  avatarUrl?: string | null;
   createdAt: string;
 };
 
@@ -121,6 +122,7 @@ export type Courier = {
   id: string;
   name: string;
   phone: string;
+  avatarUrl?: string | null;
   createdAt: string;
   deliveredCount: number;
   totalAssigned: number;

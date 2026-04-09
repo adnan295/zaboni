@@ -39,7 +39,7 @@ router.get("/courier/stats", requireCourier, async (req, res) => {
       .from(orderRatingsTable)
       .where(eq(orderRatingsTable.courierId, courierId)),
     db
-      .select({ name: usersTable.name, phone: usersTable.phone, role: usersTable.role })
+      .select({ name: usersTable.name, phone: usersTable.phone, role: usersTable.role, avatarUrl: usersTable.avatarUrl })
       .from(usersTable)
       .where(eq(usersTable.id, courierId))
       .limit(1),
@@ -51,6 +51,7 @@ router.get("/courier/stats", requireCourier, async (req, res) => {
     name: userRow[0]?.name ?? "",
     phone: userRow[0]?.phone ?? "",
     role: userRow[0]?.role ?? "courier",
+    avatarUrl: userRow[0]?.avatarUrl ?? null,
   });
 });
 
@@ -838,22 +839,47 @@ router.post("/courier/wallet/deposit-request", requireCourier, async (req, res) 
 });
 
 const updateCourierProfileSchema = z.object({
-  name: z.string().min(1).max(60).trim(),
+  name: z.string().min(1).max(60).trim().optional(),
+  phone: z.string().min(7).max(20).optional(),
+  avatarUrl: z.string().max(1024).nullable().optional(),
 });
 
 router.patch("/courier/profile", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
   const body = updateCourierProfileSchema.safeParse(req.body);
   if (!body.success) {
-    res.status(400).json({ error: "الاسم مطلوب ويجب أن يكون بين 1 و 60 حرفاً" });
+    res.status(400).json({ error: "بيانات غير صالحة", details: body.error.issues });
+    return;
+  }
+
+  const updates: Partial<{ name: string; phone: string; avatarUrl: string | null }> = {};
+  if (body.data.name !== undefined) updates.name = body.data.name;
+  if (body.data.phone !== undefined) {
+    const existingWithPhone = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.phone, body.data.phone))
+      .limit(1);
+    if (existingWithPhone.length > 0 && existingWithPhone[0].id !== courierId) {
+      res.status(409).json({ error: "رقم الهاتف مستخدم من قِبَل حساب آخر" });
+      return;
+    }
+    updates.phone = body.data.phone;
+  }
+  if (body.data.avatarUrl !== undefined) updates.avatarUrl = body.data.avatarUrl;
+
+  if (Object.keys(updates).length === 0) {
+    const existing = await db.select({ id: usersTable.id, name: usersTable.name, phone: usersTable.phone, avatarUrl: usersTable.avatarUrl }).from(usersTable).where(eq(usersTable.id, courierId)).limit(1);
+    if (existing.length === 0) { res.status(404).json({ error: "Courier not found" }); return; }
+    res.json(existing[0]);
     return;
   }
 
   const rows = await db
     .update(usersTable)
-    .set({ name: body.data.name })
+    .set(updates)
     .where(eq(usersTable.id, courierId))
-    .returning({ id: usersTable.id, name: usersTable.name });
+    .returning({ id: usersTable.id, name: usersTable.name, phone: usersTable.phone, avatarUrl: usersTable.avatarUrl });
 
   if (rows.length === 0) {
     res.status(404).json({ error: "Courier not found" });
