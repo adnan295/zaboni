@@ -286,7 +286,10 @@
       "A chat opens to coordinate details with them"
     ],
     "sendOrder": "Send Order",
-    "sending": "Sending..."
+    "sending": "Sending...",
+    "noAddressTitle": "No Address Set",
+    "noAddressBody": "Please add a delivery address before placing your order.",
+    "addAddress": "Add Address"
   },
   "payment": {
     "cashOnDelivery": "Cash on Delivery 💵",

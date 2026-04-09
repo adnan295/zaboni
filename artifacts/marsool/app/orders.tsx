@@ -19,6 +19,7 @@ import { useRatings } from "@/context/RatingsContext";
 const STATUS_COLOR: Record<OrderStatus, string> = {
   searching: "#d97706",
   accepted: "#2563eb",
+  picked_up: "#9C27B0",
   on_way: "#059669",
   delivered: "#16a34a",
 };
@@ -26,6 +27,7 @@ const STATUS_COLOR: Record<OrderStatus, string> = {
 const STATUS_ICON: Record<OrderStatus, keyof typeof MaterialIcons.glyphMap> = {
   searching: "search",
   accepted: "check-circle",
+  picked_up: "inventory",
   on_way: "delivery-dining",
   delivered: "done-all",
 };
@@ -69,6 +71,7 @@ export default function OrdersScreen() {
   const STATUS_LABEL: Record<OrderStatus, string> = {
     searching: t("orders.status.searching"),
     accepted: t("orders.status.accepted"),
+    picked_up: t("orders.status.picked_up"),
     on_way: t("orders.status.on_way"),
     delivered: t("orders.status.delivered"),
   };

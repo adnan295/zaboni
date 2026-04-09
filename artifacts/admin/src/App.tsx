@@ -12,6 +12,7 @@ import Restaurants from "@/pages/Restaurants";
 import Orders from "@/pages/Orders";
 import Users from "@/pages/Users";
 import Couriers from "@/pages/Couriers";
+import Ratings from "@/pages/Ratings";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -32,6 +33,7 @@ function Router({ onLogout }: { onLogout: () => void }) {
         <Route path="/orders" component={Orders} />
         <Route path="/couriers" component={Couriers} />
         <Route path="/users" component={Users} />
+        <Route path="/ratings" component={Ratings} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

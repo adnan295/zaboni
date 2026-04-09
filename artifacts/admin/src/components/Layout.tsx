@@ -17,6 +17,7 @@ const navItems = [
   { href: "/orders", label: "Orders", icon: "📦" },
   { href: "/couriers", label: "Couriers", icon: "🚴" },
   { href: "/users", label: "Users", icon: "👤" },
+  { href: "/ratings", label: "Ratings", icon: "⭐" },
 ];
 
 export default function Layout({ children, onLogout }: LayoutProps) {

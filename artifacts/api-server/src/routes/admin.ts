@@ -5,8 +5,9 @@ import {
   menuItemsTable,
   ordersTable,
   usersTable,
+  orderRatingsTable,
 } from "@workspace/db";
-import { eq, count, desc, gte, getTableColumns, and, sql } from "drizzle-orm";
+import { eq, count, desc, gte, getTableColumns, and, sql, avg } from "drizzle-orm";
 import { z } from "zod";
 
 const ORDER_STATUSES = [
@@ -426,6 +427,40 @@ router.patch("/admin/users/:id/role", async (req, res) => {
     return;
   }
   res.json(row);
+});
+
+router.get("/admin/ratings", async (req, res) => {
+  const limitRaw = parseInt(String(req.query["limit"] ?? "50"));
+  const limit = Math.min(Math.max(limitRaw, 1), 200);
+  const offsetRaw = parseInt(String(req.query["offset"] ?? "0"));
+  const offset = Math.max(offsetRaw, 0);
+
+  const rows = await db
+    .select({
+      ...getTableColumns(orderRatingsTable),
+      userName: usersTable.name,
+      userPhone: usersTable.phone,
+    })
+    .from(orderRatingsTable)
+    .leftJoin(usersTable, eq(orderRatingsTable.userId, usersTable.id))
+    .orderBy(desc(orderRatingsTable.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  const [totals] = await db
+    .select({
+      total: count(),
+      avgRestaurant: avg(orderRatingsTable.restaurantStars),
+      avgCourier: avg(orderRatingsTable.courierStars),
+    })
+    .from(orderRatingsTable);
+
+  res.json({
+    ratings: rows,
+    total: totals?.total ?? 0,
+    avgRestaurantStars: totals?.avgRestaurant ? Number(Number(totals.avgRestaurant).toFixed(1)) : null,
+    avgCourierStars: totals?.avgCourier ? Number(Number(totals.avgCourier).toFixed(1)) : null,
+  });
 });
 
 export default router;
