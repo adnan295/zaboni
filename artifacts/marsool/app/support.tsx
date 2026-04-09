@@ -6,7 +6,9 @@ import {
   TouchableOpacity,
   Platform,
   Linking,
+  Alert,
 } from "react-native";
+import * as ExpoClipboard from "expo-clipboard";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -30,17 +32,31 @@ export default function SupportScreen() {
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
 
+  const handleLinkError = (value: string) => {
+    Alert.alert(
+      t("support.linkError.title"),
+      t("support.linkError.body"),
+      [
+        {
+          text: t("support.linkError.copy"),
+          onPress: () => ExpoClipboard.setStringAsync(value),
+        },
+        { text: t("common.cancel"), style: "cancel" },
+      ]
+    );
+  };
+
   const handleWhatsApp = () => {
     const cleaned = WHATSAPP_NUMBER.replace(/\D/g, "");
-    Linking.openURL(`https://wa.me/${cleaned}`).catch(() => {});
+    Linking.openURL(`https://wa.me/${cleaned}`).catch(() => handleLinkError(WHATSAPP_NUMBER));
   };
 
   const handleEmail = () => {
-    Linking.openURL(`mailto:${SUPPORT_EMAIL}`).catch(() => {});
+    Linking.openURL(`mailto:${SUPPORT_EMAIL}`).catch(() => handleLinkError(SUPPORT_EMAIL));
   };
 
   const handlePhone = () => {
-    Linking.openURL(`tel:${WHATSAPP_NUMBER}`).catch(() => {});
+    Linking.openURL(`tel:${WHATSAPP_NUMBER}`).catch(() => handleLinkError(WHATSAPP_NUMBER));
   };
 
   return (

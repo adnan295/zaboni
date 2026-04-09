@@ -2,7 +2,7 @@ import React from "react";
 import {
   View,
   StyleSheet,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
   Platform,
 } from "react-native";
@@ -142,13 +142,13 @@ export default function NotificationsScreen() {
           </Text>
         </View>
       ) : (
-        <ScrollView
+        <FlatList
+          data={notifications}
+          keyExtractor={(item) => item.id}
           contentContainerStyle={{ padding: 16, paddingBottom: bottomPadding + 20 }}
           showsVerticalScrollIndicator={false}
-        >
-          {notifications.map((notif) => (
+          renderItem={({ item: notif }) => (
             <NotifCard
-              key={notif.id}
               notif={notif}
               onPress={() => {
                 markRead(notif.id);
@@ -158,9 +158,8 @@ export default function NotificationsScreen() {
               }}
               onDelete={() => deleteNotification(notif.id)}
             />
-          ))}
-
-          {notifications.length > 0 && (
+          )}
+          ListFooterComponent={
             <TouchableOpacity
               style={[styles.clearBtn, { borderColor: colors.border }]}
               onPress={clearAll}
@@ -169,8 +168,8 @@ export default function NotificationsScreen() {
               <MaterialIcons name="delete-sweep" size={18} color={colors.mutedForeground} />
               <Text style={[styles.clearText, { color: colors.mutedForeground }]}>{t("notifications.clearAll")}</Text>
             </TouchableOpacity>
-          )}
-        </ScrollView>
+          }
+        />
       )}
     </View>
   );

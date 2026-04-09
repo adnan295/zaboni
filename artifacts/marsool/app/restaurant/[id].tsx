@@ -84,7 +84,7 @@ export default function RestaurantScreen() {
 
   const cartEntries = Object.values(cart);
   const totalItems = cartEntries.reduce((s, e) => s + e.qty, 0);
-  const estimatedTotal = cartEntries.reduce((s, e) => s + e.price * e.qty, 0);
+  const estimatedTotal = cartEntries.reduce((s, e) => s + (e.price || 0) * e.qty, 0);
   const hasCart = totalItems > 0;
 
   const buildCartText = (): string => {

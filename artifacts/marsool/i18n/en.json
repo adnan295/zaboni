@@ -37,11 +37,26 @@
   },
   "home": {
     "addAddress": "Add an address",
+    "greeting": "Hello, {{name}} 👋",
     "discoverTitle": "Discover",
     "discoverSub": "what your heart desires",
     "searchPlaceholder": "Search for a restaurant or food...",
     "allRestaurants": "All Restaurants",
     "noResults": "No results",
+    "banners": [
+      {
+        "title": "Fast delivery to your door",
+        "subtitle": "Order now and track the courier live on the map"
+      },
+      {
+        "title": "Best restaurants in Damascus",
+        "subtitle": "Explore burgers, pizza, grills, and more"
+      },
+      {
+        "title": "Pay on delivery",
+        "subtitle": "No card needed — pay cash when your order arrives"
+      }
+    ],
     "order": {
       "searching": "Looking for a courier...",
       "accepted": "accepted your order",
@@ -350,11 +365,39 @@
     "promoChecking": "Checking...",
     "promoDiscount": "Discount: {{amount}} SYP",
     "estimatedTotal": "Estimated Items Total",
-    "estimatedNote": "(approx. — final bill from courier)"
+    "estimatedNote": "(approx. — final bill from courier)",
+    "deliveryFee": "Delivery Fee"
   },
   "payment": {
     "cashOnDelivery": "Cash on Delivery 💵",
     "method": "Payment Method"
+  },
+  "paymentInfo": {
+    "title": "Payment Methods",
+    "heroTitle": "Cash on Delivery",
+    "heroSub": "The only payment method available in Marsool right now",
+    "infoBanner": "Electronic payment or credit cards are not accepted at this time.",
+    "howTitle": "How does payment work?",
+    "steps": [
+      {
+        "title": "Place Your Order",
+        "desc": "Write what you want from the restaurant and add your delivery address."
+      },
+      {
+        "title": "Courier Picks Up & Delivers",
+        "desc": "The courier picks up your order from the restaurant and heads to you directly."
+      },
+      {
+        "title": "Pay Cash on Delivery",
+        "desc": "No card needed. Just have the cash ready and hand it to the courier upon arrival."
+      }
+    ],
+    "tipsTitle": "Helpful Tips",
+    "tips": [
+      "Have the exact amount ready to speed up the delivery process.",
+      "Enter your address accurately to ensure the courier reaches you.",
+      "You can chat with the courier through the in-app chat."
+    ]
   },
   "orderTracking": {
     "notFound": "Order not found",
@@ -378,7 +421,10 @@
     },
     "courier": {
       "acceptedBanner": "Accepted your order!",
-      "openChat": "Open Chat with Courier"
+      "openChat": "Open Chat with Courier",
+      "chatPromptNote": "Chat with the courier to coordinate delivery details",
+      "chatPromptBtn": "Open Chat",
+      "chatPromptDismiss": "Later"
     },
     "statusSteps": {
       "accepted": "Courier accepted your order",
@@ -493,6 +539,11 @@
         { "q": "How do I track my order?", "a": "Once a courier accepts your order, you can track them live from the order tracking screen." },
         { "q": "What payment methods are accepted?", "a": "We currently accept cash on delivery only." }
       ]
+    },
+    "linkError": {
+      "title": "Could not open link",
+      "body": "The app was unable to open this link. You can copy the contact info and reach out manually.",
+      "copy": "Copy"
     }
   },
   "about": {

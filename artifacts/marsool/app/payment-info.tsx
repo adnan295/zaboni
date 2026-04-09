@@ -10,25 +10,14 @@ import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 
-const STEPS: { icon: keyof typeof MaterialIcons.glyphMap; title: string; desc: string }[] = [
-  {
-    icon: "edit-note",
-    title: "أرسل طلبك",
-    desc: "اكتب ما تريد طلبه من المطعم، وأضف عنوان التوصيل.",
-  },
-  {
-    icon: "delivery-dining",
-    title: "المندوب يستلم ويوصّل",
-    desc: "يستلم المندوب طلبك من المطعم ويتوجه إليك مباشرة.",
-  },
-  {
-    icon: "payments",
-    title: "ادفع نقداً عند الاستلام",
-    desc: "لا تحتاج لبطاقة بنكية. فقط أعدّ المبلغ نقداً وسلّمه للمندوب لحظة التسليم.",
-  },
+const STEP_ICONS: Array<keyof typeof MaterialIcons.glyphMap> = [
+  "edit-note",
+  "delivery-dining",
+  "payments",
 ];
 
 export default function PaymentInfoScreen() {
@@ -36,9 +25,13 @@ export default function PaymentInfoScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const backIcon = useBackIcon();
+  const { t } = useTranslation();
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
+
+  const steps = t("paymentInfo.steps", { returnObjects: true }) as { title: string; desc: string }[];
+  const tips = t("paymentInfo.tips", { returnObjects: true }) as string[];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -46,30 +39,30 @@ export default function PaymentInfoScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <MaterialIcons name={backIcon} size={22} color={colors.foreground} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.foreground }]}>طرق الدفع</Text>
+        <Text style={[styles.headerTitle, { color: colors.foreground }]}>{t("paymentInfo.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: bottomPadding + 32 }]}>
         <View style={[styles.heroCard, { backgroundColor: colors.primary }]}>
           <MaterialIcons name="payments" size={56} color="#fff" />
-          <Text style={styles.heroTitle}>الدفع نقداً عند الاستلام</Text>
-          <Text style={styles.heroSub}>الطريقة الوحيدة للدفع في مرسول حالياً</Text>
+          <Text style={styles.heroTitle}>{t("paymentInfo.heroTitle")}</Text>
+          <Text style={styles.heroSub}>{t("paymentInfo.heroSub")}</Text>
         </View>
 
         <View style={[styles.infoBanner, { backgroundColor: "#fffbeb", borderColor: "#fcd34d" }]}>
           <MaterialIcons name="info-outline" size={18} color="#d97706" />
           <Text style={[styles.infoBannerText, { color: "#92400e" }]}>
-            لا يُقبل دفع إلكتروني أو بطاقة ائتمانية في الوقت الحالي.
+            {t("paymentInfo.infoBanner")}
           </Text>
         </View>
 
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>كيف يعمل الدفع؟</Text>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("paymentInfo.howTitle")}</Text>
 
-        {STEPS.map((step, idx) => (
+        {steps.map((step, idx) => (
           <View key={idx} style={[styles.stepCard, { backgroundColor: colors.card }]}>
             <View style={[styles.stepIconBg, { backgroundColor: colors.secondary }]}>
-              <MaterialIcons name={step.icon} size={24} color={colors.primary} />
+              <MaterialIcons name={STEP_ICONS[idx] ?? "info"} size={24} color={colors.primary} />
             </View>
             <View style={styles.stepText}>
               <Text style={[styles.stepTitle, { color: colors.foreground }]}>{step.title}</Text>
@@ -79,12 +72,8 @@ export default function PaymentInfoScreen() {
         ))}
 
         <View style={[styles.tipsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.tipsTitle, { color: colors.foreground }]}>نصائح مفيدة</Text>
-          {[
-            "أعدّ المبلغ بالضبط مسبقاً لتسريع عملية التسليم.",
-            "تأكد من إدخال عنوانك بدقة لضمان وصول المندوب.",
-            "يمكنك التواصل مع المندوب عبر الدردشة داخل التطبيق.",
-          ].map((tip, i) => (
+          <Text style={[styles.tipsTitle, { color: colors.foreground }]}>{t("paymentInfo.tipsTitle")}</Text>
+          {tips.map((tip, i) => (
             <View key={i} style={styles.tipRow}>
               <View style={[styles.tipBullet, { backgroundColor: colors.primary }]} />
               <Text style={[styles.tipText, { color: colors.mutedForeground }]}>{tip}</Text>
