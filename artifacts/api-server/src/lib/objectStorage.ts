@@ -176,6 +176,25 @@ export class ObjectStorageService {
     return `/objects/${entityId}`;
   }
 
+  async getPublicObjectUploadURL(contentType?: string): Promise<{ uploadURL: string; objectPath: string }> {
+    const publicPaths = this.getPublicObjectSearchPaths();
+    const baseDir = publicPaths[0];
+
+    const objectId = randomUUID();
+    const fullPath = `${baseDir}/uploads/${objectId}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+
+    const uploadURL = await signObjectURL({
+      bucketName,
+      objectName,
+      method: "PUT",
+      ttlSec: 900,
+      contentType,
+    });
+
+    return { uploadURL, objectPath: `uploads/${objectId}` };
+  }
+
   async trySetObjectEntityAclPolicy(
     rawPath: string,
     aclPolicy: ObjectAclPolicy
