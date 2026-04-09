@@ -23,6 +23,7 @@ import Settings from "@/pages/Settings";
 import CourierApplications from "@/pages/CourierApplications";
 import Content from "@/pages/Content";
 import LiveMap from "@/pages/LiveMap";
+import ChatMonitor from "@/pages/ChatMonitor";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -54,6 +55,7 @@ function Router({ onLogout }: { onLogout: () => void }) {
         <Route path="/courier-applications" component={CourierApplications} />
         <Route path="/content" component={Content} />
         <Route path="/live-map" component={LiveMap} />
+        <Route path="/chats" component={ChatMonitor} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

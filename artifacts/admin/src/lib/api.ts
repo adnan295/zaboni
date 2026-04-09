@@ -128,6 +128,38 @@ export type Courier = {
   lastDelivery: string | null;
 };
 
+export type ChatSummary = {
+  orderId: string;
+  orderText: string;
+  status: string;
+  orderCreatedAt: string;
+  customerName: string | null;
+  customerPhone: string | null;
+  courierName: string | null;
+  courierPhone: string | null;
+  messageCount: number;
+  lastMessageAt: string;
+  lastMessageText: string | null;
+};
+
+export type ChatMessage = {
+  id: string;
+  senderId: string;
+  senderRole: "customer" | "courier";
+  text: string;
+  createdAt: string;
+};
+
+export type ChatThread = {
+  order: {
+    id: string;
+    orderText: string;
+    status: string;
+    createdAt: string;
+  };
+  messages: ChatMessage[];
+};
+
 export type ActiveOrderLocation = {
   id: string;
   status: string;
@@ -439,6 +471,9 @@ export const api = {
   getCouriers: () => apiFetch<Courier[]>("/admin/couriers"),
   getCourierLocations: () => apiFetch<CourierLocation[]>("/admin/couriers/locations"),
   getActiveOrderLocations: () => apiFetch<ActiveOrderLocation[]>("/admin/orders/active/locations"),
+
+  getChats: (q?: string) => apiFetch<ChatSummary[]>(`/admin/chats${q ? `?q=${encodeURIComponent(q)}` : ""}`),
+  getChatThread: (orderId: string) => apiFetch<ChatThread>(`/admin/chats/${orderId}`),
 
   getUsers: () => apiFetch<User[]>("/admin/users"),
   updateUserRole: (id: string, role: "customer" | "courier") =>
