@@ -623,5 +623,24 @@
     "nameRequired": "Name cannot be empty",
     "permissionDenied": "Permission Denied",
     "permissionMessage": "We need access to your photo library to change your profile picture"
+  },
+  "onboarding": {
+    "skip": "Skip",
+    "next": "Next",
+    "start": "Get Started",
+    "slides": [
+      {
+        "title": "Order Anything",
+        "body": "Write your order freely — from any restaurant, with any details you want."
+      },
+      {
+        "title": "A Courier Comes to You",
+        "body": "Your order is sent to nearby couriers and one accepts within seconds."
+      },
+      {
+        "title": "Pay on Delivery",
+        "body": "100% cash — no credit cards, no subscriptions. Just hand the money to the courier."
+      }
+    ]
   }
 }
