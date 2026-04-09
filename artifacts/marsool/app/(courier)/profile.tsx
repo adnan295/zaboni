@@ -237,11 +237,25 @@ export default function CourierProfileScreen() {
           <View style={[styles.menuSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <TouchableOpacity
               style={styles.menuRow}
+              onPress={() => router.push("/(courier)/wallet")}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.menuIcon, { backgroundColor: "#fff7ed" }]}>
+                <MaterialIcons name="account-balance-wallet" size={20} color="#FF6B00" />
+              </View>
+              <Text style={[styles.menuText, { color: colors.foreground }]}>محفظتي</Text>
+              <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
+            </TouchableOpacity>
+
+            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+
+            <TouchableOpacity
+              style={styles.menuRow}
               onPress={() => router.push("/(courier)/earnings")}
               activeOpacity={0.8}
             >
               <View style={[styles.menuIcon, { backgroundColor: "#fef9c3" }]}>
-                <MaterialIcons name="account-balance-wallet" size={20} color="#ca8a04" />
+                <MaterialIcons name="bar-chart" size={20} color="#ca8a04" />
               </View>
               <Text style={[styles.menuText, { color: colors.foreground }]}>
                 {t("courier.earnings.title")}

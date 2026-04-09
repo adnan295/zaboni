@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { db, usersTable, ordersTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, systemSettingsTable, courierCustomerRatingsTable } from "@workspace/db";
-import { and, eq, ne, avg, count, sql } from "drizzle-orm";
+import { db, usersTable, ordersTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, systemSettingsTable, courierCustomerRatingsTable, courierWalletTransactionsTable } from "@workspace/db";
+import { and, eq, ne, avg, count, sql, desc } from "drizzle-orm";
 import { haversineKm as _haversineKm } from "../lib/deliveryZones";
 import { z } from "zod";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
@@ -652,6 +652,59 @@ router.get("/courier/my-ratings", requireCourier, async (req, res) => {
     : null;
 
   res.json({ ratings: rows, avgStars: avgStars ? Number(avgStars.toFixed(2)) : null, total: rows.length });
+});
+
+router.get("/courier/wallet", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+
+  const [userRow, transactions] = await Promise.all([
+    db
+      .select({ walletBalance: usersTable.walletBalance })
+      .from(usersTable)
+      .where(eq(usersTable.id, courierId))
+      .limit(1),
+    db
+      .select()
+      .from(courierWalletTransactionsTable)
+      .where(eq(courierWalletTransactionsTable.courierId, courierId))
+      .orderBy(desc(courierWalletTransactionsTable.createdAt))
+      .limit(30),
+  ]);
+
+  res.json({
+    balance: userRow[0]?.walletBalance ?? 0,
+    transactions,
+  });
+});
+
+const depositRequestSchema = z.object({
+  amount: z.number().int().positive(),
+  note: z.string().max(500).optional().default(""),
+});
+
+router.post("/courier/wallet/deposit-request", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+
+  const parsed = depositRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "amount (positive integer) required" });
+    return;
+  }
+
+  const id = `wdep_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+  const [row] = await db
+    .insert(courierWalletTransactionsTable)
+    .values({
+      id,
+      courierId,
+      amount: parsed.data.amount,
+      type: "deposit_request",
+      status: "pending",
+      note: parsed.data.note || null,
+    })
+    .returning();
+
+  res.status(201).json(row);
 });
 
 export default router;
