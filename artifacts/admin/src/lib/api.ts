@@ -214,6 +214,31 @@ export type DeliveryZone = {
   createdAt: string;
 };
 
+export type PromoBanner = {
+  id: string;
+  titleAr: string;
+  titleEn: string;
+  subtitleAr: string;
+  subtitleEn: string;
+  iconName: string;
+  bgColor: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RestaurantCategory = {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  iconName: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type PromoCode = {
   id: string;
   code: string;
@@ -409,6 +434,22 @@ export const api = {
     }),
   deleteDeliveryZone: (id: string) =>
     apiFetch<void>(`/admin/delivery-zones/${id}`, { method: "DELETE" }),
+
+  getBanners: () => apiFetch<PromoBanner[]>("/admin/banners"),
+  createBanner: (data: Omit<PromoBanner, "id" | "createdAt" | "updatedAt">) =>
+    apiFetch<PromoBanner>("/admin/banners", { method: "POST", body: JSON.stringify(data) }),
+  updateBanner: (id: string, data: Partial<Omit<PromoBanner, "id" | "createdAt" | "updatedAt">>) =>
+    apiFetch<PromoBanner>(`/admin/banners/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteBanner: (id: string) =>
+    apiFetch<void>(`/admin/banners/${id}`, { method: "DELETE" }),
+
+  getAdminCategories: () => apiFetch<RestaurantCategory[]>("/admin/categories"),
+  createCategory: (data: Omit<RestaurantCategory, "id" | "createdAt" | "updatedAt">) =>
+    apiFetch<RestaurantCategory>("/admin/categories", { method: "POST", body: JSON.stringify(data) }),
+  updateCategory: (id: string, data: Partial<Omit<RestaurantCategory, "id" | "createdAt" | "updatedAt">>) =>
+    apiFetch<RestaurantCategory>(`/admin/categories/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteCategory: (id: string) =>
+    apiFetch<void>(`/admin/categories/${id}`, { method: "DELETE" }),
 
   getFinancialReport: (days?: number, groupBy?: 'day' | 'week') => {
     const params = new URLSearchParams();

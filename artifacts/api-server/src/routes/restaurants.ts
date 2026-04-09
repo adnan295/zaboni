@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, restaurantsTable, menuItemsTable, restaurantHoursTable } from "@workspace/db";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { db, restaurantsTable, menuItemsTable, restaurantHoursTable, promoBannersTable, restaurantCategoriesTable } from "@workspace/db";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -133,4 +133,24 @@ router.get("/restaurants/:id/menu", async (req, res) => {
   res.json(items);
 });
 
+
+router.get("/banners", async (_req, res) => {
+  const rows = await db
+    .select()
+    .from(promoBannersTable)
+    .where(eq(promoBannersTable.isActive, true))
+    .orderBy(asc(promoBannersTable.sortOrder));
+  res.json(rows);
+});
+
+router.get("/categories", async (_req, res) => {
+  const rows = await db
+    .select()
+    .from(restaurantCategoriesTable)
+    .where(eq(restaurantCategoriesTable.isActive, true))
+    .orderBy(asc(restaurantCategoriesTable.sortOrder));
+  res.json(rows);
+});
+
 export default router;
+

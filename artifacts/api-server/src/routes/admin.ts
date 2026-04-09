@@ -14,6 +14,8 @@ import {
   systemSettingsTable,
   courierWalletTransactionsTable,
   courierApplicationsTable,
+  promoBannersTable,
+  restaurantCategoriesTable,
 } from "@workspace/db";
 import { eq, count, desc, gte, getTableColumns, and, sql, avg, asc, lt } from "drizzle-orm";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
@@ -1410,4 +1412,81 @@ router.patch("/admin/courier-applications/:id/reject", requireAdmin, async (req,
   res.json({ ok: true });
 });
 
+
+const bannerBody = z.object({
+  titleAr: z.string().min(1),
+  titleEn: z.string().default(""),
+  subtitleAr: z.string().default(""),
+  subtitleEn: z.string().default(""),
+  iconName: z.string().default("local-offer"),
+  bgColor: z.string().default("#FF6B00"),
+  sortOrder: z.number().int().default(0),
+  isActive: z.boolean().default(true),
+});
+
+router.get("/admin/banners", async (_req, res) => {
+  const rows = await db.select().from(promoBannersTable).orderBy(asc(promoBannersTable.sortOrder));
+  res.json(rows);
+});
+
+router.post("/admin/banners", async (req, res) => {
+  const parsed = bannerBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  const id = `banner_${Date.now()}`;
+  const [row] = await db.insert(promoBannersTable).values({ id, ...parsed.data }).returning();
+  res.status(201).json(row);
+});
+
+router.put("/admin/banners/:id", async (req, res) => {
+  const id = String(req.params["id"]);
+  const parsed = bannerBody.partial().safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  const [row] = await db.update(promoBannersTable).set({ ...parsed.data, updatedAt: new Date() }).where(eq(promoBannersTable.id, id)).returning();
+  if (!row) { res.status(404).json({ error: "Not found" }); return; }
+  res.json(row);
+});
+
+router.delete("/admin/banners/:id", async (req, res) => {
+  const id = String(req.params["id"]);
+  await db.delete(promoBannersTable).where(eq(promoBannersTable.id, id));
+  res.status(204).end();
+});
+
+const categoryBody = z.object({
+  nameAr: z.string().min(1),
+  nameEn: z.string().default(""),
+  iconName: z.string().default("restaurant"),
+  sortOrder: z.number().int().default(0),
+  isActive: z.boolean().default(true),
+});
+
+router.get("/admin/categories", async (_req, res) => {
+  const rows = await db.select().from(restaurantCategoriesTable).orderBy(asc(restaurantCategoriesTable.sortOrder));
+  res.json(rows);
+});
+
+router.post("/admin/categories", async (req, res) => {
+  const parsed = categoryBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  const id = `cat_${Date.now()}`;
+  const [row] = await db.insert(restaurantCategoriesTable).values({ id, ...parsed.data }).returning();
+  res.status(201).json(row);
+});
+
+router.put("/admin/categories/:id", async (req, res) => {
+  const id = String(req.params["id"]);
+  const parsed = categoryBody.partial().safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  const [row] = await db.update(restaurantCategoriesTable).set({ ...parsed.data, updatedAt: new Date() }).where(eq(restaurantCategoriesTable.id, id)).returning();
+  if (!row) { res.status(404).json({ error: "Not found" }); return; }
+  res.json(row);
+});
+
+router.delete("/admin/categories/:id", async (req, res) => {
+  const id = String(req.params["id"]);
+  await db.delete(restaurantCategoriesTable).where(eq(restaurantCategoriesTable.id, id));
+  res.status(204).end();
+});
+
 export default router;
+
