@@ -24,6 +24,7 @@ const navItems = [
   { href: "/delivery-zones", label: "Delivery Zones", icon: "📍" },
   { href: "/subscriptions", label: "Subscriptions", icon: "💳" },
   { href: "/wallet-requests", label: "Wallet Requests", icon: "👛" },
+  { href: "/settings", label: "Settings", icon: "⚙️" },
 ];
 
 export default function Layout({ children, onLogout }: LayoutProps) {
