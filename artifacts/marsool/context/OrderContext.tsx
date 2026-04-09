@@ -131,7 +131,6 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       });
     };
 
-    socket.on("order_updated", handleOrderUpdate);
     socket.on("order_status_update", handleOrderUpdate);
 
     return () => {

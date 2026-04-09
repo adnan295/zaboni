@@ -24,7 +24,11 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setFavorites([]);
+      AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
+      return;
+    }
     (async () => {
       try {
         const stored = await AsyncStorage.getItem(STORAGE_KEY);
