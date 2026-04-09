@@ -30,10 +30,10 @@ export default function Login({ onLogin }: LoginProps) {
         setAdminToken(secret.trim());
         onLogin();
       } else {
-        setError("Invalid admin secret or admin panel is not configured.");
+        setError("كلمة المرور غير صحيحة أو لوحة الإدارة غير مهيأة.");
       }
     } catch {
-      setError("Could not connect to the server.");
+      setError("تعذر الاتصال بالخادم.");
     } finally {
       setLoading(false);
     }
@@ -47,17 +47,17 @@ export default function Login({ onLogin }: LoginProps) {
             🚀
           </div>
           <CardTitle className="text-2xl font-bold">مرسول</CardTitle>
-          <CardDescription>Admin Panel — Enter your admin secret to continue</CardDescription>
+          <CardDescription>لوحة الإدارة — أدخل كلمة المرور للمتابعة</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="secret">Admin Secret</Label>
+              <Label htmlFor="secret">كلمة المرور السرية</Label>
               <Input
                 id="secret"
                 type="password"
                 autoComplete="current-password"
-                placeholder="Enter admin secret..."
+                placeholder="أدخل كلمة المرور..."
                 value={secret}
                 onChange={(e) => setSecret(e.target.value)}
                 required
@@ -72,7 +72,7 @@ export default function Login({ onLogin }: LoginProps) {
               className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
               disabled={loading || !secret.trim()}
             >
-              {loading ? "Verifying..." : "Sign In"}
+              {loading ? "جاري التحقق..." : "تسجيل الدخول"}
             </Button>
           </form>
         </CardContent>
