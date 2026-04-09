@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, type Order } from "@/lib/api";
 import {
   Card,
   CardContent,
@@ -100,6 +100,12 @@ export default function Dashboard() {
     refetchInterval: 10_000,
   });
 
+  const { data: activeOrders = [] } = useQuery({
+    queryKey: ["admin", "orders", "active"],
+    queryFn: api.getActiveOrders,
+    refetchInterval: 10_000,
+  });
+
   const { data: dailyData = [] } = useQuery({
     queryKey: ["admin", "charts", "daily", range],
     queryFn: () => api.getDailyChart(range),
@@ -185,10 +191,7 @@ export default function Dashboard() {
     },
   ];
 
-  const activeOrders = stats.ordersByStatus.filter(
-    (s) => s.status !== "delivered",
-  );
-  const totalActive = activeOrders.reduce((sum, s) => sum + Number(s.count), 0);
+  const totalActive = activeOrders.length;
 
   const pieData = stats.ordersByStatus.map((s) => ({
     name: STATUS_LABELS[s.status] ?? s.status,
@@ -229,32 +232,43 @@ export default function Dashboard() {
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500" />
               </span>
               Active Orders Now — {totalActive}
+              <span className="text-xs font-normal text-orange-600/60">live · 10s</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap gap-3">
-              {activeOrders.map(({ status, count }) => (
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {activeOrders.map((order) => (
                 <div
-                  key={status}
-                  className="flex items-center gap-1.5 bg-white dark:bg-card border rounded-lg px-3 py-1.5 shadow-sm"
+                  key={order.id}
+                  className="flex items-center gap-3 bg-white dark:bg-card border rounded-lg px-3 py-2 shadow-sm text-sm"
                 >
                   <span
-                    className={`w-2 h-2 rounded-full ${
-                      status === "searching"
+                    className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                      order.status === "searching"
                         ? "bg-yellow-400"
-                        : status === "accepted"
+                        : order.status === "accepted"
                           ? "bg-blue-400"
-                          : status === "picked_up"
+                          : order.status === "picked_up"
                             ? "bg-purple-400"
                             : "bg-indigo-400"
                     }`}
                   />
-                  <span className="text-sm font-medium">
-                    {STATUS_LABELS[status]}
+                  <span
+                    className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${STATUS_COLORS[order.status] ?? "bg-gray-100 text-gray-700"}`}
+                  >
+                    {STATUS_LABELS[order.status] ?? order.status}
                   </span>
-                  <span className="text-sm font-bold text-orange-600">
-                    {count}
+                  <span className="truncate flex-1" dir="rtl">
+                    {order.orderText}
                   </span>
+                  <span className="text-xs text-muted-foreground flex-shrink-0">
+                    {order.customerName || order.userId.slice(0, 6)}
+                  </span>
+                  {order.restaurantName && (
+                    <span className="text-xs text-muted-foreground flex-shrink-0">
+                      · {order.restaurantName}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>

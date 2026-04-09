@@ -179,6 +179,7 @@ export const api = {
 
   getOrders: (page = 1, limit = 50) =>
     apiFetch<OrdersPage>(`/admin/orders?page=${page}&limit=${limit}`),
+  getActiveOrders: () => apiFetch<Order[]>("/admin/orders/active"),
   updateOrderStatus: (id: string, status: string) =>
     apiFetch<Order>(`/admin/orders/${id}/status`, {
       method: "PATCH",

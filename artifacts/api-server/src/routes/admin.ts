@@ -8,7 +8,14 @@ import {
 } from "@workspace/db";
 import { eq, count, desc, gte, getTableColumns, and, sql } from "drizzle-orm";
 import { z } from "zod";
-import { ORDER_STATUSES } from "@workspace/db";
+
+const ORDER_STATUSES = [
+  "searching",
+  "accepted",
+  "picked_up",
+  "on_way",
+  "delivered",
+] as const;
 
 const router = Router();
 
@@ -352,6 +359,23 @@ router.get("/admin/orders", async (req, res) => {
     page,
     limit,
   });
+});
+
+router.get("/admin/orders/active", async (_req, res) => {
+  const rows = await db
+    .select({
+      ...getTableColumns(ordersTable),
+      customerName: usersTable.name,
+      customerPhone: usersTable.phone,
+    })
+    .from(ordersTable)
+    .leftJoin(usersTable, eq(ordersTable.userId, usersTable.id))
+    .where(
+      sql`${ordersTable.status} != 'delivered'`,
+    )
+    .orderBy(desc(ordersTable.createdAt))
+    .limit(50);
+  res.json(rows);
 });
 
 router.patch("/admin/orders/:id/status", async (req, res) => {
