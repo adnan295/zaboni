@@ -91,7 +91,7 @@ export default function OrderTrackingScreen() {
   useEffect(() => {
     if (!userCoords) return;
     const currentOrder = getOrder(id ?? "");
-    if (!currentOrder || currentOrder.status === "searching" || currentOrder.status === "delivered") return;
+    if (!currentOrder || currentOrder.status === "searching" || currentOrder.status === "delivered" || currentOrder.status === "cancelled") return;
     if (simulationInitialized.current) return;
 
     simulationInitialized.current = true;
@@ -246,11 +246,12 @@ export default function OrderTrackingScreen() {
   }
 
   const isDelivered = order.status === "delivered";
+  const isCancelled = order.status === "cancelled";
   const isOnWay = order.status === "on_way" || order.status === "picked_up";
   const isAccepted = order.status === "accepted";
   const isSearching = order.status === "searching";
   const rated = hasRated(order.id);
-  const showMap = !isSearching && !isDelivered;
+  const showMap = !isSearching && !isDelivered && !isCancelled;
 
   const getStatusTitle = () => {
     const statusKey = order.status as string;
@@ -334,7 +335,23 @@ export default function OrderTrackingScreen() {
           </View>
         )}
 
-        {!isSearching && (
+        {isCancelled && (
+          <View style={[styles.cancelledCard, { backgroundColor: "#FFF0F0", borderColor: "#FFCCCC" }]}>
+            <MaterialIcons name="cancel" size={56} color="#EF4444" />
+            <Text style={styles.cancelledTitle}>{t("orders.status.cancelled")}</Text>
+            <Text style={[styles.cancelledSub, { color: colors.mutedForeground }]}>
+              {t("orderTracking.cancelOrder.cancelledNote")}
+            </Text>
+            <TouchableOpacity
+              style={[styles.reorderBtn, { backgroundColor: colors.primary, marginTop: 8 }]}
+              onPress={() => router.replace("/(tabs)")}
+            >
+              <Text style={[styles.reorderText, { color: "#fff" }]}>{t("orderTracking.reorder")}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {!isSearching && !isCancelled && (
           <>
             <Animated.View style={[styles.courierCard, { backgroundColor: colors.card }, isAccepted && { transform: [{ scale: acceptedScale }] }]}>
               {isAccepted && (
@@ -578,4 +595,15 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.15)",
   },
   cancelBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  cancelledCard: {
+    margin: 16,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    paddingVertical: 40,
+    paddingHorizontal: 24,
+    alignItems: "center",
+    gap: 12,
+  },
+  cancelledTitle: { fontSize: 20, fontWeight: "800", color: "#EF4444", textAlign: "center" },
+  cancelledSub: { fontSize: 14, textAlign: "center", lineHeight: 20 },
 });

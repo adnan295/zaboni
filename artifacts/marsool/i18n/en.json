@@ -316,7 +316,8 @@
       "btn": "Cancel Order",
       "confirmTitle": "Confirm Cancellation",
       "confirmBody": "Are you sure you want to cancel this order?",
-      "confirm": "Yes, Cancel Order"
+      "confirm": "Yes, Cancel Order",
+      "cancelledNote": "Your order has been successfully cancelled. You can place a new order at any time."
     },
     "status": {
       "searching": "Finding Courier",
