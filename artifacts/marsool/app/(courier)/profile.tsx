@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Alert,
   Linking,
+  Modal,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -20,7 +21,7 @@ import { customFetch } from "@workspace/api-client-react";
 import { useCourier } from "@/context/CourierContext";
 import { useRouter } from "expo-router";
 
-const ADMIN_PHONE = "+963999000111";
+const DEFAULT_ADMIN_PHONE = "+963999000111";
 
 interface CourierStats {
   deliveredCount: number;
@@ -37,12 +38,29 @@ interface SubscriptionStatus {
   note?: string | null;
 }
 
+interface ContactConfig {
+  phone: string;
+  whatsapp: string;
+}
+
 export default function CourierProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const { user, signOut } = useAuth();
   const { isOnline, isTogglingOnline, toggleAvailability } = useCourier();
+
+  const [howItWorksVisible, setHowItWorksVisible] = useState(false);
+  const [adminPhone, setAdminPhone] = useState(DEFAULT_ADMIN_PHONE);
+  const [adminWhatsApp, setAdminWhatsApp] = useState(DEFAULT_ADMIN_PHONE);
+
+  const handleToggleAvailability = async () => {
+    try {
+      await toggleAvailability();
+    } catch {
+      Alert.alert("خطأ", "تعذّر تغيير حالة التوافر، تحقق من اتصالك وحاول مجدداً");
+    }
+  };
 
   const handleSignOut = () => {
     Alert.alert("تسجيل الخروج", "هل أنت متأكد من تسجيل الخروج؟", [
@@ -56,11 +74,11 @@ export default function CourierProfileScreen() {
   };
 
   const handleCallAdmin = () => {
-    Linking.openURL(`tel:${ADMIN_PHONE}`);
+    Linking.openURL(`tel:${adminPhone}`);
   };
 
   const handleWhatsAppAdmin = () => {
-    const cleaned = ADMIN_PHONE.replace(/\+/g, "");
+    const cleaned = adminWhatsApp.replace(/\+/g, "");
     Linking.openURL(`https://wa.me/${cleaned}`);
   };
 
@@ -86,6 +104,17 @@ export default function CourierProfileScreen() {
         setSubscription(null);
       } finally {
         setLoading(false);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const config = await customFetch("/api/config/contact") as ContactConfig;
+        if (config?.phone) setAdminPhone(config.phone);
+        if (config?.whatsapp) setAdminWhatsApp(config.whatsapp);
+      } catch {
       }
     })();
   }, []);
@@ -183,7 +212,7 @@ export default function CourierProfileScreen() {
             ) : (
               <Switch
                 value={isOnline}
-                onValueChange={toggleAvailability}
+                onValueChange={handleToggleAvailability}
                 trackColor={{ false: "#fca5a5", true: "#86efac" }}
                 thumbColor={isOnline ? "#22c55e" : "#ef4444"}
                 ios_backgroundColor="#fca5a5"
@@ -312,7 +341,7 @@ export default function CourierProfileScreen() {
               <View style={styles.supportInfo}>
                 <Text style={[styles.menuText, { color: colors.foreground }]}>اتصل بالإدارة</Text>
                 <Text style={[styles.supportSub, { color: colors.mutedForeground }]}>
-                  {ADMIN_PHONE}
+                  {adminPhone}
                 </Text>
               </View>
               <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
@@ -331,7 +360,7 @@ export default function CourierProfileScreen() {
               <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
             </TouchableOpacity>
             <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
-            <View style={styles.menuRow}>
+            <TouchableOpacity style={styles.menuRow} onPress={() => setHowItWorksVisible(true)} activeOpacity={0.7}>
               <View style={[styles.menuIcon, { backgroundColor: "#fef9c3" }]}>
                 <MaterialIcons name="info-outline" size={20} color="#ca8a04" />
               </View>
@@ -341,7 +370,8 @@ export default function CourierProfileScreen() {
                   اشتراك يومي — احتفظ بكامل رسوم التوصيل
                 </Text>
               </View>
-            </View>
+              <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
+            </TouchableOpacity>
           </View>
 
           {/* Sign Out */}
@@ -355,6 +385,82 @@ export default function CourierProfileScreen() {
           </TouchableOpacity>
         </ScrollView>
       )}
+
+      {/* How It Works Modal */}
+      <Modal
+        visible={howItWorksVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setHowItWorksVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.foreground }]}>كيف يعمل التطبيق</Text>
+              <TouchableOpacity onPress={() => setHowItWorksVisible(false)}>
+                <MaterialIcons name="close" size={24} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.howItWorksContent}>
+              <View style={[styles.howStep, { borderColor: colors.border }]}>
+                <View style={[styles.howIcon, { backgroundColor: "#fff7ed" }]}>
+                  <MaterialIcons name="credit-card" size={24} color="#FF6B00" />
+                </View>
+                <View style={styles.howText}>
+                  <Text style={[styles.howTitle, { color: colors.foreground }]}>الاشتراك اليومي</Text>
+                  <Text style={[styles.howBody, { color: colors.mutedForeground }]}>
+                    تدفع رسوم اشتراك يومية للمنصة. يمكنك الدفع مسبقاً عبر المحفظة أو التسوية مع الإدارة.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={[styles.howStep, { borderColor: colors.border }]}>
+                <View style={[styles.howIcon, { backgroundColor: "#f0fdf4" }]}>
+                  <MaterialIcons name="account-balance-wallet" size={24} color="#22c55e" />
+                </View>
+                <View style={styles.howText}>
+                  <Text style={[styles.howTitle, { color: colors.foreground }]}>رسوم التوصيل</Text>
+                  <Text style={[styles.howBody, { color: colors.mutedForeground }]}>
+                    تستلم رسوم التوصيل كاملةً نقداً من الزبون. 100% من رسوم التوصيل تذهب إليك مباشرةً.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={[styles.howStep, { borderColor: colors.border }]}>
+                <View style={[styles.howIcon, { backgroundColor: "#eff6ff" }]}>
+                  <MaterialIcons name="account-balance-wallet" size={24} color="#3b82f6" />
+                </View>
+                <View style={styles.howText}>
+                  <Text style={[styles.howTitle, { color: colors.foreground }]}>المحفظة</Text>
+                  <Text style={[styles.howBody, { color: colors.mutedForeground }]}>
+                    ادفع رصيداً في مكتب الإدارة وأودعه في محفظتك. يُستقطع منها الاشتراك اليومي تلقائياً.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={[styles.howStep, { borderColor: colors.border, borderBottomWidth: 0 }]}>
+                <View style={[styles.howIcon, { backgroundColor: "#fefce8" }]}>
+                  <MaterialIcons name="delivery-dining" size={24} color="#eab308" />
+                </View>
+                <View style={styles.howText}>
+                  <Text style={[styles.howTitle, { color: colors.foreground }]}>سير الطلب</Text>
+                  <Text style={[styles.howBody, { color: colors.mutedForeground }]}>
+                    فعّل وضع "متاح" لتستقبل الطلبات → اقبل الطلب → استلم → أوصّل → قيّم الزبون.
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.modalCloseBtn, { backgroundColor: colors.primary }]}
+              onPress={() => setHowItWorksVisible(false)}
+            >
+              <Text style={styles.modalCloseBtnText}>فهمت، شكراً!</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -518,4 +624,46 @@ const styles = StyleSheet.create({
   subscriptionLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
   subscriptionTitle: { fontSize: 15, fontWeight: "700" },
   subscriptionSub: { fontSize: 12, marginTop: 2 },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
+  modalSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    gap: 16,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  modalTitle: { fontSize: 18, fontWeight: "800" },
+  howItWorksContent: { gap: 0 },
+  howStep: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 14,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+  },
+  howIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  howText: { flex: 1, gap: 4 },
+  howTitle: { fontSize: 15, fontWeight: "700" },
+  howBody: { fontSize: 13, lineHeight: 20 },
+  modalCloseBtn: {
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: "center",
+    marginTop: 4,
+  },
+  modalCloseBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
 });

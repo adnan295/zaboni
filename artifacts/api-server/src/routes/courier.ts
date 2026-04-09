@@ -388,6 +388,8 @@ router.get("/courier/earnings", requireCourier, async (req, res) => {
   todayStart.setHours(0, 0, 0, 0);
   const weekStart = new Date(todayStart);
   weekStart.setDate(weekStart.getDate() - 6);
+  const monthStart = new Date(todayStart);
+  monthStart.setDate(1);
 
   const deliveredOrders = await db.execute(sql`
     SELECT
@@ -413,9 +415,11 @@ router.get("/courier/earnings", requireCourier, async (req, res) => {
 
   const todayDeliveries = allDeliveries.filter((d) => new Date(d.updatedAt) >= todayStart);
   const weekDeliveries = allDeliveries.filter((d) => new Date(d.updatedAt) >= weekStart);
+  const monthDeliveries = allDeliveries.filter((d) => new Date(d.updatedAt) >= monthStart);
 
   const todayEarnings = todayDeliveries.reduce((s, d) => s + d.earnings, 0);
   const weekEarnings = weekDeliveries.reduce((s, d) => s + d.earnings, 0);
+  const monthEarnings = monthDeliveries.reduce((s, d) => s + d.earnings, 0);
   const totalEarnings = allDeliveries.reduce((s, d) => s + d.earnings, 0);
 
   const today = new Date().toISOString().slice(0, 10);
@@ -445,9 +449,11 @@ router.get("/courier/earnings", requireCourier, async (req, res) => {
   res.json({
     todayEarnings,
     weekEarnings,
+    monthEarnings,
     totalEarnings,
     todayDeliveries: todayDeliveries.length,
     weekDeliveries: weekDeliveries.length,
+    monthDeliveries: monthDeliveries.length,
     totalDeliveries: allDeliveries.length,
     todaySubscriptionFee,
     todaySubscriptionStatus,
