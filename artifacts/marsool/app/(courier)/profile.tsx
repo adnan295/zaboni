@@ -10,9 +10,8 @@ import {
   Alert,
   Linking,
   Modal,
-  TextInput,
-  KeyboardAvoidingView,
 } from "react-native";
+import { Image } from "expo-image";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,6 +30,7 @@ interface CourierStats {
   name: string;
   phone: string;
   role: string;
+  avatarUrl?: string | null;
 }
 
 interface SubscriptionStatus {
@@ -68,9 +68,6 @@ export default function CourierProfileScreen() {
   const { isOnline, isTogglingOnline, toggleAvailability } = useCourier();
 
   const [howItWorksVisible, setHowItWorksVisible] = useState(false);
-  const [editNameVisible, setEditNameVisible] = useState(false);
-  const [editNameValue, setEditNameValue] = useState("");
-  const [savingName, setSavingName] = useState(false);
   const [adminPhone, setAdminPhone] = useState(DEFAULT_ADMIN_PHONE);
   const [adminWhatsApp, setAdminWhatsApp] = useState(DEFAULT_ADMIN_PHONE);
   const [application, setApplication] = useState<CourierApplication | null>(null);
@@ -101,34 +98,6 @@ export default function CourierProfileScreen() {
   const handleWhatsAppAdmin = () => {
     const cleaned = adminWhatsApp.replace(/\+/g, "");
     Linking.openURL(`https://wa.me/${cleaned}`);
-  };
-
-  const openEditName = () => {
-    setEditNameValue(stats?.name || user?.name || "");
-    setEditNameVisible(true);
-  };
-
-  const handleSaveName = async () => {
-    const trimmed = editNameValue.trim();
-    if (!trimmed) return;
-    setSavingName(true);
-    try {
-      const updated = await customFetch("/api/courier/profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmed }),
-      }) as { name: string };
-      const newName = updated.name ?? trimmed;
-      setStats((prev) => prev
-        ? { ...prev, name: newName }
-        : { name: newName, phone: user?.phone ?? "", role: "courier", deliveredCount: 0, avgRating: null }
-      );
-      setEditNameVisible(false);
-    } catch {
-      Alert.alert("خطأ", "تعذّر حفظ الاسم، حاول مجدداً");
-    } finally {
-      setSavingName(false);
-    }
   };
 
   const [stats, setStats] = useState<CourierStats | null>(null);
@@ -184,16 +153,32 @@ export default function CourierProfileScreen() {
       ) : (
         <ScrollView contentContainerStyle={{ paddingBottom: bottomPadding + 24 }}>
           <View style={[styles.avatarSection, { backgroundColor: colors.primary }]}>
-            <View style={[styles.avatar, { backgroundColor: "rgba(255,255,255,0.2)" }]}>
-              <MaterialIcons name="delivery-dining" size={48} color="#fff" />
-            </View>
+            <TouchableOpacity style={styles.avatarWrapper} onPress={() => router.push("/edit-profile")} activeOpacity={0.8}>
+              {(user?.avatarUrl || stats?.avatarUrl) ? (
+                <Image
+                  source={{ uri: (() => {
+                    const url = user?.avatarUrl || stats?.avatarUrl || "";
+                    return url.startsWith("/") ? `/api${url}` : url;
+                  })() }}
+                  style={[styles.avatar, { borderRadius: 42 }]}
+                  contentFit="cover"
+                />
+              ) : (
+                <View style={[styles.avatar, { backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" }]}>
+                  <MaterialIcons name="delivery-dining" size={48} color="#fff" />
+                </View>
+              )}
+              <View style={styles.avatarEditOverlay}>
+                <MaterialIcons name="photo-camera" size={14} color="#fff" />
+              </View>
+            </TouchableOpacity>
             <View style={styles.userNameRow}>
-              <Text style={styles.userName}>{stats?.name || user?.name || t("profile.defaultUser")}</Text>
-              <TouchableOpacity onPress={openEditName} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={styles.userName}>{user?.name || stats?.name || t("profile.defaultUser")}</Text>
+              <TouchableOpacity onPress={() => router.push("/edit-profile")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <MaterialIcons name="edit" size={18} color="rgba(255,255,255,0.8)" />
               </TouchableOpacity>
             </View>
-            <Text style={styles.userPhone}>{stats?.phone || user?.phone || ""}</Text>
+            <Text style={styles.userPhone}>{user?.phone || stats?.phone || ""}</Text>
             <View style={[styles.badge, { backgroundColor: "rgba(255,255,255,0.25)" }]}>
               <MaterialIcons name="verified" size={14} color="#fff" />
               <Text style={styles.badgeText}>{t("profile.courier.badge")}</Text>
@@ -475,62 +460,6 @@ export default function CourierProfileScreen() {
         </ScrollView>
       )}
 
-      {/* Edit Name Modal */}
-      <Modal
-        visible={editNameVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setEditNameVisible(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.modalOverlay}
-        >
-          <View style={[styles.editNameSheet, { backgroundColor: colors.card }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.foreground }]}>تعديل الاسم</Text>
-              <TouchableOpacity onPress={() => setEditNameVisible(false)}>
-                <MaterialIcons name="close" size={24} color={colors.mutedForeground} />
-              </TouchableOpacity>
-            </View>
-            <TextInput
-              style={[styles.nameInput, {
-                backgroundColor: colors.secondary,
-                color: colors.foreground,
-                borderColor: colors.border,
-              }]}
-              value={editNameValue}
-              onChangeText={setEditNameValue}
-              placeholder="الاسم الكامل"
-              placeholderTextColor={colors.mutedForeground}
-              autoFocus
-              maxLength={60}
-              textAlign="right"
-            />
-            <View style={styles.editNameActions}>
-              <TouchableOpacity
-                style={[styles.editNameCancelBtn, { borderColor: colors.border }]}
-                onPress={() => setEditNameVisible(false)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.editNameCancelText, { color: colors.mutedForeground }]}>تراجع</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.editNameSaveBtn, { backgroundColor: colors.primary, opacity: savingName ? 0.7 : 1 }]}
-                onPress={handleSaveName}
-                disabled={savingName || !editNameValue.trim()}
-                activeOpacity={0.8}
-              >
-                {savingName
-                  ? <ActivityIndicator size="small" color="#fff" />
-                  : <Text style={styles.editNameSaveText}>حفظ</Text>
-                }
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
       {/* How It Works Modal */}
       <Modal
         visible={howItWorksVisible}
@@ -627,13 +556,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 8,
   },
+  avatarWrapper: {
+    position: "relative",
+    marginBottom: 4,
+  },
   avatar: {
     width: 84,
     height: 84,
     borderRadius: 42,
+  },
+  avatarEditOverlay: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "rgba(0,0,0,0.55)",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 4,
+    borderWidth: 2,
+    borderColor: "#fff",
   },
   userName: { fontSize: 20, fontWeight: "800", color: "#fff" },
   userPhone: { fontSize: 14, color: "rgba(255,255,255,0.8)" },
@@ -816,39 +759,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  editNameSheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    gap: 16,
-  },
-  nameInput: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    fontFamily: "Tajawal_400Regular",
-  },
-  editNameActions: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  editNameCancelBtn: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  editNameCancelText: { fontSize: 15, fontWeight: "600" },
-  editNameSaveBtn: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 14,
-    borderRadius: 12,
-  },
-  editNameSaveText: { color: "#fff", fontSize: 15, fontWeight: "700" },
 });
