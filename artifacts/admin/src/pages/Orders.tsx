@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, type Order, ORDER_STATUSES } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -77,11 +78,16 @@ function exportCSV(orders: Order[]) {
 export default function Orders() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
 
+  const apiDateFrom = dateFrom || undefined;
+  const apiDateTo = dateTo || undefined;
+
   const { data, isLoading } = useQuery({
-    queryKey: ["admin", "orders", page],
-    queryFn: () => api.getOrders(page, PAGE_SIZE),
+    queryKey: ["admin", "orders", page, apiDateFrom, apiDateTo],
+    queryFn: () => api.getOrders(page, PAGE_SIZE, apiDateFrom, apiDateTo),
     refetchInterval: 15_000,
   });
 
@@ -101,6 +107,16 @@ export default function Orders() {
     return matchesSearch && matchesStatus;
   });
 
+  const hasActiveFilters = search || statusFilter !== "all" || dateFrom || dateTo;
+
+  function resetFilters() {
+    setSearch("");
+    setStatusFilter("all");
+    setDateFrom("");
+    setDateTo("");
+    setPage(1);
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
@@ -115,37 +131,82 @@ export default function Orders() {
         </Button>
       </div>
 
-      <div className="flex gap-3 flex-wrap items-center">
-        <Input
-          type="search"
-          placeholder="ابحث في الطلبات..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-          className="max-w-xs"
-        />
-        <Select
-          value={statusFilter}
-          onValueChange={(v) => {
-            setStatusFilter(v);
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="كل الحالات" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">كل الحالات</SelectItem>
-            {Object.entries(STATUS_LABELS).map(([k, v]) => (
-              <SelectItem key={k} value={k}>
-                {v}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <span className="text-sm text-muted-foreground">
+      <div className="flex gap-3 flex-wrap items-end">
+        <div className="flex flex-col gap-1">
+          <Label className="text-xs text-muted-foreground">بحث</Label>
+          <Input
+            type="search"
+            placeholder="ابحث في الطلبات..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            className="max-w-xs"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <Label className="text-xs text-muted-foreground">الحالة</Label>
+          <Select
+            value={statusFilter}
+            onValueChange={(v) => {
+              setStatusFilter(v);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="كل الحالات" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">كل الحالات</SelectItem>
+              {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                <SelectItem key={k} value={k}>
+                  {v}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <Label className="text-xs text-muted-foreground">من تاريخ</Label>
+          <Input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => {
+              setDateFrom(e.target.value);
+              setPage(1);
+            }}
+            className="w-40"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <Label className="text-xs text-muted-foreground">إلى تاريخ</Label>
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={(e) => {
+              setDateTo(e.target.value);
+              setPage(1);
+            }}
+            className="w-40"
+          />
+        </div>
+
+        {hasActiveFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={resetFilters}
+            className="self-end text-muted-foreground hover:text-foreground"
+          >
+            ✕ إعادة ضبط
+          </Button>
+        )}
+
+        <span className="text-sm text-muted-foreground self-end pb-1">
           {total} طلب إجمالاً
         </span>
       </div>

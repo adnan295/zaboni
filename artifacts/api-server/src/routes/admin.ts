@@ -17,7 +17,7 @@ import {
   promoBannersTable,
   restaurantCategoriesTable,
 } from "@workspace/db";
-import { eq, count, desc, gte, getTableColumns, and, sql, avg, asc, lt } from "drizzle-orm";
+import { eq, count, desc, gte, lte, getTableColumns, and, sql, avg, asc, lt } from "drizzle-orm";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
 import { sendSmsViaGateway, isSmsGatewayConfigured } from "../lib/sms";
 import { z } from "zod";
@@ -355,17 +355,37 @@ const paginationSchema = z.object({
   limit: z.coerce.number().int().positive().max(200).default(50),
 });
 
+const ordersQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(200).default(50),
+  dateFrom: z.string().optional(),
+  dateTo: z.string().optional(),
+});
+
 router.get("/admin/orders", async (req, res) => {
-  const parsed = paginationSchema.safeParse(req.query);
+  const parsed = ordersQuerySchema.safeParse(req.query);
   if (!parsed.success) {
-    res.status(400).json({ error: "Invalid pagination params" });
+    res.status(400).json({ error: "Invalid query params" });
     return;
   }
-  const { page, limit } = parsed.data;
+  const { page, limit, dateFrom, dateTo } = parsed.data;
   const offset = (page - 1) * limit;
 
+  const conditions = [];
+  if (dateFrom) {
+    const from = new Date(dateFrom);
+    from.setHours(0, 0, 0, 0);
+    if (!isNaN(from.getTime())) conditions.push(gte(ordersTable.createdAt, from));
+  }
+  if (dateTo) {
+    const to = new Date(dateTo);
+    to.setHours(23, 59, 59, 999);
+    if (!isNaN(to.getTime())) conditions.push(lte(ordersTable.createdAt, to));
+  }
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
   const [[totalRow], rows] = await Promise.all([
-    db.select({ count: count() }).from(ordersTable),
+    db.select({ count: count() }).from(ordersTable).where(where),
     db
       .select({
         ...getTableColumns(ordersTable),
@@ -374,6 +394,7 @@ router.get("/admin/orders", async (req, res) => {
       })
       .from(ordersTable)
       .leftJoin(usersTable, eq(ordersTable.userId, usersTable.id))
+      .where(where)
       .orderBy(desc(ordersTable.createdAt))
       .offset(offset)
       .limit(limit),
