@@ -225,6 +225,8 @@ const restaurantBody = z.object({
   tags: z.array(z.string()).default([]),
   isOpen: z.boolean().default(true),
   discount: z.string().nullable().optional(),
+  lat: z.number().min(-90).max(90).nullable().optional(),
+  lon: z.number().min(-180).max(180).nullable().optional(),
 });
 
 router.post("/admin/restaurants", async (req, res) => {
@@ -850,6 +852,29 @@ router.put("/admin/delivery-zones/:id", async (req, res) => {
 
 router.delete("/admin/delivery-zones/:id", async (req, res) => {
   const id = String(req.params["id"]);
+
+  const existing = await db
+    .select({ id: deliveryZonesTable.id })
+    .from(deliveryZonesTable)
+    .where(eq(deliveryZonesTable.id, id))
+    .limit(1);
+
+  if (existing.length === 0) {
+    res.status(404).json({ error: "Zone not found" });
+    return;
+  }
+
+  const [allZones] = await db
+    .select({ count: count() })
+    .from(deliveryZonesTable);
+
+  if (Number(allZones?.count ?? 0) <= 1) {
+    res.status(409).json({
+      error: "لا يمكن حذف النطاق الوحيد — يجب أن يكون هناك نطاق واحد على الأقل لتحديد رسوم التوصيل",
+    });
+    return;
+  }
+
   await db.delete(deliveryZonesTable).where(eq(deliveryZonesTable.id, id));
   res.status(204).end();
 });

@@ -17,6 +17,8 @@ export const restaurantsTable = pgTable("restaurants", {
   tags: jsonb("tags").$type<string[]>().notNull().default([]),
   isOpen: boolean("is_open").notNull().default(true),
   discount: text("discount"),
+  lat: real("lat"),
+  lon: real("lon"),
 });
 
 export const insertRestaurantSchema = createInsertSchema(restaurantsTable);

@@ -45,7 +45,7 @@ export default function OrderRequestScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const backIcon = useBackIcon();
-  const { restaurantName } = useLocalSearchParams<{ restaurantName?: string }>();
+  const { restaurantName, restaurantId } = useLocalSearchParams<{ restaurantName?: string; restaurantId?: string }>();
   const { placeOrder } = useOrders();
   const { defaultAddress } = useAddresses();
 
@@ -76,14 +76,16 @@ export default function OrderRequestScreen() {
       return;
     }
     setFeeLoading(true);
-    customFetch(`/api/delivery-fee-preview?lat=${addrLat}&lon=${addrLon}`)
+    const params = new URLSearchParams({ lat: String(addrLat), lon: String(addrLon) });
+    if (restaurantId) params.set("restaurantId", restaurantId);
+    customFetch(`/api/delivery-fee-preview?${params.toString()}`)
       .then((res) => {
         const data = res as FeePreview;
         setFeePreview(data);
       })
       .catch(() => setFeePreview(null))
       .finally(() => setFeeLoading(false));
-  }, [addrLat, addrLon]);
+  }, [addrLat, addrLon, restaurantId]);
 
   const deliveryFee = feePreview?.fee ?? undefined;
 
@@ -167,7 +169,7 @@ export default function OrderRequestScreen() {
     const lat = defaultAddress.latitude ?? undefined;
     const lon = defaultAddress.longitude ?? undefined;
     try {
-      const order = await placeOrder(orderText.trim(), restaurantName ?? t("orderRequest.title"), address, appliedPromo, lat, lon);
+      const order = await placeOrder(orderText.trim(), restaurantName ?? t("orderRequest.title"), address, appliedPromo, lat, lon, restaurantId);
       router.replace({
         pathname: "/order-tracking/[id]",
         params: { id: order.id },

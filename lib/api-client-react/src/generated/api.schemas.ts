@@ -77,6 +77,7 @@ export interface CreateOrderRequest {
   promoCode?: string;
   lat?: number;
   lon?: number;
+  restaurantId?: string;
 }
 
 export type UpdateOrderStatusRequestStatus =
