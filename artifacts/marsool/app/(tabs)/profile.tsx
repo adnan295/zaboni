@@ -44,7 +44,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
-  const { user, signOut, isCourier, isCourierMode, setCourierMode } = useAuth();
+  const { user, signOut, isCourier, isCourierMode, setCourierMode, refreshRole } = useAuth();
   const { orders } = useOrders();
   const { favorites } = useFavorites();
   const { unreadCount } = useNotifications();
@@ -72,7 +72,13 @@ export default function ProfileScreen() {
     if (isCourier || !user) return;
     setAppLoading(true);
     customFetch("/api/courier/my-application")
-      .then((data) => setApplication(data as CourierApplication | null))
+      .then(async (data) => {
+        const app = data as CourierApplication | null;
+        setApplication(app);
+        if (app?.status === "approved") {
+          await refreshRole();
+        }
+      })
       .catch(() => setApplication(null))
       .finally(() => setAppLoading(false));
   }, [isCourier, user?.id]);
