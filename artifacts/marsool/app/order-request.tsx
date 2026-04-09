@@ -45,7 +45,7 @@ export default function OrderRequestScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const backIcon = useBackIcon();
-  const { restaurantName, restaurantId, reorderText } = useLocalSearchParams<{ restaurantName?: string; restaurantId?: string; reorderText?: string }>();
+  const { restaurantName, restaurantId, reorderText, estimatedTotal } = useLocalSearchParams<{ restaurantName?: string; restaurantId?: string; reorderText?: string; estimatedTotal?: string }>();
   const { placeOrder } = useOrders();
   const { defaultAddress } = useAddresses();
 
@@ -264,6 +264,23 @@ export default function OrderRequestScreen() {
           </View>
         </View>
 
+        {estimatedTotal && Number(estimatedTotal) > 0 ? (
+          <View style={[styles.estimatedCard, { backgroundColor: "#fff7ed", borderColor: "#fed7aa" }]}>
+            <MaterialIcons name="receipt-long" size={20} color="#ea580c" />
+            <View style={styles.addrInfo}>
+              <Text style={[styles.addrLabel, { color: "#9a3412" }]}>{t("orderRequest.estimatedTotal")}</Text>
+              <View style={styles.feeRow}>
+                <Text style={[styles.feeAmount, { color: "#ea580c" }]}>
+                  ~{Number(estimatedTotal).toLocaleString()} ل.س
+                </Text>
+                <Text style={[styles.feeDistance, { color: "#c2410c" }]}>
+                  {t("orderRequest.estimatedNote")}
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
+
         {(feeLoading || feePreview != null) ? (
           <View style={[styles.feeCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <MaterialIcons name="delivery-dining" size={20} color={colors.primary} />
@@ -376,6 +393,14 @@ const styles = StyleSheet.create({
   textArea: { fontSize: 15, lineHeight: 24, minHeight: 120 },
   charCount: { textAlign: "left", fontSize: 12 },
   addressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+  },
+  estimatedCard: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
