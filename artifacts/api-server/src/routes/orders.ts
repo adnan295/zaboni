@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { db, ordersTable, orderStatusHistoryTable } from "@workspace/db";
+import { db, ordersTable, orderStatusHistoryTable, orderRatingsTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
@@ -88,6 +88,49 @@ router.get("/orders/:id", async (req, res) => {
     return;
   }
   res.json(rows[0]);
+});
+
+const rateOrderSchema = z.object({
+  restaurantStars: z.number().int().min(1).max(5),
+  courierStars: z.number().int().min(1).max(5),
+  comment: z.string().max(500).default(""),
+  restaurantName: z.string().default(""),
+});
+
+router.post("/orders/:id/rate", async (req, res) => {
+  const userId = resolveUserId(req);
+  const orderId = String(req.params["id"]);
+
+  const existing = await db
+    .select()
+    .from(orderRatingsTable)
+    .where(and(eq(orderRatingsTable.orderId, orderId), eq(orderRatingsTable.userId, userId)));
+  if (existing.length > 0) {
+    res.status(409).json({ error: "Already rated" });
+    return;
+  }
+
+  const body = rateOrderSchema.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "Invalid request body" });
+    return;
+  }
+
+  const ratingId = `${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+  const rows = await db
+    .insert(orderRatingsTable)
+    .values({
+      id: ratingId,
+      orderId,
+      userId,
+      restaurantStars: body.data.restaurantStars,
+      courierStars: body.data.courierStars,
+      comment: body.data.comment,
+      restaurantName: body.data.restaurantName,
+    })
+    .returning();
+
+  res.status(201).json(rows[0]);
 });
 
 export default router;

@@ -7,6 +7,7 @@ import {
   Platform,
   ScrollView,
   KeyboardAvoidingView,
+  Alert,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -43,9 +44,20 @@ export default function OrderRequestScreen() {
 
   const handleSubmit = async () => {
     if (!isValid || isSubmitting) return;
+    if (!defaultAddress) {
+      Alert.alert(
+        t("orderRequest.noAddressTitle"),
+        t("orderRequest.noAddressBody"),
+        [
+          { text: t("orderRequest.addAddress"), onPress: () => router.push("/addresses"), style: "default" },
+          { text: t("common.cancel"), style: "cancel" },
+        ]
+      );
+      return;
+    }
     setIsSubmitting(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const address = defaultAddress?.label ?? t("orderRequest.currentLocation");
+    const address = defaultAddress.label;
     try {
       const order = await placeOrder(orderText.trim(), restaurantName ?? t("orderRequest.title"), address);
       router.replace({

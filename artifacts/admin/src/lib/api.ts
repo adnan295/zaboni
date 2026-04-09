@@ -125,6 +125,26 @@ export type Courier = {
   lastDelivery: string | null;
 };
 
+export type Rating = {
+  id: string;
+  orderId: string;
+  userId: string;
+  restaurantStars: number;
+  courierStars: number;
+  comment: string;
+  restaurantName: string;
+  createdAt: string;
+  userName: string | null;
+  userPhone: string | null;
+};
+
+export type RatingsPage = {
+  ratings: Rating[];
+  total: number;
+  avgRestaurantStars: number | null;
+  avgCourierStars: number | null;
+};
+
 export const ORDER_STATUSES = [
   "searching",
   "accepted",
@@ -194,4 +214,7 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ role }),
     }),
+
+  getRatings: (limit = 50, offset = 0) =>
+    apiFetch<RatingsPage>(`/admin/ratings?limit=${limit}&offset=${offset}`),
 };

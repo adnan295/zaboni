@@ -152,7 +152,9 @@ export default function NotificationsScreen() {
               notif={notif}
               onPress={() => {
                 markRead(notif.id);
-                if (notif.orderId && (notif.type === "order_status" || notif.type === "rating_request")) {
+                if (notif.orderId && notif.type === "order_status") {
+                  router.push({ pathname: "/order-tracking/[id]", params: { id: notif.orderId } });
+                } else if (notif.orderId && notif.type === "rating_request") {
                   router.push("/orders");
                 }
               }}
