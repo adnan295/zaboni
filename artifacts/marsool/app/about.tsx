@@ -68,13 +68,13 @@ export default function AboutScreen() {
 
         <View style={[styles.linksCard, { backgroundColor: colors.card, borderColor: colors.border, alignSelf: "stretch" }]}>
           <Text style={[styles.infoTitle, { color: colors.foreground }]}>{t("about.legal.title")}</Text>
-          <TouchableOpacity style={styles.linkRow} onPress={() => router.push("/privacy")} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.linkRow} onPress={() => router.push("/legal/privacy")} activeOpacity={0.7}>
             <MaterialIcons name="privacy-tip" size={18} color={colors.primary} />
             <Text style={[styles.linkText, { color: colors.primary }]}>{t("about.legal.privacy")}</Text>
             <MaterialIcons name="chevron-right" size={18} color={colors.mutedForeground} />
           </TouchableOpacity>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          <TouchableOpacity style={styles.linkRow} onPress={() => router.push("/terms")} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.linkRow} onPress={() => router.push("/legal/terms")} activeOpacity={0.7}>
             <MaterialIcons name="description" size={18} color={colors.primary} />
             <Text style={[styles.linkText, { color: colors.primary }]}>{t("about.legal.terms")}</Text>
             <MaterialIcons name="chevron-right" size={18} color={colors.mutedForeground} />
