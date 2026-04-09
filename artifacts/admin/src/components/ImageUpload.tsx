@@ -71,7 +71,7 @@ export function ImageUpload({ value, onChange, label = "الصورة" }: ImageUp
         throw new Error("فشل رفع الصورة إلى التخزين");
       }
 
-      onChange(`${API_BASE}/storage${objectPath}`);
+      onChange(`${API_BASE}/storage/public-objects/${objectPath}`);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "حدث خطأ أثناء الرفع");
     } finally {

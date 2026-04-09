@@ -58,8 +58,7 @@ router.post("/storage/uploads/request-url", requireAdminStorage, async (req: Req
   }
 
   try {
-    const uploadURL = await objectStorageService.getObjectEntityUploadURL(contentType);
-    const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+    const { uploadURL, objectPath } = await objectStorageService.getPublicObjectUploadURL(contentType);
 
     res.json(
       RequestUploadUrlResponse.parse({
