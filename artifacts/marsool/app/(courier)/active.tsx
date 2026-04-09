@@ -15,6 +15,7 @@ import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useCourier, CourierOrderStatus, CourierDeliveryStatus } from "@/context/CourierContext";
+import { customFetch } from "@workspace/api-client-react";
 import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps";
 
 const STATUS_COLORS: Record<CourierOrderStatus, string> = {
@@ -67,8 +68,9 @@ export default function ActiveOrderScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t } = useTranslation();
-  const { activeOrders, updateDeliveryStatus } = useCourier();
+  const { activeOrders, updateDeliveryStatus, refreshActiveOrders, refreshAvailableOrders } = useCourier();
   const [updating, setUpdating] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
@@ -77,6 +79,32 @@ export default function ActiveOrderScreen() {
 
   const currentStepIndex = STEPS.findIndex((s) => s.status === order?.status);
   const currentStep = STEPS[currentStepIndex];
+
+  const handleCancelOrder = () => {
+    if (!order) return;
+    Alert.alert(
+      "إلغاء الطلب",
+      "هل أنت متأكد من إلغاء هذا الطلب؟ سيعود الطلب للبحث عن مندوب آخر.",
+      [
+        { text: "تراجع", style: "cancel" },
+        {
+          text: "نعم، إلغاء الطلب",
+          style: "destructive",
+          onPress: async () => {
+            setCancelling(true);
+            try {
+              await customFetch(`/api/courier/orders/${order.id}/cancel`, { method: "POST" });
+              await Promise.all([refreshActiveOrders(), refreshAvailableOrders()]);
+            } catch {
+              Alert.alert("خطأ", "تعذّر إلغاء الطلب، حاول مجدداً.");
+            } finally {
+              setCancelling(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const doStatusUpdate = async (status: CourierDeliveryStatus) => {
     if (!order) return;
@@ -352,6 +380,21 @@ export default function ActiveOrderScreen() {
             ) : null}
           </View>
 
+          {/* Cancel button — only before delivery */}
+          {order.status !== "delivered" ? (
+            <TouchableOpacity
+              style={[styles.cancelBtn, { borderColor: "#ef4444" }]}
+              onPress={handleCancelOrder}
+              disabled={cancelling}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons name="cancel" size={18} color="#ef4444" />
+              <Text style={styles.cancelBtnText}>
+                {cancelling ? "جاري الإلغاء..." : "إلغاء الطلب"}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+
           {/* Action button */}
           {currentStep?.nextStatus && order.status !== "delivered" ? (
             <View style={[styles.statusCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -528,6 +571,19 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   rateCustomerBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  cancelBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    backgroundColor: "#fff5f5",
+  },
+  cancelBtnText: { color: "#ef4444", fontSize: 14, fontWeight: "700" },
   mapCard: {
     marginHorizontal: 16,
     marginTop: 12,

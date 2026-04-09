@@ -65,6 +65,14 @@ function OrderCard({
               </Text>
             </View>
           ) : null}
+          {order.deliveryFee != null && order.deliveryFee > 0 ? (
+            <View style={[styles.feeBadge, { backgroundColor: "#fff7ed" }]}>
+              <MaterialIcons name="account-balance-wallet" size={12} color="#ea580c" />
+              <Text style={[styles.feeText, { color: "#ea580c" }]}>
+                {order.deliveryFee.toLocaleString("ar-SY")} ل.س
+              </Text>
+            </View>
+          ) : null}
           <Text style={[styles.timeAgo, { color: colors.mutedForeground }]}>
             {timeAgo(order.createdAt)}
           </Text>
@@ -118,7 +126,7 @@ export default function AvailableOrdersScreen() {
     updateLocation,
     toggleAvailability,
   } = useCourier();
-  const locationFetched = useRef(false);
+  const locationWatcher = useRef<Location.LocationSubscription | null>(null);
   const prevOrderIds = useRef<Set<string>>(new Set());
   const missedCount = useRef(0);
   const isFirstLoad = useRef(true);
@@ -166,19 +174,36 @@ export default function AvailableOrdersScreen() {
   }, [availableOrders, isOnline]);
 
   useEffect(() => {
-    if (locationFetched.current || Platform.OS === "web") return;
+    if (Platform.OS === "web") return;
+    let active = true;
     (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === "granted") {
-          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        if (status !== "granted" || !active) return;
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        if (active) {
           await updateLocation(loc.coords.latitude, loc.coords.longitude);
-          locationFetched.current = true;
           await refreshAvailableOrders();
+        }
+        const watcher = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.Balanced, distanceInterval: 50, timeInterval: 15000 },
+          (position) => {
+            if (active) updateLocation(position.coords.latitude, position.coords.longitude);
+          }
+        );
+        if (active) {
+          locationWatcher.current = watcher;
+        } else {
+          watcher.remove();
         }
       } catch {
       }
     })();
+    return () => {
+      active = false;
+      locationWatcher.current?.remove();
+      locationWatcher.current = null;
+    };
   }, []);
 
   const handleAccept = useCallback(
@@ -356,6 +381,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   distanceText: { fontSize: 12, fontWeight: "700" },
+  feeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  feeText: { fontSize: 12, fontWeight: "700" },
   timeAgo: { fontSize: 12 },
   detailRow: {
     flexDirection: "row",

@@ -327,6 +327,60 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
   res.json(updated[0]);
 });
 
+router.post("/courier/orders/:orderId/cancel", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+  const orderId = String(req.params["orderId"]);
+
+  const orders = await db
+    .select()
+    .from(ordersTable)
+    .where(and(eq(ordersTable.id, orderId), eq(ordersTable.courierId, courierId)))
+    .limit(1);
+
+  if (orders.length === 0) {
+    res.status(404).json({ error: "Order not found or not your order" });
+    return;
+  }
+
+  const order = orders[0];
+
+  if (order.status === "delivered") {
+    res.status(409).json({ error: "Cannot cancel a delivered order" });
+    return;
+  }
+
+  const updated = await db
+    .update(ordersTable)
+    .set({
+      courierId: "",
+      courierName: "",
+      courierPhone: "",
+      courierRating: 0,
+      status: "searching",
+      updatedAt: new Date(),
+    })
+    .where(and(eq(ordersTable.id, orderId), eq(ordersTable.courierId, courierId)))
+    .returning();
+
+  if (updated.length === 0) {
+    res.status(409).json({ error: "Order could not be cancelled" });
+    return;
+  }
+
+  await db.insert(orderStatusHistoryTable).values({
+    id: `${orderId}_cancelled_courier_${Date.now()}`,
+    orderId,
+    status: "searching",
+  });
+
+  notifyOrderUpdate(order.userId, updated[0]);
+  await sendOrderPush(order.userId, "عذراً، المندوب ألغى الطلب. سيتم البحث عن مندوب آخر.");
+
+  res.json({ success: true });
+});
+
+const DEFAULT_DAILY_FEE = 5000;
+
 router.get("/courier/earnings", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
 
@@ -364,6 +418,30 @@ router.get("/courier/earnings", requireCourier, async (req, res) => {
   const weekEarnings = weekDeliveries.reduce((s, d) => s + d.earnings, 0);
   const totalEarnings = allDeliveries.reduce((s, d) => s + d.earnings, 0);
 
+  const today = new Date().toISOString().slice(0, 10);
+  const [subRow, settingRow] = await Promise.all([
+    db
+      .select()
+      .from(courierSubscriptionsTable)
+      .where(and(
+        eq(courierSubscriptionsTable.courierId, courierId),
+        eq(courierSubscriptionsTable.date, today),
+      ))
+      .limit(1),
+    db
+      .select()
+      .from(systemSettingsTable)
+      .where(eq(systemSettingsTable.key, "daily_subscription_fee"))
+      .limit(1),
+  ]);
+
+  const defaultFee = settingRow[0]?.value ? parseInt(settingRow[0].value, 10) || DEFAULT_DAILY_FEE : DEFAULT_DAILY_FEE;
+  const todaySubscriptionStatus = subRow[0]?.status ?? "pending";
+  const todaySubscriptionFee = subRow[0]?.amount ?? defaultFee;
+  const todayNetEarnings = todaySubscriptionStatus === "paid"
+    ? todayEarnings - todaySubscriptionFee
+    : todayEarnings;
+
   res.json({
     todayEarnings,
     weekEarnings,
@@ -371,11 +449,12 @@ router.get("/courier/earnings", requireCourier, async (req, res) => {
     todayDeliveries: todayDeliveries.length,
     weekDeliveries: weekDeliveries.length,
     totalDeliveries: allDeliveries.length,
+    todaySubscriptionFee,
+    todaySubscriptionStatus,
+    todayNetEarnings,
     recentDeliveries: allDeliveries.slice(0, 50),
   });
 });
-
-const DEFAULT_DAILY_FEE = 5000;
 
 router.get("/courier/subscription/today", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
@@ -481,6 +560,98 @@ router.get("/courier/subscription/history", requireCourier, async (req, res) => 
     .limit(60);
 
   res.json(rows);
+});
+
+router.get("/courier/orders/history", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+
+  const rows = await db.execute(sql`
+    SELECT
+      o.id,
+      o.restaurant_name AS "restaurantName",
+      o.address,
+      o.order_text AS "orderText",
+      o.status,
+      COALESCE(o.delivery_fee, 0) AS "deliveryFee",
+      o.updated_at AS "updatedAt",
+      o.created_at AS "createdAt",
+      COALESCE(r.courier_stars, 0) AS "customerRating"
+    FROM orders o
+    LEFT JOIN order_ratings r ON r.order_id = o.id
+    WHERE o.courier_id = ${courierId}
+      AND o.status = 'delivered'
+    ORDER BY o.updated_at DESC
+    LIMIT 100
+  `);
+
+  type OrderHistoryRow = {
+    id: string;
+    restaurantName: string;
+    address: string;
+    orderText: string;
+    status: string;
+    deliveryFee: number;
+    updatedAt: string | Date;
+    createdAt: string | Date;
+    customerRating: number;
+  };
+
+  const orders = (rows.rows as OrderHistoryRow[]).map((r) => ({
+    id: r.id,
+    restaurantName: r.restaurantName || "",
+    address: r.address || "",
+    orderText: r.orderText || "",
+    status: r.status,
+    deliveryFee: Number(r.deliveryFee),
+    updatedAt: typeof r.updatedAt === "string" ? r.updatedAt : (r.updatedAt as Date).toISOString(),
+    createdAt: typeof r.createdAt === "string" ? r.createdAt : (r.createdAt as Date).toISOString(),
+    customerRating: Number(r.customerRating),
+  }));
+
+  res.json(orders);
+});
+
+router.get("/courier/my-ratings", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+
+  const ratings = await db.execute(sql`
+    SELECT
+      r.id,
+      r.order_id AS "orderId",
+      r.courier_stars AS "courierStars",
+      r.comment,
+      r.restaurant_name AS "restaurantName",
+      r.created_at AS "createdAt"
+    FROM order_ratings r
+    WHERE r.courier_id = ${courierId}
+      AND r.courier_stars IS NOT NULL
+    ORDER BY r.created_at DESC
+    LIMIT 50
+  `);
+
+  type RatingRow = {
+    id: string;
+    orderId: string;
+    courierStars: number;
+    comment: string;
+    restaurantName: string;
+    createdAt: string;
+  };
+
+  const rows = (ratings.rows as RatingRow[]).map((r) => ({
+    id: r.id,
+    orderId: r.orderId,
+    stars: Number(r.courierStars),
+    comment: r.comment || "",
+    restaurantName: r.restaurantName || "",
+    createdAt: typeof r.createdAt === "string" ? r.createdAt : (r.createdAt as unknown as Date).toISOString(),
+  }));
+
+  const avgStars = rows.length > 0
+    ? rows.reduce((s, r) => s + r.stars, 0) / rows.length
+    : null;
+
+  res.json({ ratings: rows, avgStars: avgStars ? Number(avgStars.toFixed(2)) : null, total: rows.length });
 });
 
 export default router;

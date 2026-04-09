@@ -4,6 +4,7 @@ import React, {
   useState,
   useCallback,
   useEffect,
+  useRef,
 } from "react";
 import { AppState, AppStateStatus } from "react-native";
 import { customFetch } from "@workspace/api-client-react";
@@ -27,6 +28,7 @@ export interface CourierOrder {
   distanceKm?: number;
   destinationLat?: number | null;
   destinationLon?: number | null;
+  deliveryFee?: number | null;
 }
 
 export type CourierDeliveryStatus = "picked_up" | "on_way" | "delivered";
@@ -48,6 +50,8 @@ interface CourierContextValue {
 
 const CourierContext = createContext<CourierContextValue | null>(null);
 
+const POLL_INTERVAL_MS = 8000;
+
 export function CourierProvider({ children }: { children: React.ReactNode }) {
   const { user, isCourier } = useAuth();
   const [availableOrders, setAvailableOrders] = useState<CourierOrder[]>([]);
@@ -56,6 +60,7 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
   const [isLoadingActive, setIsLoadingActive] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [isTogglingOnline, setIsTogglingOnline] = useState(false);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refreshAvailableOrders = useCallback(async () => {
     if (!user || !isCourier) return;
@@ -144,11 +149,28 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isOnline, refreshAvailableOrders]);
 
+  const startPolling = useCallback(() => {
+    if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    pollTimerRef.current = setInterval(() => {
+      refreshAvailableOrders();
+      refreshActiveOrders();
+    }, POLL_INTERVAL_MS);
+  }, [refreshAvailableOrders, refreshActiveOrders]);
+
+  const stopPolling = useCallback(() => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  }, []);
+
   useEffect(() => {
     if (!isCourier) return;
     fetchOnlineStatus();
     refreshAvailableOrders();
     refreshActiveOrders();
+    startPolling();
+    return () => stopPolling();
   }, [isCourier, user?.id]);
 
   useEffect(() => {
@@ -157,10 +179,13 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
       if (nextState === "active") {
         refreshAvailableOrders();
         refreshActiveOrders();
+        startPolling();
+      } else if (nextState === "background" || nextState === "inactive") {
+        stopPolling();
       }
     });
     return () => sub.remove();
-  }, [isCourier, refreshAvailableOrders, refreshActiveOrders]);
+  }, [isCourier, refreshAvailableOrders, refreshActiveOrders, startPolling, stopPolling]);
 
   return (
     <CourierContext.Provider
