@@ -9,6 +9,7 @@ export const usersTable = pgTable("users", {
   pushToken: varchar("push_token", { length: 512 }),
   courierLat: doublePrecision("courier_lat"),
   courierLon: doublePrecision("courier_lon"),
+  courierLocationUpdatedAt: timestamp("courier_location_updated_at", { withTimezone: true }),
   isOnline: boolean("is_online").notNull().default(true),
   walletBalance: integer("wallet_balance").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
