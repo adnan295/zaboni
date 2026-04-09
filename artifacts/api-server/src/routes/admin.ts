@@ -350,16 +350,14 @@ router.delete("/admin/restaurants/:restaurantId/menu/:itemId", async (req, res) 
   res.status(204).end();
 });
 
-const paginationSchema = z.object({
-  page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().positive().max(200).default(50),
-});
+const isoDateRe = /^\d{4}-\d{2}-\d{2}$/;
+const isoDateSchema = z.string().regex(isoDateRe, "Expected YYYY-MM-DD").optional();
 
 const ordersQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(200).default(50),
-  dateFrom: z.string().optional(),
-  dateTo: z.string().optional(),
+  dateFrom: isoDateSchema,
+  dateTo: isoDateSchema,
 });
 
 router.get("/admin/orders", async (req, res) => {
@@ -371,15 +369,17 @@ router.get("/admin/orders", async (req, res) => {
   const { page, limit, dateFrom, dateTo } = parsed.data;
   const offset = (page - 1) * limit;
 
+  // Damascus is UTC+3; convert YYYY-MM-DD boundaries to UTC
+  const DAMASCUS_OFFSET_MS = 3 * 60 * 60 * 1000;
   const conditions = [];
   if (dateFrom) {
-    const from = new Date(dateFrom);
-    from.setHours(0, 0, 0, 0);
+    // Start of day in Damascus = dateFrom 00:00:00 local → subtract offset for UTC
+    const from = new Date(Date.parse(dateFrom + "T00:00:00.000Z") - DAMASCUS_OFFSET_MS);
     if (!isNaN(from.getTime())) conditions.push(gte(ordersTable.createdAt, from));
   }
   if (dateTo) {
-    const to = new Date(dateTo);
-    to.setHours(23, 59, 59, 999);
+    // End of day in Damascus = dateTo 23:59:59.999 local → subtract offset for UTC
+    const to = new Date(Date.parse(dateTo + "T23:59:59.999Z") - DAMASCUS_OFFSET_MS);
     if (!isNaN(to.getTime())) conditions.push(lte(ordersTable.createdAt, to));
   }
   const where = conditions.length > 0 ? and(...conditions) : undefined;
