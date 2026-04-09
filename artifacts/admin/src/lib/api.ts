@@ -183,7 +183,11 @@ export type FinancialReport = {
     totalOrders: number;
     deliveredOrders: number;
     cancelledOrders: number;
-    totalRevenue: number;
+    totalDeliveryFees: number;
+    subscriptionRevenue: number;
+    paidSubscriptions: number;
+    waivedSubscriptions: number;
+    pendingSubscriptions: number;
   };
   byRestaurant: {
     restaurantName: string;

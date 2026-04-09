@@ -66,7 +66,7 @@ export default function FinancialPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Financial Reports</h1>
-          <p className="text-sm text-muted-foreground mt-1">Delivery revenue and order breakdown</p>
+          <p className="text-sm text-muted-foreground mt-1">Platform subscription revenue and order breakdown</p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           <div className="flex gap-1 border border-border rounded-md p-0.5">
@@ -87,37 +87,87 @@ export default function FinancialPage() {
         <div className="flex items-center justify-center h-40 text-muted-foreground">Loading...</div>
       ) : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold text-primary">{SYP(data?.summary.totalRevenue ?? 0)}</div>
-                <div className="text-sm text-muted-foreground mt-1">Total Revenue</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold">{(data?.summary.deliveredOrders ?? 0).toLocaleString()}</div>
-                <div className="text-sm text-muted-foreground mt-1">Delivered Orders</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold">{(data?.summary.totalOrders ?? 0).toLocaleString()}</div>
-                <div className="text-sm text-muted-foreground mt-1">Total Orders</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold text-red-500">{(data?.summary.cancelledOrders ?? 0).toLocaleString()}</div>
-                <div className="text-sm text-muted-foreground mt-1">Cancelled</div>
-              </CardContent>
-            </Card>
+          <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-lg">💳</span>
+              <h2 className="text-sm font-semibold text-primary uppercase tracking-wide">
+                Platform Revenue (Subscription Fees)
+              </h2>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <Card className="border-primary/20">
+                <CardContent className="pt-6">
+                  <div className="text-2xl font-bold text-primary">
+                    {SYP(data?.summary.subscriptionRevenue ?? 0)}
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-1">Subscription Revenue</div>
+                </CardContent>
+              </Card>
+              <Card className="border-green-200">
+                <CardContent className="pt-6">
+                  <div className="text-2xl font-bold text-green-600">
+                    {(data?.summary.paidSubscriptions ?? 0).toLocaleString()}
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-1">Paid Subscriptions</div>
+                </CardContent>
+              </Card>
+              <Card className="border-yellow-200">
+                <CardContent className="pt-6">
+                  <div className="text-2xl font-bold text-yellow-600">
+                    {(data?.summary.waivedSubscriptions ?? 0).toLocaleString()}
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-1">Waived</div>
+                </CardContent>
+              </Card>
+              <Card className="border-red-200">
+                <CardContent className="pt-6">
+                  <div className="text-2xl font-bold text-red-500">
+                    {(data?.summary.pendingSubscriptions ?? 0).toLocaleString()}
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-1">Pending (Unpaid)</div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          <div>
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+              Order Statistics
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-2xl font-bold text-muted-foreground">
+                    {SYP(data?.summary.totalDeliveryFees ?? 0)}
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-1">Delivery Fees (to couriers)</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-2xl font-bold">{(data?.summary.deliveredOrders ?? 0).toLocaleString()}</div>
+                  <div className="text-sm text-muted-foreground mt-1">Delivered Orders</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-2xl font-bold">{(data?.summary.totalOrders ?? 0).toLocaleString()}</div>
+                  <div className="text-sm text-muted-foreground mt-1">Total Orders</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-2xl font-bold text-red-500">{(data?.summary.cancelledOrders ?? 0).toLocaleString()}</div>
+                  <div className="text-sm text-muted-foreground mt-1">Cancelled</div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
 
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
-                {groupBy === "week" ? "Weekly" : "Daily"} Revenue (ل.س)
+                {groupBy === "week" ? "Weekly" : "Daily"} Delivery Fees (ل.س) — goes to couriers
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -137,7 +187,7 @@ export default function FinancialPage() {
                     axisLine={false}
                   />
                   <Tooltip
-                    formatter={(value: number) => [SYP(value), "Revenue"]}
+                    formatter={(value: number) => [SYP(value), "Delivery Fees"]}
                     labelFormatter={(l) => `${groupBy === "week" ? "Week of" : "Date"}: ${l}`}
                     contentStyle={{ fontSize: 12 }}
                   />
@@ -149,7 +199,7 @@ export default function FinancialPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Revenue by Restaurant</CardTitle>
+              <CardTitle className="text-base">Delivery Fees by Restaurant</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               {(!data?.byRestaurant || data.byRestaurant.length === 0) ? (
@@ -164,7 +214,7 @@ export default function FinancialPage() {
                         <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Restaurant</th>
                         <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Total Orders</th>
                         <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Delivered</th>
-                        <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Revenue</th>
+                        <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Delivery Fees</th>
                       </tr>
                     </thead>
                     <tbody>
