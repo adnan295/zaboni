@@ -17,7 +17,6 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useRatings } from "@/context/RatingsContext";
 import { useNotifications } from "@/context/NotificationsContext";
-import { customFetch } from "@workspace/api-client-react";
 
 function StarPicker({
   label,
@@ -120,10 +119,6 @@ export default function RateOrderScreen() {
   const handleSubmit = async () => {
     if (!canSubmit) return;
     await rateOrder(orderId, restaurantStars, courierStars, comment, restaurantName ?? "");
-    customFetch(`/api/orders/${orderId}/rate`, {
-      method: "POST",
-      body: JSON.stringify({ restaurantStars, courierStars, comment, restaurantName: restaurantName ?? "" }),
-    }).catch(() => {});
     addNotification({
       type: "system",
       title: t("rating.success"),

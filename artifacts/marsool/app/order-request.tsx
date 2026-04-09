@@ -156,7 +156,7 @@ export default function OrderRequestScreen() {
         <TouchableOpacity
           style={[styles.submitBtn, { backgroundColor: isValid ? colors.primary : colors.muted }]}
           onPress={handleSubmit}
-          disabled={!isValid || isSubmitting}
+          disabled={!isValid || isSubmitting || !defaultAddress}
           activeOpacity={0.85}
         >
           <MaterialIcons name="send" size={20} color={isValid ? "#fff" : colors.mutedForeground} />

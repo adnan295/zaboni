@@ -129,6 +129,7 @@ export type Rating = {
   id: string;
   orderId: string;
   userId: string;
+  courierId: string;
   restaurantStars: number;
   courierStars: number;
   comment: string;
