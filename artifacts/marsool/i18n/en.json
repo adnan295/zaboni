@@ -248,7 +248,14 @@
       "customer": "Customer",
       "address": "Address",
       "orderText": "Order Details",
-      "restaurant": "Restaurant"
+      "restaurant": "Restaurant",
+      "online": "Available for Delivery",
+      "onlineSub": "You are receiving orders now",
+      "offline": "Unavailable",
+      "offlineSub": "You will not receive new orders",
+      "offlineTitle": "You are currently offline",
+      "offlineBody": "Turn on availability to receive nearby orders",
+      "goOnline": "Go Online"
     },
     "active": {
       "title": "Active Order",
@@ -259,7 +266,8 @@
       "customer": "Customer",
       "address": "Delivery Address",
       "orderText": "Order Details",
-      "openChat": "Open Chat with Customer",
+      "openChat": "Chat with Customer",
+      "navigate": "GPS Navigation",
       "statusTitle": "Update Status",
       "markPickedUp": "Picked Up from Restaurant 📦",
       "markOnWay": "On the Way to Customer 🛵",

@@ -82,6 +82,37 @@ router.post("/courier/register", async (req, res) => {
   res.json(rows[0]);
 });
 
+const availabilitySchema = z.object({
+  isOnline: z.boolean(),
+});
+
+router.patch("/courier/availability", requireCourier, async (req, res) => {
+  const body = availabilitySchema.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "Invalid payload — isOnline (boolean) required" });
+    return;
+  }
+
+  const courierId = resolveUserId(req);
+  await db
+    .update(usersTable)
+    .set({ isOnline: body.data.isOnline })
+    .where(eq(usersTable.id, courierId));
+
+  res.json({ ok: true, isOnline: body.data.isOnline });
+});
+
+router.get("/courier/me", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+  const users = await db
+    .select({ isOnline: usersTable.isOnline })
+    .from(usersTable)
+    .where(eq(usersTable.id, courierId))
+    .limit(1);
+
+  res.json({ isOnline: users[0]?.isOnline ?? true });
+});
+
 const locationSchema = z.object({
   lat: z.number().min(-90).max(90),
   lon: z.number().min(-180).max(180),
@@ -111,10 +142,15 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
 
   const courierUser = await db
-    .select({ lat: usersTable.courierLat, lon: usersTable.courierLon })
+    .select({ lat: usersTable.courierLat, lon: usersTable.courierLon, isOnline: usersTable.isOnline })
     .from(usersTable)
     .where(eq(usersTable.id, courierId))
     .limit(1);
+
+  if (!courierUser[0]?.isOnline) {
+    res.json([]);
+    return;
+  }
 
   const courierLat = courierUser[0]?.lat ?? DAMASCUS_LAT;
   const courierLon = courierUser[0]?.lon ?? DAMASCUS_LON;

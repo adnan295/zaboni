@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Platform,
   Alert,
+  Linking,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -110,6 +111,20 @@ export default function ActiveOrderScreen() {
   const openChat = () => {
     if (!order) return;
     router.push(`/chat/${order.id}`);
+  };
+
+  const openNavigation = () => {
+    if (!order) return;
+    const dest = encodeURIComponent(order.address || "Damascus, Syria");
+    const googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=driving`;
+    const appleUrl = `maps://maps.apple.com/?daddr=${dest}&dirflg=d`;
+    if (Platform.OS === "ios") {
+      Linking.canOpenURL("maps://").then((ok) => {
+        Linking.openURL(ok ? appleUrl : googleUrl);
+      });
+    } else {
+      Linking.openURL(googleUrl);
+    }
   };
 
   return (
@@ -243,16 +258,29 @@ export default function ActiveOrderScreen() {
             ) : null}
           </View>
 
-          <TouchableOpacity
-            style={[styles.chatBtn, { backgroundColor: colors.secondary, borderColor: colors.border }]}
-            onPress={openChat}
-            activeOpacity={0.8}
-          >
-            <MaterialIcons name="chat" size={20} color={colors.primary} />
-            <Text style={[styles.chatBtnText, { color: colors.primary }]}>
-              {t("courier.active.openChat")}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={[styles.chatBtn, { backgroundColor: colors.secondary, borderColor: colors.border }]}
+              onPress={openChat}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons name="chat" size={20} color={colors.primary} />
+              <Text style={[styles.chatBtnText, { color: colors.primary }]}>
+                {t("courier.active.openChat")}
+              </Text>
+            </TouchableOpacity>
+
+            {order.address ? (
+              <TouchableOpacity
+                style={[styles.navBtn, { backgroundColor: "#1a73e8" }]}
+                onPress={openNavigation}
+                activeOpacity={0.8}
+              >
+                <MaterialIcons name="navigation" size={20} color="#fff" />
+                <Text style={styles.navBtnText}>{t("courier.active.navigate")}</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
 
           {/* Action button */}
           {currentStep?.nextStatus && order.status !== "delivered" ? (
@@ -356,18 +384,33 @@ const styles = StyleSheet.create({
   infoLabel: { fontSize: 12 },
   infoValue: { fontSize: 15, lineHeight: 22 },
   divider: { height: 1, marginHorizontal: 16 },
+  actionRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginHorizontal: 16,
+    marginTop: 12,
+  },
   chatBtn: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    marginHorizontal: 16,
-    marginTop: 12,
     borderRadius: 16,
     borderWidth: 1,
     padding: 14,
   },
   chatBtnText: { fontSize: 15, fontWeight: "700" },
+  navBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  navBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
   statusCard: {
     marginHorizontal: 16,
     marginTop: 12,

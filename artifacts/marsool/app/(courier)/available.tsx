@@ -7,6 +7,8 @@ import {
   RefreshControl,
   Platform,
   Alert,
+  Switch,
+  ActivityIndicator,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -104,7 +106,16 @@ export default function AvailableOrdersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
-  const { availableOrders, isLoadingAvailable, refreshAvailableOrders, acceptOrder, updateLocation } = useCourier();
+  const {
+    availableOrders,
+    isLoadingAvailable,
+    isOnline,
+    isTogglingOnline,
+    refreshAvailableOrders,
+    acceptOrder,
+    updateLocation,
+    toggleAvailability,
+  } = useCourier();
   const locationFetched = useRef(false);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
@@ -156,9 +167,34 @@ export default function AvailableOrdersScreen() {
       <View style={[styles.header, { paddingTop: topPadding + 16, backgroundColor: colors.primary }]}>
         <MaterialIcons name="delivery-dining" size={24} color="#fff" />
         <Text style={styles.headerTitle}>{t("courier.available.title")}</Text>
-        <TouchableOpacity onPress={handleRefresh} style={styles.refreshBtn}>
+        <TouchableOpacity onPress={handleRefresh} style={styles.refreshBtn} disabled={isTogglingOnline}>
           <MaterialIcons name="refresh" size={22} color="#fff" />
         </TouchableOpacity>
+      </View>
+
+      <View style={[styles.toggleRow, { backgroundColor: isOnline ? "#f0fdf4" : "#fef2f2", borderColor: isOnline ? "#bbf7d0" : "#fecaca" }]}>
+        <View style={styles.toggleInfo}>
+          <View style={[styles.statusDot, { backgroundColor: isOnline ? "#22c55e" : "#ef4444" }]} />
+          <View>
+            <Text style={[styles.toggleLabel, { color: isOnline ? "#15803d" : "#dc2626" }]}>
+              {isOnline ? t("courier.available.online") : t("courier.available.offline")}
+            </Text>
+            <Text style={[styles.toggleSub, { color: isOnline ? "#16a34a" : "#ef4444" }]}>
+              {isOnline ? t("courier.available.onlineSub") : t("courier.available.offlineSub")}
+            </Text>
+          </View>
+        </View>
+        {isTogglingOnline ? (
+          <ActivityIndicator size="small" color={isOnline ? "#22c55e" : "#ef4444"} />
+        ) : (
+          <Switch
+            value={isOnline}
+            onValueChange={toggleAvailability}
+            trackColor={{ false: "#fca5a5", true: "#86efac" }}
+            thumbColor={isOnline ? "#22c55e" : "#ef4444"}
+            ios_backgroundColor="#fca5a5"
+          />
+        )}
       </View>
 
       <FlatList
@@ -183,13 +219,35 @@ export default function AvailableOrdersScreen() {
         ListEmptyComponent={
           !isLoadingAvailable ? (
             <View style={styles.empty}>
-              <MaterialIcons name="inbox" size={56} color={colors.border} />
-              <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-                {t("courier.available.empty.title")}
-              </Text>
-              <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
-                {t("courier.available.empty.body")}
-              </Text>
+              {isOnline ? (
+                <>
+                  <MaterialIcons name="inbox" size={56} color={colors.border} />
+                  <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+                    {t("courier.available.empty.title")}
+                  </Text>
+                  <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
+                    {t("courier.available.empty.body")}
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <MaterialIcons name="power-settings-new" size={56} color="#ef4444" />
+                  <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+                    {t("courier.available.offlineTitle")}
+                  </Text>
+                  <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
+                    {t("courier.available.offlineBody")}
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.goOnlineBtn, { backgroundColor: "#22c55e" }]}
+                    onPress={toggleAvailability}
+                    disabled={isTogglingOnline}
+                  >
+                    <MaterialIcons name="power-settings-new" size={18} color="#fff" />
+                    <Text style={styles.goOnlineBtnText}>{t("courier.available.goOnline")}</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           ) : null
         }
@@ -209,6 +267,18 @@ const styles = StyleSheet.create({
   },
   headerTitle: { flex: 1, fontSize: 20, fontWeight: "800", color: "#fff" },
   refreshBtn: { padding: 4 },
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  toggleInfo: { flexDirection: "row", alignItems: "center", gap: 10 },
+  statusDot: { width: 10, height: 10, borderRadius: 5 },
+  toggleLabel: { fontSize: 15, fontWeight: "700" },
+  toggleSub: { fontSize: 12, marginTop: 1 },
   list: { padding: 16, gap: 12 },
   emptyContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   card: {
@@ -262,4 +332,14 @@ const styles = StyleSheet.create({
   empty: { alignItems: "center", gap: 12, paddingVertical: 60 },
   emptyTitle: { fontSize: 18, fontWeight: "700", textAlign: "center" },
   emptyBody: { fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
+  goOnlineBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  goOnlineBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
 });
