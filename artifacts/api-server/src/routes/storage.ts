@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Request, type Response } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { Readable } from "stream";
 import {
   RequestUploadUrlBody,
@@ -10,23 +10,55 @@ import { ObjectPermission } from "../lib/objectAcl";
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
 
+const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+function requireAdminStorage(req: Request, res: Response, next: NextFunction): void {
+  const adminSecret = process.env["ADMIN_SECRET"];
+  if (!adminSecret) {
+    res.status(503).json({ error: "Admin storage not configured" });
+    return;
+  }
+  const authHeader = req.headers["authorization"];
+  const token =
+    typeof authHeader === "string" && authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : null;
+  if (!token || token !== adminSecret) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  next();
+}
+
 /**
  * POST /storage/uploads/request-url
  *
- * Request a presigned URL for file upload.
+ * Admin-only: Request a presigned URL for file upload.
  * The client sends JSON metadata (name, size, contentType) — NOT the file.
  * Then uploads the file directly to the returned presigned URL.
+ * Enforces: max 5MB, only image/jpeg | image/png | image/webp.
  */
-router.post("/storage/uploads/request-url", async (req: Request, res: Response) => {
+router.post("/storage/uploads/request-url", requireAdminStorage, async (req: Request, res: Response) => {
   const parsed = RequestUploadUrlBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Missing or invalid required fields" });
     return;
   }
 
-  try {
-    const { name, size, contentType } = parsed.data;
+  const { name, size, contentType } = parsed.data;
 
+  if (!ALLOWED_MIME_TYPES.has(contentType)) {
+    res.status(400).json({ error: "نوع الملف غير مدعوم. يُسمح فقط بـ JPG وPNG وWebP" });
+    return;
+  }
+
+  if (size > MAX_UPLOAD_SIZE_BYTES) {
+    res.status(400).json({ error: "حجم الملف يتجاوز الحد المسموح (5 ميغابايت)" });
+    return;
+  }
+
+  try {
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
 
