@@ -102,6 +102,8 @@ function OrderCard({
   );
 }
 
+const AUTO_OFFLINE_THRESHOLD = 3;
+
 export default function AvailableOrdersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -117,9 +119,51 @@ export default function AvailableOrdersScreen() {
     toggleAvailability,
   } = useCourier();
   const locationFetched = useRef(false);
+  const prevOrderIds = useRef<Set<string>>(new Set());
+  const missedCount = useRef(0);
+  const isFirstLoad = useRef(true);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
+
+  useEffect(() => {
+    if (!isOnline) {
+      missedCount.current = 0;
+      prevOrderIds.current = new Set();
+      isFirstLoad.current = true;
+      return;
+    }
+
+    const currentIds = new Set(availableOrders.map((o) => o.id));
+
+    if (isFirstLoad.current) {
+      prevOrderIds.current = currentIds;
+      isFirstLoad.current = false;
+      return;
+    }
+
+    let disappeared = 0;
+    for (const id of prevOrderIds.current) {
+      if (!currentIds.has(id)) disappeared++;
+    }
+
+    if (disappeared > 0) {
+      missedCount.current += disappeared;
+      if (missedCount.current >= AUTO_OFFLINE_THRESHOLD) {
+        missedCount.current = 0;
+        prevOrderIds.current = new Set();
+        Alert.alert(
+          "تم تحويلك إلى أوفلاين",
+          `فاتتك ${AUTO_OFFLINE_THRESHOLD} طلبات متتالية. سيتم تحويلك إلى وضع غير متاح تلقائياً.`,
+          [{ text: "حسناً", style: "default" }]
+        );
+        toggleAvailability();
+        return;
+      }
+    }
+
+    prevOrderIds.current = currentIds;
+  }, [availableOrders, isOnline]);
 
   useEffect(() => {
     if (locationFetched.current || Platform.OS === "web") return;
@@ -139,6 +183,7 @@ export default function AvailableOrdersScreen() {
 
   const handleAccept = useCallback(
     async (orderId: string) => {
+      missedCount.current = 0;
       try {
         await acceptOrder(orderId);
       } catch {
