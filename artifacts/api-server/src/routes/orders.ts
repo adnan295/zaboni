@@ -2,6 +2,7 @@ import { Router, type IRouter, type Request } from "express";
 import { db, ordersTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable } from "@workspace/db";
 import { and, eq, or } from "drizzle-orm";
 import { z } from "zod";
+import { notifyOrderUpdate } from "../orders/server";
 
 const DAMASCUS_CENTER_LAT = 33.5138;
 const DAMASCUS_CENTER_LON = 36.2765;
@@ -98,6 +99,40 @@ router.get("/orders/:id", async (req, res) => {
     return;
   }
   res.json(rows[0]);
+});
+
+router.delete("/orders/:id", async (req, res) => {
+  const userId = resolveUserId(req);
+  const { id } = req.params;
+  const rows = await db
+    .select()
+    .from(ordersTable)
+    .where(and(eq(ordersTable.id, id), eq(ordersTable.userId, userId)));
+  if (rows.length === 0) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+  const order = rows[0]!;
+  if (order.status !== "searching") {
+    res.status(409).json({ error: "Order can only be cancelled while searching for a courier" });
+    return;
+  }
+  const updated = await db
+    .update(ordersTable)
+    .set({ status: "cancelled", updatedAt: new Date() })
+    .where(and(eq(ordersTable.id, id), eq(ordersTable.userId, userId), eq(ordersTable.status, "searching")))
+    .returning();
+  if (updated.length === 0) {
+    res.status(409).json({ error: "Order status changed, cannot cancel" });
+    return;
+  }
+  await db.insert(orderStatusHistoryTable).values({
+    id: `${id}_cancelled_${Date.now()}`,
+    orderId: id,
+    status: "cancelled",
+  });
+  notifyOrderUpdate(userId, updated[0]);
+  res.json(updated[0]);
 });
 
 const rateOrderSchema = z.object({

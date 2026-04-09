@@ -22,6 +22,7 @@ const STATUS_COLOR: Record<OrderStatus, string> = {
   picked_up: "#9C27B0",
   on_way: "#059669",
   delivered: "#16a34a",
+  cancelled: "#ef4444",
 };
 
 const STATUS_ICON: Record<OrderStatus, keyof typeof MaterialIcons.glyphMap> = {
@@ -30,6 +31,7 @@ const STATUS_ICON: Record<OrderStatus, keyof typeof MaterialIcons.glyphMap> = {
   picked_up: "inventory",
   on_way: "delivery-dining",
   delivered: "done-all",
+  cancelled: "cancel",
 };
 
 function StarRow({ stars, size = 16 }: { stars: number; size?: number }) {
@@ -74,6 +76,7 @@ export default function OrdersScreen() {
     picked_up: t("orders.status.picked_up"),
     on_way: t("orders.status.on_way"),
     delivered: t("orders.status.delivered"),
+    cancelled: t("orders.status.cancelled"),
   };
 
   return (

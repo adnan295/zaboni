@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { db, usersTable, ordersTable, orderStatusHistoryTable } from "@workspace/db";
-import { and, eq, ne } from "drizzle-orm";
+import { db, usersTable, ordersTable, orderStatusHistoryTable, orderRatingsTable } from "@workspace/db";
+import { and, eq, ne, avg, count, sql } from "drizzle-orm";
 import { z } from "zod";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
 
@@ -24,6 +24,34 @@ async function requireCourier(req: Request, res: Response, next: NextFunction): 
   }
   next();
 }
+
+router.get("/courier/stats", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+
+  const [deliveredRow, ratingRow, userRow] = await Promise.all([
+    db
+      .select({ count: count() })
+      .from(ordersTable)
+      .where(and(eq(ordersTable.courierId, courierId), eq(ordersTable.status, "delivered"))),
+    db
+      .select({ avgRating: avg(orderRatingsTable.courierStars) })
+      .from(orderRatingsTable)
+      .where(eq(orderRatingsTable.courierId, courierId)),
+    db
+      .select({ name: usersTable.name, phone: usersTable.phone, role: usersTable.role })
+      .from(usersTable)
+      .where(eq(usersTable.id, courierId))
+      .limit(1),
+  ]);
+
+  res.json({
+    deliveredCount: deliveredRow[0]?.count ?? 0,
+    avgRating: ratingRow[0]?.avgRating ? Number(Number(ratingRow[0].avgRating).toFixed(1)) : null,
+    name: userRow[0]?.name ?? "",
+    phone: userRow[0]?.phone ?? "",
+    role: userRow[0]?.role ?? "courier",
+  });
+});
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;

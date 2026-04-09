@@ -7,6 +7,7 @@ import authRouter from "./auth";
 import chatRouter from "./chat";
 import courierRouter from "./courier";
 import adminRouter from "./admin";
+import favoritesRouter from "./favorites";
 import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
@@ -21,5 +22,6 @@ router.use(ordersRouter);
 router.use(addressesRouter);
 router.use(chatRouter);
 router.use(courierRouter);
+router.use(favoritesRouter);
 
 export default router;

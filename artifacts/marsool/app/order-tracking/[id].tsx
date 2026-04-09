@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Platform,
   Animated,
+  Alert,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -17,6 +18,7 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import { useOrders, OrderStatus } from "@/context/OrderContext";
+import { customFetch } from "@workspace/api-client-react";
 import { useRatings } from "@/context/RatingsContext";
 import { DeliveryMap } from "@/components/DeliveryMap";
 import {
@@ -163,6 +165,33 @@ export default function OrderTrackingScreen() {
     };
   }, [ratingsLoaded]);
 
+  const [cancelling, setCancelling] = useState(false);
+
+  const handleCancelOrder = () => {
+    Alert.alert(
+      t("orderTracking.cancelOrder.confirmTitle"),
+      t("orderTracking.cancelOrder.confirmBody"),
+      [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("orderTracking.cancelOrder.confirm"),
+          style: "destructive",
+          onPress: async () => {
+            setCancelling(true);
+            try {
+              await customFetch(`/api/orders/${id}`, { method: "DELETE" });
+              router.replace("/(tabs)");
+            } catch {
+              Alert.alert(t("common.error"), t("common.retry"));
+            } finally {
+              setCancelling(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
 
@@ -229,6 +258,7 @@ export default function OrderTrackingScreen() {
     if (statusKey === "accepted") return t("orderTracking.status.accepted");
     if (statusKey === "picked_up") return t("orderTracking.status.picked_up");
     if (statusKey === "on_way") return t("orderTracking.status.on_way");
+    if (statusKey === "cancelled") return t("orders.status.cancelled");
     return t("orderTracking.status.delivered");
   };
 
@@ -290,6 +320,17 @@ export default function OrderTrackingScreen() {
                 <View key={i} style={[styles.dot, { backgroundColor: "rgba(255,255,255,0.5)" }]} />
               ))}
             </View>
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={handleCancelOrder}
+              disabled={cancelling}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons name="cancel" size={18} color="#fff" />
+              <Text style={styles.cancelBtnText}>
+                {cancelling ? t("common.loading") : t("orderTracking.cancelOrder.btn")}
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -523,4 +564,18 @@ const styles = StyleSheet.create({
   rateBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
   reorderBtn: { borderRadius: 16, paddingVertical: 16, alignItems: "center" },
   reorderText: { fontSize: 16, fontWeight: "700" },
+  cancelBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.6)",
+    backgroundColor: "rgba(255,255,255,0.15)",
+  },
+  cancelBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
 });
