@@ -6,8 +6,9 @@ import {
   ordersTable,
   usersTable,
 } from "@workspace/db";
-import { eq, count, desc, gte, getTableColumns, and } from "drizzle-orm";
+import { eq, count, desc, gte, getTableColumns, and, sql } from "drizzle-orm";
 import { z } from "zod";
+import { ORDER_STATUSES } from "@workspace/db";
 
 const router = Router();
 
@@ -82,9 +83,69 @@ router.get("/admin/stats", async (_req, res) => {
   });
 });
 
+router.get("/admin/charts/daily", async (_req, res) => {
+  const rows = await db.execute(sql`
+    SELECT
+      TO_CHAR(DATE_TRUNC('day', created_at AT TIME ZONE 'Asia/Damascus'), 'MM/DD') AS day,
+      TO_CHAR(DATE_TRUNC('day', created_at AT TIME ZONE 'Asia/Damascus'), 'YYYY-MM-DD') AS date,
+      COUNT(*)::int AS orders
+    FROM orders
+    WHERE created_at >= NOW() - INTERVAL '30 days'
+    GROUP BY DATE_TRUNC('day', created_at AT TIME ZONE 'Asia/Damascus')
+    ORDER BY DATE_TRUNC('day', created_at AT TIME ZONE 'Asia/Damascus')
+  `);
+  res.json(rows.rows);
+});
+
+router.get("/admin/charts/hourly", async (_req, res) => {
+  const rows = await db.execute(sql`
+    SELECT
+      EXTRACT(hour FROM created_at AT TIME ZONE 'Asia/Damascus')::int AS hour,
+      COUNT(*)::int AS orders
+    FROM orders
+    GROUP BY hour
+    ORDER BY hour
+  `);
+  res.json(rows.rows);
+});
+
+router.get("/admin/couriers", async (_req, res) => {
+  const rows = await db.execute(sql`
+    SELECT
+      u.id,
+      u.name,
+      u.phone,
+      u.created_at AS "createdAt",
+      COUNT(o.id) FILTER (WHERE o.status = 'delivered') AS "deliveredCount",
+      COUNT(o.id) FILTER (WHERE o.status <> 'searching') AS "totalAssigned",
+      ROUND(CAST(AVG(NULLIF(o.courier_rating, 0)) AS numeric), 1) AS "avgRating",
+      MAX(o.updated_at) AS "lastDelivery"
+    FROM users u
+    LEFT JOIN orders o ON o.courier_id = u.id
+    WHERE u.role = 'courier'
+    GROUP BY u.id, u.name, u.phone, u.created_at
+    ORDER BY u.created_at DESC
+  `);
+  res.json(
+    rows.rows.map((r: Record<string, unknown>) => ({
+      ...r,
+      deliveredCount: Number(r["deliveredCount"] ?? 0),
+      totalAssigned: Number(r["totalAssigned"] ?? 0),
+      avgRating: r["avgRating"] != null ? Number(r["avgRating"]) : null,
+    })),
+  );
+});
+
 router.get("/admin/restaurants", async (_req, res) => {
   const rows = await db
-    .select()
+    .select({
+      ...getTableColumns(restaurantsTable),
+      ordersCount: sql<number>`(
+        SELECT COUNT(*) FROM ${ordersTable}
+        WHERE ${ordersTable.restaurantName} = ${restaurantsTable.nameAr}
+           OR ${ordersTable.restaurantName} = ${restaurantsTable.name}
+      )`.as("orders_count"),
+    })
     .from(restaurantsTable)
     .orderBy(restaurantsTable.name);
   res.json(rows);
@@ -255,6 +316,27 @@ router.get("/admin/orders", async (req, res) => {
     page,
     limit,
   });
+});
+
+router.patch("/admin/orders/:id/status", async (req, res) => {
+  const id = String(req.params["id"]);
+  const parsed = z
+    .object({ status: z.enum(ORDER_STATUSES) })
+    .safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid status" });
+    return;
+  }
+  const [row] = await db
+    .update(ordersTable)
+    .set({ status: parsed.data.status, updatedAt: new Date() })
+    .where(eq(ordersTable.id, id))
+    .returning();
+  if (!row) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  res.json(row);
 });
 
 router.get("/admin/users", async (_req, res) => {
