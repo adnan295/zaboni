@@ -880,15 +880,21 @@ router.delete("/admin/delivery-zones/:id", async (req, res) => {
     .filter((z) => z.id !== id && z.isActive)
     .sort((a, b) => a.fromKm - b.fromKm);
 
-  let hasGap = false;
-  for (let i = 1; i < remainingActiveZones.length; i++) {
-    if ((remainingActiveZones[i]?.fromKm ?? 0) > (remainingActiveZones[i - 1]?.toKm ?? 0)) {
-      hasGap = true;
-      break;
+  let coverageError = false;
+  if (remainingActiveZones.length > 0) {
+    if ((remainingActiveZones[0]?.fromKm ?? Infinity) > 0) {
+      coverageError = true;
+    } else {
+      for (let i = 1; i < remainingActiveZones.length; i++) {
+        if ((remainingActiveZones[i]?.fromKm ?? 0) > (remainingActiveZones[i - 1]?.toKm ?? 0)) {
+          coverageError = true;
+          break;
+        }
+      }
     }
   }
 
-  if (hasGap) {
+  if (coverageError) {
     res.status(409).json({
       error: "لا يمكن حذف هذا النطاق لأن ذلك سيخلق فجوة في تغطية النطاقات النشطة — عدّل النطاقات المجاورة أولاً",
     });

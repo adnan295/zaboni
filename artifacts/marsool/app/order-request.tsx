@@ -97,12 +97,15 @@ export default function OrderRequestScreen() {
     }
     setPromoStatus("checking");
     try {
-      const body: { code: string; deliveryFee?: number; lat?: number; lon?: number } = { code: code.trim() };
+      const body: { code: string; deliveryFee?: number; lat?: number; lon?: number; restaurantId?: string } = { code: code.trim() };
       if (deliveryFee != null) {
         body.deliveryFee = deliveryFee;
       } else if (addrLat != null && addrLon != null) {
         body.lat = addrLat;
         body.lon = addrLon;
+      }
+      if (restaurantId) {
+        body.restaurantId = restaurantId;
       }
       const res = await customFetch("/api/orders/validate-promo", {
         method: "POST",
@@ -116,7 +119,7 @@ export default function OrderRequestScreen() {
       setPromoResult({ valid: false, error: errorCode });
       setPromoStatus(errorCode as PromoStatus);
     }
-  }, [deliveryFee, addrLat, addrLon]);
+  }, [deliveryFee, addrLat, addrLon, restaurantId]);
 
   const handlePromoChange = (text: string) => {
     setPromoCode(text);
