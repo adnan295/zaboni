@@ -4,6 +4,7 @@ import { eq, isNotNull, desc } from "drizzle-orm";
 import { z } from "zod";
 import type { Request, Response, NextFunction } from "express";
 import { Expo } from "expo-server-sdk";
+import { broadcastAppNotification } from "../orders/server";
 
 const router = Router();
 const expo = new Expo();
@@ -94,6 +95,8 @@ router.post("/admin/notifications/broadcast", async (req, res) => {
     sentCount,
     failedCount,
   });
+
+  broadcastAppNotification(title, body, target);
 
   res.json({ success: true, sentCount, failedCount, total: tokens.length });
 });

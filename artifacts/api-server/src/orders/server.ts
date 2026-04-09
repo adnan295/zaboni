@@ -41,6 +41,21 @@ export function notifyOrderUpdate(customerId: string, order: unknown): void {
   logger.debug({ customerId }, "Emitted order_status_update to customer");
 }
 
+export function broadcastAppNotification(
+  title: string,
+  body: string,
+  target: "all" | "customers" | "couriers"
+): void {
+  if (!_ordersNs) return;
+  const payload = { title, body, type: "system" as const, target };
+  if (target === "all") {
+    _ordersNs.emit("app_notification", payload);
+  } else {
+    _ordersNs.to(`role:${target}`).emit("app_notification", payload);
+  }
+  logger.info({ title, target }, "Broadcast app_notification via socket");
+}
+
 export async function sendOrderPush(
   recipientId: string,
   body: string
@@ -151,9 +166,22 @@ export function setupOrdersNamespace(io: SocketServer): void {
     }
   });
 
-  ns.on("connection", (socket: AuthenticatedSocket) => {
+  ns.on("connection", async (socket: AuthenticatedSocket) => {
     const userId = socket.auth!.userId;
     socket.join(`user:${userId}`);
+
+    try {
+      const rows = await db
+        .select({ role: usersTable.role })
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .limit(1);
+      const role = rows[0]?.role;
+      if (role === "customer") socket.join("role:customers");
+      else if (role === "courier") socket.join("role:couriers");
+    } catch {
+    }
+
     logger.info({ userId, socketId: socket.id }, "Orders socket connected");
 
     socket.on("disconnect", () => {

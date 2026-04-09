@@ -13,6 +13,7 @@ import {
   customFetch,
 } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
+import { useNotifications } from "@/context/NotificationsContext";
 import { getApiBaseUrl } from "@/lib/apiConfig";
 
 export type OrderStatus = "searching" | "accepted" | "picked_up" | "on_way" | "delivered" | "cancelled";
@@ -74,9 +75,12 @@ function apiOrderToLocal(apiOrder: {
 
 export function OrderProvider({ children }: { children: React.ReactNode }) {
   const { user, token, isLoading: authLoading } = useAuth();
+  const { addNotification } = useNotifications();
   const [orders, setOrders] = useState<Order[]>([]);
   const statusChangeHandler = useRef<((order: Order, newStatus: OrderStatus) => void) | null>(null);
   const socketRef = useRef<Socket | null>(null);
+  const addNotificationRef = useRef(addNotification);
+  addNotificationRef.current = addNotification;
 
   useEffect(() => {
     if (authLoading) return;
@@ -134,6 +138,14 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     };
 
     socket.on("order_status_update", handleOrderUpdate);
+
+    socket.on("app_notification", (payload: { title: string; body: string; type: "system" }) => {
+      addNotificationRef.current({
+        type: payload.type ?? "system",
+        title: payload.title,
+        body: payload.body,
+      });
+    });
 
     return () => {
       socket.disconnect();
