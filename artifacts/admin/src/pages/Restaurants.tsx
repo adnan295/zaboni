@@ -4,6 +4,7 @@ import { api, type Restaurant, type MenuItem, type RestaurantHour } from "@/lib/
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ImageUpload } from "@/components/ImageUpload";
 import {
   Card,
   CardContent,
@@ -173,11 +174,10 @@ function RestaurantFormDialog({
             />
           </div>
           <div className="col-span-2 space-y-1">
-            <Label>رابط الصورة</Label>
-            <Input
+            <ImageUpload
               value={form.image}
-              onChange={(e) => set("image", e.target.value)}
-              placeholder="https://..."
+              onChange={(url) => set("image", url)}
+              label="صورة المطعم"
             />
           </div>
           <div className="space-y-1">
@@ -377,11 +377,10 @@ function MenuDialog({
                 />
               </div>
               <div className="space-y-1">
-                <Label>رابط الصورة</Label>
-                <Input
+                <ImageUpload
                   value={activeForm.image}
-                  onChange={(e) => setField("image", e.target.value)}
-                  placeholder="https://..."
+                  onChange={(url) => setField("image", url)}
+                  label="صورة الصنف"
                 />
               </div>
               <div className="col-span-2 flex items-center gap-2">

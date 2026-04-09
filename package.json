@@ -13,5 +13,11 @@
     "prettier": "^3.8.1",
     "tsx": "catalog:",
     "typescript": "~5.9.2"
+  },
+  "pnpm": {
+    "overrides": {
+      "react": "19.1.0",
+      "react-dom": "19.1.0"
+    }
   }
 }
