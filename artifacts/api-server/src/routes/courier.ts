@@ -384,9 +384,16 @@ const DEFAULT_DAILY_FEE = 5000;
 router.get("/courier/earnings", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
   const periodParam = (req.query.period as string) || "today";
-  const validPeriods = ["today", "week", "month", "total"] as const;
-  type PeriodKey = typeof validPeriods[number];
-  const period: PeriodKey = validPeriods.includes(periodParam as PeriodKey) ? (periodParam as PeriodKey) : "today";
+  const validPeriods = ["day", "today", "week", "month", "total"] as const;
+  type PeriodParam = typeof validPeriods[number];
+  type PeriodKey = "today" | "week" | "month" | "total";
+  const normalizedPeriod: PeriodKey = (() => {
+    const p = validPeriods.includes(periodParam as PeriodParam) ? periodParam as PeriodParam : "today";
+    if (p === "day" || p === "today") return "today";
+    if (p === "week") return "week";
+    if (p === "month") return "month";
+    return "total";
+  })();
 
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -396,14 +403,35 @@ router.get("/courier/earnings", requireCourier, async (req, res) => {
   monthStart.setDate(1);
 
   const periodStart: Date | null =
-    period === "today" ? todayStart :
-    period === "week" ? weekStart :
-    period === "month" ? monthStart :
+    normalizedPeriod === "today" ? todayStart :
+    normalizedPeriod === "week" ? weekStart :
+    normalizedPeriod === "month" ? monthStart :
     null;
 
-  const deliveredOrders = await db.execute(
+  type AggRow = { totalEarnings: string | null; totalCount: string | null };
+  type RecentRow = { id: string; restaurantName: string; address: string; updatedAt: Date; deliveryFee: number };
+
+  const [aggResult, recentResult, todayAggResult, subRow, settingRow] = await Promise.all([
     periodStart
-      ? sql`
+      ? db.execute(sql`
+          SELECT
+            COALESCE(SUM(COALESCE(o.delivery_fee, 0)), 0)::text AS "totalEarnings",
+            COUNT(*)::text AS "totalCount"
+          FROM orders o
+          WHERE o.courier_id = ${courierId}
+            AND o.status = 'delivered'
+            AND o.updated_at >= ${periodStart.toISOString()}
+        `)
+      : db.execute(sql`
+          SELECT
+            COALESCE(SUM(COALESCE(o.delivery_fee, 0)), 0)::text AS "totalEarnings",
+            COUNT(*)::text AS "totalCount"
+          FROM orders o
+          WHERE o.courier_id = ${courierId}
+            AND o.status = 'delivered'
+        `),
+    periodStart
+      ? db.execute(sql`
           SELECT
             o.id,
             o.restaurant_name AS "restaurantName",
@@ -415,9 +443,9 @@ router.get("/courier/earnings", requireCourier, async (req, res) => {
             AND o.status = 'delivered'
             AND o.updated_at >= ${periodStart.toISOString()}
           ORDER BY o.updated_at DESC
-          LIMIT 100
-        `
-      : sql`
+          LIMIT 50
+        `)
+      : db.execute(sql`
           SELECT
             o.id,
             o.restaurant_name AS "restaurantName",
@@ -428,29 +456,25 @@ router.get("/courier/earnings", requireCourier, async (req, res) => {
           WHERE o.courier_id = ${courierId}
             AND o.status = 'delivered'
           ORDER BY o.updated_at DESC
-          LIMIT 100
-        `
-  );
-
-  type DeliveryRow = { id: string; restaurantName: string; address: string; updatedAt: Date; deliveryFee: number };
-  const periodDeliveries = (deliveredOrders.rows as DeliveryRow[]).map((row) => ({
-    id: row.id,
-    restaurantName: row.restaurantName,
-    address: row.address,
-    updatedAt: typeof row.updatedAt === "string" ? row.updatedAt : (row.updatedAt as Date).toISOString(),
-    earnings: Number(row.deliveryFee),
-  }));
-
-  const periodEarnings = periodDeliveries.reduce((s, d) => s + d.earnings, 0);
-
-  const today = new Date().toISOString().slice(0, 10);
-  const [subRow, settingRow] = await Promise.all([
+          LIMIT 50
+        `),
+    normalizedPeriod !== "today"
+      ? db.execute(sql`
+          SELECT
+            COALESCE(SUM(COALESCE(o.delivery_fee, 0)), 0)::text AS "totalEarnings",
+            COUNT(*)::text AS "totalCount"
+          FROM orders o
+          WHERE o.courier_id = ${courierId}
+            AND o.status = 'delivered'
+            AND o.updated_at >= ${todayStart.toISOString()}
+        `)
+      : Promise.resolve(null),
     db
       .select()
       .from(courierSubscriptionsTable)
       .where(and(
         eq(courierSubscriptionsTable.courierId, courierId),
-        eq(courierSubscriptionsTable.date, today),
+        eq(courierSubscriptionsTable.date, new Date().toISOString().slice(0, 10)),
       ))
       .limit(1),
     db
@@ -460,26 +484,46 @@ router.get("/courier/earnings", requireCourier, async (req, res) => {
       .limit(1),
   ]);
 
+  const aggRow = aggResult.rows[0] as AggRow;
+  const periodEarnings = Number(aggRow?.totalEarnings ?? 0);
+  const periodDeliveriesCount = Number(aggRow?.totalCount ?? 0);
+
+  const recentDeliveries = (recentResult.rows as RecentRow[]).map((row) => ({
+    id: row.id,
+    restaurantName: row.restaurantName,
+    address: row.address,
+    updatedAt: typeof row.updatedAt === "string" ? row.updatedAt : (row.updatedAt as Date).toISOString(),
+    earnings: Number(row.deliveryFee),
+  }));
+
+  let todayEarnings: number;
+  let todayDeliveriesCount: number;
+  if (normalizedPeriod === "today") {
+    todayEarnings = periodEarnings;
+    todayDeliveriesCount = periodDeliveriesCount;
+  } else {
+    const todayAgg = todayAggResult?.rows[0] as AggRow | undefined;
+    todayEarnings = Number(todayAgg?.totalEarnings ?? 0);
+    todayDeliveriesCount = Number(todayAgg?.totalCount ?? 0);
+  }
+
   const defaultFee = settingRow[0]?.value ? parseInt(settingRow[0].value, 10) || DEFAULT_DAILY_FEE : DEFAULT_DAILY_FEE;
   const todaySubscriptionStatus = subRow[0]?.status ?? "pending";
   const todaySubscriptionFee = subRow[0]?.amount ?? defaultFee;
-
-  const todayDeliveriesForPeriod = period === "today" ? periodDeliveries : periodDeliveries.filter((d) => new Date(d.updatedAt) >= todayStart);
-  const todayEarnings = todayDeliveriesForPeriod.reduce((s, d) => s + d.earnings, 0);
   const todayNetEarnings = todaySubscriptionStatus === "paid"
     ? todayEarnings - todaySubscriptionFee
     : todayEarnings;
 
   res.json({
-    period,
+    period: normalizedPeriod,
     periodEarnings,
-    periodDeliveries: periodDeliveries.length,
+    periodDeliveries: periodDeliveriesCount,
     todayEarnings,
-    todayDeliveries: todayDeliveriesForPeriod.length,
+    todayDeliveries: todayDeliveriesCount,
     todaySubscriptionFee,
     todaySubscriptionStatus,
     todayNetEarnings,
-    recentDeliveries: periodDeliveries.slice(0, 50),
+    recentDeliveries,
   });
 });
 
