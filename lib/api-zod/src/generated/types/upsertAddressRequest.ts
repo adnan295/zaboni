@@ -10,4 +10,6 @@ export interface UpsertAddressRequest {
   label: string;
   address: string;
   isDefault?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
 }

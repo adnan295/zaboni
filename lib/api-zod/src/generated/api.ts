@@ -199,6 +199,8 @@ export const CreateAddressBody = zod.object({
   label: zod.string(),
   address: zod.string(),
   isDefault: zod.boolean().optional(),
+  latitude: zod.number().nullish(),
+  longitude: zod.number().nullish(),
 });
 
 /**
@@ -216,6 +218,8 @@ export const UpdateAddressBody = zod.object({
   label: zod.string(),
   address: zod.string(),
   isDefault: zod.boolean().optional(),
+  latitude: zod.number().nullish(),
+  longitude: zod.number().nullish(),
 });
 
 export const UpdateAddressResponse = zod.object({

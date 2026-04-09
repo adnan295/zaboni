@@ -1,2 +1,15 @@
 export * from "./generated/api";
-export * from "./generated/types";
+export type { Address } from "./generated/types/address";
+export type { CreateAddressParams } from "./generated/types/createAddressParams";
+export type { CreateOrderRequest } from "./generated/types/createOrderRequest";
+export type { ErrorResponse } from "./generated/types/errorResponse";
+export type { GetAddressesParams } from "./generated/types/getAddressesParams";
+export type { GetOrdersParams } from "./generated/types/getOrdersParams";
+export type { HealthStatus } from "./generated/types/healthStatus";
+export type { MenuItem } from "./generated/types/menuItem";
+export type { Order } from "./generated/types/order";
+export type { OrderStatus } from "./generated/types/orderStatus";
+export type { Restaurant } from "./generated/types/restaurant";
+export type { UpdateOrderStatusRequest } from "./generated/types/updateOrderStatusRequest";
+export type { UpdateOrderStatusRequestStatus } from "./generated/types/updateOrderStatusRequestStatus";
+export type { UpsertAddressRequest } from "./generated/types/upsertAddressRequest";
