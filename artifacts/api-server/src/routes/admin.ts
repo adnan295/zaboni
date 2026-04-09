@@ -371,7 +371,7 @@ router.get("/admin/orders/active", async (_req, res) => {
     .from(ordersTable)
     .leftJoin(usersTable, eq(ordersTable.userId, usersTable.id))
     .where(
-      sql`${ordersTable.status} != 'delivered'`,
+      sql`${ordersTable.status} IN ('searching', 'accepted', 'picked_up', 'on_way')`,
     )
     .orderBy(desc(ordersTable.createdAt))
     .limit(50);

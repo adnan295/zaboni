@@ -22,7 +22,8 @@ const navItems = [
 export default function Layout({ children, onLogout }: LayoutProps) {
   const [location] = useLocation();
   const { theme, setTheme } = useTheme();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const { data: stats } = useQuery({
     queryKey: ["admin", "stats"],
@@ -44,46 +45,73 @@ export default function Layout({ children, onLogout }: LayoutProps) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      {!sidebarOpen && (
-        <button
-          onClick={() => setSidebarOpen(true)}
-          className="fixed top-3 left-3 z-50 p-2 rounded-md bg-sidebar text-sidebar-foreground shadow-lg lg:hidden"
-          aria-label="Open sidebar"
-        >
-          ☰
-        </button>
-      )}
-
-      {sidebarOpen && (
+      {mobileOpen && (
         <div
           className="fixed inset-0 bg-black/40 z-30 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
+          onClick={() => setMobileOpen(false)}
         />
       )}
+
+      <button
+        onClick={() => setMobileOpen(true)}
+        className={cn(
+          "fixed top-3 left-3 z-50 p-2 rounded-md bg-sidebar text-sidebar-foreground shadow-lg lg:hidden",
+          mobileOpen && "hidden",
+        )}
+        aria-label="Open sidebar"
+      >
+        ☰
+      </button>
 
       <aside
         className={cn(
           "flex-shrink-0 bg-sidebar text-sidebar-foreground flex flex-col z-40 transition-all duration-200",
           "fixed lg:relative inset-y-0 left-0",
-          sidebarOpen ? "w-56 translate-x-0" : "w-56 -translate-x-full lg:translate-x-0 lg:w-56",
+          mobileOpen ? "w-56 translate-x-0" : "w-56 -translate-x-full",
+          "lg:translate-x-0",
+          collapsed ? "lg:w-14" : "lg:w-56",
         )}
       >
-        <div className="px-4 py-5 border-b border-sidebar-border flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div
+          className={cn(
+            "px-4 py-5 border-b border-sidebar-border flex items-center",
+            collapsed ? "lg:justify-center px-0" : "justify-between",
+          )}
+        >
+          {!collapsed && (
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-sm font-bold text-primary-foreground flex-shrink-0">
+                م
+              </div>
+              <div>
+                <p className="font-bold text-sm leading-tight text-sidebar-foreground">مرسول</p>
+                <p className="text-[10px] text-sidebar-foreground/50 leading-tight">Admin Panel</p>
+              </div>
+            </div>
+          )}
+          {collapsed && (
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-sm font-bold text-primary-foreground">
               م
             </div>
-            <div>
-              <p className="font-bold text-sm leading-tight text-sidebar-foreground">مرسول</p>
-              <p className="text-[10px] text-sidebar-foreground/50 leading-tight">Admin Panel</p>
-            </div>
-          </div>
+          )}
           <button
-            onClick={() => setSidebarOpen(false)}
-            className="text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors lg:hidden"
+            onClick={() => setMobileOpen(false)}
+            className="text-sidebar-foreground/40 hover:text-sidebar-foreground lg:hidden ml-auto"
             aria-label="Close sidebar"
           >
             ✕
+          </button>
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="hidden lg:flex ml-auto text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors p-1 rounded"
+            aria-label="Toggle sidebar"
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <rect y="1" width="14" height="2" rx="1" fill="currentColor" />
+              <rect y="6" width="14" height="2" rx="1" fill="currentColor" />
+              <rect y="11" width="14" height="2" rx="1" fill="currentColor" />
+            </svg>
           </button>
         </div>
 
@@ -97,24 +125,35 @@ export default function Layout({ children, onLogout }: LayoutProps) {
             return (
               <Link key={item.href} href={item.href}>
                 <a
-                  onClick={() => setSidebarOpen(false)}
+                  onClick={() => setMobileOpen(false)}
+                  title={collapsed ? item.label : undefined}
                   className={cn(
                     "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer",
+                    collapsed ? "lg:justify-center lg:px-0" : "",
                     isActive
                       ? "bg-sidebar-primary text-sidebar-primary-foreground"
                       : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                   )}
                 >
-                  <span className="text-base">{item.icon}</span>
-                  <span className="flex-1">{item.label}</span>
-                  {showBadge && (
-                    <span className="flex items-center gap-1 text-xs font-bold bg-orange-500 text-white rounded-full px-1.5 py-0.5 leading-none">
-                      <span className="relative flex h-1.5 w-1.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
-                      </span>
-                      {activeOrders}
-                    </span>
+                  <span className="text-base flex-shrink-0 relative">
+                    {item.icon}
+                    {showBadge && collapsed && (
+                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-orange-500 rounded-full" />
+                    )}
+                  </span>
+                  {!collapsed && (
+                    <>
+                      <span className="flex-1 lg:block">{item.label}</span>
+                      {showBadge && (
+                        <span className="flex items-center gap-1 text-xs font-bold bg-orange-500 text-white rounded-full px-1.5 py-0.5 leading-none">
+                          <span className="relative flex h-1.5 w-1.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
+                          </span>
+                          {activeOrders}
+                        </span>
+                      )}
+                    </>
                   )}
                 </a>
               </Link>
@@ -122,43 +161,42 @@ export default function Layout({ children, onLogout }: LayoutProps) {
           })}
         </nav>
 
-        <div className="px-2 py-4 border-t border-sidebar-border space-y-0.5">
+        <div
+          className={cn(
+            "px-2 py-4 border-t border-sidebar-border space-y-0.5",
+          )}
+        >
           <button
             onClick={() => setTheme(isDark ? "light" : "dark")}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+            title={collapsed ? (isDark ? "Light Mode" : "Dark Mode") : undefined}
+            className={cn(
+              "w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors",
+              collapsed ? "lg:justify-center lg:px-0" : "",
+            )}
           >
-            <span className="text-base">{isDark ? "☀️" : "🌙"}</span>
-            {isDark ? "Light Mode" : "Dark Mode"}
+            <span className="text-base flex-shrink-0">{isDark ? "☀️" : "🌙"}</span>
+            {!collapsed && <span>{isDark ? "Light Mode" : "Dark Mode"}</span>}
           </button>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+            title={collapsed ? "Sign Out" : undefined}
+            className={cn(
+              "w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors",
+              collapsed ? "lg:justify-center lg:px-0" : "",
+            )}
           >
-            <span className="text-base">🚪</span>
-            Sign Out
+            <span className="text-base flex-shrink-0">🚪</span>
+            {!collapsed && <span>Sign Out</span>}
           </button>
         </div>
       </aside>
 
       <main className="flex-1 overflow-y-auto">
-        <div className="lg:hidden h-14" />
+        <div className="h-14 lg:hidden" />
         <div className="max-w-7xl mx-auto p-6">
           {children}
         </div>
       </main>
-
-      <button
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="hidden lg:flex fixed top-3 left-3 z-50 p-1.5 rounded-md text-muted-foreground hover:bg-muted transition-colors"
-        aria-label="Toggle sidebar"
-        title="Toggle sidebar"
-      >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <rect y="2" width="16" height="2" rx="1" fill="currentColor" />
-          <rect y="7" width="16" height="2" rx="1" fill="currentColor" />
-          <rect y="12" width="16" height="2" rx="1" fill="currentColor" />
-        </svg>
-      </button>
     </div>
   );
 }
