@@ -289,7 +289,7 @@ export default function ActiveOrderScreen() {
                   }}
                   scrollEnabled={true}
                   zoomEnabled={true}
-                  pitchEnabled={false}
+                  pitchEnabled={true}
                   rotateEnabled={false}
                 >
                   <Marker

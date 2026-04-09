@@ -1,12 +1,31 @@
 import { Router, type IRouter } from "express";
+import { db, systemSettingsTable } from "@workspace/db";
+import { inArray } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-router.get("/config/contact", (_req, res) => {
-  res.json({
-    phone: process.env.ADMIN_PHONE || "+963999000111",
-    whatsapp: process.env.ADMIN_WHATSAPP || process.env.ADMIN_PHONE || "+963999000111",
-  });
+const DEFAULT_PHONE = process.env.ADMIN_PHONE || "+963999000111";
+const DEFAULT_WHATSAPP = process.env.ADMIN_WHATSAPP || DEFAULT_PHONE;
+
+router.get("/config/contact", async (_req, res) => {
+  try {
+    const rows = await db
+      .select()
+      .from(systemSettingsTable)
+      .where(inArray(systemSettingsTable.key, ["contact_phone", "contact_whatsapp"]));
+
+    const map: Record<string, string> = {};
+    for (const r of rows) {
+      map[r.key] = r.value;
+    }
+
+    res.json({
+      phone: map["contact_phone"] || DEFAULT_PHONE,
+      whatsapp: map["contact_whatsapp"] || DEFAULT_WHATSAPP,
+    });
+  } catch {
+    res.json({ phone: DEFAULT_PHONE, whatsapp: DEFAULT_WHATSAPP });
+  }
 });
 
 export default router;

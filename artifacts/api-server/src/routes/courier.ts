@@ -383,6 +383,10 @@ const DEFAULT_DAILY_FEE = 5000;
 
 router.get("/courier/earnings", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
+  const periodParam = (req.query.period as string) || "today";
+  const validPeriods = ["today", "week", "month", "total"] as const;
+  type PeriodKey = typeof validPeriods[number];
+  const period: PeriodKey = validPeriods.includes(periodParam as PeriodKey) ? (periodParam as PeriodKey) : "today";
 
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -391,21 +395,45 @@ router.get("/courier/earnings", requireCourier, async (req, res) => {
   const monthStart = new Date(todayStart);
   monthStart.setDate(1);
 
-  const deliveredOrders = await db.execute(sql`
-    SELECT
-      o.id,
-      o.restaurant_name AS "restaurantName",
-      o.address,
-      o.updated_at AS "updatedAt",
-      COALESCE(o.delivery_fee, 0) AS "deliveryFee"
-    FROM orders o
-    WHERE o.courier_id = ${courierId}
-      AND o.status = 'delivered'
-    ORDER BY o.updated_at DESC
-  `);
+  const periodStart: Date | null =
+    period === "today" ? todayStart :
+    period === "week" ? weekStart :
+    period === "month" ? monthStart :
+    null;
+
+  const deliveredOrders = await db.execute(
+    periodStart
+      ? sql`
+          SELECT
+            o.id,
+            o.restaurant_name AS "restaurantName",
+            o.address,
+            o.updated_at AS "updatedAt",
+            COALESCE(o.delivery_fee, 0) AS "deliveryFee"
+          FROM orders o
+          WHERE o.courier_id = ${courierId}
+            AND o.status = 'delivered'
+            AND o.updated_at >= ${periodStart.toISOString()}
+          ORDER BY o.updated_at DESC
+          LIMIT 100
+        `
+      : sql`
+          SELECT
+            o.id,
+            o.restaurant_name AS "restaurantName",
+            o.address,
+            o.updated_at AS "updatedAt",
+            COALESCE(o.delivery_fee, 0) AS "deliveryFee"
+          FROM orders o
+          WHERE o.courier_id = ${courierId}
+            AND o.status = 'delivered'
+          ORDER BY o.updated_at DESC
+          LIMIT 100
+        `
+  );
 
   type DeliveryRow = { id: string; restaurantName: string; address: string; updatedAt: Date; deliveryFee: number };
-  const allDeliveries = (deliveredOrders.rows as DeliveryRow[]).map((row) => ({
+  const periodDeliveries = (deliveredOrders.rows as DeliveryRow[]).map((row) => ({
     id: row.id,
     restaurantName: row.restaurantName,
     address: row.address,
@@ -413,14 +441,7 @@ router.get("/courier/earnings", requireCourier, async (req, res) => {
     earnings: Number(row.deliveryFee),
   }));
 
-  const todayDeliveries = allDeliveries.filter((d) => new Date(d.updatedAt) >= todayStart);
-  const weekDeliveries = allDeliveries.filter((d) => new Date(d.updatedAt) >= weekStart);
-  const monthDeliveries = allDeliveries.filter((d) => new Date(d.updatedAt) >= monthStart);
-
-  const todayEarnings = todayDeliveries.reduce((s, d) => s + d.earnings, 0);
-  const weekEarnings = weekDeliveries.reduce((s, d) => s + d.earnings, 0);
-  const monthEarnings = monthDeliveries.reduce((s, d) => s + d.earnings, 0);
-  const totalEarnings = allDeliveries.reduce((s, d) => s + d.earnings, 0);
+  const periodEarnings = periodDeliveries.reduce((s, d) => s + d.earnings, 0);
 
   const today = new Date().toISOString().slice(0, 10);
   const [subRow, settingRow] = await Promise.all([
@@ -442,23 +463,23 @@ router.get("/courier/earnings", requireCourier, async (req, res) => {
   const defaultFee = settingRow[0]?.value ? parseInt(settingRow[0].value, 10) || DEFAULT_DAILY_FEE : DEFAULT_DAILY_FEE;
   const todaySubscriptionStatus = subRow[0]?.status ?? "pending";
   const todaySubscriptionFee = subRow[0]?.amount ?? defaultFee;
+
+  const todayDeliveriesForPeriod = period === "today" ? periodDeliveries : periodDeliveries.filter((d) => new Date(d.updatedAt) >= todayStart);
+  const todayEarnings = todayDeliveriesForPeriod.reduce((s, d) => s + d.earnings, 0);
   const todayNetEarnings = todaySubscriptionStatus === "paid"
     ? todayEarnings - todaySubscriptionFee
     : todayEarnings;
 
   res.json({
+    period,
+    periodEarnings,
+    periodDeliveries: periodDeliveries.length,
     todayEarnings,
-    weekEarnings,
-    monthEarnings,
-    totalEarnings,
-    todayDeliveries: todayDeliveries.length,
-    weekDeliveries: weekDeliveries.length,
-    monthDeliveries: monthDeliveries.length,
-    totalDeliveries: allDeliveries.length,
+    todayDeliveries: todayDeliveriesForPeriod.length,
     todaySubscriptionFee,
     todaySubscriptionStatus,
     todayNetEarnings,
-    recentDeliveries: allDeliveries.slice(0, 50),
+    recentDeliveries: periodDeliveries.slice(0, 50),
   });
 });
 

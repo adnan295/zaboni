@@ -26,14 +26,11 @@ interface RecentDelivery {
 }
 
 interface EarningsData {
+  period: string;
+  periodEarnings: number;
+  periodDeliveries: number;
   todayEarnings: number;
-  weekEarnings: number;
-  monthEarnings: number;
-  totalEarnings: number;
   todayDeliveries: number;
-  weekDeliveries: number;
-  monthDeliveries: number;
-  totalDeliveries: number;
   todaySubscriptionFee: number;
   todaySubscriptionStatus: "paid" | "waived" | "pending";
   todayNetEarnings: number;
@@ -69,11 +66,11 @@ export default function CourierEarningsScreen() {
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
 
-  const loadData = useCallback(async (silent = false) => {
+  const loadData = useCallback(async (p: Period, silent = false) => {
     if (!silent) setLoading(true);
     setError(false);
     try {
-      const res = await customFetch("/api/courier/earnings") as EarningsData;
+      const res = await customFetch(`/api/courier/earnings?period=${p}`) as EarningsData;
       setData(res);
     } catch {
       setError(true);
@@ -83,11 +80,15 @@ export default function CourierEarningsScreen() {
     }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { loadData(period); }, [loadData, period]);
 
   const handleRefresh = () => {
     setRefreshing(true);
-    loadData(true);
+    loadData(period, true);
+  };
+
+  const handlePeriodChange = (p: Period) => {
+    setPeriod(p);
   };
 
   const formatDate = (iso: string) => {
@@ -97,22 +98,6 @@ export default function CourierEarningsScreen() {
       hour: "2-digit",
       minute: "2-digit",
     });
-  };
-
-  const getPeriodEarnings = () => {
-    if (!data) return 0;
-    if (period === "today") return data.todayEarnings;
-    if (period === "week") return data.weekEarnings;
-    if (period === "month") return data.monthEarnings ?? 0;
-    return data.totalEarnings;
-  };
-
-  const getPeriodDeliveries = () => {
-    if (!data) return 0;
-    if (period === "today") return data.todayDeliveries;
-    if (period === "week") return data.weekDeliveries;
-    if (period === "month") return data.monthDeliveries ?? 0;
-    return data.totalDeliveries;
   };
 
   const getHeroLabel = () => {
@@ -125,7 +110,7 @@ export default function CourierEarningsScreen() {
   const getHeroAmount = () => {
     if (!data) return 0;
     if (period === "today") return data.todayNetEarnings;
-    return getPeriodEarnings();
+    return data.periodEarnings;
   };
 
   return (
@@ -136,6 +121,25 @@ export default function CourierEarningsScreen() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t("courier.earnings.title")}</Text>
         <View style={{ width: 40 }} />
+      </View>
+
+      {/* Period filter tabs — always visible */}
+      <View style={[styles.periodTabs, { backgroundColor: colors.primary }]}>
+        {PERIODS.map((p) => (
+          <TouchableOpacity
+            key={p.key}
+            style={[styles.periodTab, period === p.key && styles.periodTabActive]}
+            onPress={() => handlePeriodChange(p.key)}
+            activeOpacity={0.7}
+          >
+            <Text style={[
+              styles.periodTabText,
+              period === p.key ? styles.periodTabTextActive : { color: "rgba(255,255,255,0.7)" }
+            ]}>
+              {p.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {loading ? (
@@ -151,7 +155,7 @@ export default function CourierEarningsScreen() {
           <Text style={[styles.errorText, { color: "#ef4444" }]}>{t("courier.earnings.error")}</Text>
           <TouchableOpacity
             style={[styles.retryBtn, { backgroundColor: colors.primary }]}
-            onPress={() => loadData()}
+            onPress={() => loadData(period)}
           >
             <Text style={styles.retryText}>{t("common.retry")}</Text>
           </TouchableOpacity>
@@ -164,31 +168,12 @@ export default function CourierEarningsScreen() {
           }
           showsVerticalScrollIndicator={false}
         >
-          {/* Period filter tabs */}
-          <View style={[styles.periodTabs, { backgroundColor: colors.primary }]}>
-            {PERIODS.map((p) => (
-              <TouchableOpacity
-                key={p.key}
-                style={[styles.periodTab, period === p.key && styles.periodTabActive]}
-                onPress={() => setPeriod(p.key)}
-                activeOpacity={0.7}
-              >
-                <Text style={[
-                  styles.periodTabText,
-                  period === p.key ? styles.periodTabTextActive : { color: "rgba(255,255,255,0.7)" }
-                ]}>
-                  {p.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
           {/* Hero earnings card */}
           <View style={[styles.heroCard, { backgroundColor: colors.primary }]}>
             <Text style={styles.heroLabel}>{getHeroLabel()}</Text>
             <Text style={styles.heroAmount}>{formatAmount(getHeroAmount())}</Text>
             <Text style={styles.heroCurrency}>ل.س</Text>
-            <Text style={styles.heroSub}>{getPeriodDeliveries()} توصيلة</Text>
+            <Text style={styles.heroSub}>{data!.periodDeliveries} توصيلة</Text>
           </View>
 
           {/* Today subscription breakdown (only shown for "today" period) */}
@@ -230,20 +215,20 @@ export default function CourierEarningsScreen() {
             </View>
           )}
 
-          {/* Stats summary row (compact, for non-today periods) */}
+          {/* Summary stats for non-today periods */}
           {period !== "today" && (
             <View style={styles.statsGrid}>
               <View style={[styles.statCard, { backgroundColor: colors.card }]}>
                 <MaterialIcons name="local-shipping" size={22} color={colors.primary} />
                 <Text style={[styles.statAmount, { color: colors.foreground }]}>
-                  {getPeriodDeliveries()}
+                  {data!.periodDeliveries}
                 </Text>
                 <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>توصيلة</Text>
               </View>
               <View style={[styles.statCard, { backgroundColor: colors.card }]}>
                 <MaterialIcons name="today" size={22} color="#22c55e" />
                 <Text style={[styles.statAmount, { color: colors.foreground }]}>
-                  {formatAmount(data!.todayEarnings)}
+                  {formatAmount(data!.todayNetEarnings)}
                 </Text>
                 <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>صافي اليوم (ل.س)</Text>
               </View>

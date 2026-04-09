@@ -147,6 +147,8 @@ export default function Subscriptions() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [feeInput, setFeeInput] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [contactWhatsApp, setContactWhatsApp] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -211,10 +213,12 @@ export default function Subscriptions() {
             variant="outline"
             onClick={() => {
               setFeeInput(settings?.daily_subscription_fee ?? String(data?.defaultFee ?? 5000));
+              setContactPhone(settings?.contact_phone ?? "");
+              setContactWhatsApp(settings?.contact_whatsapp ?? "");
               setSettingsOpen(true);
             }}
           >
-            ⚙️ إعداد الرسوم اليومية
+            ⚙️ إعدادات التطبيق
           </Button>
         </div>
       </div>
@@ -313,11 +317,11 @@ export default function Subscriptions() {
       />
 
       <Dialog open={settingsOpen} onOpenChange={(o) => !o && setSettingsOpen(false)}>
-        <DialogContent className="max-w-sm" dir="rtl">
+        <DialogContent className="max-w-md" dir="rtl">
           <DialogHeader>
-            <DialogTitle className="text-right">إعداد الرسوم اليومية</DialogTitle>
+            <DialogTitle className="text-right">إعدادات التطبيق</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          <div className="space-y-5 py-2">
             <div className="space-y-1">
               <Label className="text-right block">الرسوم اليومية الافتراضية (ل.س)</Label>
               <Input
@@ -331,6 +335,34 @@ export default function Subscriptions() {
                 تُطبَّق على كل السائقين عند تسجيل دفعة جديدة ما لم يُحدَّد مبلغ مختلف
               </p>
             </div>
+            <div className="border-t pt-4 space-y-3">
+              <p className="text-sm font-semibold text-right">معلومات التواصل (تظهر في تطبيق السائق)</p>
+              <div className="space-y-1">
+                <Label className="text-right block">رقم هاتف الإدارة</Label>
+                <Input
+                  type="tel"
+                  value={contactPhone}
+                  onChange={(e) => setContactPhone(e.target.value)}
+                  className="text-right"
+                  placeholder="+963999000111"
+                  dir="ltr"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-right block">رقم واتساب الإدارة</Label>
+                <Input
+                  type="tel"
+                  value={contactWhatsApp}
+                  onChange={(e) => setContactWhatsApp(e.target.value)}
+                  className="text-right"
+                  placeholder="+963999000111"
+                  dir="ltr"
+                />
+                <p className="text-xs text-muted-foreground text-right">
+                  اتركه فارغاً لاستخدام رقم الهاتف نفسه
+                </p>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSettingsOpen(false)}>
@@ -339,7 +371,11 @@ export default function Subscriptions() {
             <Button
               className="bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={() =>
-                settingsMut.mutate({ daily_subscription_fee: feeInput })
+                settingsMut.mutate({
+                  daily_subscription_fee: feeInput,
+                  ...(contactPhone ? { contact_phone: contactPhone } : {}),
+                  ...(contactWhatsApp ? { contact_whatsapp: contactWhatsApp } : contactPhone ? { contact_whatsapp: contactPhone } : {}),
+                })
               }
               disabled={settingsMut.isPending}
             >
