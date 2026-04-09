@@ -68,7 +68,7 @@ export default function CourierApplyScreen() {
         t("courierApply.successMsg"),
         [
           {
-            text: "حسناً",
+            text: t("common.save"),
             onPress: () => router.back(),
           },
         ]
