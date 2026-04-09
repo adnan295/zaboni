@@ -242,6 +242,43 @@ router.get("/admin/couriers/locations", async (_req, res) => {
   );
 });
 
+router.get("/admin/orders/active/locations", async (_req, res) => {
+  const rows = await db.execute(sql`
+    SELECT
+      o.id,
+      o.status,
+      o.order_text AS "orderText",
+      o.restaurant_name AS "restaurantName",
+      o.address,
+      o.destination_lat AS "destinationLat",
+      o.destination_lon AS "destinationLon",
+      o.updated_at AS "updatedAt",
+      cu.name AS "customerName",
+      cu.phone AS "customerPhone",
+      co.name AS "courierName",
+      co.phone AS "courierPhone",
+      r.lat AS "restaurantLat",
+      r.lon AS "restaurantLon"
+    FROM orders o
+    LEFT JOIN users cu ON cu.id = o.user_id
+    LEFT JOIN users co ON co.id = o.courier_id
+    LEFT JOIN restaurants r
+      ON r.name_ar = o.restaurant_name OR r.name = o.restaurant_name
+    WHERE o.status IN ('searching', 'accepted', 'picked_up', 'on_way')
+    ORDER BY o.updated_at DESC
+  `);
+
+  res.json(
+    rows.rows.map((r: Record<string, unknown>) => ({
+      ...r,
+      destinationLat: r["destinationLat"] != null ? Number(r["destinationLat"]) : null,
+      destinationLon: r["destinationLon"] != null ? Number(r["destinationLon"]) : null,
+      restaurantLat: r["restaurantLat"] != null ? Number(r["restaurantLat"]) : null,
+      restaurantLon: r["restaurantLon"] != null ? Number(r["restaurantLon"]) : null,
+    })),
+  );
+});
+
 router.get("/admin/restaurants", async (_req, res) => {
   const rows = await db
     .select({
