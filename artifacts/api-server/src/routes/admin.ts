@@ -1453,7 +1453,7 @@ router.delete("/admin/banners/:id", async (req, res) => {
 });
 
 const categoryBody = z.object({
-  code: z.string().default(""),
+  code: z.string().min(1).regex(/^[a-z0-9_]+$/, "Code must be lowercase alphanumeric with underscores only"),
   nameAr: z.string().min(1),
   nameEn: z.string().default(""),
   iconName: z.string().default("restaurant"),

@@ -484,7 +484,7 @@ function CategoriesSection() {
           <DialogFooter className="flex-row-reverse gap-2">
             <Button
               onClick={() => saveMutation.mutate()}
-              disabled={!form.nameAr.trim() || saveMutation.isPending}
+              disabled={!form.nameAr.trim() || !form.code.trim() || saveMutation.isPending}
               className="bg-primary text-primary-foreground"
             >
               {saveMutation.isPending ? "جاري الحفظ..." : "حفظ"}
