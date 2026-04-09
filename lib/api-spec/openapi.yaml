@@ -524,4 +524,10 @@ components:
           type: string
         isDefault:
           type: boolean
+        latitude:
+          type: number
+          nullable: true
+        longitude:
+          type: number
+          nullable: true
 
