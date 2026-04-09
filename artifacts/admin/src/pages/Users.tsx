@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api, type User } from "@/lib/api";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -12,21 +11,12 @@ import {
 } from "@/components/ui/select";
 
 export default function Users() {
-  const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["admin", "users"],
     queryFn: api.getUsers,
-  });
-
-  const roleMutation = useMutation({
-    mutationFn: ({ id, role }: { id: string; role: "customer" | "courier" }) =>
-      api.updateUserRole(id, role),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin", "users"] });
-    },
   });
 
   const filtered = users.filter((u) => {
@@ -54,6 +44,10 @@ export default function Users() {
           <p className="text-xs text-orange-600/70 font-medium">Couriers</p>
         </div>
       </div>
+
+      <p className="text-sm text-muted-foreground">
+        Courier role is managed via <span className="font-medium">Courier Applications</span>. Use the applications page to approve or reject join requests.
+      </p>
 
       <div className="flex gap-3 flex-wrap">
         <Input
@@ -91,19 +85,11 @@ export default function Users() {
                 <th className="text-left px-4 py-3 font-medium">Phone</th>
                 <th className="text-left px-4 py-3 font-medium">Role</th>
                 <th className="text-left px-4 py-3 font-medium">Joined</th>
-                <th className="text-right px-4 py-3 font-medium">Change Role</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {filtered.map((user) => (
-                <UserRow
-                  key={user.id}
-                  user={user}
-                  onRoleChange={(role) =>
-                    roleMutation.mutate({ id: user.id, role })
-                  }
-                  loading={roleMutation.isPending}
-                />
+                <UserRow key={user.id} user={user} />
               ))}
             </tbody>
           </table>
@@ -113,15 +99,7 @@ export default function Users() {
   );
 }
 
-function UserRow({
-  user,
-  onRoleChange,
-  loading,
-}: {
-  user: User;
-  onRoleChange: (role: "customer" | "courier") => void;
-  loading: boolean;
-}) {
+function UserRow({ user }: { user: User }) {
   return (
     <tr className="hover:bg-muted/30 transition-colors">
       <td className="px-4 py-3">
@@ -146,31 +124,6 @@ function UserRow({
       </td>
       <td className="px-4 py-3 text-xs text-muted-foreground">
         {new Date(user.createdAt).toLocaleDateString()}
-      </td>
-      <td className="px-4 py-3">
-        <div className="flex gap-1 justify-end">
-          {user.role === "customer" ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 px-2 text-xs"
-              disabled={loading}
-              onClick={() => onRoleChange("courier")}
-            >
-              Make Courier
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 px-2 text-xs"
-              disabled={loading}
-              onClick={() => onRoleChange("customer")}
-            >
-              Make Customer
-            </Button>
-          )}
-        </div>
       </td>
     </tr>
   );

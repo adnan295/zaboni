@@ -456,6 +456,12 @@ router.patch("/admin/users/:id/role", async (req, res) => {
     res.status(400).json({ error: "Invalid role" });
     return;
   }
+  if (parsed.data.role === "courier") {
+    res.status(410).json({
+      error: "Granting courier role directly is disabled. Use courier applications to approve join requests.",
+    });
+    return;
+  }
   const [row] = await db
     .update(usersTable)
     .set({ role: parsed.data.role })
