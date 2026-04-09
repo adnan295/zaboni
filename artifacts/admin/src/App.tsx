@@ -17,6 +17,7 @@ import Promos from "@/pages/Promos";
 import Notifications from "@/pages/Notifications";
 import Financial from "@/pages/Financial";
 import DeliveryZones from "@/pages/DeliveryZones";
+import Subscriptions from "@/pages/Subscriptions";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -42,6 +43,7 @@ function Router({ onLogout }: { onLogout: () => void }) {
         <Route path="/notifications" component={Notifications} />
         <Route path="/financial" component={Financial} />
         <Route path="/delivery-zones" component={DeliveryZones} />
+        <Route path="/subscriptions" component={Subscriptions} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

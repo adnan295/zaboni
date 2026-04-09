@@ -10,8 +10,10 @@ import {
   promoUsesTable,
   restaurantHoursTable,
   deliveryZonesTable,
+  courierSubscriptionsTable,
+  systemSettingsTable,
 } from "@workspace/db";
-import { eq, count, desc, gte, getTableColumns, and, sql, avg, asc } from "drizzle-orm";
+import { eq, count, desc, gte, getTableColumns, and, sql, avg, asc, lt } from "drizzle-orm";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
 import { z } from "zod";
 
@@ -903,6 +905,165 @@ router.delete("/admin/delivery-zones/:id", async (req, res) => {
 
   await db.delete(deliveryZonesTable).where(eq(deliveryZonesTable.id, id));
   res.status(204).end();
+});
+
+const DEFAULT_DAILY_SUBSCRIPTION_FEE = 5000;
+
+async function getDailySubscriptionFee(): Promise<number> {
+  const rows = await db
+    .select()
+    .from(systemSettingsTable)
+    .where(eq(systemSettingsTable.key, "daily_subscription_fee"))
+    .limit(1);
+  if (rows.length === 0) return DEFAULT_DAILY_SUBSCRIPTION_FEE;
+  return parseInt(rows[0]!.value, 10) || DEFAULT_DAILY_SUBSCRIPTION_FEE;
+}
+
+router.get("/admin/settings", async (_req, res) => {
+  const rows = await db.select().from(systemSettingsTable);
+  const map: Record<string, string> = {};
+  for (const r of rows) {
+    map[r.key] = r.value;
+  }
+  if (!("daily_subscription_fee" in map)) {
+    map["daily_subscription_fee"] = String(DEFAULT_DAILY_SUBSCRIPTION_FEE);
+  }
+  res.json(map);
+});
+
+router.put("/admin/settings", async (req, res) => {
+  const parsed = z.record(z.string(), z.string()).safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid settings payload" });
+    return;
+  }
+  for (const [key, value] of Object.entries(parsed.data)) {
+    await db
+      .insert(systemSettingsTable)
+      .values({ key, value, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: systemSettingsTable.key,
+        set: { value, updatedAt: new Date() },
+      });
+  }
+  res.json({ ok: true });
+});
+
+router.get("/admin/subscriptions", async (req, res) => {
+  const date = String(req.query["date"] ?? new Date().toISOString().slice(0, 10));
+  const defaultFee = await getDailySubscriptionFee();
+
+  const couriers = await db
+    .select({ id: usersTable.id, name: usersTable.name, phone: usersTable.phone })
+    .from(usersTable)
+    .where(eq(usersTable.role, "courier"))
+    .orderBy(usersTable.name);
+
+  const subs = await db
+    .select()
+    .from(courierSubscriptionsTable)
+    .where(eq(courierSubscriptionsTable.date, date));
+
+  const subMap = new Map(subs.map((s) => [s.courierId, s]));
+
+  const result = couriers.map((c) => {
+    const sub = subMap.get(c.id);
+    return {
+      courierId: c.id,
+      name: c.name,
+      phone: c.phone,
+      date,
+      subscriptionId: sub?.id ?? null,
+      status: sub?.status ?? "pending",
+      amount: sub?.amount ?? defaultFee,
+      note: sub?.note ?? null,
+    };
+  });
+
+  res.json({ date, defaultFee, couriers: result });
+});
+
+const subscriptionBodySchema = z.object({
+  courierId: z.string().min(1),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  amount: z.number().int().min(0),
+  status: z.enum(["paid", "waived", "pending"]),
+  note: z.string().nullable().optional(),
+});
+
+router.post("/admin/subscriptions", async (req, res) => {
+  const parsed = subscriptionBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { courierId, date, amount, status, note } = parsed.data;
+
+  const existing = await db
+    .select()
+    .from(courierSubscriptionsTable)
+    .where(and(
+      eq(courierSubscriptionsTable.courierId, courierId),
+      eq(courierSubscriptionsTable.date, date),
+    ))
+    .limit(1);
+
+  if (existing.length > 0) {
+    const [row] = await db
+      .update(courierSubscriptionsTable)
+      .set({ amount, status, note: note ?? null })
+      .where(eq(courierSubscriptionsTable.id, existing[0]!.id))
+      .returning();
+    res.json(row);
+    return;
+  }
+
+  const id = `sub_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+  const [row] = await db
+    .insert(courierSubscriptionsTable)
+    .values({ id, courierId, date, amount, status, note: note ?? null })
+    .returning();
+  res.status(201).json(row);
+});
+
+router.get("/admin/subscriptions/history/:courierId", async (req, res) => {
+  const courierId = String(req.params["courierId"]);
+  const rows = await db
+    .select()
+    .from(courierSubscriptionsTable)
+    .where(eq(courierSubscriptionsTable.courierId, courierId))
+    .orderBy(desc(courierSubscriptionsTable.date));
+  res.json(rows);
+});
+
+router.get("/admin/subscriptions/report", async (req, res) => {
+  const monthRaw = String(req.query["month"] ?? new Date().toISOString().slice(0, 7));
+  const monthStart = `${monthRaw}-01`;
+  const [year, month] = monthRaw.split("-").map(Number) as [number, number];
+  const nextMonthDate = new Date(year, month, 1);
+  const monthEnd = nextMonthDate.toISOString().slice(0, 10);
+
+  const rows = await db
+    .select()
+    .from(courierSubscriptionsTable)
+    .where(and(
+      gte(courierSubscriptionsTable.date, monthStart),
+      lt(courierSubscriptionsTable.date, monthEnd),
+    ));
+
+  const paidRows = rows.filter((r) => r.status === "paid");
+  const waivedRows = rows.filter((r) => r.status === "waived");
+  const totalRevenue = paidRows.reduce((sum, r) => sum + r.amount, 0);
+  const totalWaivedAmount = waivedRows.reduce((sum, r) => sum + r.amount, 0);
+
+  res.json({
+    month: monthRaw,
+    totalPaid: paidRows.length,
+    totalWaived: waivedRows.length,
+    totalRevenue,
+    totalWaivedAmount,
+    entries: rows,
+  });
 });
 
 export default router;

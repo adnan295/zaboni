@@ -232,6 +232,42 @@ export const ORDER_STATUSES = [
   "cancelled",
 ] as const;
 
+export type CourierSubscriptionRow = {
+  courierId: string;
+  name: string;
+  phone: string;
+  date: string;
+  subscriptionId: string | null;
+  status: "paid" | "waived" | "pending";
+  amount: number;
+  note: string | null;
+};
+
+export type SubscriptionDay = {
+  date: string;
+  defaultFee: number;
+  couriers: CourierSubscriptionRow[];
+};
+
+export type SubscriptionReport = {
+  month: string;
+  totalPaid: number;
+  totalWaived: number;
+  totalRevenue: number;
+  totalWaived_amount?: number;
+  entries: {
+    id: string;
+    courierId: string;
+    date: string;
+    amount: number;
+    status: "paid" | "waived" | "pending";
+    note: string | null;
+    createdAt: string;
+  }[];
+};
+
+export type SystemSettings = Record<string, string>;
+
 export const api = {
   async verifyToken(token: string): Promise<boolean> {
     const res = await fetch(`${API_BASE}/admin/stats`, {
@@ -347,5 +383,34 @@ export const api = {
     if (groupBy) params.set('groupBy', groupBy);
     const qs = params.toString();
     return apiFetch<FinancialReport>(`/admin/financial${qs ? `?${qs}` : ''}`);
+  },
+
+  getSettings: () => apiFetch<SystemSettings>("/admin/settings"),
+  updateSettings: (data: Record<string, string>) =>
+    apiFetch<{ ok: boolean }>("/admin/settings", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  getSubscriptions: (date?: string) => {
+    const qs = date ? `?date=${date}` : "";
+    return apiFetch<SubscriptionDay>(`/admin/subscriptions${qs}`);
+  },
+  saveSubscription: (data: {
+    courierId: string;
+    date: string;
+    status: "paid" | "waived" | "pending";
+    amount: number;
+    note: string | null;
+  }) =>
+    apiFetch<CourierSubscriptionRow>("/admin/subscriptions", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  getCourierSubscriptionHistory: (courierId: string) =>
+    apiFetch<SubscriptionReport["entries"]>(`/admin/subscriptions/history/${courierId}`),
+  getSubscriptionReport: (month?: string) => {
+    const qs = month ? `?month=${month}` : "";
+    return apiFetch<SubscriptionReport>(`/admin/subscriptions/report${qs}`);
   },
 };
