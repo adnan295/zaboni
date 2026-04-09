@@ -67,8 +67,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(parsedUser);
           setAuthTokenGetter(() => storedToken);
 
-          if (storedMode === "true" && parsedUser.role === "courier") {
-            setIsCourierModeState(true);
+          if (parsedUser.role === "courier") {
+            const modeExplicitlyOff = storedMode === "false";
+            if (!modeExplicitlyOff) {
+              setIsCourierModeState(true);
+            }
           }
         }
       } catch {
