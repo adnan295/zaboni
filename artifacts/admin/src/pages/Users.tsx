@@ -104,9 +104,17 @@ function UserRow({ user }: { user: User }) {
     <tr className="hover:bg-muted/30 transition-colors">
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold flex-shrink-0">
-            {user.name ? user.name.charAt(0).toUpperCase() : "?"}
-          </div>
+          {user.avatarUrl ? (
+            <img
+              src={user.avatarUrl.startsWith("/") ? `/api${user.avatarUrl}` : user.avatarUrl}
+              alt={user.name}
+              className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+            />
+          ) : (
+            <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold flex-shrink-0">
+              {user.name ? user.name.charAt(0).toUpperCase() : "?"}
+            </div>
+          )}
           <span className="font-medium">{user.name || <span className="text-muted-foreground italic">بدون اسم</span>}</span>
         </div>
       </td>
