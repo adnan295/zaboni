@@ -81,7 +81,7 @@ export default function ActiveOrderScreen() {
   const locationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    if (Platform.OS === "web") return;
+    if (Platform.OS === "web" || !order) return;
 
     let cancelled = false;
 
@@ -104,7 +104,7 @@ export default function ActiveOrderScreen() {
 
     fetchLocation();
 
-    locationIntervalRef.current = setInterval(fetchLocation, 15000);
+    locationIntervalRef.current = setInterval(fetchLocation, 10000);
 
     return () => {
       cancelled = true;
@@ -113,7 +113,7 @@ export default function ActiveOrderScreen() {
         locationIntervalRef.current = null;
       }
     };
-  }, []);
+  }, [order?.id]);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
