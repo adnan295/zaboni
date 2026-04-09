@@ -121,7 +121,7 @@ router.patch("/courier/location", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
   await db
     .update(usersTable)
-    .set({ courierLat: body.data.lat, courierLon: body.data.lon })
+    .set({ courierLat: body.data.lat, courierLon: body.data.lon, courierLocationUpdatedAt: new Date() })
     .where(eq(usersTable.id, courierId));
 
   res.json({ ok: true });

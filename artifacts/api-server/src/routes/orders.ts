@@ -303,7 +303,11 @@ router.get("/orders/:id/courier-location", async (req, res) => {
   }
 
   const couriers = await db
-    .select({ courierLat: usersTable.courierLat, courierLon: usersTable.courierLon })
+    .select({
+      courierLat: usersTable.courierLat,
+      courierLon: usersTable.courierLon,
+      courierLocationUpdatedAt: usersTable.courierLocationUpdatedAt,
+    })
     .from(usersTable)
     .where(eq(usersTable.id, order.courierId))
     .limit(1);
@@ -314,7 +318,11 @@ router.get("/orders/:id/courier-location", async (req, res) => {
     return;
   }
 
-  res.json({ lat: courier.courierLat, lon: courier.courierLon });
+  res.json({
+    lat: courier.courierLat,
+    lon: courier.courierLon,
+    updatedAt: courier.courierLocationUpdatedAt?.toISOString() ?? new Date().toISOString(),
+  });
 });
 
 router.delete("/orders/:id", async (req, res) => {
