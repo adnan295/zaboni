@@ -258,7 +258,7 @@ export type SubscriptionReport = {
   totalPaid: number;
   totalWaived: number;
   totalRevenue: number;
-  totalWaived_amount?: number;
+  totalWaivedAmount: number;
   entries: {
     id: string;
     courierId: string;

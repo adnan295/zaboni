@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { SubscriptionDay, CourierSubscriptionRow } from "@/lib/api";
@@ -60,17 +60,19 @@ function SubscriptionDialog({
   const [amount, setAmount] = useState<string>(String(courier?.amount ?? defaultFee));
   const [note, setNote] = useState(courier?.note ?? "");
 
-  const handleOpen = useCallback(() => {
-    setStatus(courier?.status ?? "paid");
-    setAmount(String(courier?.amount ?? defaultFee));
-    setNote(courier?.note ?? "");
-  }, [courier, defaultFee]);
+  useEffect(() => {
+    if (open) {
+      setStatus(courier?.status ?? "paid");
+      setAmount(String(courier?.amount ?? defaultFee));
+      setNote(courier?.note ?? "");
+    }
+  }, [open, courier, defaultFee]);
 
   if (!open) return null;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-sm" onAnimationStart={handleOpen}>
+      <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="text-right">
             تسجيل اشتراك — {courier?.name ?? ""}
