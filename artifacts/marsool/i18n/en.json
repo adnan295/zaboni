@@ -313,6 +313,8 @@
     "all": "All",
     "menu": "Menu",
     "orderNow": "Order Now",
+    "reviewOrder": "Review & Send Order",
+    "itemsSelected": "{{count}} item(s) selected",
     "closed": "Closed",
     "freeDelivery": "Free Delivery",
     "currency": "SYP",
@@ -346,7 +348,9 @@
     "promoExhausted": "Code is exhausted",
     "promoAlreadyUsed": "You've already used this code",
     "promoChecking": "Checking...",
-    "promoDiscount": "Discount: {{amount}} SYP"
+    "promoDiscount": "Discount: {{amount}} SYP",
+    "estimatedTotal": "Estimated Items Total",
+    "estimatedNote": "(approx. — final bill from courier)"
   },
   "payment": {
     "cashOnDelivery": "Cash on Delivery 💵",

@@ -23,6 +23,12 @@ import { useAddresses } from "@/context/AddressContext";
 import { useGetRestaurant, useGetRestaurantMenu } from "@workspace/api-client-react";
 import { haversineDistance } from "@/utils/geo";
 
+interface CartEntry {
+  nameAr: string;
+  price: number;
+  qty: number;
+}
+
 export default function RestaurantScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
@@ -51,6 +57,44 @@ export default function RestaurantScreen() {
   const categories = Array.from(new Set(menuItems.map((m) => m.categoryAr)));
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
+  const [cart, setCart] = useState<Record<string, CartEntry>>({});
+
+  const addToCart = (itemId: string, nameAr: string, price: number) => {
+    setCart((prev) => ({
+      ...prev,
+      [itemId]: {
+        nameAr,
+        price,
+        qty: (prev[itemId]?.qty ?? 0) + 1,
+      },
+    }));
+  };
+
+  const removeFromCart = (itemId: string, nameAr: string, price: number) => {
+    setCart((prev) => {
+      const current = prev[itemId]?.qty ?? 0;
+      if (current <= 1) {
+        const next = { ...prev };
+        delete next[itemId];
+        return next;
+      }
+      return { ...prev, [itemId]: { nameAr, price, qty: current - 1 } };
+    });
+  };
+
+  const cartEntries = Object.values(cart);
+  const totalItems = cartEntries.reduce((s, e) => s + e.qty, 0);
+  const estimatedTotal = cartEntries.reduce((s, e) => s + e.price * e.qty, 0);
+  const hasCart = totalItems > 0;
+
+  const buildCartText = (): string => {
+    const prefix = restaurant ? `${t("orderRequest.from")} ${restaurant.nameAr}: ` : "";
+    const items = cartEntries
+      .map((e) => (e.qty > 1 ? `${e.nameAr} × ${e.qty}` : e.nameAr))
+      .join("، ");
+    return prefix + items;
+  };
+
   const favScale = React.useRef(new Animated.Value(1)).current;
   const fav = restaurant ? isFavorite(restaurant.id) : false;
 
@@ -67,6 +111,20 @@ export default function RestaurantScreen() {
   const filteredItems = selectedCategory
     ? menuItems.filter((m) => m.categoryAr === selectedCategory)
     : menuItems;
+
+  const handleOrder = () => {
+    if (!restaurant || !restaurant.isOpen) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const params: Record<string, string> = {
+      restaurantName: restaurant.nameAr,
+      restaurantId: restaurant.id,
+    };
+    if (hasCart) {
+      params.reorderText = buildCartText();
+      params.estimatedTotal = String(estimatedTotal);
+    }
+    router.push({ pathname: "/order-request", params });
+  };
 
   if (restaurantLoading) {
     return (
@@ -86,10 +144,11 @@ export default function RestaurantScreen() {
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
+  const isOpen = restaurant.isOpen;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 140 }}>
         <View style={styles.heroContainer}>
           <Image source={{ uri: restaurant.image }} style={styles.heroImage} resizeMode="cover" />
           <View style={[styles.heroOverlay, { paddingTop: topPadding + 8 }]}>
@@ -207,13 +266,19 @@ export default function RestaurantScreen() {
         <View style={styles.menuSection}>
           <Text style={[styles.menuTitle, { color: colors.foreground }]}>{t("restaurant.menu")}</Text>
           {filteredItems.map((item) => (
-            <MenuItemCard key={item.id} item={item} />
+            <MenuItemCard
+              key={item.id}
+              item={item}
+              quantity={cart[item.id]?.qty ?? 0}
+              onAdd={isOpen ? () => addToCart(item.id, item.nameAr, item.price) : undefined}
+              onRemove={isOpen ? () => removeFromCart(item.id, item.nameAr, item.price) : undefined}
+            />
           ))}
         </View>
       </ScrollView>
 
       <View style={[styles.orderFooter, { backgroundColor: colors.background, paddingBottom: bottomPadding + 12, borderTopColor: colors.border }]}>
-        {!restaurant.isOpen && (
+        {!isOpen && (
           <View style={[styles.closedBanner, { backgroundColor: "rgba(0,0,0,0.08)" }]}>
             <MaterialIcons name="access-time" size={16} color={colors.mutedForeground} />
             <Text style={[styles.closedBannerText, { color: colors.mutedForeground }]}>
@@ -221,22 +286,40 @@ export default function RestaurantScreen() {
             </Text>
           </View>
         )}
+
+        {hasCart && isOpen && (
+          <View style={[styles.cartSummary, { backgroundColor: colors.secondary }]}>
+            <View style={styles.cartSummaryLeft}>
+              <View style={[styles.cartBadge, { backgroundColor: colors.primary }]}>
+                <Text style={styles.cartBadgeText}>{totalItems}</Text>
+              </View>
+              <Text style={[styles.cartSummaryLabel, { color: colors.foreground }]}>
+                {t("restaurant.itemsSelected", { count: totalItems })}
+              </Text>
+            </View>
+            <Text style={[styles.cartTotal, { color: colors.primary }]}>
+              ~{estimatedTotal.toLocaleString()} ل.س
+            </Text>
+          </View>
+        )}
+
         <TouchableOpacity
-          style={[styles.orderBtn, { backgroundColor: restaurant.isOpen ? colors.primary : colors.muted }]}
-          onPress={() => {
-            if (!restaurant.isOpen) return;
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            router.push({
-              pathname: "/order-request",
-              params: { restaurantName: restaurant.nameAr, restaurantId: restaurant.id },
-            });
-          }}
-          activeOpacity={restaurant.isOpen ? 0.85 : 1}
-          disabled={!restaurant.isOpen}
+          style={[styles.orderBtn, { backgroundColor: isOpen ? colors.primary : colors.muted }]}
+          onPress={handleOrder}
+          activeOpacity={isOpen ? 0.85 : 1}
+          disabled={!isOpen}
         >
-          <MaterialIcons name="edit-note" size={22} color={restaurant.isOpen ? "#fff" : colors.mutedForeground} />
-          <Text style={[styles.orderBtnText, { color: restaurant.isOpen ? "#fff" : colors.mutedForeground }]}>
-            {restaurant.isOpen ? t("restaurant.orderNow") : t("restaurant.closed")}
+          <MaterialIcons
+            name={hasCart ? "shopping-bag" : "edit-note"}
+            size={22}
+            color={isOpen ? "#fff" : colors.mutedForeground}
+          />
+          <Text style={[styles.orderBtnText, { color: isOpen ? "#fff" : colors.mutedForeground }]}>
+            {!isOpen
+              ? t("restaurant.closed")
+              : hasCart
+              ? t("restaurant.reviewOrder")
+              : t("restaurant.orderNow")}
           </Text>
         </TouchableOpacity>
       </View>
@@ -335,7 +418,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     borderTopWidth: 1,
+    gap: 8,
   },
+  cartSummary: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  cartSummaryLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+  cartBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cartBadgeText: { color: "#fff", fontSize: 12, fontWeight: "800" },
+  cartSummaryLabel: { fontSize: 13, fontWeight: "600" },
+  cartTotal: { fontSize: 15, fontWeight: "800" },
   orderBtn: {
     height: 56,
     borderRadius: 16,
@@ -357,7 +460,6 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 8,
     borderRadius: 10,
-    marginBottom: 8,
   },
   closedBannerText: { fontSize: 14, fontWeight: "700" },
 });

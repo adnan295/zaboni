@@ -313,6 +313,8 @@
     "all": "الكل",
     "menu": "المنيو",
     "orderNow": "اطلب الآن",
+    "reviewOrder": "راجع الطلب وأرسله",
+    "itemsSelected": "{{count}} صنف مختار",
     "closed": "مغلق",
     "freeDelivery": "توصيل مجاني",
     "currency": "ل.س",
@@ -346,7 +348,9 @@
     "promoExhausted": "الكود استُنفد",
     "promoAlreadyUsed": "استخدمت هذا الكود مسبقاً",
     "promoChecking": "جاري التحقق...",
-    "promoDiscount": "خصم {{amount}} ل.س"
+    "promoDiscount": "خصم {{amount}} ل.س",
+    "estimatedTotal": "المجموع التقديري للأصناف",
+    "estimatedNote": "(تقديري، الفاتورة الحقيقية من السائق)"
   },
   "payment": {
     "cashOnDelivery": "الدفع عند الاستلام 💵",
