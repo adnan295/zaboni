@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, type ChatSummary, type ChatThread } from "@/lib/api";
 
@@ -147,12 +147,11 @@ export default function ChatMonitor() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selected, setSelected] = useState<ChatSummary | null>(null);
 
-  // Debounce search
-  const handleSearch = (v: string) => {
-    setSearch(v);
-    clearTimeout((handleSearch as { _t?: ReturnType<typeof setTimeout> })._t);
-    (handleSearch as { _t?: ReturnType<typeof setTimeout> })._t = setTimeout(() => setDebouncedSearch(v), 350);
-  };
+  // Proper debounce using useEffect
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const { data: chats = [], isLoading, dataUpdatedAt } = useQuery<ChatSummary[]>({
     queryKey: ["admin", "chats", debouncedSearch],
@@ -185,14 +184,14 @@ export default function ChatMonitor() {
         <input
           type="text"
           value={search}
-          onChange={(e) => handleSearch(e.target.value)}
+          onChange={(e) => setSearch(e.target.value)}
           placeholder="ابحث باسم العميل أو المندوب أو رقم الطلب..."
           className="w-full border rounded-lg py-2 pr-9 pl-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
           dir="rtl"
         />
         {search && (
           <button
-            onClick={() => { setSearch(""); setDebouncedSearch(""); }}
+            onClick={() => setSearch("")}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-sm"
           >
             ✕
@@ -225,18 +224,24 @@ export default function ChatMonitor() {
                     className={`w-full text-right px-4 py-3 border-b last:border-b-0 hover:bg-muted/50 transition-colors ${isActive ? "bg-orange-50 dark:bg-orange-950/20 border-r-2 border-r-orange-500" : ""}`}
                     dir="rtl"
                   >
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-sm font-semibold truncate">
-                          {chat.customerName ?? "عميل مجهول"}
-                        </span>
-                        <span className="text-muted-foreground text-xs shrink-0">←→</span>
-                        <span className="text-sm text-muted-foreground truncate">
-                          {chat.courierName ?? "لم يُسنَد"}
-                        </span>
-                      </div>
-                      <span className="text-xs text-muted-foreground shrink-0">{formatTime(chat.lastMessageAt)}</span>
+                    {/* Row 1: order number + timestamp */}
+                    <div className="flex items-center justify-between gap-2 mb-0.5">
+                      <span className="text-xs text-muted-foreground font-mono">
+                        #{chat.orderId.slice(-8)}
+                      </span>
+                      <span className="text-xs text-muted-foreground">{formatTime(chat.lastMessageAt)}</span>
                     </div>
+                    {/* Row 2: customer ←→ courier */}
+                    <div className="flex items-center gap-1.5 min-w-0 mb-1">
+                      <span className="text-sm font-semibold truncate">
+                        {chat.customerName ?? "عميل مجهول"}
+                      </span>
+                      <span className="text-muted-foreground text-xs shrink-0">←→</span>
+                      <span className="text-sm text-muted-foreground truncate">
+                        {chat.courierName ?? "لم يُسنَد"}
+                      </span>
+                    </div>
+                    {/* Row 3: last message + status badge + message count */}
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs text-muted-foreground truncate flex-1">
                         {chat.lastMessageText ?? "—"}

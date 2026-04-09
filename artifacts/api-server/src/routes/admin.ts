@@ -314,7 +314,6 @@ router.get("/admin/chats", async (req, res) => {
     }
     GROUP BY o.id, o.order_text, o.status, o.created_at, cu.name, cu.phone, co.name, co.phone
     ORDER BY MAX(m.created_at) DESC
-    LIMIT 200
   `);
 
   res.json(rows.rows);
