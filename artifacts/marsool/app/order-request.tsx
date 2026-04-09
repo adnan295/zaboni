@@ -285,7 +285,7 @@ export default function OrderRequestScreen() {
           <View style={[styles.feeCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <MaterialIcons name="delivery-dining" size={20} color={colors.primary} />
             <View style={styles.addrInfo}>
-              <Text style={[styles.addrLabel, { color: colors.mutedForeground }]}>رسوم التوصيل</Text>
+              <Text style={[styles.addrLabel, { color: colors.mutedForeground }]}>{t("orderRequest.deliveryFee")}</Text>
               {feeLoading ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : feePreview ? (

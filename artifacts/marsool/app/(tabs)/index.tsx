@@ -28,36 +28,10 @@ import { useGetRestaurants } from "@workspace/api-client-react";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const BANNER_WIDTH = SCREEN_WIDTH - 32;
 
-interface PromoBanner {
-  id: string;
-  title: string;
-  subtitle: string;
-  bg: string;
-  icon: keyof typeof MaterialIcons.glyphMap;
-}
-
-const PROMO_BANNERS: PromoBanner[] = [
-  {
-    id: "1",
-    title: "توصيل سريع لباب بيتك",
-    subtitle: "أطلب الآن وتابع المندوب مباشرة على الخريطة",
-    bg: "#FF6B00",
-    icon: "delivery-dining",
-  },
-  {
-    id: "2",
-    title: "أفضل المطاعم في دمشق",
-    subtitle: "اكتشف قائمة متنوعة من البرغر، البيتزا، المشاوي وأكثر",
-    bg: "#1e40af",
-    icon: "restaurant",
-  },
-  {
-    id: "3",
-    title: "ادفع عند الاستلام",
-    subtitle: "لا حاجة لبطاقة بنكية — ادفع نقداً عند وصول طلبك",
-    bg: "#065f46",
-    icon: "payments",
-  },
+const BANNER_ICONS: [keyof typeof MaterialIcons.glyphMap, string][] = [
+  ["delivery-dining", "#FF6B00"],
+  ["restaurant", "#1e40af"],
+  ["payments", "#065f46"],
 ];
 
 export default function HomeScreen() {
@@ -88,7 +62,7 @@ export default function HomeScreen() {
 
   const handleBannerScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const idx = Math.round(e.nativeEvent.contentOffset.x / BANNER_WIDTH);
-    setActiveBanner(Math.max(0, Math.min(idx, PROMO_BANNERS.length - 1)));
+    setActiveBanner(Math.max(0, Math.min(idx, BANNER_ICONS.length - 1)));
   };
 
   const allRestaurants = apiRestaurants ?? [];
@@ -148,9 +122,7 @@ export default function HomeScreen() {
         <View style={styles.greeting}>
           {firstName ? (
             <Text style={[styles.greetTitle, { color: colors.foreground }]}>
-              {"أهلاً، "}
-              <Text style={{ color: colors.primary }}>{firstName}</Text>
-              {" 👋"}
+              {t("home.greeting", { name: firstName })}
             </Text>
           ) : (
             <Text style={[styles.greetTitle, { color: colors.foreground }]}>
@@ -174,46 +146,54 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
         {/* Promotional Banners Carousel */}
-        <View style={styles.bannersSection}>
-          <ScrollView
-            ref={bannerScrollRef}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            snapToInterval={BANNER_WIDTH + 12}
-            decelerationRate="fast"
-            contentContainerStyle={styles.bannersScroll}
-            onMomentumScrollEnd={handleBannerScroll}
-          >
-            {PROMO_BANNERS.map((banner) => (
-              <View
-                key={banner.id}
-                style={[styles.bannerCard, { backgroundColor: banner.bg, width: BANNER_WIDTH }]}
+        {(() => {
+          const banners = t("home.banners", { returnObjects: true }) as { title: string; subtitle: string }[];
+          return (
+            <View style={styles.bannersSection}>
+              <ScrollView
+                ref={bannerScrollRef}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                snapToInterval={BANNER_WIDTH + 12}
+                decelerationRate="fast"
+                contentContainerStyle={styles.bannersScroll}
+                onMomentumScrollEnd={handleBannerScroll}
               >
-                <View style={styles.bannerContent}>
-                  <View style={styles.bannerText}>
-                    <Text style={styles.bannerTitle}>{banner.title}</Text>
-                    <Text style={styles.bannerSubtitle}>{banner.subtitle}</Text>
-                  </View>
-                  <View style={[styles.bannerIconBg, { backgroundColor: "rgba(255,255,255,0.15)" }]}>
-                    <MaterialIcons name={banner.icon} size={40} color="#fff" />
-                  </View>
-                </View>
+                {banners.map((banner, idx) => {
+                  const [icon, bg] = BANNER_ICONS[idx] ?? ["local-offer", "#FF6B00"];
+                  return (
+                    <View
+                      key={idx}
+                      style={[styles.bannerCard, { backgroundColor: bg, width: BANNER_WIDTH }]}
+                    >
+                      <View style={styles.bannerContent}>
+                        <View style={styles.bannerText}>
+                          <Text style={styles.bannerTitle}>{banner.title}</Text>
+                          <Text style={styles.bannerSubtitle}>{banner.subtitle}</Text>
+                        </View>
+                        <View style={[styles.bannerIconBg, { backgroundColor: "rgba(255,255,255,0.15)" }]}>
+                          <MaterialIcons name={icon} size={40} color="#fff" />
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+              <View style={styles.dotsRow}>
+                {banners.map((_, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.dot,
+                      { backgroundColor: i === activeBanner ? colors.primary : colors.border },
+                    ]}
+                  />
+                ))}
               </View>
-            ))}
-          </ScrollView>
-          <View style={styles.dotsRow}>
-            {PROMO_BANNERS.map((_, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.dot,
-                  { backgroundColor: i === activeBanner ? colors.primary : colors.border },
-                ]}
-              />
-            ))}
-          </View>
-        </View>
+            </View>
+          );
+        })()}
 
         {/* Categories */}
         <ScrollView

@@ -44,6 +44,7 @@ export default function OrderTrackingScreen() {
   const { getOrder } = useOrders();
   const { hasRated, ratingsLoaded } = useRatings();
   const [, forceUpdate] = useState(0);
+  const [showChatPrompt, setShowChatPrompt] = useState(false);
 
   const order = getOrder(id ?? "");
   const initialOrder = order;
@@ -70,7 +71,7 @@ export default function OrderTrackingScreen() {
   const simulationInitialized = useRef(false);
 
   useEffect(() => {
-    const interval = setInterval(() => forceUpdate((n) => n + 1), 800);
+    const interval = setInterval(() => forceUpdate((n) => n + 1), 2000);
     return () => clearInterval(interval);
   }, []);
 
@@ -253,9 +254,7 @@ export default function OrderTrackingScreen() {
         if (current === "accepted") {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           Animated.spring(acceptedScale, { toValue: 1, tension: 60, friction: 8, useNativeDriver: USE_NATIVE_DRIVER }).start();
-          setTimeout(() => {
-            router.push({ pathname: "/chat/[orderId]", params: { orderId: order.id } });
-          }, 1200);
+          setShowChatPrompt(true);
         } else if (current === "picked_up" || current === "on_way") {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         } else if (current === "delivered") {
@@ -406,6 +405,36 @@ export default function OrderTrackingScreen() {
             >
               <Text style={[styles.reorderText, { color: "#fff" }]}>{t("orderTracking.reorder")}</Text>
             </TouchableOpacity>
+          </View>
+        )}
+
+        {showChatPrompt && !isCancelled && order && (
+          <View style={[styles.chatPromptBanner, { backgroundColor: "#22c55e" }]}>
+            <View style={styles.chatPromptContent}>
+              <MaterialIcons name="check-circle" size={22} color="#fff" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.chatPromptTitle}>{t("orderTracking.courier.acceptedBanner")}</Text>
+                <Text style={styles.chatPromptNote}>{t("orderTracking.courier.chatPromptNote")}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowChatPrompt(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <MaterialIcons name="close" size={20} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.chatPromptActions}>
+              <TouchableOpacity
+                style={styles.chatPromptBtn}
+                onPress={() => {
+                  setShowChatPrompt(false);
+                  router.push({ pathname: "/chat/[orderId]", params: { orderId: order.id } });
+                }}
+              >
+                <MaterialIcons name="chat" size={16} color="#22c55e" />
+                <Text style={styles.chatPromptBtnText}>{t("orderTracking.courier.chatPromptBtn")}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.chatPromptDismiss} onPress={() => setShowChatPrompt(false)}>
+                <Text style={styles.chatPromptDismissText}>{t("orderTracking.courier.chatPromptDismiss")}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
@@ -591,6 +620,44 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   chatBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  chatPromptBanner: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  chatPromptContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 14,
+  },
+  chatPromptTitle: { color: "#fff", fontWeight: "800", fontSize: 14 },
+  chatPromptNote: { color: "rgba(255,255,255,0.85)", fontSize: 12, marginTop: 2 },
+  chatPromptActions: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+  },
+  chatPromptBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    paddingVertical: 10,
+  },
+  chatPromptBtnText: { color: "#22c55e", fontWeight: "700", fontSize: 13 },
+  chatPromptDismiss: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  chatPromptDismissText: { color: "rgba(255,255,255,0.85)", fontWeight: "600", fontSize: 13 },
   statusCard: {
     marginHorizontal: 16,
     marginBottom: 12,
