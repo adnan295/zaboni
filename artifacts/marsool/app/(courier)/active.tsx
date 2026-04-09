@@ -79,6 +79,9 @@ export default function ActiveOrderScreen() {
   const [cancelling, setCancelling] = useState(false);
   const [courierLocation, setCourierLocation] = useState<CourierCoord | null>(null);
   const locationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const locationPermGrantedRef = useRef<boolean | null>(null);
+
+  const order = activeOrders[0] ?? null;
 
   useEffect(() => {
     if (Platform.OS === "web" || !order) return;
@@ -87,8 +90,11 @@ export default function ActiveOrderScreen() {
 
     const fetchLocation = async () => {
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== "granted" || cancelled) return;
+        if (locationPermGrantedRef.current === null) {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          locationPermGrantedRef.current = status === "granted";
+        }
+        if (!locationPermGrantedRef.current || cancelled) return;
         const pos = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
         });
@@ -117,8 +123,6 @@ export default function ActiveOrderScreen() {
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
-
-  const order = activeOrders[0] ?? null;
 
   const currentStepIndex = STEPS.findIndex((s) => s.status === order?.status);
   const currentStep = STEPS[currentStepIndex];
