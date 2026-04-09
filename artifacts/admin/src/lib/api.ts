@@ -139,6 +139,8 @@ export type Rating = {
   createdAt: string;
   userName: string | null;
   userPhone: string | null;
+  courierName: string | null;
+  courierPhone: string | null;
 };
 
 export type RatingsPage = {

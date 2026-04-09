@@ -463,17 +463,19 @@ router.get("/admin/ratings", async (req, res) => {
   const offsetRaw = parseInt(String(req.query["offset"] ?? "0"));
   const offset = Math.max(offsetRaw, 0);
 
-  const rows = await db
-    .select({
-      ...getTableColumns(orderRatingsTable),
-      userName: usersTable.name,
-      userPhone: usersTable.phone,
-    })
-    .from(orderRatingsTable)
-    .leftJoin(usersTable, eq(orderRatingsTable.userId, usersTable.id))
-    .orderBy(desc(orderRatingsTable.createdAt))
-    .limit(limit)
-    .offset(offset);
+  const rows = await db.execute(sql`
+    SELECT
+      r.*,
+      cu.name AS "userName",
+      cu.phone AS "userPhone",
+      cou.name AS "courierName",
+      cou.phone AS "courierPhone"
+    FROM order_ratings r
+    LEFT JOIN users cu ON r.user_id = cu.id
+    LEFT JOIN users cou ON r.courier_id = cou.id
+    ORDER BY r.created_at DESC
+    LIMIT ${limit} OFFSET ${offset}
+  `) as { rows: Record<string, unknown>[] };
 
   const [totals] = await db
     .select({
@@ -483,8 +485,12 @@ router.get("/admin/ratings", async (req, res) => {
     })
     .from(orderRatingsTable);
 
+  const ratingRows = Array.isArray((rows as unknown as { rows: unknown[] }).rows)
+    ? (rows as unknown as { rows: Record<string, unknown>[] }).rows
+    : (rows as unknown as Record<string, unknown>[]);
+
   res.json({
-    ratings: rows,
+    ratings: ratingRows,
     total: totals?.total ?? 0,
     avgRestaurantStars: totals?.avgRestaurant ? Number(Number(totals.avgRestaurant).toFixed(1)) : null,
     avgCourierStars: totals?.avgCourier ? Number(Number(totals.avgCourier).toFixed(1)) : null,

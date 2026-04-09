@@ -30,6 +30,10 @@ function RatingRow({ rating }: { rating: Rating }) {
         <div className="font-medium text-foreground">{rating.userName ?? "—"}</div>
         <div className="text-xs text-muted-foreground">{rating.userPhone ?? ""}</div>
       </td>
+      <td className="px-4 py-3 text-sm">
+        <div className="font-medium text-foreground">{rating.courierName ?? "—"}</div>
+        <div className="text-xs text-muted-foreground">{rating.courierPhone ?? ""}</div>
+      </td>
       <td className="px-4 py-3 text-sm text-muted-foreground max-w-[160px] truncate">
         {rating.restaurantName || "—"}
       </td>
@@ -108,6 +112,7 @@ export default function RatingsPage() {
                 <thead>
                   <tr className="border-b border-border bg-muted/50">
                     <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Customer</th>
+                    <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Courier</th>
                     <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Restaurant</th>
                     <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Restaurant ★</th>
                     <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Courier ★</th>
