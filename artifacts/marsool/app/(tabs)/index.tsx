@@ -18,27 +18,60 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import RestaurantCard from "@/components/RestaurantCard";
-import { CATEGORIES } from "@/data/restaurants";
 import { useAddresses } from "@/context/AddressContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import { useOrders } from "@/context/OrderContext";
 import { useAuth } from "@/context/AuthContext";
 import { useGetRestaurants } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
+import { getApiBaseUrl } from "@/lib/apiConfig";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const BANNER_WIDTH = SCREEN_WIDTH - 32;
 
-const BANNER_ICONS: [keyof typeof MaterialIcons.glyphMap, string][] = [
-  ["delivery-dining", "#FF6B00"],
-  ["restaurant", "#1e40af"],
-  ["payments", "#065f46"],
-];
+type PromoBanner = {
+  id: string;
+  titleAr: string;
+  titleEn: string;
+  subtitleAr: string;
+  subtitleEn: string;
+  iconName: string;
+  bgColor: string;
+  sortOrder: number;
+  isActive: boolean;
+};
+
+type RestaurantCategory = {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  iconName: string;
+  sortOrder: number;
+  isActive: boolean;
+};
+
+async function fetchBanners(): Promise<PromoBanner[]> {
+  const base = getApiBaseUrl();
+  const res = await fetch(`${base}/api/banners`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+async function fetchCategories(): Promise<RestaurantCategory[]> {
+  const base = getApiBaseUrl();
+  const res = await fetch(`${base}/api/categories`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+const ALL_CATEGORY = { id: "all", nameAr: "الكل", nameEn: "All", iconName: "grid-view" };
 
 export default function HomeScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isAr = i18n.language === "ar";
   const [selectedCategory, setSelectedCategory] = useState("all");
   const { defaultAddress } = useAddresses();
   const { unreadCount } = useNotifications();
@@ -46,6 +79,9 @@ export default function HomeScreen() {
   const { user } = useAuth();
 
   const { data: apiRestaurants, isLoading: restaurantsLoading, refetch } = useGetRestaurants();
+  const { data: apiBanners = [] } = useQuery({ queryKey: ["banners"], queryFn: fetchBanners, staleTime: 5 * 60 * 1000 });
+  const { data: apiCategories = [] } = useQuery({ queryKey: ["categories"], queryFn: fetchCategories, staleTime: 5 * 60 * 1000 });
+
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
@@ -59,12 +95,13 @@ export default function HomeScreen() {
 
   const [activeBanner, setActiveBanner] = useState(0);
   const bannerScrollRef = useRef<ScrollView>(null);
-  const promoBanners = t("home.banners", { returnObjects: true }) as { title: string; subtitle: string }[];
 
   const handleBannerScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const idx = Math.round(e.nativeEvent.contentOffset.x / BANNER_WIDTH);
-    setActiveBanner(Math.max(0, Math.min(idx, promoBanners.length - 1)));
+    setActiveBanner(Math.max(0, Math.min(idx, apiBanners.length - 1)));
   };
+
+  const displayCategories = [ALL_CATEGORY, ...apiCategories];
 
   const allRestaurants = apiRestaurants ?? [];
   const filtered = allRestaurants.filter((r) => {
@@ -82,6 +119,12 @@ export default function HomeScreen() {
   };
 
   const firstName = user?.name ? user.name.split(" ")[0] : null;
+
+  const selectedCategoryLabel = (() => {
+    const found = displayCategories.find((c) => c.id === selectedCategory);
+    if (!found) return "";
+    return isAr ? found.nameAr : found.nameEn;
+  })();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -147,49 +190,58 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
         {/* Promotional Banners Carousel */}
-        <View style={styles.bannersSection}>
-          <ScrollView
-            ref={bannerScrollRef}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            snapToInterval={BANNER_WIDTH + 12}
-            decelerationRate="fast"
-            contentContainerStyle={styles.bannersScroll}
-            onMomentumScrollEnd={handleBannerScroll}
-          >
-            {promoBanners.map((banner, idx) => {
-              const [icon, bg] = BANNER_ICONS[idx] ?? ["local-offer", "#FF6B00"];
-              return (
+        {apiBanners.length > 0 && (
+          <View style={styles.bannersSection}>
+            <ScrollView
+              ref={bannerScrollRef}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              snapToInterval={BANNER_WIDTH + 12}
+              decelerationRate="fast"
+              contentContainerStyle={styles.bannersScroll}
+              onMomentumScrollEnd={handleBannerScroll}
+            >
+              {apiBanners.map((banner) => (
                 <View
-                  key={idx}
-                  style={[styles.bannerCard, { backgroundColor: bg, width: BANNER_WIDTH }]}
+                  key={banner.id}
+                  style={[styles.bannerCard, { backgroundColor: banner.bgColor, width: BANNER_WIDTH }]}
                 >
                   <View style={styles.bannerContent}>
                     <View style={styles.bannerText}>
-                      <Text style={styles.bannerTitle}>{banner.title}</Text>
-                      <Text style={styles.bannerSubtitle}>{banner.subtitle}</Text>
+                      <Text style={styles.bannerTitle}>
+                        {isAr ? banner.titleAr : banner.titleEn}
+                      </Text>
+                      <Text style={styles.bannerSubtitle}>
+                        {isAr ? banner.subtitleAr : banner.subtitleEn}
+                      </Text>
                     </View>
                     <View style={[styles.bannerIconBg, { backgroundColor: "rgba(255,255,255,0.15)" }]}>
-                      <MaterialIcons name={icon} size={40} color="#fff" />
+                      <MaterialIcons
+                        name={(banner.iconName as keyof typeof MaterialIcons.glyphMap) ?? "local-offer"}
+                        size={40}
+                        color="#fff"
+                      />
                     </View>
                   </View>
                 </View>
-              );
-            })}
-          </ScrollView>
-          <View style={styles.dotsRow}>
-            {promoBanners.map((_, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.dot,
-                  { backgroundColor: i === activeBanner ? colors.primary : colors.border },
-                ]}
-              />
-            ))}
+              ))}
+            </ScrollView>
+            {apiBanners.length > 1 && (
+              <View style={styles.dotsRow}>
+                {apiBanners.map((_, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.dot,
+                      { backgroundColor: i === activeBanner ? colors.primary : colors.border },
+                    ]}
+                  />
+                ))}
+              </View>
+            )}
           </View>
-        </View>
+        )}
 
         {/* Categories */}
         <ScrollView
@@ -198,7 +250,7 @@ export default function HomeScreen() {
           contentContainerStyle={styles.categoriesScroll}
           style={styles.categoriesContainer}
         >
-          {CATEGORIES.map((cat) => (
+          {displayCategories.map((cat) => (
             <TouchableOpacity
               key={cat.id}
               style={[
@@ -216,7 +268,7 @@ export default function HomeScreen() {
                   { color: selectedCategory === cat.id ? "#fff" : colors.foreground },
                 ]}
               >
-                {cat.name}
+                {isAr ? cat.nameAr : cat.nameEn}
               </Text>
             </TouchableOpacity>
           ))}
@@ -249,7 +301,7 @@ export default function HomeScreen() {
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
               {selectedCategory === "all"
                 ? t("home.allRestaurants")
-                : CATEGORIES.find((c) => c.id === selectedCategory)?.name}
+                : selectedCategoryLabel}
               <Text style={[styles.count, { color: colors.mutedForeground }]}> ({filtered.length})</Text>
             </Text>
             <TouchableOpacity onPress={() => router.push("/search")}>
