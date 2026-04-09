@@ -552,6 +552,7 @@ export default function Restaurants() {
                 <th className="text-left px-4 py-3 font-medium">Category</th>
                 <th className="text-left px-4 py-3 font-medium">Rating</th>
                 <th className="text-left px-4 py-3 font-medium">Fee (ل.س)</th>
+                <th className="text-left px-4 py-3 font-medium">Orders</th>
                 <th className="text-left px-4 py-3 font-medium">Status</th>
                 <th className="text-right px-4 py-3 font-medium">Actions</th>
               </tr>
@@ -584,6 +585,11 @@ export default function Restaurants() {
                     {r.deliveryFee === 0
                       ? "Free"
                       : `${r.deliveryFee.toLocaleString("ar-SY")} ل.س`}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="font-semibold text-orange-600">
+                      {Number(r.ordersCount ?? 0)}
+                    </span>
                   </td>
                   <td className="px-4 py-3">
                     <span

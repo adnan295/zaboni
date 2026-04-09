@@ -44,6 +44,9 @@ export type Stats = {
   recentOrders: (Order & { customerName: string | null })[];
 };
 
+export type DailyChart = { day: string; date: string; orders: number };
+export type HourlyChart = { hour: number; orders: number };
+
 export type Restaurant = {
   id: string;
   name: string;
@@ -59,6 +62,7 @@ export type Restaurant = {
   tags: string[];
   isOpen: boolean;
   discount: string | null;
+  ordersCount?: number;
 };
 
 export type MenuItem = {
@@ -109,6 +113,25 @@ export type User = {
   createdAt: string;
 };
 
+export type Courier = {
+  id: string;
+  name: string;
+  phone: string;
+  createdAt: string;
+  deliveredCount: number;
+  totalAssigned: number;
+  avgRating: number | null;
+  lastDelivery: string | null;
+};
+
+export const ORDER_STATUSES = [
+  "searching",
+  "accepted",
+  "picked_up",
+  "on_way",
+  "delivered",
+] as const;
+
 export const api = {
   async verifyToken(token: string): Promise<boolean> {
     const res = await fetch(`${API_BASE}/admin/stats`, {
@@ -118,6 +141,9 @@ export const api = {
   },
 
   getStats: () => apiFetch<Stats>("/admin/stats"),
+  getDailyChart: () => apiFetch<DailyChart[]>("/admin/charts/daily"),
+  getHourlyChart: () => apiFetch<HourlyChart[]>("/admin/charts/hourly"),
+
   getRestaurants: () => apiFetch<Restaurant[]>("/admin/restaurants"),
   createRestaurant: (data: Partial<Restaurant>) =>
     apiFetch<Restaurant>("/admin/restaurants", {
@@ -151,6 +177,14 @@ export const api = {
 
   getOrders: (page = 1, limit = 50) =>
     apiFetch<OrdersPage>(`/admin/orders?page=${page}&limit=${limit}`),
+  updateOrderStatus: (id: string, status: string) =>
+    apiFetch<Order>(`/admin/orders/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    }),
+
+  getCouriers: () => apiFetch<Courier[]>("/admin/couriers"),
+
   getUsers: () => apiFetch<User[]>("/admin/users"),
   updateUserRole: (id: string, role: "customer" | "courier") =>
     apiFetch<User>(`/admin/users/${id}/role`, {

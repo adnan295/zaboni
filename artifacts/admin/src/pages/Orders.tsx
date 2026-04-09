@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { api, type Order } from "@/lib/api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api, type Order, ORDER_STATUSES } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +28,49 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const PAGE_SIZE = 50;
+
+function exportCSV(orders: Order[]) {
+  const headers = [
+    "ID",
+    "Order Text",
+    "Customer",
+    "Customer Phone",
+    "Restaurant",
+    "Status",
+    "Courier",
+    "Courier Phone",
+    "Address",
+    "Payment",
+    "Est. Minutes",
+    "Created At",
+    "Updated At",
+  ];
+
+  const rows = orders.map((o) => [
+    o.id,
+    `"${(o.orderText ?? "").replace(/"/g, '""')}"`,
+    o.customerName ?? "",
+    o.customerPhone ?? "",
+    o.restaurantName ?? "",
+    o.status,
+    o.courierName ?? "",
+    o.courierPhone ?? "",
+    `"${(o.address ?? "").replace(/"/g, '""')}"`,
+    o.paymentMethod,
+    o.estimatedMinutes,
+    new Date(o.createdAt).toISOString(),
+    new Date(o.updatedAt).toISOString(),
+  ]);
+
+  const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `marsool-orders-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export default function Orders() {
   const [search, setSearch] = useState("");
@@ -58,7 +101,17 @@ export default function Orders() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Orders</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">Orders</h1>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => exportCSV(filtered)}
+          disabled={filtered.length === 0}
+        >
+          ⬇ Export CSV ({filtered.length})
+        </Button>
+      </div>
 
       <div className="flex gap-3 flex-wrap items-center">
         <Input
@@ -151,6 +204,15 @@ export default function Orders() {
 
 function OrderRow({ order }: { order: Order }) {
   const [expanded, setExpanded] = useState(false);
+  const qc = useQueryClient();
+
+  const statusMutation = useMutation({
+    mutationFn: (status: string) => api.updateOrderStatus(order.id, status),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "orders"] });
+      qc.invalidateQueries({ queryKey: ["admin", "stats"] });
+    },
+  });
 
   return (
     <>
@@ -197,8 +259,8 @@ function OrderRow({ order }: { order: Order }) {
       </tr>
       {expanded && (
         <tr className="bg-muted/20">
-          <td colSpan={7} className="px-4 py-3">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+          <td colSpan={7} className="px-4 py-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mb-4">
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1">
                   Order Text
@@ -255,6 +317,44 @@ function OrderRow({ order }: { order: Order }) {
                 </p>
                 <p>{new Date(order.updatedAt).toLocaleString()}</p>
               </div>
+            </div>
+
+            <div
+              className="flex items-center gap-2 pt-3 border-t"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p className="text-xs font-medium text-muted-foreground">
+                Force Status:
+              </p>
+              <Select
+                value={order.status}
+                onValueChange={(v) => statusMutation.mutate(v)}
+                disabled={statusMutation.isPending}
+              >
+                <SelectTrigger className="w-44 h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ORDER_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s} className="text-xs">
+                      {STATUS_LABELS[s]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {statusMutation.isPending && (
+                <span className="text-xs text-muted-foreground">
+                  Updating…
+                </span>
+              )}
+              {statusMutation.isSuccess && (
+                <span className="text-xs text-green-600">✓ Updated</span>
+              )}
+              {statusMutation.isError && (
+                <span className="text-xs text-destructive">
+                  Failed: {(statusMutation.error as Error).message}
+                </span>
+              )}
             </div>
           </td>
         </tr>
