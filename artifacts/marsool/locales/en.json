@@ -1,0 +1,6 @@
+{
+  "CFBundleDisplayName": "Marsool",
+  "NSLocationWhenInUseUsageDescription": "Marsool needs your location to identify the delivery address and nearby couriers",
+  "NSLocationAlwaysUsageDescription": "Marsool needs your location to identify the delivery address and nearby couriers",
+  "NSCameraUsageDescription": "Marsool needs camera access for order photo uploads"
+}
