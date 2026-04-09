@@ -10,7 +10,7 @@ import { Platform } from "react-native";
 import { io, Socket } from "socket.io-client";
 import {
   createOrder as apiCreateOrder,
-  getOrders as apiFetchOrders,
+  customFetch,
 } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
 import { getApiBaseUrl } from "@/lib/apiConfig";
@@ -89,9 +89,11 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
-        const fetched = await apiFetchOrders({});
-        if (!cancelled && fetched && fetched.length > 0) {
-          setOrders(fetched.map(apiOrderToLocal));
+        const response = await customFetch("/api/orders?limit=50");
+        const data = response as { orders?: typeof response; total?: number } | unknown[];
+        const fetched = Array.isArray(data) ? data : (data as { orders?: unknown[] }).orders ?? [];
+        if (!cancelled && fetched.length > 0) {
+          setOrders((fetched as Parameters<typeof apiOrderToLocal>[0][]).map(apiOrderToLocal));
         }
       } catch {
       }

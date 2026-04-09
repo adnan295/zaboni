@@ -191,10 +191,20 @@ router.get("/admin/restaurants", async (_req, res) => {
         WHERE ${ordersTable.restaurantName} = ${restaurantsTable.nameAr}
            OR ${ordersTable.restaurantName} = ${restaurantsTable.name}
       )`.as("orders_count"),
+      avgCourierRating: sql<number | null>`(
+        SELECT ROUND(CAST(AVG(NULLIF(courier_rating, 0)) AS numeric), 1)
+        FROM ${ordersTable}
+        WHERE (${ordersTable.restaurantName} = ${restaurantsTable.nameAr}
+           OR ${ordersTable.restaurantName} = ${restaurantsTable.name})
+          AND courier_rating > 0
+      )`.as("avg_courier_rating"),
     })
     .from(restaurantsTable)
     .orderBy(restaurantsTable.name);
-  res.json(rows);
+  res.json(rows.map((r) => ({
+    ...r,
+    avgCourierRating: r.avgCourierRating != null ? Number(r.avgCourierRating) : null,
+  })));
 });
 
 const restaurantBody = z.object({

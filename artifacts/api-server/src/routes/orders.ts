@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request } from "express";
 import { db, ordersTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable } from "@workspace/db";
-import { and, eq, or } from "drizzle-orm";
+import { and, count, desc, eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { notifyOrderUpdate } from "../orders/server";
 
@@ -30,12 +30,29 @@ function resolveUserId(req: Request): string {
 
 router.get("/orders", async (req, res) => {
   const userId = resolveUserId(req);
-  const rows = await db
-    .select()
-    .from(ordersTable)
-    .where(eq(ordersTable.userId, userId))
-    .orderBy(ordersTable.createdAt);
-  res.json(rows);
+  const pageRaw = parseInt(String(req.query["page"] ?? "1"));
+  const limitRaw = parseInt(String(req.query["limit"] ?? "20"));
+  const page = Math.max(1, isNaN(pageRaw) ? 1 : pageRaw);
+  const limit = Math.min(50, Math.max(1, isNaN(limitRaw) ? 20 : limitRaw));
+  const offset = (page - 1) * limit;
+
+  const [allRows, countRows] = await Promise.all([
+    db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.userId, userId))
+      .orderBy(desc(ordersTable.createdAt))
+      .limit(limit)
+      .offset(offset),
+    db
+      .select({ count: count() })
+      .from(ordersTable)
+      .where(eq(ordersTable.userId, userId)),
+  ]);
+
+  const total = Number(countRows[0]?.count ?? 0);
+  const hasMore = offset + allRows.length < total;
+  res.json({ orders: allRows, total, hasMore, page, limit });
 });
 
 router.post("/orders", async (req, res) => {
