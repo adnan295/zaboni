@@ -22,6 +22,7 @@ import WalletRequests from "@/pages/WalletRequests";
 import Settings from "@/pages/Settings";
 import CourierApplications from "@/pages/CourierApplications";
 import Content from "@/pages/Content";
+import LiveMap from "@/pages/LiveMap";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -52,6 +53,7 @@ function Router({ onLogout }: { onLogout: () => void }) {
         <Route path="/settings" component={Settings} />
         <Route path="/courier-applications" component={CourierApplications} />
         <Route path="/content" component={Content} />
+        <Route path="/live-map" component={LiveMap} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

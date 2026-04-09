@@ -193,6 +193,55 @@ router.get("/admin/couriers", async (_req, res) => {
   );
 });
 
+router.get("/admin/couriers/locations", async (_req, res) => {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const rows = await db.execute(sql`
+    SELECT
+      u.id,
+      u.name,
+      u.phone,
+      u.is_online AS "isOnline",
+      u.courier_lat AS lat,
+      u.courier_lon AS lon,
+      u.courier_location_updated_at AS "locationUpdatedAt",
+      COUNT(o.id) FILTER (WHERE o.status = 'delivered' AND o.updated_at >= ${todayStart}) AS "todayDeliveries",
+      (
+        SELECT json_build_object(
+          'id', ao.id,
+          'status', ao.status,
+          'orderText', ao.order_text,
+          'restaurantName', ao.restaurant_name,
+          'address', ao.address,
+          'customerName', cu.name
+        )
+        FROM orders ao
+        LEFT JOIN users cu ON cu.id = ao.user_id
+        WHERE ao.courier_id = u.id
+          AND ao.status IN ('accepted', 'picked_up', 'on_way')
+        ORDER BY ao.updated_at DESC
+        LIMIT 1
+      ) AS "currentOrder"
+    FROM users u
+    LEFT JOIN orders o ON o.courier_id = u.id
+    WHERE u.role = 'courier'
+      AND u.courier_lat IS NOT NULL
+      AND u.courier_lon IS NOT NULL
+    GROUP BY u.id, u.name, u.phone, u.is_online, u.courier_lat, u.courier_lon, u.courier_location_updated_at
+    ORDER BY u.is_online DESC, u.courier_location_updated_at DESC NULLS LAST
+  `);
+
+  res.json(
+    rows.rows.map((r: Record<string, unknown>) => ({
+      ...r,
+      lat: r["lat"] != null ? Number(r["lat"]) : null,
+      lon: r["lon"] != null ? Number(r["lon"]) : null,
+      todayDeliveries: Number(r["todayDeliveries"] ?? 0),
+    })),
+  );
+});
+
 router.get("/admin/restaurants", async (_req, res) => {
   const rows = await db
     .select({
