@@ -739,13 +739,13 @@ router.get("/admin/financial", async (req, res) => {
           ORDER BY d.date
         `);
 
-  const [totalRow, byRestaurant, revenueSeriesResult] = await Promise.all([
+  const [totalRow, byRestaurant, revenueSeriesResult, subscriptionRow] = await Promise.all([
     db.execute(sql`
       SELECT
         COUNT(*)::int AS "totalOrders",
         COUNT(*) FILTER (WHERE status = 'delivered')::int AS "deliveredOrders",
         COUNT(*) FILTER (WHERE status = 'cancelled')::int AS "cancelledOrders",
-        COALESCE(SUM(delivery_fee) FILTER (WHERE status = 'delivered'), 0)::numeric AS "totalRevenue"
+        COALESCE(SUM(delivery_fee) FILTER (WHERE status = 'delivered'), 0)::numeric AS "totalDeliveryFees"
       FROM orders
       WHERE created_at >= NOW() - CAST(${days} || ' days' AS INTERVAL)
     `),
@@ -762,15 +762,30 @@ router.get("/admin/financial", async (req, res) => {
       LIMIT 20
     `),
     revenueSeriesQuery,
+    db.execute(sql`
+      SELECT
+        COALESCE(SUM(amount) FILTER (WHERE status = 'paid'), 0)::numeric AS "subscriptionRevenue",
+        COUNT(*) FILTER (WHERE status = 'paid')::int AS "paidCount",
+        COUNT(*) FILTER (WHERE status = 'waived')::int AS "waivedCount",
+        COUNT(*) FILTER (WHERE status = 'pending')::int AS "pendingCount",
+        COUNT(DISTINCT courier_id) AS "activeCouriers"
+      FROM courier_subscriptions
+      WHERE date >= (NOW() AT TIME ZONE 'Asia/Damascus' - CAST(${days} || ' days' AS INTERVAL))::date
+    `),
   ]);
 
   const summary = totalRow.rows[0] as Record<string, unknown>;
+  const subSummary = subscriptionRow.rows[0] as Record<string, unknown>;
   res.json({
     summary: {
       totalOrders: Number(summary["totalOrders"] ?? 0),
       deliveredOrders: Number(summary["deliveredOrders"] ?? 0),
       cancelledOrders: Number(summary["cancelledOrders"] ?? 0),
-      totalRevenue: Number(summary["totalRevenue"] ?? 0),
+      totalDeliveryFees: Number(summary["totalDeliveryFees"] ?? 0),
+      subscriptionRevenue: Number(subSummary["subscriptionRevenue"] ?? 0),
+      paidSubscriptions: Number(subSummary["paidCount"] ?? 0),
+      waivedSubscriptions: Number(subSummary["waivedCount"] ?? 0),
+      pendingSubscriptions: Number(subSummary["pendingCount"] ?? 0),
     },
     byRestaurant: byRestaurant.rows.map((r: Record<string, unknown>) => ({
       restaurantName: r["restaurantName"],
