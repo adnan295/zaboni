@@ -5,15 +5,6 @@ import { z } from "zod";
 import { notifyOrderUpdate } from "../orders/server";
 import { haversineKm, getFeeForDistance, DEFAULT_DELIVERY_FEE_SYP, DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON } from "../lib/deliveryZones";
 
-function randomDamascusCoord(): { lat: number; lon: number } {
-  const latSpread = 0.12;
-  const lonSpread = 0.15;
-  return {
-    lat: DAMASCUS_CENTER_LAT + (Math.random() - 0.5) * latSpread * 2,
-    lon: DAMASCUS_CENTER_LON + (Math.random() - 0.5) * lonSpread * 2,
-  };
-}
-
 const router: IRouter = Router();
 
 const createOrderSchema = z.object({
@@ -195,8 +186,8 @@ router.post("/orders", async (req, res) => {
   const id = `${Date.now()}${Math.random().toString(36).slice(2, 9)}`;
   const estimatedMinutes = Math.floor(Math.random() * 15) + 30;
 
-  const destLat = body.data.lat ?? (DAMASCUS_CENTER_LAT + (Math.random() - 0.5) * 0.24);
-  const destLon = body.data.lon ?? (DAMASCUS_CENTER_LON + (Math.random() - 0.5) * 0.30);
+  const destLat = body.data.lat ?? DAMASCUS_CENTER_LAT;
+  const destLon = body.data.lon ?? DAMASCUS_CENTER_LON;
 
   let originLat = DAMASCUS_CENTER_LAT;
   let originLon = DAMASCUS_CENTER_LON;
