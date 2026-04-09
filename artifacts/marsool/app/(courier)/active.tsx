@@ -290,7 +290,7 @@ export default function ActiveOrderScreen() {
               </Text>
             </TouchableOpacity>
 
-            {order.address ? (
+            {(order.destinationLat && order.destinationLon) || order.address ? (
               <TouchableOpacity
                 style={[styles.navBtn, { backgroundColor: "#1a73e8" }]}
                 onPress={openNavigation}
