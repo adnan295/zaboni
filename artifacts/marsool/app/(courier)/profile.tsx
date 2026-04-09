@@ -45,6 +45,21 @@ interface ContactConfig {
   whatsapp: string;
 }
 
+interface CourierApplication {
+  id: string;
+  status: string;
+  vehicleType: "motorcycle" | "car" | "bicycle";
+  vehiclePlate: string;
+  fullName: string;
+  createdAt: string;
+}
+
+const VEHICLE_LABELS: Record<string, string> = {
+  motorcycle: "دراجة نارية",
+  car: "سيارة",
+  bicycle: "دراجة هوائية",
+};
+
 export default function CourierProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -58,6 +73,7 @@ export default function CourierProfileScreen() {
   const [savingName, setSavingName] = useState(false);
   const [adminPhone, setAdminPhone] = useState(DEFAULT_ADMIN_PHONE);
   const [adminWhatsApp, setAdminWhatsApp] = useState(DEFAULT_ADMIN_PHONE);
+  const [application, setApplication] = useState<CourierApplication | null>(null);
 
   const handleToggleAvailability = async () => {
     try {
@@ -126,12 +142,14 @@ export default function CourierProfileScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const [statsData, subData] = await Promise.all([
+        const [statsData, subData, appData] = await Promise.all([
           customFetch("/api/courier/stats") as Promise<CourierStats>,
           customFetch("/api/courier/subscription/today") as Promise<SubscriptionStatus>,
+          customFetch("/api/courier/my-application").catch(() => null) as Promise<CourierApplication | null>,
         ]);
         setStats(statsData);
         setSubscription(subData);
+        setApplication(appData);
       } catch {
         setStats(null);
         setSubscription(null);
@@ -228,6 +246,39 @@ export default function CourierProfileScreen() {
                 </Text>
               </View>
             </View>
+            {application?.vehicleType && (
+              <>
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                <View style={styles.infoRow}>
+                  <MaterialIcons name="two-wheeler" size={20} color={colors.primary} />
+                  <View style={styles.infoContent}>
+                    <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>نوع المركبة</Text>
+                    <Text style={[styles.infoValue, { color: colors.foreground }]}>
+                      {VEHICLE_LABELS[application.vehicleType] ?? application.vehicleType}
+                      {application.vehiclePlate ? `  —  ${application.vehiclePlate}` : ""}
+                    </Text>
+                  </View>
+                </View>
+              </>
+            )}
+            {application?.createdAt && (
+              <>
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                <View style={styles.infoRow}>
+                  <MaterialIcons name="calendar-today" size={20} color={colors.primary} />
+                  <View style={styles.infoContent}>
+                    <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>عضو منذ</Text>
+                    <Text style={[styles.infoValue, { color: colors.foreground }]}>
+                      {new Date(application.createdAt).toLocaleDateString("ar-SY", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </Text>
+                  </View>
+                </View>
+              </>
+            )}
           </View>
 
           <View style={[styles.availabilityCard, {

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -7,6 +7,9 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -40,12 +43,19 @@ interface CourierApplication {
   adminNote: string;
 }
 
+interface CustomerStats {
+  totalOrders: number;
+  completedOrders: number;
+  totalDeliveryFees: number;
+  memberSince: string | null;
+}
+
 export default function ProfileScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
-  const { user, signOut, isCourier, isCourierMode, setCourierMode, refreshRole } = useAuth();
+  const { user, signOut, isCourier, isCourierMode, setCourierMode, refreshRole, updateName } = useAuth();
   const { orders } = useOrders();
   const { favorites } = useFavorites();
   const { unreadCount } = useNotifications();
@@ -54,6 +64,12 @@ export default function ProfileScreen() {
 
   const [application, setApplication] = useState<CourierApplication | null>(null);
   const [appLoading, setAppLoading] = useState(false);
+  const [customerStats, setCustomerStats] = useState<CustomerStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+
+  const [editNameVisible, setEditNameVisible] = useState(false);
+  const [editNameValue, setEditNameValue] = useState("");
+  const [savingName, setSavingName] = useState(false);
 
   const avgRating =
     ratings.length > 0
@@ -87,10 +103,24 @@ export default function ProfileScreen() {
     }
   }, [isCourier, user?.id]);
 
+  const fetchCustomerStats = useCallback(async () => {
+    if (!user) return;
+    setStatsLoading(true);
+    try {
+      const data = await customFetch("/api/me/stats") as CustomerStats;
+      setCustomerStats(data);
+    } catch {
+      setCustomerStats(null);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, [user?.id]);
+
   useFocusEffect(
     useCallback(() => {
       fetchApplication();
-    }, [fetchApplication])
+      fetchCustomerStats();
+    }, [fetchApplication, fetchCustomerStats])
   );
 
   const handleSignOut = () => {
@@ -110,6 +140,39 @@ export default function ProfileScreen() {
   const handleLanguage = () => {
     const otherLang: AppLanguage = language === "ar" ? "en" : "ar";
     setLanguage(otherLang);
+  };
+
+  const openEditName = () => {
+    setEditNameValue(user?.name || "");
+    setEditNameVisible(true);
+  };
+
+  const handleSaveName = async () => {
+    const trimmed = editNameValue.trim();
+    if (!trimmed) return;
+    setSavingName(true);
+    try {
+      const updated = await customFetch("/api/auth/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed }),
+      }) as { name: string };
+      updateName(updated.name ?? trimmed);
+      setEditNameVisible(false);
+    } catch {
+      Alert.alert("خطأ", "تعذّر حفظ الاسم، حاول مجدداً");
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  const formatDate = (isoDate: string | null) => {
+    if (!isoDate) return "—";
+    return new Date(isoDate).toLocaleDateString("ar-SY", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
   };
 
   const menuItems: MenuItemDef[] = [
@@ -135,7 +198,12 @@ export default function ProfileScreen() {
             </Text>
           </View>
         </View>
-        <Text style={styles.name}>{user?.name ?? t("profile.defaultUser")}</Text>
+        <View style={styles.nameRow}>
+          <Text style={styles.name}>{user?.name ?? t("profile.defaultUser")}</Text>
+          <TouchableOpacity onPress={openEditName} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <MaterialIcons name="edit" size={18} color="rgba(255,255,255,0.8)" />
+          </TouchableOpacity>
+        </View>
         <Text style={styles.phone}>{displayPhone}</Text>
         {isCourier && (
           <View style={styles.courierBadge}>
@@ -155,20 +223,53 @@ export default function ProfileScreen() {
         {/* Stats */}
         <View style={[styles.statsRow, { backgroundColor: colors.card }]}>
           <View style={styles.stat}>
-            <Text style={[styles.statNum, { color: colors.primary }]}>{orders.length}</Text>
+            <Text style={[styles.statNum, { color: colors.primary }]}>
+              {statsLoading ? "..." : (customerStats?.totalOrders ?? orders.length)}
+            </Text>
             <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{t("profile.stats.orders")}</Text>
+          </View>
+          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+          <View style={styles.stat}>
+            <Text style={[styles.statNum, { color: colors.primary }]}>
+              {statsLoading ? "..." : (customerStats?.completedOrders ?? favorites.length)}
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>مكتملة</Text>
           </View>
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
           <View style={styles.stat}>
             <Text style={[styles.statNum, { color: colors.primary }]}>{favorites.length}</Text>
             <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{t("profile.stats.favorites")}</Text>
           </View>
-          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          <View style={styles.stat}>
-            <Text style={[styles.statNum, { color: colors.primary }]}>{avgRating}</Text>
-            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{t("profile.stats.avgRating")}</Text>
-          </View>
         </View>
+
+        {/* Customer info card */}
+        {customerStats !== null && (
+          <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.infoRow}>
+              <MaterialIcons name="account-balance-wallet" size={18} color={colors.primary} />
+              <View style={styles.infoContent}>
+                <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>إجمالي رسوم التوصيل المدفوعة</Text>
+                <Text style={[styles.infoValue, { color: colors.foreground }]}>
+                  {customerStats.totalDeliveryFees.toLocaleString("ar-SY")} ل.س
+                </Text>
+              </View>
+            </View>
+            {customerStats.memberSince && (
+              <>
+                <View style={[styles.infoDivider, { backgroundColor: colors.border }]} />
+                <View style={styles.infoRow}>
+                  <MaterialIcons name="calendar-today" size={18} color={colors.primary} />
+                  <View style={styles.infoContent}>
+                    <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>عضو منذ</Text>
+                    <Text style={[styles.infoValue, { color: colors.foreground }]}>
+                      {formatDate(customerStats.memberSince)}
+                    </Text>
+                  </View>
+                </View>
+              </>
+            )}
+          </View>
+        )}
 
         {/* Language chip */}
         <View style={[styles.langChip, { backgroundColor: colors.secondary }]}>
@@ -189,7 +290,6 @@ export default function ProfileScreen() {
             <ActivityIndicator color={colors.primary} />
           </View>
         ) : appStatus === "approved" ? (
-          /* Already a courier — show mode status card (no manual toggle) */
           <View style={[styles.courierCard, { backgroundColor: "#F0FFF4", borderColor: "#B0E8C0" }]}>
             <View style={styles.courierCardHeader}>
               <MaterialIcons name="verified" size={28} color="#4CAF50" />
@@ -206,7 +306,6 @@ export default function ProfileScreen() {
             </View>
           </View>
         ) : appStatus === "pending" ? (
-          /* Application pending */
           <View style={[styles.courierCard, { backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }]}>
             <View style={styles.courierCardHeader}>
               <MaterialIcons name="hourglass-empty" size={28} color="#D97706" />
@@ -221,7 +320,6 @@ export default function ProfileScreen() {
             </View>
           </View>
         ) : appStatus === "rejected" ? (
-          /* Application rejected */
           <View style={[styles.courierCard, { backgroundColor: "#FFF1F2", borderColor: "#FECDD3" }]}>
             <View style={styles.courierCardHeader}>
               <MaterialIcons name="cancel" size={28} color="#E11D48" />
@@ -248,7 +346,6 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          /* No application — show apply card */
           <View style={[styles.courierCard, { backgroundColor: "#FFF7F0", borderColor: "#FFD5B0" }]}>
             <View style={styles.courierCardHeader}>
               <MaterialIcons name="delivery-dining" size={28} color="#FF6B00" />
@@ -323,6 +420,62 @@ export default function ProfileScreen() {
           {t("profile.version")}
         </Text>
       </ScrollView>
+
+      {/* Edit Name Modal */}
+      <Modal
+        visible={editNameVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditNameVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalOverlay}
+        >
+          <View style={[styles.editNameSheet, { backgroundColor: colors.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.foreground }]}>تعديل الاسم</Text>
+              <TouchableOpacity onPress={() => setEditNameVisible(false)}>
+                <MaterialIcons name="close" size={24} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={[styles.nameInput, {
+                backgroundColor: colors.secondary,
+                color: colors.foreground,
+                borderColor: colors.border,
+              }]}
+              value={editNameValue}
+              onChangeText={setEditNameValue}
+              placeholder="الاسم الكامل"
+              placeholderTextColor={colors.mutedForeground}
+              autoFocus
+              maxLength={60}
+              textAlign="right"
+            />
+            <View style={styles.editNameActions}>
+              <TouchableOpacity
+                style={[styles.editNameCancelBtn, { borderColor: colors.border }]}
+                onPress={() => setEditNameVisible(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.editNameCancelText, { color: colors.mutedForeground }]}>تراجع</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.editNameSaveBtn, { backgroundColor: colors.primary, opacity: savingName ? 0.7 : 1 }]}
+                onPress={handleSaveName}
+                disabled={savingName || !editNameValue.trim()}
+                activeOpacity={0.8}
+              >
+                {savingName
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={styles.editNameSaveText}>حفظ</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -344,6 +497,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   avatarInitial: { fontSize: 32, fontWeight: "800", color: "#fff" },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 2 },
   name: { fontSize: 20, fontWeight: "800", color: "#fff" },
   phone: { fontSize: 14, color: "rgba(255,255,255,0.8)", marginTop: 4 },
   courierBadge: {
@@ -378,6 +532,23 @@ const styles = StyleSheet.create({
   statNum: { fontSize: 22, fontWeight: "800" },
   statLabel: { fontSize: 12 },
   statDivider: { width: 1, height: "100%" },
+  infoCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 14,
+    gap: 12,
+  },
+  infoContent: { flex: 1 },
+  infoLabel: { fontSize: 12, marginBottom: 2 },
+  infoValue: { fontSize: 14, fontWeight: "600" },
+  infoDivider: { height: 1, marginHorizontal: 14 },
   langChip: {
     flexDirection: "row",
     alignItems: "center",
@@ -457,4 +628,45 @@ const styles = StyleSheet.create({
   },
   signOutText: { fontSize: 15, fontWeight: "700" },
   version: { textAlign: "center", fontSize: 12, marginTop: 24 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  editNameSheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    gap: 16,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  modalTitle: { fontSize: 18, fontWeight: "700" },
+  nameInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    fontFamily: "Tajawal_500Medium",
+  },
+  editNameActions: { flexDirection: "row", gap: 12 },
+  editNameCancelBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  editNameCancelText: { fontSize: 15, fontWeight: "600" },
+  editNameSaveBtn: {
+    flex: 2,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  editNameSaveText: { color: "#fff", fontSize: 15, fontWeight: "700" },
 });

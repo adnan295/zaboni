@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { randomInt } from "crypto";
-import { db, otpCodesTable, usersTable } from "@workspace/db";
-import { and, eq, gt } from "drizzle-orm";
+import { db, otpCodesTable, usersTable, ordersTable } from "@workspace/db";
+import { and, eq, gt, count, sum } from "drizzle-orm";
 import { z } from "zod";
 import jwt from "jsonwebtoken";
 import { parsePhoneNumber, isValidPhoneNumber } from "libphonenumber-js";
@@ -291,6 +291,40 @@ router.patch("/auth/me", async (req, res) => {
   if (rows.length === 0) { res.status(404).json({ error: "User not found" }); return; }
 
   res.json(rows[0]);
+});
+
+router.get("/me/stats", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const token = authHeader.slice(7);
+  const secret = getJwtSecret();
+
+  let userId: string;
+  try {
+    const payload = jwt.verify(token, secret) as { userId: string };
+    userId = payload.userId;
+  } catch {
+    res.status(401).json({ error: "Invalid or expired token" });
+    return;
+  }
+
+  const [userRow, totalRow, completedRow, deliveryFeeRow] = await Promise.all([
+    db.select({ createdAt: usersTable.createdAt }).from(usersTable).where(eq(usersTable.id, userId)).limit(1),
+    db.select({ count: count() }).from(ordersTable).where(eq(ordersTable.userId, userId)),
+    db.select({ count: count() }).from(ordersTable).where(and(eq(ordersTable.userId, userId), eq(ordersTable.status, "delivered"))),
+    db.select({ total: sum(ordersTable.deliveryFee) }).from(ordersTable).where(and(eq(ordersTable.userId, userId), eq(ordersTable.status, "delivered"))),
+  ]);
+
+  res.json({
+    totalOrders: totalRow[0]?.count ?? 0,
+    completedOrders: completedRow[0]?.count ?? 0,
+    totalDeliveryFees: Number(deliveryFeeRow[0]?.total ?? 0),
+    memberSince: userRow[0]?.createdAt ?? null,
+  });
 });
 
 export default router;
