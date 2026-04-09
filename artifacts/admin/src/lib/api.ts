@@ -153,6 +153,7 @@ export const ORDER_STATUSES = [
   "picked_up",
   "on_way",
   "delivered",
+  "cancelled",
 ] as const;
 
 export const api = {

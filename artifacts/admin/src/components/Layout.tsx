@@ -34,7 +34,7 @@ export default function Layout({ children, onLogout }: LayoutProps) {
 
   const activeOrders =
     stats?.ordersByStatus
-      .filter((s) => s.status !== "delivered")
+      .filter((s) => s.status !== "delivered" && s.status !== "cancelled")
       .reduce((sum, s) => sum + Number(s.count), 0) ?? 0;
 
   const handleLogout = () => {

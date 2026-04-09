@@ -17,6 +17,7 @@ const STATUS_LABELS: Record<string, string> = {
   picked_up: "Picked Up",
   on_way: "On the Way",
   delivered: "Delivered",
+  cancelled: "Cancelled",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -25,6 +26,7 @@ const STATUS_COLORS: Record<string, string> = {
   picked_up: "bg-purple-100 text-purple-800",
   on_way: "bg-indigo-100 text-indigo-800",
   delivered: "bg-green-100 text-green-800",
+  cancelled: "bg-red-100 text-red-700",
 };
 
 const PAGE_SIZE = 50;
