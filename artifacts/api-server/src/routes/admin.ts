@@ -1453,6 +1453,7 @@ router.delete("/admin/banners/:id", async (req, res) => {
 });
 
 const categoryBody = z.object({
+  code: z.string().default(""),
   nameAr: z.string().min(1),
   nameEn: z.string().default(""),
   iconName: z.string().default("restaurant"),

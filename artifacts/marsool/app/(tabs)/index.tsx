@@ -44,6 +44,7 @@ type PromoBanner = {
 
 type RestaurantCategory = {
   id: string;
+  code: string;
   nameAr: string;
   nameEn: string;
   iconName: string;
@@ -59,7 +60,7 @@ const FALLBACK_BANNERS: PromoBanner[] = [
 
 const FALLBACK_CATEGORIES: RestaurantCategory[] = CATEGORIES
   .filter((c) => c.id !== "all")
-  .map((c, i) => ({ id: c.id, nameAr: c.name, nameEn: c.id, iconName: c.icon, sortOrder: i, isActive: true }));
+  .map((c, i) => ({ id: c.id, code: c.id, nameAr: c.name, nameEn: c.id, iconName: c.icon, sortOrder: i, isActive: true }));
 
 async function fetchBanners(): Promise<PromoBanner[]> {
   const base = getApiBaseUrl();
@@ -120,7 +121,9 @@ export default function HomeScreen() {
 
   const allRestaurants = apiRestaurants ?? [];
   const filtered = allRestaurants.filter((r) => {
-    return selectedCategory === "all" || r.category === selectedCategory;
+    if (selectedCategory === "all") return true;
+    const selected = apiCategories.find((c) => c.id === selectedCategory);
+    return r.category === (selected?.code || selectedCategory);
   });
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
