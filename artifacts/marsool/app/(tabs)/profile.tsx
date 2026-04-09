@@ -97,12 +97,12 @@ export default function ProfileScreen() {
 
   const handleSwitchToCourier = async () => {
     await setCourierMode(true);
-    router.replace("/(courier)/available");
+    // _layout.tsx watches isCourierMode and will redirect automatically
   };
 
   const handleSwitchToCustomer = async () => {
     await setCourierMode(false);
-    router.replace("/(tabs)");
+    // _layout.tsx watches isCourierMode and will redirect automatically
   };
 
   const menuItems: MenuItemDef[] = [
