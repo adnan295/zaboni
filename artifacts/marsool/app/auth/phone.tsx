@@ -181,9 +181,9 @@ export default function PhoneScreen() {
 
         <Text style={[styles.terms, { color: colors.mutedForeground }]}>
           {t("auth.phone.termsPrefix")}{" "}
-          <Text style={{ color: colors.primary }} onPress={() => router.push("/terms")}>{t("auth.phone.termsLink")}</Text>
+          <Text style={{ color: colors.primary }} onPress={() => router.push("/legal/terms")}>{t("auth.phone.termsLink")}</Text>
           {t("auth.phone.termsAnd")}
-          <Text style={{ color: colors.primary }} onPress={() => router.push("/privacy")}>{t("auth.phone.privacyLink")}</Text>
+          <Text style={{ color: colors.primary }} onPress={() => router.push("/legal/privacy")}>{t("auth.phone.privacyLink")}</Text>
         </Text>
       </ScrollView>
     </KeyboardAvoidingView>

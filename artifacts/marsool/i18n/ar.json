@@ -624,6 +624,14 @@
     "permissionDenied": "لا يوجد صلاحية",
     "permissionMessage": "نحتاج الوصول لمعرض الصور لتغيير صورتك الشخصية"
   },
+  "legal": {
+    "privacy": {
+      "title": "سياسة الخصوصية"
+    },
+    "terms": {
+      "title": "شروط الاستخدام"
+    }
+  },
   "onboarding": {
     "skip": "تخطّي",
     "next": "التالي",

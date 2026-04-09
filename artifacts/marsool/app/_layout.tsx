@@ -62,7 +62,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     const inCourierGroup = segments[0] === "(courier)";
     const inTabsGroup = segments[0] === "(tabs)";
     const inOnboarding = segments[0] === "onboarding";
-    const inLegal = segments[0] === "privacy" || segments[0] === "terms";
+    const inLegal = segments[0] === "legal";
 
     if (!user && !inAuthGroup && !inOnboarding && !inLegal) {
       if (!hasSeenOnboarding) {
@@ -124,8 +124,8 @@ function RootLayoutNav() {
           <Stack.Screen name="notifications" options={{ headerShown: false }} />
           <Stack.Screen name="rate-order" options={{ headerShown: false, presentation: "modal" }} />
           <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
-          <Stack.Screen name="privacy" options={{ headerShown: false }} />
-          <Stack.Screen name="terms" options={{ headerShown: false }} />
+          <Stack.Screen name="legal/privacy" options={{ headerShown: false }} />
+          <Stack.Screen name="legal/terms" options={{ headerShown: false }} />
         </Stack>
       </AuthGate>
       <ToastBanner />
