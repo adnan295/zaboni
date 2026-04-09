@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Platform,
   Switch,
+  TouchableOpacity,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -15,6 +16,7 @@ import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
 import { customFetch } from "@workspace/api-client-react";
 import { useCourier } from "@/context/CourierContext";
+import { useRouter } from "expo-router";
 
 interface CourierStats {
   deliveredCount: number;
@@ -32,6 +34,7 @@ export default function CourierProfileScreen() {
   const { isOnline, isTogglingOnline, toggleAvailability } = useCourier();
   const [stats, setStats] = useState<CourierStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
@@ -149,6 +152,20 @@ export default function CourierProfileScreen() {
               />
             )}
           </View>
+
+          <TouchableOpacity
+            style={[styles.earningsBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => router.push("/(courier)/earnings")}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.earningsBtnIcon, { backgroundColor: "#fef9c3" }]}>
+              <MaterialIcons name="account-balance-wallet" size={22} color="#ca8a04" />
+            </View>
+            <Text style={[styles.earningsBtnText, { color: colors.foreground }]}>
+              {t("courier.earnings.title")}
+            </Text>
+            <MaterialIcons name="chevron-right" size={22} color={colors.mutedForeground} />
+          </TouchableOpacity>
         </ScrollView>
       )}
     </View>
@@ -241,4 +258,27 @@ const styles = StyleSheet.create({
   availabilityDot: { width: 10, height: 10, borderRadius: 5 },
   availabilityTitle: { fontSize: 15, fontWeight: "700" },
   availabilitySub: { fontSize: 12, marginTop: 2 },
+  earningsBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  earningsBtnIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  earningsBtnText: { flex: 1, fontSize: 15, fontWeight: "700" },
 });

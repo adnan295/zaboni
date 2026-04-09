@@ -285,6 +285,22 @@
         "on_way": "في الطريق إلى العميل",
         "delivered": "تم التوصيل"
       }
+    },
+    "earnings": {
+      "title": "أرباحي",
+      "today": "اليوم",
+      "week": "هذا الأسبوع",
+      "total": "الإجمالي",
+      "deliveries": "توصيلة",
+      "currency": "ل.س",
+      "perDelivery": "{{amount}} ل.س / توصيلة",
+      "recentTitle": "آخر التوصيلات",
+      "noDeliveries": "لا توجد توصيلات بعد",
+      "restaurant": "المطعم",
+      "address": "العنوان",
+      "earningsLabel": "الأرباح",
+      "loading": "جاري التحميل...",
+      "error": "تعذّر تحميل الأرباح"
     }
   },
   "restaurant": {
@@ -321,7 +337,16 @@
     "sending": "جاري الإرسال...",
     "noAddressTitle": "لم تُحدد عنواناً",
     "noAddressBody": "يرجى إضافة عنوان توصيل قبل إرسال الطلب.",
-    "addAddress": "إضافة عنوان"
+    "addAddress": "إضافة عنوان",
+    "promoCode": "كود الخصم",
+    "promoPlaceholder": "أدخل كود الخصم (اختياري)",
+    "promoApplied": "تم تطبيق الخصم",
+    "promoInvalid": "الكود غير صالح",
+    "promoExpired": "انتهت صلاحية الكود",
+    "promoExhausted": "الكود استُنفد",
+    "promoAlreadyUsed": "استخدمت هذا الكود مسبقاً",
+    "promoChecking": "جاري التحقق...",
+    "promoDiscount": "خصم {{amount}} ل.س"
   },
   "payment": {
     "cashOnDelivery": "الدفع عند الاستلام 💵",

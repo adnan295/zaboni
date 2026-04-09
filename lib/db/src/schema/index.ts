@@ -8,3 +8,4 @@ export * from "./otp_codes";
 export * from "./chat_messages";
 export * from "./order_ratings";
 export * from "./user_favorites";
+export * from "./promo_codes";

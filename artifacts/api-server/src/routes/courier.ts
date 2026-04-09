@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db, usersTable, ordersTable, orderStatusHistoryTable, orderRatingsTable } from "@workspace/db";
-import { and, eq, ne, avg, count, sql } from "drizzle-orm";
+import { and, eq, ne, avg, count, sql, gte, desc } from "drizzle-orm";
 import { z } from "zod";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
 
@@ -332,6 +332,75 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
   await sendOrderPush(currentOrder.userId, pushMsg);
 
   res.json(updated[0]);
+});
+
+router.get("/courier/earnings", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const weekStart = new Date(todayStart);
+  weekStart.setDate(weekStart.getDate() - 6);
+
+  const DELIVERY_FEE_SYP = 5000;
+
+  const [todayRow, weekRow, totalRow, lastDeliveries] = await Promise.all([
+    db
+      .select({ c: count() })
+      .from(ordersTable)
+      .where(and(
+        eq(ordersTable.courierId, courierId),
+        eq(ordersTable.status, "delivered"),
+        gte(ordersTable.updatedAt, todayStart),
+      )),
+    db
+      .select({ c: count() })
+      .from(ordersTable)
+      .where(and(
+        eq(ordersTable.courierId, courierId),
+        eq(ordersTable.status, "delivered"),
+        gte(ordersTable.updatedAt, weekStart),
+      )),
+    db
+      .select({ c: count() })
+      .from(ordersTable)
+      .where(and(
+        eq(ordersTable.courierId, courierId),
+        eq(ordersTable.status, "delivered"),
+      )),
+    db
+      .select({
+        id: ordersTable.id,
+        restaurantName: ordersTable.restaurantName,
+        address: ordersTable.address,
+        updatedAt: ordersTable.updatedAt,
+      })
+      .from(ordersTable)
+      .where(and(
+        eq(ordersTable.courierId, courierId),
+        eq(ordersTable.status, "delivered"),
+      ))
+      .orderBy(desc(ordersTable.updatedAt))
+      .limit(50),
+  ]);
+
+  const todayCount = Number(todayRow[0]?.c ?? 0);
+  const weekCount = Number(weekRow[0]?.c ?? 0);
+  const totalCount = Number(totalRow[0]?.c ?? 0);
+
+  res.json({
+    todayEarnings: todayCount * DELIVERY_FEE_SYP,
+    weekEarnings: weekCount * DELIVERY_FEE_SYP,
+    totalEarnings: totalCount * DELIVERY_FEE_SYP,
+    todayDeliveries: todayCount,
+    weekDeliveries: weekCount,
+    totalDeliveries: totalCount,
+    deliveryFee: DELIVERY_FEE_SYP,
+    recentDeliveries: lastDeliveries.map((d) => ({
+      ...d,
+      earnings: DELIVERY_FEE_SYP,
+    })),
+  });
 });
 
 export default router;

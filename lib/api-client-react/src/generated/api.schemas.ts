@@ -73,6 +73,7 @@ export interface CreateOrderRequest {
   orderText: string;
   restaurantName?: string;
   address?: string;
+  promoCode?: string;
 }
 
 export type UpdateOrderStatusRequestStatus =

@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { db, ordersTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable } from "@workspace/db";
+import { db, ordersTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable, promoCodesTable, promoUsesTable } from "@workspace/db";
 import { and, count, desc, eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { notifyOrderUpdate } from "../orders/server";
@@ -22,7 +22,47 @@ const createOrderSchema = z.object({
   orderText: z.string().min(1),
   restaurantName: z.string().default(""),
   address: z.string().default(""),
+  promoCode: z.string().optional(),
 });
+
+async function validatePromoForUser(code: string, userId: string): Promise<{
+  valid: false; error: string;
+} | {
+  valid: true;
+  promo: typeof promoCodesTable.$inferSelect;
+  discountAmount: number;
+}> {
+  const now = new Date();
+  const promos = await db
+    .select()
+    .from(promoCodesTable)
+    .where(and(
+      eq(promoCodesTable.code, code.toUpperCase()),
+      eq(promoCodesTable.isActive, true),
+    ))
+    .limit(1);
+
+  if (promos.length === 0) return { valid: false, error: "invalid" };
+  const promo = promos[0]!;
+  if (promo.expiresAt && promo.expiresAt < now) return { valid: false, error: "expired" };
+
+  const [globalUseRow] = await db
+    .select({ c: count() })
+    .from(promoUsesTable)
+    .where(eq(promoUsesTable.promoId, promo.id));
+  const globalUses = Number(globalUseRow?.c ?? 0);
+  if (promo.maxUses != null && globalUses >= promo.maxUses) return { valid: false, error: "exhausted" };
+
+  const [userUseRow] = await db
+    .select({ c: count() })
+    .from(promoUsesTable)
+    .where(and(eq(promoUsesTable.promoId, promo.id), eq(promoUsesTable.userId, userId)));
+  const userUses = Number(userUseRow?.c ?? 0);
+  if (userUses >= promo.maxUsesPerUser) return { valid: false, error: "already_used" };
+
+  const discountAmount = promo.value;
+  return { valid: true, promo, discountAmount };
+}
 
 function resolveUserId(req: Request): string {
   return req.auth!.userId;
@@ -55,6 +95,27 @@ router.get("/orders", async (req, res) => {
   res.json({ orders: allRows, total, hasMore, page, limit });
 });
 
+router.post("/orders/validate-promo", async (req, res) => {
+  const userId = resolveUserId(req);
+  const body = z.object({ code: z.string().min(1) }).safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "code required" });
+    return;
+  }
+  const result = await validatePromoForUser(body.data.code, userId);
+  if (!result.valid) {
+    res.status(422).json({ valid: false, error: result.error });
+    return;
+  }
+  res.json({
+    valid: true,
+    type: result.promo.type,
+    value: result.promo.value,
+    discountAmount: result.discountAmount,
+    code: result.promo.code,
+  });
+});
+
 router.post("/orders", async (req, res) => {
   const body = createOrderSchema.safeParse(req.body);
   if (!body.success) {
@@ -66,6 +127,14 @@ router.post("/orders", async (req, res) => {
   const id = `${Date.now()}${Math.random().toString(36).slice(2, 9)}`;
   const estimatedMinutes = Math.floor(Math.random() * 15) + 30;
   const destination = randomDamascusCoord();
+
+  let promoUseData: { promoId: string; discountAmount: number } | null = null;
+  if (body.data.promoCode) {
+    const promoResult = await validatePromoForUser(body.data.promoCode, userId);
+    if (promoResult.valid) {
+      promoUseData = { promoId: promoResult.promo.id, discountAmount: promoResult.discountAmount };
+    }
+  }
 
   const newOrder = {
     id,
@@ -91,7 +160,17 @@ router.post("/orders", async (req, res) => {
     status: "searching",
   });
 
-  res.status(201).json(rows[0]);
+  if (promoUseData) {
+    await db.insert(promoUsesTable).values({
+      id: `pu_${Date.now()}${Math.random().toString(36).slice(2, 7)}`,
+      promoId: promoUseData.promoId,
+      userId,
+      orderId: id,
+      discountAmount: promoUseData.discountAmount,
+    });
+  }
+
+  res.status(201).json({ ...rows[0], appliedPromo: promoUseData ? true : false });
 });
 
 router.get("/orders/ratings", async (req, res) => {
