@@ -16,6 +16,7 @@ import {
 } from "@workspace/db";
 import { eq, count, desc, gte, getTableColumns, and, sql, avg, asc, lt } from "drizzle-orm";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
+import { sendSmsViaGateway, isSmsGatewayConfigured } from "../lib/sms";
 import { z } from "zod";
 
 const ORDER_STATUSES = [
@@ -963,6 +964,36 @@ router.put("/admin/settings", async (req, res) => {
       });
   }
   res.json({ ok: true });
+});
+
+router.get("/admin/sms/status", async (_req, res) => {
+  const jwtConfigured = !!(process.env["JWT_SECRET"]);
+  const smsConfigured = await isSmsGatewayConfigured();
+  const rows = await db.select().from(systemSettingsTable);
+  const map: Record<string, string> = {};
+  for (const r of rows) map[r.key] = r.value;
+  res.json({
+    jwtConfigured,
+    smsConfigured,
+    smsMethod: map["sms_gateway_method"] ?? "POST",
+    smsUrl: map["sms_gateway_url"] ? map["sms_gateway_url"].slice(0, 50) + (map["sms_gateway_url"].length > 50 ? "…" : "") : null,
+  });
+});
+
+router.post("/admin/sms/test", async (req, res) => {
+  const parsed = z.object({ phone: z.string().min(7) }).safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "يجب تقديم رقم هاتف صالح" });
+    return;
+  }
+  const { phone } = parsed.data;
+  try {
+    await sendSmsViaGateway(phone, `رسالة اختبار من مرسول — بوابة SMS تعمل بشكل صحيح ✓`);
+    res.json({ ok: true, message: `تم إرسال رسالة اختبار إلى ${phone}` });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
+  }
 });
 
 router.get("/admin/subscriptions", async (req, res) => {

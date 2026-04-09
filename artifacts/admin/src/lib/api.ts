@@ -409,6 +409,14 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  getSmsStatus: () =>
+    apiFetch<{ jwtConfigured: boolean; smsConfigured: boolean; smsMethod: string; smsUrl: string | null }>("/admin/sms/status"),
+  testSms: (phone: string) =>
+    apiFetch<{ ok: boolean; message: string }>("/admin/sms/test", {
+      method: "POST",
+      body: JSON.stringify({ phone }),
+    }),
+
   getSubscriptions: (date?: string) => {
     const qs = date ? `?date=${date}` : "";
     return apiFetch<SubscriptionDay>(`/admin/subscriptions${qs}`);

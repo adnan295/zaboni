@@ -5,6 +5,7 @@ import { and, eq, gt } from "drizzle-orm";
 import { z } from "zod";
 import jwt from "jsonwebtoken";
 import { parsePhoneNumber, isValidPhoneNumber } from "libphonenumber-js";
+import { sendSmsViaGateway } from "../lib/sms";
 
 const router: IRouter = Router();
 
@@ -55,30 +56,8 @@ function generateOtp(): string {
 }
 
 async function sendOtpSms(phone: string, code: string): Promise<void> {
-  const accountSid = process.env["TWILIO_ACCOUNT_SID"];
-  const authToken = process.env["TWILIO_AUTH_TOKEN"];
-  const fromPhone = process.env["TWILIO_PHONE_NUMBER"];
-
-  const twilioConfigured = accountSid && authToken && fromPhone;
-
-  if (!twilioConfigured && process.env["NODE_ENV"] === "production") {
-    throw new Error(
-      "Twilio credentials (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER) must be configured in production",
-    );
-  }
-
-  if (twilioConfigured) {
-    const twilio = (await import("twilio")).default;
-    const client = twilio(accountSid!, authToken!);
-    await client.messages.create({
-      body: `رمز التحقق الخاص بك في مرسول: ${code}\nYour Marsool verification code: ${code}`,
-      from: fromPhone!,
-      to: phone,
-    });
-    console.log(`[auth] SMS sent to ${phone}`);
-  } else {
-    console.log(`[auth] DEV MODE — OTP for ${phone}: ${code}`);
-  }
+  const message = `رمز التحقق الخاص بك في مرسول: ${code}`;
+  await sendSmsViaGateway(phone, message);
 }
 
 const e164Phone = z
