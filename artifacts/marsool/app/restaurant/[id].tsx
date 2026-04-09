@@ -19,7 +19,9 @@ import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import MenuItemCard from "@/components/MenuItemCard";
 import { useFavorites } from "@/context/FavoritesContext";
+import { useAddresses } from "@/context/AddressContext";
 import { useGetRestaurant, useGetRestaurantMenu } from "@workspace/api-client-react";
+import { haversineDistance } from "@/utils/geo";
 
 export default function RestaurantScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -29,8 +31,21 @@ export default function RestaurantScreen() {
   const { t } = useTranslation();
   const backIcon = useBackIcon();
   const { isFavorite, toggleFavorite } = useFavorites();
+  const { defaultAddress } = useAddresses();
 
   const { data: restaurant, isLoading: restaurantLoading } = useGetRestaurant(id ?? "");
+
+  const restaurantWithCoords = restaurant as (typeof restaurant & { lat?: number | null; lon?: number | null }) | undefined;
+  const distanceKm: string | null = (() => {
+    if (!restaurantWithCoords?.lat || !restaurantWithCoords?.lon) return null;
+    if (!defaultAddress?.latitude || !defaultAddress?.longitude) return null;
+    const dist = haversineDistance(
+      { latitude: defaultAddress.latitude, longitude: defaultAddress.longitude },
+      { latitude: restaurantWithCoords.lat, longitude: restaurantWithCoords.lon }
+    );
+    return dist < 1 ? `${Math.round(dist * 1000)} م` : `${dist.toFixed(1)} كم`;
+  })();
+
   const { data: menuItemsData } = useGetRestaurantMenu(id ?? "");
   const menuItems = menuItemsData ?? [];
   const categories = Array.from(new Set(menuItems.map((m) => m.categoryAr)));
@@ -139,7 +154,7 @@ export default function RestaurantScreen() {
             <View style={styles.statItem}>
               <MaterialIcons name="location-on" size={16} color={colors.primary} />
               <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{t("restaurant.distance")}</Text>
-              <Text style={[styles.statValue, { color: colors.foreground }]}>{t("restaurant.nearby")}</Text>
+              <Text style={[styles.statValue, { color: colors.foreground }]}>{distanceKm ?? t("restaurant.nearby")}</Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
             <View style={styles.statItem}>

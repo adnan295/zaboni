@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   StyleSheet,
@@ -64,6 +64,9 @@ export default function OrderTrackingScreen() {
   const simulationRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const simulationStartRef = useRef<number>(0);
   const courierStartRef = useRef<Coords | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const gotRealGps = useRef(false);
+  const simulationInitialized = useRef(false);
 
   useEffect(() => {
     const interval = setInterval(() => forceUpdate((n) => n + 1), 800);
@@ -86,35 +89,77 @@ export default function OrderTrackingScreen() {
     })();
   }, []);
 
-  const simulationInitialized = useRef(false);
-
-  useEffect(() => {
-    if (!userCoords) return;
-    const currentOrder = getOrder(id ?? "");
-    if (!currentOrder || currentOrder.status === "searching" || currentOrder.status === "delivered" || currentOrder.status === "cancelled") return;
-    if (simulationInitialized.current) return;
-
+  const startSimulation = useCallback((userPos: Coords, currentStatus: string) => {
+    if (simulationRef.current || simulationInitialized.current) return;
     simulationInitialized.current = true;
     if (!courierStartRef.current) {
-      courierStartRef.current = simulateCourierStart(userCoords, (currentOrder.status === "on_way" || currentOrder.status === "picked_up") ? 1.2 : 2);
+      courierStartRef.current = simulateCourierStart(userPos, (currentStatus === "on_way" || currentStatus === "picked_up") ? 1.2 : 2);
     }
     setCourierCoords(courierStartRef.current);
-    const startDist = haversineDistance(courierStartRef.current, userCoords);
+    const startDist = haversineDistance(courierStartRef.current, userPos);
     setEtaMinutes(estimateEtaMinutes(startDist));
     simulationStartRef.current = Date.now();
 
     simulationRef.current = setInterval(() => {
       const elapsed = Date.now() - simulationStartRef.current;
-      const t = Math.min(1, elapsed / SIMULATION_DURATION_MS);
-      const currentCourier = interpolateCoords(courierStartRef.current!, userCoords, t);
+      const progress = Math.min(1, elapsed / SIMULATION_DURATION_MS);
+      const currentCourier = interpolateCoords(courierStartRef.current!, userPos, progress);
       setCourierCoords(currentCourier);
-      const dist = haversineDistance(currentCourier, userCoords);
+      const dist = haversineDistance(currentCourier, userPos);
       setEtaMinutes(estimateEtaMinutes(dist));
-      if (t >= 1 && simulationRef.current) {
+      if (progress >= 1 && simulationRef.current) {
         clearInterval(simulationRef.current);
         simulationRef.current = null;
       }
     }, SIMULATION_STEP_MS);
+  }, []);
+
+  const stopSimulation = useCallback(() => {
+    if (simulationRef.current) {
+      clearInterval(simulationRef.current);
+      simulationRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!userCoords) return;
+    const currentOrder = getOrder(id ?? "");
+    if (!currentOrder || currentOrder.status === "searching" || currentOrder.status === "delivered" || currentOrder.status === "cancelled") return;
+
+    const ACTIVE_STATUSES = ["accepted", "picked_up", "on_way"];
+    if (!ACTIVE_STATUSES.includes(currentOrder.status)) return;
+
+    if (pollingRef.current) return;
+
+    const pollLocation = async () => {
+      try {
+        const data = await customFetch(`/api/orders/${id}/courier-location`) as { lat: number; lon: number };
+        if (data?.lat != null && data?.lon != null) {
+          const realCoords: Coords = { latitude: data.lat, longitude: data.lon };
+          if (!gotRealGps.current) {
+            gotRealGps.current = true;
+            stopSimulation();
+          }
+          setCourierCoords(realCoords);
+          const dist = haversineDistance(realCoords, userCoords);
+          setEtaMinutes(estimateEtaMinutes(dist));
+        }
+      } catch {
+        if (!gotRealGps.current) {
+          startSimulation(userCoords, currentOrder.status);
+        }
+      }
+    };
+
+    void pollLocation();
+    pollingRef.current = setInterval(pollLocation, 5000);
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
   }, [userCoords, id, order?.status]);
 
   useEffect(() => {
@@ -122,6 +167,10 @@ export default function OrderTrackingScreen() {
       if (simulationRef.current) {
         clearInterval(simulationRef.current);
         simulationRef.current = null;
+      }
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
       }
     };
   }, []);
