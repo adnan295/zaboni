@@ -5,7 +5,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Platform,
-  Linking,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -17,8 +16,6 @@ import { useBackIcon } from "@/hooks/useTypography";
 
 const APP_VERSION = "1.0.0";
 const BUILD_NUMBER = "100";
-const PRIVACY_POLICY_URL = "https://marsool.sy/privacy";
-const TERMS_URL = "https://marsool.sy/terms";
 
 export default function AboutScreen() {
   const colors = useColors();
@@ -71,13 +68,13 @@ export default function AboutScreen() {
 
         <View style={[styles.linksCard, { backgroundColor: colors.card, borderColor: colors.border, alignSelf: "stretch" }]}>
           <Text style={[styles.infoTitle, { color: colors.foreground }]}>{t("about.legal.title")}</Text>
-          <TouchableOpacity style={styles.linkRow} onPress={() => Linking.openURL(PRIVACY_POLICY_URL).catch(() => {})} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.linkRow} onPress={() => router.push("/privacy")} activeOpacity={0.7}>
             <MaterialIcons name="privacy-tip" size={18} color={colors.primary} />
             <Text style={[styles.linkText, { color: colors.primary }]}>{t("about.legal.privacy")}</Text>
             <MaterialIcons name="chevron-right" size={18} color={colors.mutedForeground} />
           </TouchableOpacity>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          <TouchableOpacity style={styles.linkRow} onPress={() => Linking.openURL(TERMS_URL).catch(() => {})} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.linkRow} onPress={() => router.push("/terms")} activeOpacity={0.7}>
             <MaterialIcons name="description" size={18} color={colors.primary} />
             <Text style={[styles.linkText, { color: colors.primary }]}>{t("about.legal.terms")}</Text>
             <MaterialIcons name="chevron-right" size={18} color={colors.mutedForeground} />
