@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, usersTable, notificationLogsTable } from "@workspace/db";
-import { eq, isNotNull, desc } from "drizzle-orm";
+import { eq, isNotNull, desc, or, ilike } from "drizzle-orm";
 import { z } from "zod";
 import type { Request, Response, NextFunction } from "express";
 import { Expo } from "expo-server-sdk";
@@ -99,6 +99,27 @@ router.post("/admin/notifications/broadcast", async (req, res) => {
   broadcastAppNotification(title, body, target);
 
   res.json({ success: true, sentCount, failedCount, total: tokens.length });
+});
+
+router.get("/admin/notifications/lookup-user", async (req, res) => {
+  const q = String(req.query["q"] ?? "").trim();
+  if (!q || q.length < 3) {
+    res.status(400).json({ error: "ادخل 3 أحرف على الأقل للبحث" });
+    return;
+  }
+  const rows = await db
+    .select({
+      id: usersTable.id,
+      name: usersTable.name,
+      phone: usersTable.phone,
+      role: usersTable.role,
+      hasPushToken: isNotNull(usersTable.pushToken),
+    })
+    .from(usersTable)
+    .where(or(ilike(usersTable.phone, `%${q}%`), ilike(usersTable.name, `%${q}%`)))
+    .orderBy(desc(usersTable.createdAt))
+    .limit(10);
+  res.json(rows);
 });
 
 const sendToUserSchema = z.object({

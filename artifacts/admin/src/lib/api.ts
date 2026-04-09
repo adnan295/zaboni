@@ -179,6 +179,14 @@ export type SendToUserResult = {
   userName: string;
 };
 
+export type UserLookupResult = {
+  id: string;
+  name: string;
+  phone: string;
+  role: "customer" | "courier";
+  hasPushToken: boolean;
+}[];
+
 export type BroadcastResult = {
   success: boolean;
   sentCount: number;
@@ -431,6 +439,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+  lookupUser: (q: string) =>
+    apiFetch<UserLookupResult>(`/admin/notifications/lookup-user?q=${encodeURIComponent(q)}`),
   sendNotificationToUser: (data: { phone: string; title: string; body: string }) =>
     apiFetch<SendToUserResult>("/admin/notifications/send-to-user", {
       method: "POST",
