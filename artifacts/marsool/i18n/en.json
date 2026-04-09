@@ -390,7 +390,8 @@
     "reorder": "Order Again",
     "eta": "ETA: {{minutes}} min",
     "onWayLabel": "On the way",
-    "comingLabel": "Coming to you"
+    "comingLabel": "Coming to you",
+    "waitingLocation": "Waiting for courier location..."
   },
   "chat": {
     "notFound": "Order not found",

@@ -61,6 +61,7 @@ export default function OrderTrackingScreen() {
   const [userCoords, setUserCoords] = useState<Coords | null>(null);
   const [courierCoords, setCourierCoords] = useState<Coords | null>(null);
   const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
+  const [isPollingActive, setIsPollingActive] = useState(false);
   const simulationRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const simulationStartRef = useRef<number>(0);
   const courierStartRef = useRef<Coords | null>(null);
@@ -131,9 +132,11 @@ export default function OrderTrackingScreen() {
 
     if (pollingRef.current) return;
 
+    setIsPollingActive(true);
+
     const pollLocation = async () => {
       try {
-        const data = await customFetch(`/api/orders/${id}/courier-location`) as { lat: number; lon: number };
+        const data = await customFetch(`/api/orders/${id}/courier-location`) as { lat: number; lon: number; updatedAt?: string };
         if (data?.lat != null && data?.lon != null) {
           const realCoords: Coords = { latitude: data.lat, longitude: data.lon };
           if (!gotRealGps.current) {
@@ -145,9 +148,6 @@ export default function OrderTrackingScreen() {
           setEtaMinutes(estimateEtaMinutes(dist));
         }
       } catch {
-        if (!gotRealGps.current) {
-          startSimulation(userCoords, currentOrder.status);
-        }
       }
     };
 
@@ -159,6 +159,7 @@ export default function OrderTrackingScreen() {
         clearInterval(pollingRef.current);
         pollingRef.current = null;
       }
+      setIsPollingActive(false);
     };
   }, [userCoords, id, order?.status]);
 
@@ -338,6 +339,14 @@ export default function OrderTrackingScreen() {
             etaMinutes={etaMinutes}
             height={220}
           />
+          {isPollingActive && !courierCoords && !isDelivered && (
+            <View style={[styles.etaBar, { backgroundColor: "#fffbeb", borderTopColor: "#fcd34d" }]}>
+              <MaterialIcons name="location-searching" size={16} color="#d97706" />
+              <Text style={[styles.etaBarText, { color: "#92400e" }]}>
+                {t("orderTracking.waitingLocation")}
+              </Text>
+            </View>
+          )}
           {etaMinutes && !isDelivered && (
             <View style={[styles.etaBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
               <MaterialIcons name="access-time" size={16} color={colors.primary} />
