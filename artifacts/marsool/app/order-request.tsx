@@ -39,7 +39,8 @@ export default function OrderRequestScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const backIcon = useBackIcon();
-  const { restaurantName } = useLocalSearchParams<{ restaurantName?: string }>();
+  const { restaurantName, deliveryFee: deliveryFeeParam } = useLocalSearchParams<{ restaurantName?: string; deliveryFee?: string }>();
+  const deliveryFee = deliveryFeeParam ? parseFloat(deliveryFeeParam) : undefined;
   const { placeOrder } = useOrders();
   const { defaultAddress } = useAddresses();
 
@@ -67,9 +68,11 @@ export default function OrderRequestScreen() {
     }
     setPromoStatus("checking");
     try {
+      const body: { code: string; deliveryFee?: number } = { code: code.trim() };
+      if (deliveryFee && !isNaN(deliveryFee)) body.deliveryFee = deliveryFee;
       const res = await customFetch("/api/orders/validate-promo", {
         method: "POST",
-        body: JSON.stringify({ code: code.trim() }),
+        body: JSON.stringify(body),
       }) as PromoResult;
       setPromoResult(res);
       setPromoStatus("valid");
@@ -79,7 +82,7 @@ export default function OrderRequestScreen() {
       setPromoResult({ valid: false, error: errorCode });
       setPromoStatus(errorCode as PromoStatus);
     }
-  }, []);
+  }, [deliveryFee]);
 
   const handlePromoChange = (text: string) => {
     setPromoCode(text);
