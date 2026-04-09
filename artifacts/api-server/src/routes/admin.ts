@@ -1437,7 +1437,7 @@ router.post("/admin/banners", async (req, res) => {
   res.status(201).json(row);
 });
 
-router.put("/admin/banners/:id", async (req, res) => {
+router.patch("/admin/banners/:id", async (req, res) => {
   const id = String(req.params["id"]);
   const parsed = bannerBody.partial().safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
@@ -1473,7 +1473,7 @@ router.post("/admin/categories", async (req, res) => {
   res.status(201).json(row);
 });
 
-router.put("/admin/categories/:id", async (req, res) => {
+router.patch("/admin/categories/:id", async (req, res) => {
   const id = String(req.params["id"]);
   const parsed = categoryBody.partial().safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }

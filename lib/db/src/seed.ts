@@ -1,5 +1,5 @@
 import { db } from "./index";
-import { restaurantsTable, menuItemsTable } from "./schema";
+import { restaurantsTable, menuItemsTable, promoBannersTable, restaurantCategoriesTable } from "./schema";
 
 const restaurants = [
   {
@@ -93,12 +93,33 @@ const menuItems = [
   { id: "m14", restaurantId: "r4", name: "Green Tea Latte", nameAr: "لاتيه شاي أخضر", description: "Matcha green tea latte", descriptionAr: "لاتيه شاي أخضر ماتشا", price: 20, image: "https://images.unsplash.com/photo-1515823662972-da6a2e4d3002?w=300&q=80", category: "hot", categoryAr: "ساخنة", isPopular: false },
 ];
 
+const promoBanners = [
+  { id: "banner_1", titleAr: "توصيل سريع لباب بيتك", titleEn: "Fast delivery to your door", subtitleAr: "أطلب الآن وتابع المندوب مباشرة على الخريطة", subtitleEn: "Order now and track your courier on the map", iconName: "delivery-dining", bgColor: "#FF6B00", sortOrder: 0, isActive: true },
+  { id: "banner_2", titleAr: "أفضل المطاعم في دمشق", titleEn: "Best restaurants in Damascus", subtitleAr: "اكتشف قائمة متنوعة من البرغر، البيتزا، المشاوي وأكثر", subtitleEn: "Discover burgers, pizza, grills and more", iconName: "restaurant", bgColor: "#1e40af", sortOrder: 1, isActive: true },
+  { id: "banner_3", titleAr: "ادفع عند الاستلام", titleEn: "Pay on delivery", subtitleAr: "لا حاجة لبطاقة بنكية — ادفع نقداً عند وصول طلبك", subtitleEn: "No bank card needed — pay cash when your order arrives", iconName: "payments", bgColor: "#065f46", sortOrder: 2, isActive: true },
+];
+
+const restaurantCategories = [
+  { id: "cat_all", nameAr: "الكل", nameEn: "All", iconName: "grid-view", sortOrder: 0, isActive: true },
+  { id: "cat_restaurants", nameAr: "مطاعم", nameEn: "Restaurants", iconName: "restaurant", sortOrder: 1, isActive: true },
+  { id: "cat_grocery", nameAr: "بقالة", nameEn: "Grocery", iconName: "storefront", sortOrder: 2, isActive: true },
+  { id: "cat_pharmacy", nameAr: "صيدلية", nameEn: "Pharmacy", iconName: "medical-services", sortOrder: 3, isActive: true },
+  { id: "cat_coffee", nameAr: "قهوة", nameEn: "Coffee", iconName: "coffee", sortOrder: 4, isActive: true },
+  { id: "cat_sweets", nameAr: "حلويات", nameEn: "Sweets", iconName: "cake", sortOrder: 5, isActive: true },
+];
+
 async function seed() {
   console.log("Seeding restaurants...");
   await db.insert(restaurantsTable).values(restaurants).onConflictDoNothing();
 
   console.log("Seeding menu items...");
   await db.insert(menuItemsTable).values(menuItems).onConflictDoNothing();
+
+  console.log("Seeding promo banners...");
+  await db.insert(promoBannersTable).values(promoBanners).onConflictDoNothing();
+
+  console.log("Seeding restaurant categories...");
+  await db.insert(restaurantCategoriesTable).values(restaurantCategories).onConflictDoNothing();
 
   console.log("Seed complete.");
   process.exit(0);
