@@ -99,15 +99,18 @@
     },
     "courier": {
       "sectionTitle": "Courier Mode",
-      "registerTitle": "Want to deliver and earn?",
-      "registerBody": "Register as a courier to start accepting orders and earning",
-      "registerBtn": "Register as Courier",
-      "registering": "Registering...",
       "badge": "Verified Courier",
       "switchToCourier": "Switch to Courier Mode",
       "switchToCustomer": "Back to Customer Mode",
-      "successTitle": "Registered!",
-      "successMsg": "You are now a verified courier. You can start accepting orders."
+      "registerTitle": "Want to deliver and earn?",
+      "registerBody": "Submit a join request for the team to review. Your account will be activated upon approval.",
+      "applyBtn": "Apply to Join",
+      "pendingTitle": "Your application is under review",
+      "pendingBody": "The team will review your application and notify you of the result soon.",
+      "rejectedTitle": "Your application was rejected",
+      "rejectedBody": "Reason: {{reason}}",
+      "rejectedBodyNoReason": "You can submit a new application with updated information.",
+      "reapplyBtn": "Submit New Application"
     }
   },
   "orders": {
@@ -570,6 +573,32 @@
       "terms": "Terms of Service"
     },
     "copyright": "© 2025 Marsool. All rights reserved."
+  },
+  "courierApply": {
+    "title": "Apply as a Courier",
+    "subtitle": "Fill in the details below and we'll review your application",
+    "fullName": "Full Name",
+    "fullNamePlaceholder": "Enter your full name",
+    "vehicleType": "Vehicle Type",
+    "vehicleTypePlaceholder": "Select vehicle type",
+    "motorcycle": "Motorcycle",
+    "car": "Car",
+    "bicycle": "Bicycle",
+    "vehiclePlate": "License Plate",
+    "vehiclePlatePlaceholder": "e.g. ABC 1234",
+    "idNumber": "National ID Number",
+    "idNumberPlaceholder": "Enter your ID number",
+    "notes": "Additional Notes",
+    "notesPlaceholder": "Any additional information (optional)",
+    "submit": "Submit Application",
+    "submitting": "Submitting...",
+    "successTitle": "Application Submitted!",
+    "successMsg": "Your application will be reviewed by the team and you'll be notified soon.",
+    "errorTitle": "Error",
+    "errorMsg": "Failed to submit application. Please try again.",
+    "validationName": "Please enter your full name (at least 2 characters)",
+    "validationVehicle": "Please select a vehicle type",
+    "requiredFields": "Required fields are incomplete"
   },
   "common": {
     "back": "Back",

@@ -285,6 +285,22 @@ export type WalletDepositRequest = {
   createdAt: string;
 };
 
+export type CourierApplicationItem = {
+  id: string;
+  userId: string;
+  status: "pending" | "approved" | "rejected";
+  fullName: string;
+  vehicleType: "motorcycle" | "car" | "bicycle";
+  vehiclePlate: string;
+  idNumber: string;
+  notes: string;
+  adminNote: string;
+  createdAt: string;
+  updatedAt: string;
+  phone: string | null;
+  userName: string | null;
+};
+
 export const api = {
   async verifyToken(token: string): Promise<boolean> {
     const res = await fetch(`${API_BASE}/admin/stats`, {
@@ -448,5 +464,17 @@ export const api = {
   rejectDepositRequest: (id: string) =>
     apiFetch<{ ok: boolean }>(`/admin/wallet/deposit-requests/${id}/reject`, {
       method: "POST",
+    }),
+
+  getCourierApplications: () =>
+    apiFetch<CourierApplicationItem[]>("/admin/courier-applications"),
+  approveCourierApplication: (id: string) =>
+    apiFetch<{ ok: boolean }>(`/admin/courier-applications/${id}/approve`, {
+      method: "PATCH",
+    }),
+  rejectCourierApplication: (id: string, adminNote: string) =>
+    apiFetch<{ ok: boolean }>(`/admin/courier-applications/${id}/reject`, {
+      method: "PATCH",
+      body: JSON.stringify({ adminNote }),
     }),
 };

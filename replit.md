@@ -46,6 +46,7 @@ Arabic RTL delivery app. Features:
 - `restaurant_hours` — weekly schedules per restaurant (dayOfWeek 0-6, openTime, closeTime, isClosed)
 - `notification_logs` — broadcast push notification history (title, body, target, sentCount, failedCount)
 - `delivery_zones` — zone-based delivery pricing (id, label, fromKm, toKm, fee, isActive); admin-managed; courier keeps 100% of fee
+- `courier_applications` — courier join requests (userId, status: pending/approved/rejected, fullName, vehicleType, vehiclePlate, idNumber, notes, adminNote)
 
 ## API Endpoints (`artifacts/api-server/`)
 

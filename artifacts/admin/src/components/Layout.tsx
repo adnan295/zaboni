@@ -16,6 +16,7 @@ const navItems = [
   { href: "/restaurants", label: "Restaurants", icon: "🍽️" },
   { href: "/orders", label: "Orders", icon: "📦" },
   { href: "/couriers", label: "Couriers", icon: "🚴" },
+  { href: "/courier-applications", label: "Courier Applications", icon: "📋" },
   { href: "/users", label: "Users", icon: "👤" },
   { href: "/ratings", label: "Ratings", icon: "⭐" },
   { href: "/promos", label: "Promos", icon: "🎟️" },
