@@ -22,4 +22,6 @@ export * from "./setDefaultAddressParams";
 export * from "./updateAddressParams";
 export * from "./updateOrderStatusRequest";
 export * from "./updateOrderStatusRequestStatus";
+export * from "./uploadUrlRequest";
+export * from "./uploadUrlResponse";
 export * from "./upsertAddressRequest";

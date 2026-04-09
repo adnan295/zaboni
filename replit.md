@@ -48,6 +48,18 @@ Arabic RTL delivery app. Features:
 - `delivery_zones` — zone-based delivery pricing (id, label, fromKm, toKm, fee, isActive); admin-managed; courier keeps 100% of fee
 - `courier_applications` — courier join requests (userId, status: pending/approved/rejected, fullName, vehicleType, vehiclePlate, idNumber, notes, adminNote)
 
+## Object Storage
+
+Replit Object Storage is configured (bucket: `replit-objstore-55ff7d0a-e715-4d9a-b9aa-3d6d7ae80f97`).
+- `POST /api/storage/uploads/request-url` — get presigned upload URL (public, no auth)
+- `GET /api/storage/public-objects/*` — serve public assets
+- `GET /api/storage/objects/*` — serve private objects
+
+Admin panel uses `ImageUpload` component (`artifacts/admin/src/components/ImageUpload.tsx`) to upload images for restaurants and menu items. The component uses the two-step presigned URL flow: request URL → PUT file directly to GCS. Uploaded images are served via `/api/storage/objects/uploads/{uuid}`.
+
+Library: `lib/object-storage-web/` — `useUpload` hook and `ObjectUploader` component (Uppy-based).
+Server: `artifacts/api-server/src/lib/objectStorage.ts` — `ObjectStorageService` class.
+
 ## API Endpoints (`artifacts/api-server/`)
 
 - `GET /api/restaurants` — list all restaurants (sorted by rating)
