@@ -520,11 +520,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   avatarInitial: { fontSize: 32, fontWeight: "800", color: "#fff" },
-<<<<<<< HEAD
-  nameRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 2 },
-=======
   nameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
->>>>>>> 9341334 (feat: full profile editing for customers and couriers (task #40))
   name: { fontSize: 20, fontWeight: "800", color: "#fff" },
   phone: { fontSize: 14, color: "rgba(255,255,255,0.8)", marginTop: 4 },
   courierBadge: {
