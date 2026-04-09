@@ -8,6 +8,7 @@ import {
   orderRatingsTable,
 } from "@workspace/db";
 import { eq, count, desc, gte, getTableColumns, and, sql, avg } from "drizzle-orm";
+import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
 import { z } from "zod";
 
 const ORDER_STATUSES = [
@@ -16,6 +17,7 @@ const ORDER_STATUSES = [
   "picked_up",
   "on_way",
   "delivered",
+  "cancelled",
 ] as const;
 
 const router = Router();
@@ -379,6 +381,14 @@ router.get("/admin/orders/active", async (_req, res) => {
   res.json(rows);
 });
 
+const STATUS_PUSH_MESSAGES: Record<string, string> = {
+  accepted: "قبل مندوب طلبك وهو في الطريق لاستلامه!",
+  picked_up: "المندوب استلم طلبك من المطعم 📦",
+  on_way: "المندوب في الطريق إليك الآن 🛵",
+  delivered: "تم التوصيل بنجاح 🎉 بالعافية!",
+  cancelled: "تم إلغاء طلبك",
+};
+
 router.patch("/admin/orders/:id/status", async (req, res) => {
   const id = String(req.params["id"]);
   const parsed = z
@@ -397,6 +407,14 @@ router.patch("/admin/orders/:id/status", async (req, res) => {
     res.status(404).json({ error: "Not found" });
     return;
   }
+
+  notifyOrderUpdate(row.userId, row);
+
+  const pushMsg = STATUS_PUSH_MESSAGES[parsed.data.status];
+  if (pushMsg) {
+    await sendOrderPush(row.userId, pushMsg);
+  }
+
   res.json(row);
 });
 

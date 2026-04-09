@@ -107,7 +107,8 @@
       "accepted": "تم القبول",
       "picked_up": "استلم المندوب طلبك",
       "on_way": "في الطريق",
-      "delivered": "تم التوصيل"
+      "delivered": "تم التوصيل",
+      "cancelled": "تم الإلغاء"
     },
     "courier": "المندوب",
     "track": "تتبع الطلب",
@@ -217,6 +218,14 @@
     "profile": "حسابي"
   },
   "courier": {
+    "profile": {
+      "title": "ملفي الشخصي",
+      "delivered": "توصيلة منجزة",
+      "avgRating": "متوسط التقييم",
+      "phone": "رقم الهاتف",
+      "accountStatus": "حالة الحساب",
+      "statusActive": "نشط ✓"
+    },
     "available": {
       "title": "الطلبات المتاحة",
       "empty": {
@@ -248,6 +257,11 @@
       "markDelivered": "تم التوصيل ✅",
       "updateStatus": "تحديث الحالة",
       "updating": "جاري التحديث...",
+      "deliverConfirm": {
+        "title": "تأكيد التسليم",
+        "body": "هل تأكد أن الطلب تم تسليمه للعميل؟",
+        "confirm": "نعم، تم التسليم"
+      },
       "status": {
         "accepted": "تم القبول — ذاهب للمطعم",
         "picked_up": "استلمت الطلب من المطعم",
@@ -298,6 +312,12 @@
   },
   "orderTracking": {
     "notFound": "الطلب غير موجود",
+    "cancelOrder": {
+      "btn": "إلغاء الطلب",
+      "confirmTitle": "تأكيد الإلغاء",
+      "confirmBody": "هل أنت متأكد أنك تريد إلغاء الطلب؟",
+      "confirm": "نعم، إلغاء الطلب"
+    },
     "status": {
       "searching": "البحث عن مندوب",
       "accepted": "تم القبول — المندوب ذاهب للمطعم",
@@ -387,6 +407,10 @@
     "delivered": {
       "title": "تم التوصيل بنجاح",
       "body": "وصل طلبك. بالعافية! لا تنس تقييم تجربتك"
+    },
+    "cancelled": {
+      "title": "تم إلغاء الطلب",
+      "body": "تم إلغاء طلبك بنجاح"
     }
   },
   "map": {

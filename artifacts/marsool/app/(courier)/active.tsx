@@ -76,7 +76,7 @@ export default function ActiveOrderScreen() {
   const currentStepIndex = STEPS.findIndex((s) => s.status === order?.status);
   const currentStep = STEPS[currentStepIndex];
 
-  const handleStatusUpdate = async (status: CourierDeliveryStatus) => {
+  const doStatusUpdate = async (status: CourierDeliveryStatus) => {
     if (!order) return;
     setUpdating(true);
     try {
@@ -85,6 +85,25 @@ export default function ActiveOrderScreen() {
       Alert.alert(t("common.error"), t("common.retry"));
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleStatusUpdate = (status: CourierDeliveryStatus) => {
+    if (status === "delivered") {
+      Alert.alert(
+        t("courier.active.deliverConfirm.title"),
+        t("courier.active.deliverConfirm.body"),
+        [
+          { text: t("common.cancel"), style: "cancel" },
+          {
+            text: t("courier.active.deliverConfirm.confirm"),
+            style: "default",
+            onPress: () => doStatusUpdate(status),
+          },
+        ]
+      );
+    } else {
+      doStatusUpdate(status);
     }
   };
 

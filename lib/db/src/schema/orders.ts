@@ -8,6 +8,7 @@ export const ORDER_STATUSES = [
   "picked_up",
   "on_way",
   "delivered",
+  "cancelled",
 ] as const;
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
