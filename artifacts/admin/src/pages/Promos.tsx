@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, type PromoCode } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,23 +26,21 @@ function PromoFormDialog({
   const { toast } = useToast();
   const isEdit = !!promo;
 
-  const [form, setForm] = useState<{
-    code: string;
-    type: "percent" | "fixed";
-    value: string;
-    maxUses: string;
-    maxUsesPerUser: string;
-    expiresAt: string;
-    isActive: boolean;
-  }>(() => ({
-    code: promo?.code ?? "",
-    type: promo?.type ?? "fixed",
-    value: String(promo?.value ?? ""),
-    maxUses: promo?.maxUses != null ? String(promo.maxUses) : "",
-    maxUsesPerUser: String(promo?.maxUsesPerUser ?? 1),
-    expiresAt: promo?.expiresAt ? new Date(promo.expiresAt).toISOString().slice(0, 16) : "",
-    isActive: promo?.isActive ?? true,
-  }));
+  const buildForm = (p: PromoCode | null) => ({
+    code: p?.code ?? "",
+    type: (p?.type ?? "fixed") as "percent" | "fixed",
+    value: String(p?.value ?? ""),
+    maxUses: p?.maxUses != null ? String(p.maxUses) : "",
+    maxUsesPerUser: String(p?.maxUsesPerUser ?? 1),
+    expiresAt: p?.expiresAt ? new Date(p.expiresAt).toISOString().slice(0, 16) : "",
+    isActive: p?.isActive ?? true,
+  });
+
+  const [form, setForm] = useState(buildForm(promo));
+
+  useEffect(() => {
+    if (open) setForm(buildForm(promo));
+  }, [open, promo]);
 
   const mutation = useMutation({
     mutationFn: (data: Parameters<typeof api.createPromo>[0]) =>

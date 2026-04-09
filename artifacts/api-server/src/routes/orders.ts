@@ -66,7 +66,7 @@ async function validatePromoForUser(code: string, userId: string, deliveryFee?: 
   const base = deliveryFee ?? DEFAULT_DELIVERY_FEE_SYP;
   const discountAmount = promo.type === "percent"
     ? Math.min(Math.round((base * promo.value) / 100), base)
-    : promo.value;
+    : Math.min(promo.value, base);
 
   return { valid: true, promo, discountAmount };
 }
@@ -141,9 +141,11 @@ router.post("/orders", async (req, res) => {
   let promoUseData: { promoId: string; discountAmount: number } | null = null;
   if (body.data.promoCode) {
     const promoResult = await validatePromoForUser(body.data.promoCode, userId, body.data.deliveryFee);
-    if (promoResult.valid) {
-      promoUseData = { promoId: promoResult.promo.id, discountAmount: promoResult.discountAmount };
+    if (!promoResult.valid) {
+      res.status(422).json({ error: "invalid_promo", reason: promoResult.error });
+      return;
     }
+    promoUseData = { promoId: promoResult.promo.id, discountAmount: promoResult.discountAmount };
   }
 
   const newOrder = {
