@@ -97,9 +97,32 @@ const rateOrderSchema = z.object({
   restaurantName: z.string().default(""),
 });
 
+router.get("/orders/ratings", async (req, res) => {
+  const userId = resolveUserId(req);
+  const rows = await db
+    .select()
+    .from(orderRatingsTable)
+    .where(eq(orderRatingsTable.userId, userId))
+    .orderBy(orderRatingsTable.createdAt);
+  res.json(rows);
+});
+
 router.post("/orders/:id/rate", async (req, res) => {
   const userId = resolveUserId(req);
   const orderId = String(req.params["id"]);
+
+  const order = await db
+    .select()
+    .from(ordersTable)
+    .where(and(eq(ordersTable.id, orderId), eq(ordersTable.userId, userId)));
+  if (order.length === 0) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+  if (order[0]!.status !== "delivered") {
+    res.status(400).json({ error: "Order not yet delivered" });
+    return;
+  }
 
   const existing = await db
     .select()
@@ -117,16 +140,18 @@ router.post("/orders/:id/rate", async (req, res) => {
   }
 
   const ratingId = `${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+  const o = order[0]!;
   const rows = await db
     .insert(orderRatingsTable)
     .values({
       id: ratingId,
       orderId,
       userId,
+      courierId: o.courierId,
       restaurantStars: body.data.restaurantStars,
       courierStars: body.data.courierStars,
       comment: body.data.comment,
-      restaurantName: body.data.restaurantName,
+      restaurantName: o.restaurantName || body.data.restaurantName,
     })
     .returning();
 

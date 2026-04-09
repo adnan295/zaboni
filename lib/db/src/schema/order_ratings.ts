@@ -5,6 +5,7 @@ export const orderRatingsTable = pgTable("order_ratings", {
   id: text("id").primaryKey(),
   orderId: text("order_id").notNull(),
   userId: text("user_id").notNull(),
+  courierId: text("courier_id").notNull().default(""),
   restaurantStars: integer("restaurant_stars").notNull(),
   courierStars: integer("courier_stars").notNull(),
   comment: text("comment").notNull().default(""),

@@ -152,10 +152,8 @@ export default function NotificationsScreen() {
               notif={notif}
               onPress={() => {
                 markRead(notif.id);
-                if (notif.orderId && notif.type === "order_status") {
+                if (notif.orderId && (notif.type === "order_status" || notif.type === "rating_request")) {
                   router.push({ pathname: "/order-tracking/[id]", params: { id: notif.orderId } });
-                } else if (notif.orderId && notif.type === "rating_request") {
-                  router.push("/orders");
                 }
               }}
               onDelete={() => deleteNotification(notif.id)}
