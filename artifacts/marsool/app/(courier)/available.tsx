@@ -30,7 +30,7 @@ function timeAgo(isoString: string): string {
 }
 
 function estimatedMinutes(distanceKm: number): number {
-  return Math.max(5, Math.round((distanceKm / 30) * 60));
+  return Math.round((distanceKm / 30) * 60);
 }
 
 function OrderCard({
@@ -54,7 +54,7 @@ function OrderCard({
   };
 
   const age = ageMinutes(order.createdAt);
-  const isOld = age >= 20;
+  const isOld = age > 20;
 
   return (
     <View style={[
@@ -98,7 +98,7 @@ function OrderCard({
           {isOld ? (
             <View style={[styles.oldBadge]}>
               <MaterialIcons name="warning" size={11} color="#dc2626" />
-              <Text style={styles.oldBadgeText}>قديم</Text>
+              <Text style={styles.oldBadgeText}>طلب قديم</Text>
             </View>
           ) : null}
           <Text style={[styles.timeAgo, { color: isOld ? "#dc2626" : colors.mutedForeground }]}>
