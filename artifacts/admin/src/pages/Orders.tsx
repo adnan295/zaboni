@@ -149,7 +149,20 @@ export default function Orders() {
       </div>
 
       {isLoading ? (
-        <p className="text-muted-foreground">Loading...</p>
+        <div className="border rounded-lg overflow-hidden bg-card shadow-sm animate-pulse">
+          <div className="bg-muted/50 h-11 border-b" />
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="flex gap-4 px-4 py-3 border-b last:border-0">
+              <div className="flex-1 space-y-1.5">
+                <div className="h-3 bg-muted rounded w-1/4" />
+                <div className="h-3 bg-muted rounded w-2/3" />
+              </div>
+              <div className="h-3 bg-muted rounded w-16 self-center" />
+              <div className="h-3 bg-muted rounded w-20 self-center" />
+              <div className="h-5 bg-muted rounded-full w-20 self-center" />
+            </div>
+          ))}
+        </div>
       ) : filtered.length === 0 ? (
         <p className="text-muted-foreground">No orders found.</p>
       ) : (

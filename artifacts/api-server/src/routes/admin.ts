@@ -99,25 +99,48 @@ router.get("/admin/charts/daily", async (req, res) => {
   const daysRaw = parseInt(String(req.query["days"] ?? "30"));
   const days = [7, 14, 30].includes(daysRaw) ? daysRaw : 30;
   const rows = await db.execute(sql`
-    SELECT
-      TO_CHAR(DATE_TRUNC('day', created_at AT TIME ZONE 'Asia/Damascus'), 'YYYY-MM-DD') AS date,
-      COUNT(*)::int AS count
-    FROM orders
-    WHERE created_at >= NOW() - CAST(${days} || ' days' AS INTERVAL)
-    GROUP BY DATE_TRUNC('day', created_at AT TIME ZONE 'Asia/Damascus')
-    ORDER BY DATE_TRUNC('day', created_at AT TIME ZONE 'Asia/Damascus')
+    WITH date_series AS (
+      SELECT TO_CHAR(
+        generate_series(
+          (NOW() AT TIME ZONE 'Asia/Damascus' - CAST(${days - 1} || ' days' AS INTERVAL))::date,
+          (NOW() AT TIME ZONE 'Asia/Damascus')::date,
+          '1 day'::interval
+        ),
+        'YYYY-MM-DD'
+      ) AS date
+    ),
+    daily_counts AS (
+      SELECT
+        TO_CHAR(DATE_TRUNC('day', created_at AT TIME ZONE 'Asia/Damascus'), 'YYYY-MM-DD') AS date,
+        COUNT(*)::int AS count
+      FROM orders
+      WHERE created_at >= NOW() - CAST(${days} || ' days' AS INTERVAL)
+      GROUP BY DATE_TRUNC('day', created_at AT TIME ZONE 'Asia/Damascus')
+    )
+    SELECT d.date, COALESCE(c.count, 0)::int AS count
+    FROM date_series d
+    LEFT JOIN daily_counts c ON c.date = d.date
+    ORDER BY d.date
   `);
   res.json(rows.rows);
 });
 
 router.get("/admin/charts/hourly", async (_req, res) => {
   const rows = await db.execute(sql`
-    SELECT
-      EXTRACT(hour FROM created_at AT TIME ZONE 'Asia/Damascus')::int AS hour,
-      COUNT(*)::int AS count
-    FROM orders
-    GROUP BY hour
-    ORDER BY hour
+    WITH hour_series AS (
+      SELECT generate_series(0, 23)::int AS hour
+    ),
+    hourly_counts AS (
+      SELECT
+        EXTRACT(hour FROM created_at AT TIME ZONE 'Asia/Damascus')::int AS hour,
+        COUNT(*)::int AS count
+      FROM orders
+      GROUP BY hour
+    )
+    SELECT h.hour, COALESCE(c.count, 0)::int AS count
+    FROM hour_series h
+    LEFT JOIN hourly_counts c ON c.hour = h.hour
+    ORDER BY h.hour
   `);
   res.json(rows.rows);
 });
