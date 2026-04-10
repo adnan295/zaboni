@@ -105,13 +105,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ...newUser,
       role: newUser.role ?? "customer",
     };
-    await Promise.all([
+    const ops: Promise<void>[] = [
       AsyncStorage.setItem(STORAGE_TOKEN_KEY, newToken),
       AsyncStorage.setItem(STORAGE_USER_KEY, JSON.stringify(userWithRole)),
-    ]);
+    ];
+    if (userWithRole.role === "courier") {
+      ops.push(AsyncStorage.setItem(STORAGE_COURIER_MODE_KEY, "true"));
+    }
+    await Promise.all(ops);
     setToken(newToken);
     setUser(userWithRole);
     setAuthTokenGetter(() => newToken);
+    if (userWithRole.role === "courier") {
+      setIsCourierModeState(true);
+    }
   }, []);
 
   const signOut = useCallback(async () => {
