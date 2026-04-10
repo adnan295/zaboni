@@ -75,6 +75,23 @@ export default function OrderTrackingScreen() {
     return () => clearInterval(interval);
   }, []);
 
+  const statusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    const TERMINAL = ["delivered", "cancelled"];
+    if (!id || TERMINAL.includes(order?.status ?? "")) return;
+
+    const poll = () => { void refreshOrder(id); };
+    poll();
+    statusPollRef.current = setInterval(poll, 5000);
+
+    return () => {
+      if (statusPollRef.current) {
+        clearInterval(statusPollRef.current);
+        statusPollRef.current = null;
+      }
+    };
+  }, [id, order?.status]);
+
   useEffect(() => {
     (async () => {
       try {

@@ -128,7 +128,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       const local = apiOrderToLocal(updatedOrder);
       setOrders((prev) => {
         const idx = prev.findIndex((o) => o.id === local.id);
-        if (idx === -1) return prev;
+        if (idx === -1) return [local, ...prev];
         const updated = [...prev];
         updated[idx] = local;
         if (statusChangeHandler.current) {
@@ -212,7 +212,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       const updated = apiOrderToLocal(data as Parameters<typeof apiOrderToLocal>[0]);
       setOrders((prev) => {
         const idx = prev.findIndex((o) => o.id === updated.id);
-        if (idx === -1) return prev;
+        if (idx === -1) return [updated, ...prev];
         const next = [...prev];
         next[idx] = updated;
         return next;
