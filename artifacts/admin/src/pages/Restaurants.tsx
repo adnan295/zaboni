@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ImageUpload } from "@/components/ImageUpload";
+import LocationPicker from "@/components/LocationPicker";
 import {
   Card,
   CardContent,
@@ -180,26 +181,11 @@ function RestaurantFormDialog({
               label="صورة المطعم"
             />
           </div>
-          <div className="space-y-1">
-            <Label>خط العرض (Latitude)</Label>
-            <Input
-              type="number"
-              step="any"
-              value={form.lat ?? ""}
-              onChange={(e) => set("lat", e.target.value === "" ? null : parseFloat(e.target.value))}
-              placeholder="33.5138"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>خط الطول (Longitude)</Label>
-            <Input
-              type="number"
-              step="any"
-              value={form.lon ?? ""}
-              onChange={(e) => set("lon", e.target.value === "" ? null : parseFloat(e.target.value))}
-              placeholder="36.2765"
-            />
-          </div>
+          <LocationPicker
+            lat={form.lat}
+            lon={form.lon}
+            onChange={(lat, lon) => { set("lat", lat); set("lon", lon); }}
+          />
           <div className="col-span-2 space-y-1">
             <Label>الوسوم (مفصولة بفاصلة)</Label>
             <Input
