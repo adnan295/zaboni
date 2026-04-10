@@ -37,6 +37,7 @@ interface OrderContextValue {
   activeOrder: Order | null;
   placeOrder: (orderText: string, restaurantName: string, address: string, promoCode?: string, lat?: number, lon?: number, restaurantId?: string) => Promise<Order>;
   getOrder: (id: string) => Order | undefined;
+  refreshOrder: (id: string) => Promise<void>;
   setStatusChangeHandler: (handler: (order: Order, newStatus: OrderStatus) => void) => void;
 }
 
@@ -205,10 +206,25 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     [orders]
   );
 
+  const refreshOrder = useCallback(async (id: string) => {
+    try {
+      const data = await customFetch(`/api/orders/${id}`);
+      const updated = apiOrderToLocal(data as Parameters<typeof apiOrderToLocal>[0]);
+      setOrders((prev) => {
+        const idx = prev.findIndex((o) => o.id === updated.id);
+        if (idx === -1) return prev;
+        const next = [...prev];
+        next[idx] = updated;
+        return next;
+      });
+    } catch {
+    }
+  }, []);
+
   const activeOrder = orders.find((o) => o.status !== "delivered" && o.status !== "cancelled") ?? null;
 
   return (
-    <OrderContext.Provider value={{ orders, activeOrder, placeOrder, getOrder, setStatusChangeHandler }}>
+    <OrderContext.Provider value={{ orders, activeOrder, placeOrder, getOrder, refreshOrder, setStatusChangeHandler }}>
       {children}
     </OrderContext.Provider>
   );

@@ -41,7 +41,7 @@ export default function OrderTrackingScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const backIcon = useBackIcon();
-  const { getOrder } = useOrders();
+  const { getOrder, refreshOrder } = useOrders();
   const { hasRated, ratingsLoaded } = useRatings();
   const [, forceUpdate] = useState(0);
   const [showChatPrompt, setShowChatPrompt] = useState(false);
@@ -232,8 +232,16 @@ export default function OrderTrackingScreen() {
             try {
               await customFetch(`/api/orders/${id}`, { method: "DELETE" });
               router.replace("/(tabs)");
-            } catch {
-              Alert.alert(t("common.error"), t("common.retry"));
+            } catch (err: any) {
+              if (err?.status === 409) {
+                Alert.alert(
+                  t("orderTracking.cancelOrder.alreadyAcceptedTitle"),
+                  t("orderTracking.cancelOrder.alreadyAcceptedBody")
+                );
+                await refreshOrder(id ?? "");
+              } else {
+                Alert.alert(t("common.error"), t("common.retry"));
+              }
             } finally {
               setCancelling(false);
             }
