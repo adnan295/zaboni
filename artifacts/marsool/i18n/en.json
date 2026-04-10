@@ -409,7 +409,9 @@
       "confirmTitle": "Confirm Cancellation",
       "confirmBody": "Are you sure you want to cancel this order?",
       "confirm": "Yes, Cancel Order",
-      "cancelledNote": "Your order has been successfully cancelled. You can place a new order at any time."
+      "cancelledNote": "Your order has been successfully cancelled. You can place a new order at any time.",
+      "alreadyAcceptedTitle": "Cannot Cancel Order",
+      "alreadyAcceptedBody": "A courier has already accepted your order and it can no longer be cancelled"
     },
     "status": {
       "searching": "Finding Courier",
