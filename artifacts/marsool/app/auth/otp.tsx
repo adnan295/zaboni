@@ -43,6 +43,16 @@ export default function OtpScreen() {
     return () => clearTimeout(timer);
   }, [countdown]);
 
+  // TEMP: Auto-fill OTP when devCode is present (no SMS gateway yet).
+  // Remove this effect once a real SMS gateway is configured.
+  useEffect(() => {
+    if (currentDevCode && currentDevCode.length === OTP_LENGTH) {
+      const timer = setTimeout(() => handleOtpChange(currentDevCode), 300);
+      return () => clearTimeout(timer);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDevCode]);
+
   const verifyOtp = async (code: string) => {
     if (loading) return;
     setLoading(true);

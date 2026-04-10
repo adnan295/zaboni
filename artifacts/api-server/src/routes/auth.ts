@@ -109,19 +109,21 @@ router.post("/auth/send-otp", async (req, res) => {
 
   await db.insert(otpCodesTable).values({ id, phone, code, expiresAt });
 
+  // TEMP: SMS sending is best-effort — skipped when gateway is not configured.
+  // Remove this try/catch wrapper and restore the 500 response once a real SMS
+  // gateway is configured in Admin → Settings.
   try {
     await sendOtpSms(phone, code);
   } catch (err) {
-    console.error("[auth] Failed to send SMS:", err);
-    res.status(500).json({ error: "فشل إرسال الرسالة / Failed to send SMS" });
-    return;
+    console.warn("[auth] SMS skipped (no gateway configured):", (err as Error).message);
   }
 
-  const isDevMode = process.env["NODE_ENV"] !== "production";
+  // TEMP: Always return devCode so the OTP screen can auto-fill without SMS.
+  // Restrict to NODE_ENV !== "production" once a real gateway is live.
   res.json({
     success: true,
     expiresInMinutes: OTP_TTL_MINUTES,
-    ...(isDevMode ? { devCode: code } : {}),
+    devCode: code,
   });
 });
 
