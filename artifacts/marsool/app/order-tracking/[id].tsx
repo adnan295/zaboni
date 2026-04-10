@@ -18,7 +18,7 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import { useOrders, OrderStatus } from "@/context/OrderContext";
-import { customFetch } from "@workspace/api-client-react";
+import { customFetch, ApiError } from "@workspace/api-client-react";
 import { useRatings } from "@/context/RatingsContext";
 import { DeliveryMap } from "@/components/DeliveryMap";
 import {
@@ -41,7 +41,7 @@ export default function OrderTrackingScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const backIcon = useBackIcon();
-  const { getOrder } = useOrders();
+  const { getOrder, refreshOrder } = useOrders();
   const { hasRated, ratingsLoaded } = useRatings();
   const [, forceUpdate] = useState(0);
   const [showChatPrompt, setShowChatPrompt] = useState(false);
@@ -74,6 +74,23 @@ export default function OrderTrackingScreen() {
     const interval = setInterval(() => forceUpdate((n) => n + 1), 2000);
     return () => clearInterval(interval);
   }, []);
+
+  const statusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    const TERMINAL = ["delivered", "cancelled"];
+    if (!id || TERMINAL.includes(order?.status ?? "")) return;
+
+    const poll = () => { void refreshOrder(id); };
+    poll();
+    statusPollRef.current = setInterval(poll, 5000);
+
+    return () => {
+      if (statusPollRef.current) {
+        clearInterval(statusPollRef.current);
+        statusPollRef.current = null;
+      }
+    };
+  }, [id, order?.status]);
 
   useEffect(() => {
     (async () => {
@@ -232,8 +249,16 @@ export default function OrderTrackingScreen() {
             try {
               await customFetch(`/api/orders/${id}`, { method: "DELETE" });
               router.replace("/(tabs)");
-            } catch {
-              Alert.alert(t("common.error"), t("common.retry"));
+            } catch (err: unknown) {
+              if (err instanceof ApiError && err.status === 409) {
+                Alert.alert(
+                  t("orderTracking.cancelOrder.alreadyAcceptedTitle"),
+                  t("orderTracking.cancelOrder.alreadyAcceptedBody")
+                );
+                await refreshOrder(id ?? "");
+              } else {
+                Alert.alert(t("common.error"), t("common.retry"));
+              }
             } finally {
               setCancelling(false);
             }
