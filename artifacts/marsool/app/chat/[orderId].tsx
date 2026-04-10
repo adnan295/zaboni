@@ -42,14 +42,12 @@ export default function ChatScreen() {
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
   const [fetchedOrder, setFetchedOrder] = useState<ReturnType<typeof getOrder>>(undefined);
   const [orderLoading, setOrderLoading] = useState(true);
-  const [orderNotFound, setOrderNotFound] = useState(false);
 
   const orderFromContext = getOrder(orderId ?? "");
   const order = orderFromContext ?? fetchedOrder;
 
   useEffect(() => {
     setFetchedOrder(undefined);
-    setOrderNotFound(false);
     setOrderLoading(true);
   }, [orderId]);
 
@@ -68,9 +66,7 @@ export default function ChatScreen() {
       .then((data) => {
         if (!cancelled) setFetchedOrder(data as ReturnType<typeof getOrder>);
       })
-      .catch(() => {
-        if (!cancelled) setOrderNotFound(true);
-      })
+      .catch(() => {})
       .finally(() => {
         if (!cancelled) setOrderLoading(false);
       });
