@@ -531,6 +531,19 @@ export default function OrderTrackingScreen() {
           </>
         )}
 
+        {(isAccepted || isOnWay) && (
+          <TouchableOpacity
+            style={[styles.cannotCancelRow, { backgroundColor: colors.muted, borderColor: colors.border }]}
+            onPress={() => Alert.alert(t("orderTracking.cancelOrder.alreadyAcceptedTitle"), t("orderTracking.cancelOrder.alreadyAcceptedBody"))}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="lock" size={16} color={colors.mutedForeground} />
+            <Text style={[styles.cannotCancelText, { color: colors.mutedForeground }]}>
+              {t("orderTracking.cancelOrder.cannotCancelNote")}
+            </Text>
+          </TouchableOpacity>
+        )}
+
         <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
           <Text style={[styles.cardTitle, { color: colors.foreground }]}>{t("orderTracking.summary.title")}</Text>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -745,6 +758,19 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.15)",
   },
   cancelBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  cannotCancelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  cannotCancelText: { fontSize: 13, fontWeight: "500" },
   cancelledCard: {
     margin: 16,
     borderRadius: 20,
