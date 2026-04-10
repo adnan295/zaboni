@@ -21,6 +21,7 @@ import { useColors } from "@/hooks/useColors";
 import { getApiBaseUrl } from "@/lib/apiClient";
 import { isValidPhoneNumber } from "libphonenumber-js";
 import { COUNTRY_CODES } from "@/data/countryCodes";
+import { useAuth } from "@/context/AuthContext";
 
 export default function PhoneScreen() {
   const colors = useColors();
@@ -28,6 +29,7 @@ export default function PhoneScreen() {
   const insets = useSafeAreaInsets();
   const { t, i18n } = useTranslation();
   const forwardIcon = useForwardIcon();
+  const { signIn } = useAuth();
   const [phone, setPhone] = useState("");
   const [selectedCountry, setSelectedCountry] = useState(COUNTRY_CODES[0]);
   const [showPicker, setShowPicker] = useState(false);
@@ -59,20 +61,50 @@ export default function PhoneScreen() {
     setLoading(true);
     try {
       const base = getApiBaseUrl();
-      const res = await fetch(`${base}/api/auth/send-otp`, {
+
+      // Step 1: send OTP (gateway may be skipped server-side, devCode always returned)
+      const sendRes = await fetch(`${base}/api/auth/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: fullPhone }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        Alert.alert(t("auth.phone.errorTitle"), data.error ?? t("auth.phone.errorMsg"));
+      const sendData = await sendRes.json().catch(() => ({}));
+      if (!sendRes.ok) {
+        Alert.alert(t("auth.phone.errorTitle"), sendData.error ?? t("auth.phone.errorMsg"));
         return;
       }
-      router.push({
-        pathname: "/auth/otp",
-        params: { phone: fullPhone, devCode: data.devCode ?? "" },
+
+      // TEMP: auto-verify immediately using devCode — bypasses OTP screen.
+      // Restore navigation to /auth/otp once a real SMS gateway is configured.
+      const code = sendData.devCode;
+      if (!code) {
+        // Fallback: show OTP screen if no devCode (real SMS mode)
+        router.push({ pathname: "/auth/otp", params: { phone: fullPhone } });
+        return;
+      }
+
+      // Step 2: verify OTP immediately
+      const verifyRes = await fetch(`${base}/api/auth/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: fullPhone, code }),
       });
+      const verifyData = await verifyRes.json().catch(() => ({}));
+      if (!verifyRes.ok) {
+        Alert.alert(t("auth.phone.errorTitle"), verifyData.error ?? t("auth.phone.errorMsg"));
+        return;
+      }
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (verifyData.isNewUser) {
+        router.push({
+          pathname: "/auth/name",
+          params: { phone: fullPhone, token: verifyData.token, userId: verifyData.user.id },
+        });
+      } else {
+        await signIn(verifyData.token, verifyData.user);
+        router.replace("/(tabs)");
+      }
     } catch {
       Alert.alert(t("auth.phone.errorTitle"), t("auth.phone.errorMsg"));
     } finally {
