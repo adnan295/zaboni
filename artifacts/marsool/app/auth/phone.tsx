@@ -103,7 +103,11 @@ export default function PhoneScreen() {
         });
       } else {
         await signIn(verifyData.token, verifyData.user);
-        router.replace("/(tabs)");
+        if (verifyData.user.role === "courier") {
+          router.replace("/(courier)/available");
+        } else {
+          router.replace("/(tabs)");
+        }
       }
     } catch {
       Alert.alert(t("auth.phone.errorTitle"), t("auth.phone.errorMsg"));
