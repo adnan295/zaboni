@@ -69,10 +69,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(parsedUser);
           setAuthTokenGetter(() => storedToken);
 
-          if (parsedUser.role === "courier") {
-            const modeExplicitlyOff = storedMode === "false";
-            if (!modeExplicitlyOff) {
-              setIsCourierModeState(true);
+          // Refresh role from server in background to pick up any DB changes
+          try {
+            const { getApiBaseUrl } = await import("@/lib/apiClient");
+            const meRes = await fetch(`${getApiBaseUrl()}/api/auth/me`, {
+              headers: { Authorization: `Bearer ${storedToken}` },
+            });
+            const fresh = meRes.ok ? await meRes.json() : null;
+            const freshRole = ((fresh?.role) as "customer" | "courier") ?? parsedUser.role;
+            const freshUser: AuthUser = { ...parsedUser, role: freshRole };
+            await AsyncStorage.setItem(STORAGE_USER_KEY, JSON.stringify(freshUser));
+            setUser(freshUser);
+
+            if (freshRole === "courier") {
+              const modeExplicitlyOff = storedMode === "false";
+              if (!modeExplicitlyOff) setIsCourierModeState(true);
+            }
+          } catch {
+            // Server unreachable — keep cached role
+            if (parsedUser.role === "courier") {
+              const modeExplicitlyOff = storedMode === "false";
+              if (!modeExplicitlyOff) setIsCourierModeState(true);
             }
           }
         }
