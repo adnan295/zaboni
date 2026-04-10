@@ -279,7 +279,11 @@ export default function OrderTrackingScreen() {
         if (current === "accepted") {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           Animated.spring(acceptedScale, { toValue: 1, tension: 60, friction: 8, useNativeDriver: USE_NATIVE_DRIVER }).start();
-          setShowChatPrompt(true);
+          if (order.id) {
+            router.push(`/chat/${order.id}`);
+          } else {
+            setShowChatPrompt(true);
+          }
         } else if (current === "picked_up" || current === "on_way") {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         } else if (current === "delivered") {
