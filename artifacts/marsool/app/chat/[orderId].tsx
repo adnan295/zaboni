@@ -41,25 +41,40 @@ export default function ChatScreen() {
   const [text, setText] = useState("");
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
   const [fetchedOrder, setFetchedOrder] = useState<ReturnType<typeof getOrder>>(undefined);
-  const [orderLoading, setOrderLoading] = useState(false);
+  const [orderLoading, setOrderLoading] = useState(true);
   const [orderNotFound, setOrderNotFound] = useState(false);
 
   const orderFromContext = getOrder(orderId ?? "");
   const order = orderFromContext ?? fetchedOrder;
 
   useEffect(() => {
-    if (orderFromContext || !orderId || orderLoading || orderNotFound) return;
+    setFetchedOrder(undefined);
+    setOrderNotFound(false);
+    setOrderLoading(true);
+  }, [orderId]);
+
+  useEffect(() => {
+    if (orderFromContext) {
+      setOrderLoading(false);
+      return;
+    }
+    if (!orderId) {
+      setOrderLoading(false);
+      return;
+    }
+    let cancelled = false;
     setOrderLoading(true);
     customFetch(`/api/orders/${orderId}`)
       .then((data) => {
-        setFetchedOrder(data as ReturnType<typeof getOrder>);
+        if (!cancelled) setFetchedOrder(data as ReturnType<typeof getOrder>);
       })
       .catch(() => {
-        setOrderNotFound(true);
+        if (!cancelled) setOrderNotFound(true);
       })
       .finally(() => {
-        setOrderLoading(false);
+        if (!cancelled) setOrderLoading(false);
       });
+    return () => { cancelled = true; };
   }, [orderId, orderFromContext]);
   const messages = getMessages(orderId ?? "");
   const courierIsTyping = isCourierTyping(orderId ?? "");
