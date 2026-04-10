@@ -18,7 +18,7 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import { useOrders, OrderStatus } from "@/context/OrderContext";
-import { customFetch } from "@workspace/api-client-react";
+import { customFetch, ApiError } from "@workspace/api-client-react";
 import { useRatings } from "@/context/RatingsContext";
 import { DeliveryMap } from "@/components/DeliveryMap";
 import {
@@ -232,8 +232,8 @@ export default function OrderTrackingScreen() {
             try {
               await customFetch(`/api/orders/${id}`, { method: "DELETE" });
               router.replace("/(tabs)");
-            } catch (err: any) {
-              if (err?.status === 409) {
+            } catch (err: unknown) {
+              if (err instanceof ApiError && err.status === 409) {
                 Alert.alert(
                   t("orderTracking.cancelOrder.alreadyAcceptedTitle"),
                   t("orderTracking.cancelOrder.alreadyAcceptedBody")
