@@ -187,7 +187,7 @@ router.patch("/courier/location", requireCourier, async (req, res) => {
   res.json({ ok: true });
 });
 
-const NEARBY_RADIUS_KM = 30;
+const NEARBY_RADIUS_KM = process.env["NODE_ENV"] === "production" ? 30 : 100;
 const DAMASCUS_LAT = 33.5138;
 const DAMASCUS_LON = 36.2765;
 
@@ -214,6 +214,7 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
     .where(and(eq(ordersTable.status, "searching"), eq(ordersTable.courierId, "")))
     .orderBy(ordersTable.createdAt);
 
+  const isDev = process.env["NODE_ENV"] !== "production";
   const withDistance = rows
     .filter((o) => o.userId !== courierId)
     .map((o) => {
@@ -224,7 +225,7 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
         distanceKm: Number(haversineKm(courierLat, courierLon, destLat, destLon).toFixed(1)),
       };
     })
-    .filter((o) => o.distanceKm <= NEARBY_RADIUS_KM)
+    .filter((o) => isDev || o.distanceKm <= NEARBY_RADIUS_KM)
     .sort((a, b) => a.distanceKm - b.distanceKm);
 
   res.json(withDistance);
