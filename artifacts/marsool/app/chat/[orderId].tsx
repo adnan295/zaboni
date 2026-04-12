@@ -19,6 +19,7 @@ import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import { useOrders } from "@/context/OrderContext";
 import { useChat, ChatMessage } from "@/context/ChatContext";
+import { customFetch } from "@workspace/api-client-react";
 
 export default function ChatScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
@@ -39,8 +40,38 @@ export default function ChatScreen() {
   } = useChat();
   const [text, setText] = useState("");
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
+  const [fetchedOrder, setFetchedOrder] = useState<ReturnType<typeof getOrder>>(undefined);
+  const [orderLoading, setOrderLoading] = useState(true);
 
-  const order = getOrder(orderId ?? "");
+  const orderFromContext = getOrder(orderId ?? "");
+  const order = orderFromContext ?? fetchedOrder;
+
+  useEffect(() => {
+    setFetchedOrder(undefined);
+    setOrderLoading(true);
+  }, [orderId]);
+
+  useEffect(() => {
+    if (orderFromContext) {
+      setOrderLoading(false);
+      return;
+    }
+    if (!orderId) {
+      setOrderLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setOrderLoading(true);
+    customFetch(`/api/orders/${orderId}`)
+      .then((data) => {
+        if (!cancelled) setFetchedOrder(data as ReturnType<typeof getOrder>);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setOrderLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [orderId, orderFromContext]);
   const messages = getMessages(orderId ?? "");
   const courierIsTyping = isCourierTyping(orderId ?? "");
 
@@ -77,6 +108,13 @@ export default function ChatScreen() {
     new Date(ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 
   if (!order) {
+    if (orderLoading) {
+      return (
+        <View style={[styles.container, { backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }]}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      );
+    }
     return (
       <View style={[styles.container, { backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }]}>
         <Text style={{ color: colors.foreground }}>{t("chat.notFound")}</Text>
