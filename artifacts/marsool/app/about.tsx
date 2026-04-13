@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
+import ZaboniLogo from "@/components/ZaboniLogo";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -38,9 +39,7 @@ export default function AboutScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 32, paddingBottom: bottomPadding + 24, gap: 20, alignItems: "center" }}>
-        <View style={[styles.logoCard, { backgroundColor: colors.primary }]}>
-          <Text style={styles.logoChar}>م</Text>
-        </View>
+        <ZaboniLogo size="large" showName={false} style={{ marginBottom: 4 }} />
         <View style={{ alignItems: "center", gap: 6 }}>
           <Text style={[styles.appName, { color: colors.foreground }]}>{t("app.name")}</Text>
           <Text style={[styles.appTagline, { color: colors.mutedForeground }]}>{t("about.tagline")}</Text>
@@ -100,19 +99,6 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 4, width: 40 },
   headerTitle: { flex: 1, textAlign: "center", fontSize: 18, fontWeight: "800" },
-  logoCard: {
-    width: 96,
-    height: 96,
-    borderRadius: 28,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#DC2626",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  logoChar: { fontSize: 48, fontWeight: "800", color: "#fff" },
   appName: { fontSize: 26, fontWeight: "800" },
   appTagline: { fontSize: 14, textAlign: "center" },
   versionBadge: { paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20, marginTop: 4 },

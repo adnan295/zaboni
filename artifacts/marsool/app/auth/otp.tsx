@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
+import ZaboniLogo from "@/components/ZaboniLogo";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
@@ -137,9 +138,7 @@ export default function OtpScreen() {
       </TouchableOpacity>
 
       <View style={styles.content}>
-        <View style={[styles.iconBox, { backgroundColor: colors.secondary }]}>
-          <MaterialIcons name="sms" size={36} color={colors.primary} />
-        </View>
+        <ZaboniLogo size="medium" showName={false} style={{ marginBottom: 20 }} />
 
         <Text style={[styles.title, { color: colors.foreground }]}>{t("auth.otp.title")}</Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>{t("auth.otp.subtitle")}</Text>
@@ -224,7 +223,6 @@ const styles = StyleSheet.create({
   inner: { paddingHorizontal: 24, paddingBottom: 40 },
   backBtn: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", marginBottom: 32 },
   content: { alignItems: "center" },
-  iconBox: { width: 80, height: 80, borderRadius: 24, alignItems: "center", justifyContent: "center", marginBottom: 24 },
   title: { fontSize: 24, fontWeight: "800", marginBottom: 8 },
   subtitle: { fontSize: 14, marginBottom: 4 },
   phone: { fontSize: 16, fontWeight: "700", marginBottom: 20 },
