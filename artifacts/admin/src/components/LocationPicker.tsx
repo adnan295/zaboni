@@ -13,10 +13,10 @@ L.Icon.Default.mergeOptions({
 const PIN_ICON = L.divIcon({
   className: "",
   html: `<div style="position:relative;width:32px;height:42px">
-    <div style="width:32px;height:32px;background:#FF6B00;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center">
+    <div style="width:32px;height:32px;background:#DC2626;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center">
       <span style="color:#fff;font-size:16px">🍽️</span>
     </div>
-    <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:10px solid #FF6B00"></div>
+    <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:10px solid #DC2626"></div>
   </div>`,
   iconSize: [32, 42],
   iconAnchor: [16, 42],

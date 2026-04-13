@@ -90,17 +90,17 @@ body {
   --sidebar: 20 14% 10%;
   --sidebar-foreground: 0 0% 94%;
   --sidebar-border: 20 14% 17%;
-  --sidebar-primary: 25 100% 50%;
+  --sidebar-primary: 0 72% 51%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 20 25% 17%;
   --sidebar-accent-foreground: 0 0% 94%;
-  --sidebar-ring: 25 100% 50%;
+  --sidebar-ring: 0 72% 51%;
 
   --popover: 0 0% 100%;
   --popover-foreground: 20 14% 8%;
   --popover-border: 0 0% 89%;
 
-  --primary: 25 100% 50%;
+  --primary: 0 72% 51%;
   --primary-foreground: 0 0% 100%;
 
   --secondary: 0 0% 95%;
@@ -109,16 +109,16 @@ body {
   --muted: 0 0% 95%;
   --muted-foreground: 0 0% 46%;
 
-  --accent: 25 100% 50%;
+  --accent: 0 72% 51%;
   --accent-foreground: 0 0% 100%;
 
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
   --input: 0 0% 89%;
-  --ring: 25 100% 50%;
+  --ring: 0 72% 51%;
 
-  --chart-1: 25 100% 50%;
+  --chart-1: 0 72% 51%;
   --chart-2: 200 70% 48%;
   --chart-3: 142 60% 42%;
   --chart-4: 280 60% 58%;
@@ -175,17 +175,17 @@ body {
   --sidebar: 20 14% 5%;
   --sidebar-foreground: 0 0% 91%;
   --sidebar-border: 20 14% 16%;
-  --sidebar-primary: 25 100% 50%;
+  --sidebar-primary: 0 72% 51%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 20 25% 14%;
   --sidebar-accent-foreground: 0 0% 91%;
-  --sidebar-ring: 25 100% 50%;
+  --sidebar-ring: 0 72% 51%;
 
   --popover: 20 14% 9%;
   --popover-foreground: 0 0% 91%;
   --popover-border: 20 14% 20%;
 
-  --primary: 25 100% 50%;
+  --primary: 0 72% 51%;
   --primary-foreground: 0 0% 100%;
 
   --secondary: 20 14% 15%;
@@ -194,16 +194,16 @@ body {
   --muted: 20 14% 15%;
   --muted-foreground: 0 0% 55%;
 
-  --accent: 25 100% 50%;
+  --accent: 0 72% 51%;
   --accent-foreground: 0 0% 100%;
 
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
   --input: 20 14% 25%;
-  --ring: 25 100% 50%;
+  --ring: 0 72% 51%;
 
-  --chart-1: 25 100% 50%;
+  --chart-1: 0 72% 51%;
   --chart-2: 200 70% 48%;
   --chart-3: 142 60% 42%;
   --chart-4: 280 60% 58%;

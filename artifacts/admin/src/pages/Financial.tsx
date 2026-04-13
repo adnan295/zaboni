@@ -191,7 +191,7 @@ export default function FinancialPage() {
                     labelFormatter={(l) => `${groupBy === "week" ? "أسبوع" : "تاريخ"}: ${l}`}
                     contentStyle={{ fontSize: 12 }}
                   />
-                  <Bar dataKey="revenue" fill="#FF6B00" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="revenue" fill="#DC2626" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>

@@ -21,7 +21,7 @@ import { CourierMap } from "@/components/CourierMap";
 
 const STATUS_COLORS: Record<CourierOrderStatus, string> = {
   searching: "#9E9E9E",
-  accepted: "#FF6B00",
+  accepted: "#DC2626",
   picked_up: "#9C27B0",
   on_way: "#2196F3",
   delivered: "#4CAF50",
@@ -606,7 +606,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   mapFallbackText: { fontSize: 14, fontWeight: "600", color: "#374151" },
-  mapFallbackSub: { fontSize: 12, color: "#FF6B00", fontWeight: "600" },
+  mapFallbackSub: { fontSize: 12, color: "#DC2626", fontWeight: "600" },
   mapNavigateBtn: {
     flexDirection: "row",
     alignItems: "center",

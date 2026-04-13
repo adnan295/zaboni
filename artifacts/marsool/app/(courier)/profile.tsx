@@ -344,7 +344,7 @@ export default function CourierProfileScreen() {
               activeOpacity={0.8}
             >
               <View style={[styles.menuIcon, { backgroundColor: "#fff7ed" }]}>
-                <MaterialIcons name="account-balance-wallet" size={20} color="#FF6B00" />
+                <MaterialIcons name="account-balance-wallet" size={20} color="#DC2626" />
               </View>
               <Text style={[styles.menuText, { color: colors.foreground }]}>محفظتي</Text>
               <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
@@ -479,7 +479,7 @@ export default function CourierProfileScreen() {
             <View style={styles.howItWorksContent}>
               <View style={[styles.howStep, { borderColor: colors.border }]}>
                 <View style={[styles.howIcon, { backgroundColor: "#fff7ed" }]}>
-                  <MaterialIcons name="credit-card" size={24} color="#FF6B00" />
+                  <MaterialIcons name="credit-card" size={24} color="#DC2626" />
                 </View>
                 <View style={styles.howText}>
                   <Text style={[styles.howTitle, { color: colors.foreground }]}>الاشتراك اليومي</Text>

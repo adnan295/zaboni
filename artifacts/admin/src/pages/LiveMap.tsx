@@ -27,7 +27,7 @@ function makeDiv(bg: string, emoji: string, size: number) {
 }
 
 const ICONS = {
-  courierOnline: makeDiv("#FF6B00", "🛵", 36),
+  courierOnline: makeDiv("#DC2626", "🛵", 36),
   courierOffline: makeDiv("#9ca3af", "🛵", 30),
   // destination markers by status
   searching:  makeDiv("#6366f1", "📍", 30),
@@ -118,7 +118,7 @@ function CourierPopup({ c }: { c: CourierLocation }) {
       )}
       {c.currentOrder && (
         <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #e5e7eb" }}>
-          <p style={{ fontSize: 12, fontWeight: 600, color: "#FF6B00", marginBottom: 4 }}>الطلب الحالي:</p>
+          <p style={{ fontSize: 12, fontWeight: 600, color: "#DC2626", marginBottom: 4 }}>الطلب الحالي:</p>
           <span style={{ padding: "1px 8px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: "#fff7ed", color: "#c2410c" }}>
             {STATUS_LABELS[c.currentOrder.status] ?? c.currentOrder.status}
           </span>

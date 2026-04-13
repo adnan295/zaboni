@@ -184,7 +184,7 @@ export function AddressSearchBar({ onSelect, placeholder, userCoords }: AddressS
             ItemSeparatorComponent={() => <View style={[styles.sep, { backgroundColor: colors.border }]} />}
             renderItem={({ item }) => (
               <TouchableOpacity style={styles.suggestion} onPress={() => handleSelect(item)}>
-                <MaterialIcons name="location-on" size={16} color="#FF6B00" />
+                <MaterialIcons name="location-on" size={16} color="#DC2626" />
                 <Text style={[styles.suggestionText, { color: colors.foreground }]} numberOfLines={2}>
                   {item}
                 </Text>

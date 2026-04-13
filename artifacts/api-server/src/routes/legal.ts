@@ -32,7 +32,7 @@ const HTML_SHELL = (title: string, body: string) => `<!DOCTYPE html>
     .logo {
       width: 42px;
       height: 42px;
-      background: #FF6B00;
+      background: #DC2626;
       border-radius: 12px;
       display: flex;
       align-items: center;
@@ -55,7 +55,7 @@ const HTML_SHELL = (title: string, body: string) => `<!DOCTYPE html>
       align-items: center;
       gap: 6px;
       background: #fff3e8;
-      color: #FF6B00;
+      color: #DC2626;
       font-size: 13px;
       font-weight: 500;
       padding: 6px 14px;
@@ -94,7 +94,7 @@ const HTML_SHELL = (title: string, body: string) => `<!DOCTYPE html>
       align-items: flex-start;
       gap: 12px;
       background: #fff3e8;
-      border: 1px solid rgba(255,107,0,0.2);
+      border: 1px solid rgba(220,38,38,0.2);
       border-radius: 16px;
       padding: 18px;
       margin-top: 8px;
@@ -103,7 +103,7 @@ const HTML_SHELL = (title: string, body: string) => `<!DOCTYPE html>
       line-height: 1.7;
     }
     .contact-icon {
-      color: #FF6B00;
+      color: #DC2626;
       font-size: 22px;
       flex-shrink: 0;
       margin-top: 2px;
