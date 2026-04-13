@@ -48,7 +48,7 @@ function generateOtp(): string {
 }
 
 async function sendOtpSms(phone: string, code: string): Promise<void> {
-  const message = `رمز التحقق الخاص بك في مرسول: ${code}`;
+  const message = `رمز التحقق الخاص بك في زبوني: ${code}`;
   await sendSmsViaGateway(phone, message);
 }
 

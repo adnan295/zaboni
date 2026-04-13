@@ -1180,7 +1180,7 @@ router.post("/admin/sms/test", async (req, res) => {
   }
   const { phone } = parsed.data;
   try {
-    await sendSmsViaGateway(phone, `رسالة اختبار من مرسول — بوابة SMS تعمل بشكل صحيح ✓`);
+    await sendSmsViaGateway(phone, `رسالة اختبار من زبوني — بوابة SMS تعمل بشكل صحيح ✓`);
     res.json({ ok: true, message: `تم إرسال رسالة اختبار إلى ${phone}` });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

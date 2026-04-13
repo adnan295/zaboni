@@ -70,7 +70,7 @@ export async function sendOrderPush(
       {
         to: token,
         sound: "default",
-        title: "مرسول",
+        title: "زبوني",
         body,
         data: { recipientId },
       },
