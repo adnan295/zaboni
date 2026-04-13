@@ -161,7 +161,7 @@ export default function ProfileScreen() {
       updateName(updated.name ?? trimmed);
       setEditNameVisible(false);
     } catch {
-      Alert.alert("خطأ", "تعذّر حفظ الاسم، حاول مجدداً");
+      Alert.alert(t("profile.editName.errorTitle"), t("profile.editName.errorMsg"));
     } finally {
       setSavingName(false);
     }
@@ -243,9 +243,9 @@ export default function ProfileScreen() {
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
           <View style={styles.stat}>
             <Text style={[styles.statNum, { color: colors.primary }]}>
-              {statsLoading ? "..." : (customerStats?.completedOrders ?? favorites.length)}
+              {statsLoading ? "..." : (customerStats?.completedOrders ?? 0)}
             </Text>
-            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>مكتملة</Text>
+            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{t("profile.stats.completed")}</Text>
           </View>
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
           <View style={styles.stat}>
@@ -260,7 +260,7 @@ export default function ProfileScreen() {
             <View style={styles.infoRow}>
               <MaterialIcons name="account-balance-wallet" size={18} color={colors.primary} />
               <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>إجمالي رسوم التوصيل المدفوعة</Text>
+                <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>{t("profile.stats.deliveryFees")}</Text>
                 <Text style={[styles.infoValue, { color: colors.foreground }]}>
                   {customerStats.totalDeliveryFees.toLocaleString("ar-SY")} ل.س
                 </Text>
@@ -272,7 +272,7 @@ export default function ProfileScreen() {
                 <View style={styles.infoRow}>
                   <MaterialIcons name="calendar-today" size={18} color={colors.primary} />
                   <View style={styles.infoContent}>
-                    <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>عضو منذ</Text>
+                    <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>{t("profile.stats.memberSince")}</Text>
                     <Text style={[styles.infoValue, { color: colors.foreground }]}>
                       {formatDate(customerStats.memberSince)}
                     </Text>
@@ -446,7 +446,7 @@ export default function ProfileScreen() {
         >
           <View style={[styles.editNameSheet, { backgroundColor: colors.card }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.foreground }]}>تعديل الاسم</Text>
+              <Text style={[styles.modalTitle, { color: colors.foreground }]}>{t("profile.editName.title")}</Text>
               <TouchableOpacity onPress={() => setEditNameVisible(false)}>
                 <MaterialIcons name="close" size={24} color={colors.mutedForeground} />
               </TouchableOpacity>
@@ -459,7 +459,7 @@ export default function ProfileScreen() {
               }]}
               value={editNameValue}
               onChangeText={setEditNameValue}
-              placeholder="الاسم الكامل"
+              placeholder={t("profile.editName.placeholder")}
               placeholderTextColor={colors.mutedForeground}
               autoFocus
               maxLength={60}
@@ -471,7 +471,7 @@ export default function ProfileScreen() {
                 onPress={() => setEditNameVisible(false)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.editNameCancelText, { color: colors.mutedForeground }]}>تراجع</Text>
+                <Text style={[styles.editNameCancelText, { color: colors.mutedForeground }]}>{t("profile.editName.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.editNameSaveBtn, { backgroundColor: colors.primary, opacity: savingName ? 0.7 : 1 }]}
@@ -481,7 +481,7 @@ export default function ProfileScreen() {
               >
                 {savingName
                   ? <ActivityIndicator size="small" color="#fff" />
-                  : <Text style={styles.editNameSaveText}>حفظ</Text>
+                  : <Text style={styles.editNameSaveText}>{t("profile.editName.save")}</Text>
                 }
               </TouchableOpacity>
             </View>

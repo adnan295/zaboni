@@ -12,7 +12,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
-import { Coords, DAMASCUS_CENTER } from "@/utils/geo";
+import { Coords, HOMS_CENTER } from "@/utils/geo";
 import MapView, { Marker } from "react-native-maps";
 
 interface AddressMapPickerProps {
@@ -25,7 +25,7 @@ interface AddressMapPickerProps {
 export function AddressMapPicker({ visible, onClose, onSelect, initialAddress }: AddressMapPickerProps) {
   const { t } = useTranslation();
   const colors = useColors();
-  const [selectedCoords, setSelectedCoords] = useState<Coords>(DAMASCUS_CENTER);
+  const [selectedCoords, setSelectedCoords] = useState<Coords>(HOMS_CENTER);
   const [resolvedAddress, setResolvedAddress] = useState<string>(initialAddress ?? "");
   const [geocoding, setGeocoding] = useState(false);
   const geocodeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

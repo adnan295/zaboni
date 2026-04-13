@@ -68,8 +68,19 @@
     "defaultUser": "User",
     "stats": {
       "orders": "Orders",
+      "completed": "Completed",
       "favorites": "Favorites",
-      "avgRating": "Avg. Rating"
+      "avgRating": "Avg. Rating",
+      "deliveryFees": "Total Delivery Fees Paid",
+      "memberSince": "Member Since"
+    },
+    "editName": {
+      "title": "Edit Name",
+      "placeholder": "Full Name",
+      "cancel": "Cancel",
+      "save": "Save",
+      "errorTitle": "Error",
+      "errorMsg": "Failed to save name. Please try again."
     },
     "menu": {
       "orders": "My Orders",

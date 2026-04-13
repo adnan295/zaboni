@@ -199,7 +199,7 @@ export default function ActiveOrderScreen() {
     const lat = order.destinationLat;
     const lon = order.destinationLon;
     const label = encodeURIComponent(order.address || "وجهة التوصيل");
-    const addressEnc = encodeURIComponent(order.address || "Damascus, Syria");
+    const addressEnc = encodeURIComponent(order.address || "Homs, Syria");
 
     const googleWebUrl = lat && lon
       ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`
