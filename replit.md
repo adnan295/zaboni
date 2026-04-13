@@ -119,4 +119,33 @@ In-app privacy policy and terms of service pages.
 Arabic (default, RTL) + English (LTR). Keys in `artifacts/marsool/i18n/ar.json` and `en.json`.
 All screens use `AppText` wrapper instead of React Native `Text`.
 
+## E2E Test Coverage (Task #57 — 2026-04-13)
+
+All three critical user journeys have been validated end-to-end with Playwright:
+
+### Customer Flow ✅
+- Phone login with +963911000001 (auto-OTP devCode mode bypasses OTP screen)
+- Onboarding skip → phone auth → home tabs
+- Free-text order placement via `POST /api/orders`
+- Order tracking screen: searching state, spinning icon, cancel button
+- Cancel with confirmation dialog → `DELETE /api/orders/:id` → back to home
+
+### Courier Flow ✅
+- Phone login with +963911000002 (online=true, role="courier")
+- Courier UI: available orders screen with online/offline toggle
+- Order acceptance: `POST /api/courier/orders/:id/accept`
+- Status progression: accepted → picked_up → on_way → delivered via `PATCH /api/courier/orders/:id/status`
+
+### Admin Panel Flow ✅
+- Login with ADMIN_SECRET on `/admin/`
+- Dashboard stats: 19 total orders, 4 couriers, 13 users
+- Orders section with status badges (cancelled/delivered/searching)
+- Couriers section with names, phones, online status
+- API direct-verified: GET /api/admin/stats, /orders, /couriers all return 200
+
+### Bug Fixed During Testing
+- **Admin Layout.tsx**: `<Link href="..."><a ...>...</a></Link>` caused invalid HTML nesting 
+  ("a cannot be a descendant of a" browser warning). Fixed by moving className/onClick/title 
+  props directly onto `<Link>`, removing the nested `<a>` element.
+
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
