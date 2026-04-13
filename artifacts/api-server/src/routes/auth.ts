@@ -6,6 +6,7 @@ import { z } from "zod";
 import jwt from "jsonwebtoken";
 import { parsePhoneNumber, isValidPhoneNumber } from "libphonenumber-js";
 import { sendSmsViaGateway } from "../lib/sms";
+import { isWaVerifyConfigured, requestOtp as waverifyRequestOtp, verifyOtp as waverifyVerifyOtp } from "../lib/waverify";
 
 const router: IRouter = Router();
 
@@ -98,6 +99,18 @@ router.post("/auth/send-otp", async (req, res) => {
     res.status(429).json({ error: "طلبات كثيرة جداً — حاول لاحقاً / Too many requests, try later" });
     return;
   }
+
+  if (isWaVerifyConfigured()) {
+    try {
+      await waverifyRequestOtp(phone);
+      res.json({ success: true, channel: "whatsapp", expiresInMinutes: OTP_TTL_MINUTES });
+    } catch (err) {
+      console.error("[auth] WaVerify request_otp failed:", (err as Error).message);
+      res.status(502).json({ error: "فشل إرسال رمز التحقق عبر واتساب — حاول لاحقاً" });
+    }
+    return;
+  }
+
   const code = generateOtp();
   const id = `${Date.now()}${Math.random().toString(36).slice(2, 8)}`;
   const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
@@ -109,9 +122,6 @@ router.post("/auth/send-otp", async (req, res) => {
 
   await db.insert(otpCodesTable).values({ id, phone, code, expiresAt });
 
-  // TEMP: SMS sending is best-effort — skipped when gateway is not configured.
-  // Remove this try/catch wrapper and restore the 500 response once a real SMS
-  // gateway is configured in Admin → Settings.
   try {
     await sendOtpSms(phone, code);
   } catch (err) {
@@ -121,6 +131,7 @@ router.post("/auth/send-otp", async (req, res) => {
   const isDev = process.env["NODE_ENV"] !== "production";
   res.json({
     success: true,
+    channel: "sms",
     expiresInMinutes: OTP_TTL_MINUTES,
     ...(isDev ? { devCode: code } : {}),
   });
@@ -142,28 +153,42 @@ router.post("/auth/verify-otp", async (req, res) => {
     return;
   }
 
-  const rows = await db
-    .select()
-    .from(otpCodesTable)
-    .where(
-      and(
-        eq(otpCodesTable.phone, phone),
-        eq(otpCodesTable.code, code),
-        eq(otpCodesTable.used, false),
-        gt(otpCodesTable.expiresAt, new Date()),
-      ),
-    )
-    .limit(1);
+  if (isWaVerifyConfigured()) {
+    try {
+      const verified = await waverifyVerifyOtp(phone, code);
+      if (!verified) {
+        res.status(401).json({ error: "الرمز غير صحيح أو منتهي الصلاحية / Invalid or expired code" });
+        return;
+      }
+    } catch (err) {
+      console.error("[auth] WaVerify verify_otp failed:", (err as Error).message);
+      res.status(502).json({ error: "فشل التحقق من الرمز — حاول لاحقاً" });
+      return;
+    }
+  } else {
+    const rows = await db
+      .select()
+      .from(otpCodesTable)
+      .where(
+        and(
+          eq(otpCodesTable.phone, phone),
+          eq(otpCodesTable.code, code),
+          eq(otpCodesTable.used, false),
+          gt(otpCodesTable.expiresAt, new Date()),
+        ),
+      )
+      .limit(1);
 
-  if (rows.length === 0) {
-    res.status(401).json({ error: "الرمز غير صحيح أو منتهي الصلاحية / Invalid or expired code" });
-    return;
+    if (rows.length === 0) {
+      res.status(401).json({ error: "الرمز غير صحيح أو منتهي الصلاحية / Invalid or expired code" });
+      return;
+    }
+
+    await db
+      .update(otpCodesTable)
+      .set({ used: true })
+      .where(eq(otpCodesTable.id, rows[0].id));
   }
-
-  await db
-    .update(otpCodesTable)
-    .set({ used: true })
-    .where(eq(otpCodesTable.id, rows[0].id));
 
   const existingUser = await db
     .select()

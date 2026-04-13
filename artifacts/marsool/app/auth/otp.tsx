@@ -29,7 +29,8 @@ export default function OtpScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const backIcon = useBackIcon();
-  const { phone, devCode } = useLocalSearchParams<{ phone: string; devCode?: string }>();
+  const { phone, devCode, channel } = useLocalSearchParams<{ phone: string; devCode?: string; channel?: string }>();
+  const isWhatsApp = channel === "whatsapp";
   const { signIn } = useAuth();
   const [otp, setOtp] = useState("");
   const [countdown, setCountdown] = useState(60);
@@ -199,12 +200,16 @@ export default function OtpScreen() {
         </TouchableOpacity>
 
         <View style={[styles.hintBox, { backgroundColor: colors.secondary }]}>
-          <MaterialIcons name="info-outline" size={14} color={colors.primary} />
-          <Text style={[styles.hint, { color: colors.primary }]}>{t("auth.otp.hint")}</Text>
+          <MaterialIcons name={isWhatsApp ? "whatsapp" as any : "info-outline"} size={14} color={colors.primary} />
+          <Text style={[styles.hint, { color: colors.primary }]}>
+            {isWhatsApp ? t("auth.otp.hintWhatsapp") : t("auth.otp.hint")}
+          </Text>
         </View>
 
         <View style={styles.resendRow}>
-          <Text style={[styles.resendLabel, { color: colors.mutedForeground }]}>{t("auth.otp.noCode")}</Text>
+          <Text style={[styles.resendLabel, { color: colors.mutedForeground }]}>
+            {isWhatsApp ? t("auth.otp.noCodeWhatsapp") : t("auth.otp.noCode")}
+          </Text>
           {canResend ? (
             <TouchableOpacity onPress={handleResend}>
               <Text style={[styles.resendBtn, { color: colors.primary }]}>{t("auth.otp.resend")}</Text>
