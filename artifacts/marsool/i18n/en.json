@@ -2,14 +2,6 @@
   "app": {
     "name": "Zaboni"
   },
-  "common": {
-    "error": "Error",
-    "retry": "Please try again.",
-    "cancel": "Cancel",
-    "save": "Save",
-    "loading": "Loading...",
-    "back": "Back"
-  },
   "auth": {
     "phone": {
       "title": "Welcome to Zaboni",
