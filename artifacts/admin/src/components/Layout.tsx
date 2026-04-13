@@ -135,39 +135,39 @@ export default function Layout({ children, onLogout }: LayoutProps) {
                 : location.startsWith(item.href);
             const showBadge = item.href === "/orders" && activeOrders > 0;
             return (
-              <Link key={item.href} href={item.href}>
-                <a
-                  onClick={() => setMobileOpen(false)}
-                  title={collapsed ? item.label : undefined}
-                  className={cn(
-                    "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer",
-                    collapsed ? "lg:justify-center lg:px-0" : "",
-                    isActive
-                      ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMobileOpen(false)}
+                title={collapsed ? item.label : undefined}
+                className={cn(
+                  "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer",
+                  collapsed ? "lg:justify-center lg:px-0" : "",
+                  isActive
+                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                )}
+              >
+                <span className="text-base flex-shrink-0 relative">
+                  {item.icon}
+                  {showBadge && collapsed && (
+                    <span className="absolute -top-1 -left-1 w-2 h-2 bg-primary rounded-full" />
                   )}
-                >
-                  <span className="text-base flex-shrink-0 relative">
-                    {item.icon}
-                    {showBadge && collapsed && (
-                      <span className="absolute -top-1 -left-1 w-2 h-2 bg-primary rounded-full" />
-                    )}
-                  </span>
-                  {!collapsed && (
-                    <>
-                      <span className="flex-1 lg:block">{item.label}</span>
-                      {showBadge && (
-                        <span className="flex items-center gap-1 text-xs font-bold bg-primary text-white rounded-full px-1.5 py-0.5 leading-none">
-                          <span className="relative flex h-1.5 w-1.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
-                          </span>
-                          {activeOrders}
+                </span>
+                {!collapsed && (
+                  <>
+                    <span className="flex-1 lg:block">{item.label}</span>
+                    {showBadge && (
+                      <span className="flex items-center gap-1 text-xs font-bold bg-primary text-white rounded-full px-1.5 py-0.5 leading-none">
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
                         </span>
-                      )}
-                    </>
-                  )}
-                </a>
+                        {activeOrders}
+                      </span>
+                    )}
+                  </>
+                )}
               </Link>
             );
           })}
