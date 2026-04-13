@@ -200,7 +200,7 @@ export default function OtpScreen() {
         </TouchableOpacity>
 
         <View style={[styles.hintBox, { backgroundColor: colors.secondary }]}>
-          <MaterialIcons name={isWhatsApp ? "whatsapp" as any : "info-outline"} size={14} color={colors.primary} />
+          <MaterialIcons name={isWhatsApp ? "chat" : "info-outline"} size={14} color={colors.primary} />
           <Text style={[styles.hint, { color: colors.primary }]}>
             {isWhatsApp ? t("auth.otp.hintWhatsapp") : t("auth.otp.hint")}
           </Text>
