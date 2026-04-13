@@ -178,6 +178,8 @@ export default function OrderRequestScreen() {
         params: { id: order.id },
       });
     } catch {
+      Alert.alert(t("common.error"), t("common.retry"));
+    } finally {
       setIsSubmitting(false);
     }
   };
