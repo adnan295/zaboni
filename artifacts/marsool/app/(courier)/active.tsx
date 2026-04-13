@@ -130,12 +130,12 @@ export default function ActiveOrderScreen() {
   const handleCancelOrder = () => {
     if (!order) return;
     Alert.alert(
-      "إلغاء الطلب",
-      "هل أنت متأكد من إلغاء هذا الطلب؟ سيعود الطلب للبحث عن مندوب آخر.",
+      t("courier.active.cancelConfirm.title"),
+      t("courier.active.cancelConfirm.body"),
       [
-        { text: "تراجع", style: "cancel" },
+        { text: t("courier.active.cancelConfirm.cancel"), style: "cancel" },
         {
-          text: "نعم، إلغاء الطلب",
+          text: t("courier.active.cancelConfirm.confirm"),
           style: "destructive",
           onPress: async () => {
             setCancelling(true);
@@ -143,7 +143,7 @@ export default function ActiveOrderScreen() {
               await customFetch(`/api/courier/orders/${order.id}/cancel`, { method: "POST" });
               await Promise.all([refreshActiveOrders(), refreshAvailableOrders()]);
             } catch {
-              Alert.alert("خطأ", "تعذّر إلغاء الطلب، حاول مجدداً.");
+              Alert.alert(t("courier.active.cancelConfirm.errorTitle"), t("courier.active.cancelConfirm.errorMsg"));
             } finally {
               setCancelling(false);
             }

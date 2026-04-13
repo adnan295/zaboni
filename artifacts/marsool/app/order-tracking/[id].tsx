@@ -300,6 +300,9 @@ export default function OrderTrackingScreen() {
             }, 2000);
           }
         } else {
+          if (current === "searching") {
+            setShowChatPrompt(false);
+          }
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }
       }
