@@ -150,14 +150,14 @@ export default function Layout({ children, onLogout }: LayoutProps) {
                   <span className="text-base flex-shrink-0 relative">
                     {item.icon}
                     {showBadge && collapsed && (
-                      <span className="absolute -top-1 -left-1 w-2 h-2 bg-orange-500 rounded-full" />
+                      <span className="absolute -top-1 -left-1 w-2 h-2 bg-primary rounded-full" />
                     )}
                   </span>
                   {!collapsed && (
                     <>
                       <span className="flex-1 lg:block">{item.label}</span>
                       {showBadge && (
-                        <span className="flex items-center gap-1 text-xs font-bold bg-orange-500 text-white rounded-full px-1.5 py-0.5 leading-none">
+                        <span className="flex items-center gap-1 text-xs font-bold bg-primary text-white rounded-full px-1.5 py-0.5 leading-none">
                           <span className="relative flex h-1.5 w-1.5">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
                             <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />

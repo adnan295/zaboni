@@ -43,8 +43,10 @@ export default function Login({ onLogin }: LoginProps) {
     <div className="min-h-screen flex items-center justify-center bg-background">
       <Card className="w-full max-w-sm shadow-lg">
         <CardHeader className="text-center space-y-2">
-          <div className="mx-auto w-12 h-12 bg-primary rounded-full flex items-center justify-center text-2xl">
-            🚀
+          <div className="mx-auto w-14 h-14 bg-primary rounded-2xl flex items-center justify-center shadow-md">
+            <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <text x="18" y="28" textAnchor="middle" fontFamily="Tajawal, Arial, sans-serif" fontSize="26" fontWeight="800" fill="white">ز</text>
+            </svg>
           </div>
           <CardTitle className="text-2xl font-bold">زبوني</CardTitle>
           <CardDescription>لوحة الإدارة — أدخل كلمة المرور للمتابعة</CardDescription>
