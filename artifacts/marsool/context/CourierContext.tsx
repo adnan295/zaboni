@@ -37,6 +37,7 @@ export type CourierDeliveryStatus = "picked_up" | "on_way" | "delivered";
 interface CourierContextValue {
   availableOrders: CourierOrder[];
   activeOrders: CourierOrder[];
+  availableOrdersError: boolean;
   isLoadingAvailable: boolean;
   isLoadingActive: boolean;
   isOnline: boolean;
@@ -58,6 +59,7 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
   const { user, isCourier } = useAuth();
   const [availableOrders, setAvailableOrders] = useState<CourierOrder[]>([]);
   const [activeOrders, setActiveOrders] = useState<CourierOrder[]>([]);
+  const [availableOrdersError, setAvailableOrdersError] = useState(false);
   const [isLoadingAvailable, setIsLoadingAvailable] = useState(false);
   const [isLoadingActive, setIsLoadingActive] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
@@ -90,8 +92,9 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
 
       lastKnownIdsRef.current = new Set(newOrders.map((o) => o.id));
       setAvailableOrders(newOrders);
+      setAvailableOrdersError(false);
     } catch {
-      setAvailableOrders([]);
+      setAvailableOrdersError(true);
     } finally {
       setIsLoadingAvailable(false);
     }
@@ -224,6 +227,7 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
       value={{
         availableOrders,
         activeOrders,
+        availableOrdersError,
         isLoadingAvailable,
         isLoadingActive,
         isOnline,

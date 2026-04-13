@@ -31,6 +31,7 @@ export interface Order {
   createdAt: number;
   address: string;
   estimatedMinutes: number;
+  cancelNote?: string | null;
 }
 
 interface OrderContextValue {
@@ -57,6 +58,7 @@ function apiOrderToLocal(apiOrder: {
   createdAt: string | Date;
   address: string;
   estimatedMinutes: number;
+  cancelNote?: string | null;
 }): Order {
   return {
     id: apiOrder.id,
@@ -74,6 +76,7 @@ function apiOrderToLocal(apiOrder: {
         : new Date(apiOrder.createdAt as string).getTime(),
     address: apiOrder.address,
     estimatedMinutes: apiOrder.estimatedMinutes,
+    cancelNote: apiOrder.cancelNote ?? null,
   };
 }
 

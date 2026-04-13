@@ -36,9 +36,11 @@ function estimatedMinutes(distanceKm: number): number {
 function OrderCard({
   order,
   onAccept,
+  hasActiveOrder,
 }: {
   order: CourierOrder;
   onAccept: (id: string) => void;
+  hasActiveOrder: boolean;
 }) {
   const colors = useColors();
   const { t } = useTranslation();
@@ -52,6 +54,8 @@ function OrderCard({
       setAccepting(false);
     }
   };
+
+  const isBlocked = hasActiveOrder || accepting;
 
   const age = ageMinutes(order.createdAt);
   const isOld = age > 20;
@@ -124,14 +128,18 @@ function OrderCard({
       ) : null}
 
       <TouchableOpacity
-        style={[styles.acceptBtn, { backgroundColor: accepting ? colors.border : colors.primary }]}
+        style={[styles.acceptBtn, { backgroundColor: isBlocked ? colors.border : colors.primary }]}
         onPress={handleAccept}
-        disabled={accepting}
+        disabled={isBlocked}
         activeOpacity={0.8}
       >
-        <MaterialIcons name="check-circle" size={20} color="#fff" />
+        <MaterialIcons name={hasActiveOrder ? "block" : "check-circle"} size={20} color="#fff" />
         <Text style={styles.acceptBtnText}>
-          {accepting ? t("courier.available.accepting") : t("courier.available.accept")}
+          {hasActiveOrder
+            ? t("courier.available.hasActiveOrder")
+            : accepting
+            ? t("courier.available.accepting")
+            : t("courier.available.accept")}
         </Text>
       </TouchableOpacity>
     </View>
@@ -144,6 +152,8 @@ export default function AvailableOrdersScreen() {
   const { t } = useTranslation();
   const {
     availableOrders,
+    activeOrders,
+    availableOrdersError,
     isLoadingAvailable,
     isOnline,
     isTogglingOnline,
@@ -152,6 +162,8 @@ export default function AvailableOrdersScreen() {
     updateLocation,
     toggleAvailability,
   } = useCourier();
+
+  const hasActiveOrder = activeOrders.length > 0;
   const locationWatcher = useRef<Location.LocationSubscription | null>(null);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
@@ -262,7 +274,7 @@ export default function AvailableOrdersScreen() {
         data={availableOrders}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <OrderCard order={item} onAccept={handleAccept} />
+          <OrderCard order={item} onAccept={handleAccept} hasActiveOrder={hasActiveOrder} />
         )}
         contentContainerStyle={[
           styles.list,
@@ -280,7 +292,25 @@ export default function AvailableOrdersScreen() {
         ListEmptyComponent={
           !isLoadingAvailable ? (
             <View style={styles.empty}>
-              {isOnline ? (
+              {isOnline && availableOrdersError ? (
+                <>
+                  <MaterialIcons name="wifi-off" size={56} color="#ef4444" />
+                  <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+                    {t("courier.available.errorTitle")}
+                  </Text>
+                  <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
+                    {t("courier.available.errorBody")}
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.goOnlineBtn, { backgroundColor: colors.primary }]}
+                    onPress={handleRefresh}
+                    disabled={isLoadingAvailable}
+                  >
+                    <MaterialIcons name="refresh" size={18} color="#fff" />
+                    <Text style={styles.goOnlineBtnText}>{t("common.retry")}</Text>
+                  </TouchableOpacity>
+                </>
+              ) : isOnline ? (
                 <>
                   <MaterialIcons name="inbox" size={56} color={colors.border} />
                   <Text style={[styles.emptyTitle, { color: colors.foreground }]}>

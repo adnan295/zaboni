@@ -75,6 +75,14 @@ export default function OrderTrackingScreen() {
     return () => clearInterval(interval);
   }, []);
 
+  const cancelNoteLoadedRef = useRef(false);
+  useEffect(() => {
+    if (!id || order?.status !== "cancelled") return;
+    if (cancelNoteLoadedRef.current) return;
+    cancelNoteLoadedRef.current = true;
+    void refreshOrder(id);
+  }, [id, order?.status]);
+
   const statusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
     const TERMINAL = ["delivered", "cancelled"];
@@ -436,10 +444,18 @@ export default function OrderTrackingScreen() {
 
         {isCancelled && (
           <View style={[styles.cancelledCard, { backgroundColor: "#FFF0F0", borderColor: "#FFCCCC" }]}>
-            <MaterialIcons name="cancel" size={56} color="#EF4444" />
+            <MaterialIcons
+              name={order.cancelNote === "auto_expired" ? "schedule" : "cancel"}
+              size={56}
+              color="#EF4444"
+            />
             <Text style={styles.cancelledTitle}>{t("orders.status.cancelled")}</Text>
             <Text style={[styles.cancelledSub, { color: colors.mutedForeground }]}>
-              {t("orderTracking.cancelOrder.cancelledNote")}
+              {order.cancelNote === "auto_expired"
+                ? t("orderTracking.cancelOrder.cancelledNoteExpired")
+                : order.cancelNote === "admin_cancelled"
+                ? t("orderTracking.cancelOrder.cancelledNoteAdmin")
+                : t("orderTracking.cancelOrder.cancelledNote")}
             </Text>
             <TouchableOpacity
               style={[styles.reorderBtn, { backgroundColor: colors.primary, marginTop: 8 }]}
