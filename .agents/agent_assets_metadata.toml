@@ -6,3 +6,21 @@ id = "nO4vu-FTECWgKdzaNO53H"
 uri = "file://artifacts/marsool/assets/images/icon.png"
 type = "image"
 title = "marsool delivery app icon"
+
+[[generated]]
+id = "X4WxFqcFLMlSslVBs5JQn"
+uri = "file://attached_assets/generated_images/zaboni-icon-main.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "TFpnN9UGvM-awn6rzl2zC"
+uri = "file://attached_assets/generated_images/zaboni-icon-adaptive.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "a2Hrl8PcJ3hr9SnJvbhcl"
+uri = "file://attached_assets/generated_images/zaboni-icon-adaptive-v2.png"
+type = "image"
+title = "generated_image"
