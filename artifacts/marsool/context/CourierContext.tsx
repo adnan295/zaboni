@@ -25,6 +25,7 @@ export interface CourierOrder {
   address: string;
   estimatedMinutes: number;
   createdAt: string;
+  customerName?: string;
   distanceKm?: number;
   destinationLat?: number | null;
   destinationLon?: number | null;
@@ -46,6 +47,7 @@ interface CourierContextValue {
   updateDeliveryStatus: (orderId: string, status: CourierDeliveryStatus) => Promise<void>;
   updateLocation: (lat: number, lon: number) => Promise<void>;
   toggleAvailability: () => Promise<void>;
+  getCourierOrder: (id: string) => CourierOrder | undefined;
 }
 
 const CourierContext = createContext<CourierContextValue | null>(null);
@@ -232,6 +234,7 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
         updateDeliveryStatus,
         updateLocation,
         toggleAvailability,
+        getCourierOrder: (id: string) => activeOrders.find((o) => o.id === id),
       }}
     >
       {children}
