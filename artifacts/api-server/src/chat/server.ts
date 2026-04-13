@@ -167,7 +167,8 @@ export function createChatServer(httpServer: HttpServer) {
           const senderName = socket.auth!.name || (isCustomer ? "عميل" : "مندوب");
           await sendPushNotification(
             recipientId,
-            `${senderName}: ${text.trim()}`
+            `${senderName}: ${text.trim()}`,
+            orderId
           );
         }
       }
@@ -230,7 +231,7 @@ export function createChatServer(httpServer: HttpServer) {
   return io;
 }
 
-async function sendPushNotification(userId: string, body: string) {
+async function sendPushNotification(userId: string, body: string, orderId?: string) {
   try {
     const users = await db
       .select({ pushToken: usersTable.pushToken })
@@ -247,7 +248,7 @@ async function sendPushNotification(userId: string, body: string) {
         sound: "default",
         title: "رسالة جديدة",
         body,
-        data: { userId },
+        data: { type: "chat_message", userId, ...(orderId ? { orderId } : {}) },
       },
     ]);
   } catch (err) {

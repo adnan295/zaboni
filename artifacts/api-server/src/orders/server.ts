@@ -54,7 +54,8 @@ export function broadcastAppNotification(
 
 export async function sendOrderPush(
   recipientId: string,
-  body: string
+  body: string,
+  orderId?: string
 ): Promise<void> {
   try {
     const users = await db
@@ -72,7 +73,7 @@ export async function sendOrderPush(
         sound: "default",
         title: "زبوني",
         body,
-        data: { recipientId },
+        data: { type: "order_update", recipientId, ...(orderId ? { orderId } : {}) },
       },
     ]);
   } catch (err) {

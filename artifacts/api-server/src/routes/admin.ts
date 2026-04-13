@@ -628,7 +628,7 @@ router.patch("/admin/orders/:id/status", async (req, res) => {
 
   const pushMsg = STATUS_PUSH_MESSAGES[parsed.data.status];
   if (pushMsg) {
-    await sendOrderPush(row.userId, pushMsg);
+    await sendOrderPush(row.userId, pushMsg, id);
   }
 
   res.json(row);
