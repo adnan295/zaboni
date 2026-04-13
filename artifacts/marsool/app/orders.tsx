@@ -215,6 +215,7 @@ type PaginatedOrdersResponse = {
 function toLocalOrder(o: PaginatedOrdersResponse["orders"][number]): Order {
   return {
     id: o.id,
+    userId: (o as { userId?: string }).userId ?? "",
     orderText: o.orderText,
     restaurantName: o.restaurantName,
     status: o.status as OrderStatus,

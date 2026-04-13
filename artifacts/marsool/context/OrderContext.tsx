@@ -20,6 +20,7 @@ export type OrderStatus = "searching" | "accepted" | "picked_up" | "on_way" | "d
 
 export interface Order {
   id: string;
+  userId: string;
   orderText: string;
   restaurantName: string;
   status: OrderStatus;
@@ -45,6 +46,7 @@ const OrderContext = createContext<OrderContextValue | null>(null);
 
 function apiOrderToLocal(apiOrder: {
   id: string;
+  userId?: string;
   orderText: string;
   restaurantName: string;
   status: string;
@@ -58,6 +60,7 @@ function apiOrderToLocal(apiOrder: {
 }): Order {
   return {
     id: apiOrder.id,
+    userId: apiOrder.userId ?? "",
     orderText: apiOrder.orderText,
     restaurantName: apiOrder.restaurantName,
     status: apiOrder.status as OrderStatus,
@@ -179,6 +182,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         const id = `${Date.now()}${Math.random().toString(36).slice(2, 9)}`;
         newOrder = {
           id,
+          userId: user?.id ?? "",
           orderText,
           restaurantName,
           status: "searching",

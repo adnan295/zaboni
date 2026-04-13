@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db, usersTable, ordersTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, systemSettingsTable, courierCustomerRatingsTable, courierWalletTransactionsTable, courierApplicationsTable } from "@workspace/db";
-import { and, eq, ne, avg, count, sql, desc } from "drizzle-orm";
+import { and, eq, ne, avg, count, sql, desc, getTableColumns } from "drizzle-orm";
 import { haversineKm as _haversineKm } from "../lib/deliveryZones";
 import { z } from "zod";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
@@ -234,8 +234,12 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
 router.get("/courier/orders/active", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
   const rows = await db
-    .select()
+    .select({
+      ...getTableColumns(ordersTable),
+      customerName: usersTable.name,
+    })
     .from(ordersTable)
+    .leftJoin(usersTable, eq(ordersTable.userId, usersTable.id))
     .where(eq(ordersTable.courierId, courierId))
     .orderBy(ordersTable.updatedAt);
 

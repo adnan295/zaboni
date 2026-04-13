@@ -18,9 +18,9 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import { useOrders } from "@/context/OrderContext";
+import { useCourier } from "@/context/CourierContext";
 import { useAuth } from "@/context/AuthContext";
 import { useChat, ChatMessage } from "@/context/ChatContext";
-import { customFetch } from "@workspace/api-client-react";
 
 export default function ChatScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
@@ -30,6 +30,7 @@ export default function ChatScreen() {
   const { t } = useTranslation();
   const backIcon = useBackIcon();
   const { getOrder } = useOrders();
+  const { getCourierOrder, refreshActiveOrders } = useCourier();
   const { user } = useAuth();
   const {
     getMessages,
@@ -42,40 +43,16 @@ export default function ChatScreen() {
   } = useChat();
   const [text, setText] = useState("");
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
-  const [fetchedOrder, setFetchedOrder] = useState<ReturnType<typeof getOrder>>(undefined);
-  const [orderLoading, setOrderLoading] = useState(true);
 
-  const orderFromContext = getOrder(orderId ?? "");
-  const order = orderFromContext ?? fetchedOrder;
+  const customerOrder = getOrder(orderId ?? "");
+  const courierOrder = getCourierOrder(orderId ?? "");
+  const order = customerOrder ?? courierOrder ?? null;
 
-  const myRole: "customer" | "courier" = user?.role ?? "customer";
+  const isCustomer: boolean = order != null
+    ? order.userId === user?.id
+    : user?.role === "customer";
 
-  useEffect(() => {
-    setFetchedOrder(undefined);
-    setOrderLoading(true);
-  }, [orderId]);
-
-  useEffect(() => {
-    if (orderFromContext) {
-      setOrderLoading(false);
-      return;
-    }
-    if (!orderId) {
-      setOrderLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setOrderLoading(true);
-    customFetch(`/api/orders/${orderId}`)
-      .then((data) => {
-        if (!cancelled) setFetchedOrder(data as ReturnType<typeof getOrder>);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setOrderLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [orderId, orderFromContext]);
+  const myRole: "customer" | "courier" = isCustomer ? "customer" : "courier";
 
   const messages = getMessages(orderId ?? "");
   const otherIsTyping = isOtherPartyTyping(orderId ?? "", myRole);
@@ -83,7 +60,10 @@ export default function ChatScreen() {
   useEffect(() => {
     if (!orderId) return;
     joinOrder(orderId);
-  }, [orderId, joinOrder]);
+    if (!courierOrder) {
+      refreshActiveOrders().catch(() => {});
+    }
+  }, [orderId]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -114,30 +94,25 @@ export default function ChatScreen() {
   const formatTime = (ts: string | Date | number) =>
     new Date(ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 
-  const iAmCourier = myRole === "courier";
-  const headerName = iAmCourier
-    ? t("chat.customer")
-    : (order?.courierName || t("chat.courier"));
-  const headerIcon: React.ComponentProps<typeof MaterialIcons>["name"] = iAmCourier
-    ? "person"
-    : "delivery-dining";
+  const headerName = isCustomer
+    ? (order?.courierName || t("chat.courier"))
+    : ((courierOrder?.customerName) || t("chat.customer"));
+  const headerIcon: React.ComponentProps<typeof MaterialIcons>["name"] = isCustomer
+    ? "delivery-dining"
+    : "person";
+  const otherPartyIcon: React.ComponentProps<typeof MaterialIcons>["name"] = isCustomer
+    ? "delivery-dining"
+    : "person";
+
+  const typingLabel = isCustomer ? t("chat.typing") : t("chat.customerTyping");
 
   if (!order) {
-    if (orderLoading) {
-      return (
-        <View style={[styles.container, { backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }]}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      );
-    }
     return (
       <View style={[styles.container, { backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }]}>
-        <Text style={{ color: colors.foreground }}>{t("chat.notFound")}</Text>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
-
-  const typingLabel = iAmCourier ? t("chat.customerTyping") : t("chat.typing");
 
   return (
     <KeyboardAvoidingView
@@ -163,7 +138,7 @@ export default function ChatScreen() {
             </View>
           </View>
         </View>
-        {!iAmCourier && (
+        {isCustomer && (
           <TouchableOpacity
             onPress={() =>
               router.push({
@@ -176,7 +151,7 @@ export default function ChatScreen() {
             <MaterialIcons name="my-location" size={22} color={colors.primary} />
           </TouchableOpacity>
         )}
-        {iAmCourier && <View style={styles.trackIconBtn} />}
+        {!isCustomer && <View style={styles.trackIconBtn} />}
       </View>
 
       <View style={[styles.orderBanner, { backgroundColor: colors.secondary }]}>
@@ -198,7 +173,7 @@ export default function ChatScreen() {
             <View style={[styles.messageRow, isMine ? styles.messageRowRight : styles.messageRowLeft]}>
               {!isMine && (
                 <View style={[styles.smallAvatar, { backgroundColor: colors.muted }]}>
-                  <MaterialIcons name={iAmCourier ? "person" : "delivery-dining"} size={14} color={colors.mutedForeground} />
+                  <MaterialIcons name={otherPartyIcon} size={14} color={colors.mutedForeground} />
                 </View>
               )}
               <View
@@ -223,7 +198,7 @@ export default function ChatScreen() {
           otherIsTyping ? (
             <View style={[styles.messageRow, styles.messageRowLeft, { marginTop: 8 }]}>
               <View style={[styles.smallAvatar, { backgroundColor: colors.muted }]}>
-                <MaterialIcons name={iAmCourier ? "person" : "delivery-dining"} size={14} color={colors.mutedForeground} />
+                <MaterialIcons name={otherPartyIcon} size={14} color={colors.mutedForeground} />
               </View>
               <View style={[styles.bubble, styles.bubbleOther, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: "row", gap: 4, paddingVertical: 10, paddingHorizontal: 14 }]}>
                 <ActivityIndicator size="small" color={colors.primary} />
