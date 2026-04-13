@@ -166,9 +166,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
 
   const placeOrder = useCallback(
     async (orderText: string, restaurantName: string, address: string, promoCode?: string, lat?: number, lon?: number, restaurantId?: string): Promise<Order> => {
-      let newOrder: Order;
-      try {
-        const result = await apiCreateOrder({
+      const result = await apiCreateOrder({
           orderText,
           restaurantName,
           address,
@@ -177,24 +175,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
           ...(lon != null ? { lon } : {}),
           ...(restaurantId ? { restaurantId } : {}),
         });
-        newOrder = apiOrderToLocal(result);
-      } catch {
-        const id = `${Date.now()}${Math.random().toString(36).slice(2, 9)}`;
-        newOrder = {
-          id,
-          userId: user?.id ?? "",
-          orderText,
-          restaurantName,
-          status: "searching",
-          courierName: "",
-          courierPhone: "",
-          courierRating: 0,
-          courierId: "",
-          createdAt: Date.now(),
-          address,
-          estimatedMinutes: 30,
-        };
-      }
+      const newOrder = apiOrderToLocal(result);
       setOrders((prev) => {
         if (prev.some((o) => o.id === newOrder.id)) return prev;
         return [newOrder, ...prev];

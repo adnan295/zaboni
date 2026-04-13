@@ -205,7 +205,7 @@ export default function AvailableOrdersScreen() {
     try {
       await toggleAvailability();
     } catch {
-      Alert.alert("خطأ", "تعذّر تغيير حالة التوافر، تحقق من اتصالك وحاول مجدداً");
+      Alert.alert(t("courier.availabilityToggle.errorTitle"), t("courier.availabilityToggle.errorMsg"));
     }
   }, [toggleAvailability]);
 

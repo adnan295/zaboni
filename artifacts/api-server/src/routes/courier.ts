@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db, usersTable, ordersTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, systemSettingsTable, courierCustomerRatingsTable, courierWalletTransactionsTable, courierApplicationsTable } from "@workspace/db";
-import { and, eq, ne, avg, count, sql, desc, getTableColumns } from "drizzle-orm";
+import { and, eq, ne, notInArray, avg, count, sql, desc, getTableColumns } from "drizzle-orm";
 import { haversineKm as _haversineKm } from "../lib/deliveryZones";
 import { z } from "zod";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
@@ -276,7 +276,7 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   const existingActive = await db
     .select({ id: ordersTable.id })
     .from(ordersTable)
-    .where(and(eq(ordersTable.courierId, courierId), ne(ordersTable.status, "delivered")))
+    .where(and(eq(ordersTable.courierId, courierId), notInArray(ordersTable.status, ["delivered", "cancelled"])))
     .limit(1);
 
   if (existingActive.length > 0) {
