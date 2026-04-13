@@ -30,7 +30,7 @@ export function CourierMap({ destinationLat, destinationLon, courierLat, courier
       >
         <Marker
           coordinate={{ latitude: destinationLat, longitude: destinationLon }}
-          pinColor="#FF6B00"
+          pinColor="#DC2626"
           title={address || "وجهة التوصيل"}
         />
         {courierLat != null && courierLon != null && (

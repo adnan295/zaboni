@@ -129,7 +129,7 @@ export default function RestaurantScreen() {
   if (restaurantLoading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }]}>
-        <ActivityIndicator size="large" color="#FF6B00" />
+        <ActivityIndicator size="large" color="#DC2626" />
       </View>
     );
   }
@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    shadowColor: "#FF6B00",
+    shadowColor: "#DC2626",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 10,

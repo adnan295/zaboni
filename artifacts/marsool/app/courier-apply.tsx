@@ -118,9 +118,9 @@ export default function CourierApplyScreen() {
       >
         {/* Hero */}
         <View style={[styles.heroCard, { backgroundColor: "#FFF7F0", borderColor: "#FFD5B0" }]}>
-          <MaterialIcons name="delivery-dining" size={36} color="#FF6B00" />
+          <MaterialIcons name="delivery-dining" size={36} color="#DC2626" />
           <View style={{ flex: 1, gap: 4 }}>
-            <Text style={[styles.heroTitle, { color: "#FF6B00" }]}>
+            <Text style={[styles.heroTitle, { color: "#DC2626" }]}>
               {t("profile.courier.registerTitle")}
             </Text>
             <Text style={[styles.heroBody, { color: "#995000" }]}>

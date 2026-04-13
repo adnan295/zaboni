@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
   logoBox: {
     width: 100, height: 100, borderRadius: 28,
     alignItems: "center", justifyContent: "center", marginBottom: 28,
-    shadowColor: "#FF6B00", shadowOffset: { width: 0, height: 8 },
+    shadowColor: "#DC2626", shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3, shadowRadius: 16, elevation: 8,
   },
   title: { fontSize: 26, fontWeight: "800", marginBottom: 8, textAlign: "center" },

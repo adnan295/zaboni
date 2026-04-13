@@ -39,7 +39,7 @@ const STATUS_COLORS: Record<string, string> = {
   delivered: "bg-green-100 text-green-800",
 };
 
-const PIE_COLORS = ["#FF6B00", "#3b82f6", "#8b5cf6", "#6366f1", "#22c55e"];
+const PIE_COLORS = ["#DC2626", "#3b82f6", "#8b5cf6", "#6366f1", "#22c55e"];
 
 type Range = 7 | 14 | 30;
 
@@ -309,8 +309,8 @@ export default function Dashboard() {
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="orangeGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#FF6B00" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#FF6B00" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#DC2626" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#DC2626" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -340,11 +340,11 @@ export default function Dashboard() {
                   type="monotone"
                   dataKey="count"
                   name="الطلبات"
-                  stroke="#FF6B00"
+                  stroke="#DC2626"
                   strokeWidth={2}
                   fill="url(#orangeGrad)"
                   dot={false}
-                  activeDot={{ r: 4, fill: "#FF6B00" }}
+                  activeDot={{ r: 4, fill: "#DC2626" }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -423,7 +423,7 @@ export default function Dashboard() {
                       fontSize: 12,
                     }}
                   />
-                  <Bar dataKey="count" name="الطلبات" fill="#FF6B00" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="count" name="الطلبات" fill="#DC2626" radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>

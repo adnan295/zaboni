@@ -29,7 +29,7 @@ const ICON_SUGGESTIONS = [
 ];
 
 const COLOR_PRESETS = [
-  "#FF6B00", "#1e40af", "#065f46", "#7c3aed", "#dc2626", "#d97706", "#0891b2",
+  "#DC2626", "#1e40af", "#065f46", "#7c3aed", "#dc2626", "#d97706", "#0891b2",
 ];
 
 function BannerSection() {
@@ -47,7 +47,7 @@ function BannerSection() {
     subtitleAr: "",
     subtitleEn: "",
     iconName: "local-offer",
-    bgColor: "#FF6B00",
+    bgColor: "#DC2626",
     sortOrder: 0,
     isActive: true,
   };

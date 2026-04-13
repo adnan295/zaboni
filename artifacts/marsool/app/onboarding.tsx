@@ -25,7 +25,7 @@ const SLIDE_ICONS: Array<{
   icon: keyof typeof MaterialIcons.glyphMap;
   color: string;
 }> = [
-  { icon: "restaurant-menu", color: "#FF6B00" },
+  { icon: "restaurant-menu", color: "#DC2626" },
   { icon: "delivery-dining",  color: "#FF8C35" },
   { icon: "payments",         color: "#E55A00" },
 ];
@@ -125,7 +125,7 @@ export default function OnboardingScreen() {
               style={[
                 styles.dot,
                 i === activeIndex
-                  ? { backgroundColor: "#FF6B00", width: 24 }
+                  ? { backgroundColor: "#DC2626", width: 24 }
                   : { backgroundColor: colors.border, width: 8 },
               ]}
             />
@@ -133,7 +133,7 @@ export default function OnboardingScreen() {
         </View>
 
         <TouchableOpacity
-          style={[styles.nextBtn, { backgroundColor: "#FF6B00" }]}
+          style={[styles.nextBtn, { backgroundColor: "#DC2626" }]}
           onPress={handleNext}
           activeOpacity={0.85}
         >
@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    shadowColor: "#FF6B00",
+    shadowColor: "#DC2626",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,

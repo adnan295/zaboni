@@ -88,7 +88,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   if (isLoading || !onboardingChecked) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#F8F8F8" }}>
-        <ActivityIndicator size="large" color="#FF6B00" />
+        <ActivityIndicator size="large" color="#DC2626" />
       </View>
     );
   }

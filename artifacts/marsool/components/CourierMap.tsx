@@ -15,7 +15,7 @@ export interface CourierMapProps {
 export function CourierMap({ destinationLat, destinationLon, address, onNavigate }: CourierMapProps) {
   return (
     <TouchableOpacity onPress={onNavigate} activeOpacity={0.9} style={styles.mapFallback}>
-      <MaterialIcons name="map" size={40} color="#FF6B00" />
+      <MaterialIcons name="map" size={40} color="#DC2626" />
       <Text style={styles.coords}>
         {destinationLat.toFixed(4)}, {destinationLon.toFixed(4)}
       </Text>
@@ -36,5 +36,5 @@ const styles = StyleSheet.create({
   },
   coords: { fontSize: 13, color: "#555", fontFamily: "monospace" },
   address: { fontSize: 12, color: "#888", maxWidth: 240 },
-  tap: { fontSize: 12, color: "#FF6B00", fontWeight: "600" },
+  tap: { fontSize: 12, color: "#DC2626", fontWeight: "600" },
 });

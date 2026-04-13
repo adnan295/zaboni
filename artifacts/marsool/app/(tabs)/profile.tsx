@@ -219,7 +219,7 @@ export default function ProfileScreen() {
         <Text style={styles.phone}>{displayPhone}</Text>
         {isCourier && (
           <View style={styles.courierBadge}>
-            <MaterialIcons name="verified" size={14} color="#FF6B00" />
+            <MaterialIcons name="verified" size={14} color="#DC2626" />
             <Text style={styles.courierBadgeText}>{t("profile.courier.badge")}</Text>
             {isCourierMode && (
               <View style={[styles.modeDot, { backgroundColor: "#4CAF50" }]} />
@@ -347,7 +347,7 @@ export default function ProfileScreen() {
               </View>
             </View>
             <TouchableOpacity
-              style={[styles.courierActionBtn, { backgroundColor: "#FF6B00" }]}
+              style={[styles.courierActionBtn, { backgroundColor: "#DC2626" }]}
               onPress={() => router.push("/courier-apply")}
               activeOpacity={0.8}
             >
@@ -360,9 +360,9 @@ export default function ProfileScreen() {
         ) : (
           <View style={[styles.courierCard, { backgroundColor: "#FFF7F0", borderColor: "#FFD5B0" }]}>
             <View style={styles.courierCardHeader}>
-              <MaterialIcons name="delivery-dining" size={28} color="#FF6B00" />
+              <MaterialIcons name="delivery-dining" size={28} color="#DC2626" />
               <View style={styles.courierCardText}>
-                <Text style={[styles.courierCardTitle, { color: "#FF6B00" }]}>
+                <Text style={[styles.courierCardTitle, { color: "#DC2626" }]}>
                   {t("profile.courier.registerTitle")}
                 </Text>
                 <Text style={[styles.courierCardBody, { color: "#995000" }]}>
@@ -371,7 +371,7 @@ export default function ProfileScreen() {
               </View>
             </View>
             <TouchableOpacity
-              style={[styles.courierActionBtn, { backgroundColor: "#FF6B00" }]}
+              style={[styles.courierActionBtn, { backgroundColor: "#DC2626" }]}
               onPress={() => router.push("/courier-apply")}
               activeOpacity={0.8}
             >
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
   },
-  courierBadgeText: { fontSize: 12, fontWeight: "700", color: "#FF6B00" },
+  courierBadgeText: { fontSize: 12, fontWeight: "700", color: "#DC2626" },
   modeDot: {
     width: 8,
     height: 8,

@@ -30,7 +30,7 @@ const userIcon = L.divIcon({
 
 const courierIcon = L.divIcon({
   className: "",
-  html: `<div style="width:44px;height:44px;border-radius:50%;background:#FF6B00;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(255,107,0,0.45);font-size:22px;transition:all 0.5s ease;">🛵</div>`,
+  html: `<div style="width:44px;height:44px;border-radius:50%;background:#DC2626;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(220,38,38,0.45);font-size:22px;transition:all 0.5s ease;">🛵</div>`,
   iconSize: [44, 44],
   iconAnchor: [22, 22],
 });
@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "#FF6B00",
+    backgroundColor: "#DC2626",
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,

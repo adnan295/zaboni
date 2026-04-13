@@ -101,14 +101,14 @@ export default function RateCustomerScreen() {
                   <MaterialIcons
                     name={n <= stars ? "star" : "star-border"}
                     size={44}
-                    color={n <= stars ? "#FF6B00" : colors.border}
+                    color={n <= stars ? "#DC2626" : colors.border}
                   />
                 </TouchableOpacity>
               ))}
             </View>
 
             {stars > 0 && (
-              <Text style={[styles.starLabel, { color: "#FF6B00" }]}>
+              <Text style={[styles.starLabel, { color: "#DC2626" }]}>
                 {STAR_LABELS[stars]}
               </Text>
             )}

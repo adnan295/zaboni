@@ -66,7 +66,7 @@ export function DeliveryMap({ userCoords, courierCoords, isSearching, etaMinutes
 
       {etaMinutes != null && !isSearching && (
         <View style={styles.etaOverlay}>
-          <MaterialIcons name="access-time" size={14} color="#FF6B00" />
+          <MaterialIcons name="access-time" size={14} color="#DC2626" />
           <Text style={styles.etaOverlayText}>{etaMinutes} د</Text>
         </View>
       )}
@@ -96,10 +96,10 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#FF6B00",
+    backgroundColor: "#DC2626",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#FF6B00",
+    shadowColor: "#DC2626",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.4,
     shadowRadius: 6,
@@ -122,5 +122,5 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  etaOverlayText: { fontSize: 13, fontWeight: "700", color: "#FF6B00" },
+  etaOverlayText: { fontSize: 13, fontWeight: "700", color: "#DC2626" },
 });

@@ -149,7 +149,7 @@ export function AddressMapPicker({ visible, onClose, onSelect, initialAddress }:
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={[styles.header, { backgroundColor: "#FF6B00" }]}>
+        <View style={[styles.header, { backgroundColor: "#DC2626" }]}>
           <TouchableOpacity onPress={onClose} style={styles.headerBtn}>
             <MaterialIcons name="close" size={22} color="#fff" />
           </TouchableOpacity>
@@ -171,17 +171,17 @@ export function AddressMapPicker({ visible, onClose, onSelect, initialAddress }:
           </MapContainer>
 
           <TouchableOpacity style={styles.myLocationBtn} onPress={handleMyLocation}>
-            <MaterialIcons name="my-location" size={20} color="#FF6B00" />
+            <MaterialIcons name="my-location" size={20} color="#DC2626" />
           </TouchableOpacity>
         </View>
 
         <View style={[styles.bottomSheet, { backgroundColor: colors.card }]}>
           <View style={[styles.addressBox, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-            <MaterialIcons name="location-on" size={18} color="#FF6B00" />
+            <MaterialIcons name="location-on" size={18} color="#DC2626" />
             <View style={styles.addressTextWrap}>
               {geocoding ? (
                 <View style={styles.geocodingRow}>
-                  <ActivityIndicator size="small" color="#FF6B00" />
+                  <ActivityIndicator size="small" color="#DC2626" />
                   <Text style={[styles.geocodingText, { color: colors.mutedForeground }]}>{t("map.locating")}</Text>
                 </View>
               ) : (
@@ -193,7 +193,7 @@ export function AddressMapPicker({ visible, onClose, onSelect, initialAddress }:
           </View>
 
           <TouchableOpacity
-            style={[styles.confirmBtn, { backgroundColor: "#FF6B00", opacity: resolvedAddress && !geocoding ? 1 : 0.5 }]}
+            style={[styles.confirmBtn, { backgroundColor: "#DC2626", opacity: resolvedAddress && !geocoding ? 1 : 0.5 }]}
             onPress={handleConfirm}
             disabled={!resolvedAddress || geocoding}
           >

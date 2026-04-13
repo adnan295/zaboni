@@ -17,7 +17,7 @@
     "splash": {
       "image": "./assets/images/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FF6B00"
+      "backgroundColor": "#DC2626"
     },
     "ios": {
       "supportsTablet": false,
@@ -33,7 +33,7 @@
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#FF6B00"
+        "backgroundColor": "#DC2626"
       },
       "config": {
         "googleMaps": {
@@ -57,7 +57,7 @@
         "expo-notifications",
         {
           "icon": "./assets/images/icon.png",
-          "color": "#FF6B00"
+          "color": "#DC2626"
         }
       ],
       [
