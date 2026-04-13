@@ -316,7 +316,7 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   });
 
   notifyOrderUpdate(order.userId, updated[0]);
-  await sendOrderPush(order.userId, `${courierName} قبل طلبك وهو في الطريق لاستلامه!`);
+  await sendOrderPush(order.userId, `${courierName} قبل طلبك وهو في الطريق لاستلامه!`, orderId);
 
   res.json(updated[0]);
 });
@@ -387,7 +387,7 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
   notifyOrderUpdate(currentOrder.userId, updated[0]);
 
   const pushMsg = STATUS_PUSH_MESSAGES[body.data.status] ?? "تم تحديث طلبك";
-  await sendOrderPush(currentOrder.userId, pushMsg);
+  await sendOrderPush(currentOrder.userId, pushMsg, orderId);
 
   res.json(updated[0]);
 });
@@ -440,7 +440,7 @@ router.post("/courier/orders/:orderId/cancel", requireCourier, async (req, res) 
   });
 
   notifyOrderUpdate(order.userId, { ...updated[0], cancelNote: "courier_cancelled" });
-  await sendOrderPush(order.userId, "عذراً، المندوب ألغى الطلب. سيتم البحث عن مندوب آخر.");
+  await sendOrderPush(order.userId, "عذراً، المندوب ألغى الطلب. سيتم البحث عن مندوب آخر.", orderId);
 
   res.json({ success: true });
 });

@@ -118,12 +118,11 @@ router.post("/auth/send-otp", async (req, res) => {
     console.warn("[auth] SMS skipped (no gateway configured):", (err as Error).message);
   }
 
-  // TEMP: Always return devCode so the OTP screen can auto-fill without SMS.
-  // Restrict to NODE_ENV !== "production" once a real gateway is live.
+  const isDev = process.env["NODE_ENV"] !== "production";
   res.json({
     success: true,
     expiresInMinutes: OTP_TTL_MINUTES,
-    devCode: code,
+    ...(isDev ? { devCode: code } : {}),
   });
 });
 

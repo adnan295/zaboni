@@ -150,3 +150,27 @@ All three critical user journeys have been validated end-to-end with Playwright:
 | 1 | Admin Panel — Sidebar Nav (`/admin/`) | Browser console check during any admin page navigation | No HTML nesting warnings | `a cannot be a descendant of a` warning — `<Link>` from wouter renders as `<a>`, and a nested `<a>` was inside it | Removed inner `<a>` element from each nav item in `Layout.tsx`; moved `className`, `onClick`, `title` props directly onto `<Link>` |
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+
+## Push Notification System (Task #58 — 2026-04-13)
+
+### Notification Routing (usePushNotifications.ts)
+- `getNotificationTargetRoute()` is role-aware — takes `userRole: "customer" | "courier"` param
+- `order_update` → customer goes to `/order-tracking/[orderId]`; courier goes to `/(courier)/active`
+- `chat_message` + orderId → `/chat/[orderId]` for both roles
+- `new_order` → `/(courier)/available` (courier only)
+- Falls back to `/(tabs)` or `null` if orderId missing
+
+### Push Token Registration
+- `getExpoPushTokenAsync()` reads `EXPO_PUBLIC_PROJECT_ID` from env (optional)
+- If set, passes `{ projectId }` to the call (required for standalone builds on SDK 50+)
+- If not set, no-arg call — works in Expo Go development
+
+### devCode Security
+- `POST /api/auth/send-otp` only includes `devCode` field when `NODE_ENV !== "production"`
+- Production builds never expose the OTP code in the response
+
+### Backend Notification Data Payloads
+All push notifications now carry structured `data` fields for client-side routing:
+- Order updates: `{ type: "order_update", recipientId, orderId }`
+- Chat messages: `{ type: "chat_message", userId, orderId }`
+- New order (couriers): `{ type: "new_order" }`
