@@ -54,7 +54,7 @@ type RestaurantCategory = {
 
 const FALLBACK_BANNERS: PromoBanner[] = [
   { id: "f1", titleAr: "توصيل سريع لباب بيتك", titleEn: "Fast delivery to your door", subtitleAr: "أطلب الآن وتابع المندوب مباشرة على الخريطة", subtitleEn: "Order now and track your courier on the map", iconName: "delivery-dining", bgColor: "#DC2626", sortOrder: 0, isActive: true },
-  { id: "f2", titleAr: "أفضل المطاعم في دمشق", titleEn: "Best restaurants in Damascus", subtitleAr: "اكتشف قائمة متنوعة من البرغر، البيتزا، المشاوي وأكثر", subtitleEn: "Discover burgers, pizza, grills and more", iconName: "restaurant", bgColor: "#1e40af", sortOrder: 1, isActive: true },
+  { id: "f2", titleAr: "أفضل المطاعم في حمص", titleEn: "Best restaurants in Homs", subtitleAr: "اكتشف قائمة متنوعة من البرغر، البيتزا، المشاوي وأكثر", subtitleEn: "Discover burgers, pizza, grills and more", iconName: "restaurant", bgColor: "#1e40af", sortOrder: 1, isActive: true },
   { id: "f3", titleAr: "ادفع عند الاستلام", titleEn: "Pay on delivery", subtitleAr: "لا حاجة لبطاقة بنكية — ادفع نقداً عند وصول طلبك", subtitleEn: "No bank card needed — pay cash when your order arrives", iconName: "payments", bgColor: "#065f46", sortOrder: 2, isActive: true },
 ];
 

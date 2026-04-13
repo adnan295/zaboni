@@ -23,7 +23,7 @@ import { useRatings } from "@/context/RatingsContext";
 import { DeliveryMap } from "@/components/DeliveryMap";
 import {
   Coords,
-  DAMASCUS_CENTER,
+  HOMS_CENTER,
   simulateCourierStart,
   interpolateCoords,
   haversineDistance,
@@ -100,10 +100,10 @@ export default function OrderTrackingScreen() {
           const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
           setUserCoords({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
         } else {
-          setUserCoords(DAMASCUS_CENTER);
+          setUserCoords(HOMS_CENTER);
         }
       } catch {
-        setUserCoords(DAMASCUS_CENTER);
+        setUserCoords(HOMS_CENTER);
       }
     })();
   }, []);

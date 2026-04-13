@@ -68,8 +68,19 @@
     "defaultUser": "المستخدم",
     "stats": {
       "orders": "طلب",
+      "completed": "مكتملة",
       "favorites": "مفضلة",
-      "avgRating": "متوسط تقييمي"
+      "avgRating": "متوسط تقييمي",
+      "deliveryFees": "إجمالي رسوم التوصيل المدفوعة",
+      "memberSince": "عضو منذ"
+    },
+    "editName": {
+      "title": "تعديل الاسم",
+      "placeholder": "الاسم الكامل",
+      "cancel": "تراجع",
+      "save": "حفظ",
+      "errorTitle": "خطأ",
+      "errorMsg": "تعذّر حفظ الاسم، حاول مجدداً"
     },
     "menu": {
       "orders": "طلباتي",
