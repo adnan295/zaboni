@@ -131,7 +131,7 @@ router.post("/auth/send-otp", async (req, res) => {
   const isDev = process.env["NODE_ENV"] !== "production";
   res.json({
     success: true,
-    channel: "sms",
+    channel: isDev ? "dev" : "sms",
     expiresInMinutes: OTP_TTL_MINUTES,
     ...(isDev ? { devCode: code } : {}),
   });
