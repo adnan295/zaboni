@@ -234,23 +234,24 @@ router.post("/orders", async (req, res) => {
     estimatedMinutes,
   };
 
-  const rows = await db.insert(ordersTable).values(newOrder).returning();
-
-  await db.insert(orderStatusHistoryTable).values({
-    id: `${id}_searching`,
-    orderId: id,
-    status: "searching",
-  });
-
-  if (promoUseData) {
-    await db.insert(promoUsesTable).values({
-      id: `pu_${Date.now()}${Math.random().toString(36).slice(2, 7)}`,
-      promoId: promoUseData.promoId,
-      userId,
+  const rows = await db.transaction(async (tx) => {
+    const inserted = await tx.insert(ordersTable).values(newOrder).returning();
+    await tx.insert(orderStatusHistoryTable).values({
+      id: `${id}_searching`,
       orderId: id,
-      discountAmount: promoUseData.discountAmount,
+      status: "searching",
     });
-  }
+    if (promoUseData) {
+      await tx.insert(promoUsesTable).values({
+        id: `pu_${Date.now()}${Math.random().toString(36).slice(2, 7)}`,
+        promoId: promoUseData.promoId,
+        userId,
+        orderId: id,
+        discountAmount: promoUseData.discountAmount,
+      });
+    }
+    return inserted;
+  });
 
   void notifyNearbyCouriers(destLat, destLon, body.data.restaurantName, zoneFee);
 

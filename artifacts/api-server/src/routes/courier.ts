@@ -300,7 +300,7 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
 
   const updated = await db
     .update(ordersTable)
-    .set({ courierId, courierName, courierPhone, courierRating: 5.0, status: "accepted", updatedAt: new Date() })
+    .set({ courierId, courierName, courierPhone, courierRating: 0, status: "accepted", updatedAt: new Date() })
     .where(and(eq(ordersTable.id, orderId), eq(ordersTable.courierId, ""), eq(ordersTable.status, "searching")))
     .returning();
 
