@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
+import ZaboniLogo from "@/components/ZaboniLogo";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
@@ -128,9 +129,7 @@ export default function PhoneScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.logoBox, { backgroundColor: colors.primary }]}>
-          <MaterialIcons name="delivery-dining" size={48} color="#fff" />
-        </View>
+        <ZaboniLogo size="large" showName={false} style={{ marginBottom: 28 }} />
 
         <Text style={[styles.title, { color: colors.foreground }]}>
           {t("auth.phone.title")}
@@ -229,12 +228,6 @@ export default function PhoneScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   inner: { paddingHorizontal: 24, alignItems: "center", paddingBottom: 40 },
-  logoBox: {
-    width: 100, height: 100, borderRadius: 28,
-    alignItems: "center", justifyContent: "center", marginBottom: 28,
-    shadowColor: "#DC2626", shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3, shadowRadius: 16, elevation: 8,
-  },
   title: { fontSize: 26, fontWeight: "800", marginBottom: 8, textAlign: "center" },
   subtitle: { fontSize: 15, marginBottom: 36, textAlign: "center" },
   inputWrapper: {

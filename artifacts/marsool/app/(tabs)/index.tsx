@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import RestaurantCard from "@/components/RestaurantCard";
+import ZaboniLogo from "@/components/ZaboniLogo";
 import { useAddresses } from "@/context/AddressContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import { useOrders } from "@/context/OrderContext";
@@ -160,6 +161,7 @@ export default function HomeScreen() {
       >
         {/* Header */}
         <View style={[styles.header, { paddingTop: topPadding + 16 }]}>
+          <ZaboniLogo size="small" showName={false} />
           <TouchableOpacity style={styles.locationRow} onPress={() => router.push("/addresses")}>
             <MaterialIcons name="location-on" size={18} color={colors.primary} />
             <Text style={[styles.location, { color: colors.foreground }]} numberOfLines={1}>

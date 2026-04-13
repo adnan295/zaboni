@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
+import ZaboniLogo from "@/components/ZaboniLogo";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -79,7 +80,8 @@ export default function OnboardingScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: topPadding }]}>
-      <View style={styles.skipRow}>
+      <View style={styles.topBar}>
+        <ZaboniLogo size="small" showName={true} nameColor={colors.primary} />
         <TouchableOpacity onPress={skip} style={styles.skipBtn} activeOpacity={0.7}>
           <Text style={[styles.skipText, { color: colors.mutedForeground }]}>
             {t("onboarding.skip")}
@@ -160,8 +162,10 @@ export default function OnboardingScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  skipRow: {
-    alignItems: "flex-end",
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 4,
