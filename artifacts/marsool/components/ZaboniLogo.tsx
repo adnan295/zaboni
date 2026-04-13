@@ -1,5 +1,5 @@
 import React from "react";
-import { View, StyleSheet, ViewStyle } from "react-native";
+import { View, StyleSheet, StyleProp, ViewStyle } from "react-native";
 import { default as Text } from "@/components/AppText";
 
 type LogoSize = "small" | "medium" | "large";
@@ -8,7 +8,7 @@ interface ZaboniLogoProps {
   size?: LogoSize;
   showName?: boolean;
   nameColor?: string;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }
 
 const SIZE_MAP: Record<LogoSize, { box: number; radius: number; letter: number; name: number; shadow: number; gap: number }> = {
