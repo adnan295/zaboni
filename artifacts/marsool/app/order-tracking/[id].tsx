@@ -302,6 +302,16 @@ export default function OrderTrackingScreen() {
         } else {
           if (current === "searching") {
             setShowChatPrompt(false);
+            // Courier cancelled — reset all map/simulation state so a new courier
+            // acceptance triggers a fresh simulation and GPS poll cycle
+            setCourierCoords(null);
+            if (simulationRef.current) {
+              clearInterval(simulationRef.current);
+              simulationRef.current = null;
+            }
+            simulationInitialized.current = false;
+            courierStartRef.current = null;
+            gotRealGps.current = false;
           }
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }

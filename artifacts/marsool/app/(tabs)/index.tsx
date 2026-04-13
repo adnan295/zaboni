@@ -133,8 +133,10 @@ export default function HomeScreen() {
     if (!activeOrder) return "";
     if (activeOrder.status === "searching") return t("home.order.searching");
     if (activeOrder.status === "accepted") return `${activeOrder.courierName} ${t("home.order.accepted")}`;
+    if (activeOrder.status === "picked_up") return t("home.order.pickedUp");
     if (activeOrder.status === "on_way") return t("home.order.onWay");
-    return t("home.order.delivered");
+    if (activeOrder.status === "delivered") return t("home.order.delivered");
+    return "";
   };
 
   const firstName = user?.name ? user.name.split(" ")[0] : null;
