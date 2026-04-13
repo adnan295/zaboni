@@ -18,6 +18,7 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import { useOrders } from "@/context/OrderContext";
+import { useAuth } from "@/context/AuthContext";
 import { useChat, ChatMessage } from "@/context/ChatContext";
 import { customFetch } from "@workspace/api-client-react";
 
@@ -29,13 +30,14 @@ export default function ChatScreen() {
   const { t } = useTranslation();
   const backIcon = useBackIcon();
   const { getOrder } = useOrders();
+  const { user } = useAuth();
   const {
     getMessages,
     sendMessage,
     sendTyping,
     sendStopTyping,
     joinOrder,
-    isCourierTyping,
+    isOtherPartyTyping,
     isConnected,
   } = useChat();
   const [text, setText] = useState("");
@@ -45,6 +47,8 @@ export default function ChatScreen() {
 
   const orderFromContext = getOrder(orderId ?? "");
   const order = orderFromContext ?? fetchedOrder;
+
+  const myRole: "customer" | "courier" = user?.role ?? "customer";
 
   useEffect(() => {
     setFetchedOrder(undefined);
@@ -72,8 +76,9 @@ export default function ChatScreen() {
       });
     return () => { cancelled = true; };
   }, [orderId, orderFromContext]);
+
   const messages = getMessages(orderId ?? "");
-  const courierIsTyping = isCourierTyping(orderId ?? "");
+  const otherIsTyping = isOtherPartyTyping(orderId ?? "", myRole);
 
   useEffect(() => {
     if (!orderId) return;
@@ -84,7 +89,7 @@ export default function ChatScreen() {
     if (messages.length > 0) {
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     }
-  }, [messages.length, courierIsTyping]);
+  }, [messages.length, otherIsTyping]);
 
   const handleSend = () => {
     if (!text.trim() || !orderId) return;
@@ -98,6 +103,8 @@ export default function ChatScreen() {
     setText(val);
     if (orderId && val.length > 0) {
       sendTyping(orderId);
+    } else if (orderId && val.length === 0) {
+      sendStopTyping(orderId);
     }
   };
 
@@ -106,6 +113,14 @@ export default function ChatScreen() {
 
   const formatTime = (ts: string | Date | number) =>
     new Date(ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+
+  const iAmCourier = myRole === "courier";
+  const headerName = iAmCourier
+    ? t("chat.customer")
+    : (order?.courierName || t("chat.courier"));
+  const headerIcon: React.ComponentProps<typeof MaterialIcons>["name"] = iAmCourier
+    ? "person"
+    : "delivery-dining";
 
   if (!order) {
     if (orderLoading) {
@@ -122,6 +137,8 @@ export default function ChatScreen() {
     );
   }
 
+  const typingLabel = iAmCourier ? t("chat.customerTyping") : t("chat.typing");
+
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -134,10 +151,10 @@ export default function ChatScreen() {
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <View style={[styles.avatarCircle, { backgroundColor: colors.primary }]}>
-            <MaterialIcons name="delivery-dining" size={20} color="#fff" />
+            <MaterialIcons name={headerIcon} size={20} color="#fff" />
           </View>
           <View>
-            <Text style={[styles.courierName, { color: colors.foreground }]}>{order.courierName}</Text>
+            <Text style={[styles.courierName, { color: colors.foreground }]}>{headerName}</Text>
             <View style={styles.onlineRow}>
               <View style={[styles.onlineDot, { backgroundColor: isConnected ? "#22c55e" : "#94a3b8" }]} />
               <Text style={[styles.onlineText, { color: colors.mutedForeground }]}>
@@ -146,17 +163,20 @@ export default function ChatScreen() {
             </View>
           </View>
         </View>
-        <TouchableOpacity
-          onPress={() =>
-            router.push({
-              pathname: "/order-tracking/[id]",
-              params: { id: orderId },
-            })
-          }
-          style={styles.trackIconBtn}
-        >
-          <MaterialIcons name="my-location" size={22} color={colors.primary} />
-        </TouchableOpacity>
+        {!iAmCourier && (
+          <TouchableOpacity
+            onPress={() =>
+              router.push({
+                pathname: "/order-tracking/[id]",
+                params: { id: orderId },
+              })
+            }
+            style={styles.trackIconBtn}
+          >
+            <MaterialIcons name="my-location" size={22} color={colors.primary} />
+          </TouchableOpacity>
+        )}
+        {iAmCourier && <View style={styles.trackIconBtn} />}
       </View>
 
       <View style={[styles.orderBanner, { backgroundColor: colors.secondary }]}>
@@ -173,26 +193,26 @@ export default function ChatScreen() {
         contentContainerStyle={[styles.messagesList, { paddingBottom: bottomPadding + 90 }]}
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => {
-          const isCustomer = item.senderRole === "customer";
+          const isMine = item.senderId === user?.id;
           return (
-            <View style={[styles.messageRow, isCustomer ? styles.messageRowRight : styles.messageRowLeft]}>
-              {!isCustomer && (
-                <View style={[styles.smallAvatar, { backgroundColor: colors.primary }]}>
-                  <MaterialIcons name="delivery-dining" size={14} color="#fff" />
+            <View style={[styles.messageRow, isMine ? styles.messageRowRight : styles.messageRowLeft]}>
+              {!isMine && (
+                <View style={[styles.smallAvatar, { backgroundColor: colors.muted }]}>
+                  <MaterialIcons name={iAmCourier ? "person" : "delivery-dining"} size={14} color={colors.mutedForeground} />
                 </View>
               )}
               <View
                 style={[
                   styles.bubble,
-                  isCustomer
-                    ? [styles.bubbleCustomer, { backgroundColor: colors.primary }]
-                    : [styles.bubbleCourier, { backgroundColor: colors.card, borderColor: colors.border }],
+                  isMine
+                    ? [styles.bubbleMine, { backgroundColor: colors.primary }]
+                    : [styles.bubbleOther, { backgroundColor: colors.card, borderColor: colors.border }],
                 ]}
               >
-                <Text style={[styles.bubbleText, { color: isCustomer ? "#fff" : colors.foreground }]}>
+                <Text style={[styles.bubbleText, { color: isMine ? "#fff" : colors.foreground }]}>
                   {item.text}
                 </Text>
-                <Text style={[styles.bubbleTime, { color: isCustomer ? "rgba(255,255,255,0.65)" : colors.mutedForeground }]}>
+                <Text style={[styles.bubbleTime, { color: isMine ? "rgba(255,255,255,0.65)" : colors.mutedForeground }]}>
                   {formatTime(item.createdAt)}
                 </Text>
               </View>
@@ -200,14 +220,14 @@ export default function ChatScreen() {
           );
         }}
         ListFooterComponent={
-          courierIsTyping ? (
+          otherIsTyping ? (
             <View style={[styles.messageRow, styles.messageRowLeft, { marginTop: 8 }]}>
-              <View style={[styles.smallAvatar, { backgroundColor: colors.primary }]}>
-                <MaterialIcons name="delivery-dining" size={14} color="#fff" />
+              <View style={[styles.smallAvatar, { backgroundColor: colors.muted }]}>
+                <MaterialIcons name={iAmCourier ? "person" : "delivery-dining"} size={14} color={colors.mutedForeground} />
               </View>
-              <View style={[styles.bubble, styles.bubbleCourier, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: "row", gap: 4, paddingVertical: 10, paddingHorizontal: 14 }]}>
+              <View style={[styles.bubble, styles.bubbleOther, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: "row", gap: 4, paddingVertical: 10, paddingHorizontal: 14 }]}>
                 <ActivityIndicator size="small" color={colors.primary} />
-                <Text style={{ color: colors.mutedForeground, fontSize: 13 }}>{t("chat.typing")}</Text>
+                <Text style={{ color: colors.mutedForeground, fontSize: 13 }}>{typingLabel}</Text>
               </View>
             </View>
           ) : null
@@ -284,8 +304,8 @@ const styles = StyleSheet.create({
   messageRowLeft: { justifyContent: "flex-start" },
   smallAvatar: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", marginBottom: 18 },
   bubble: { maxWidth: "75%", borderRadius: 16, padding: 12, gap: 4 },
-  bubbleCustomer: { borderBottomRightRadius: 4 },
-  bubbleCourier: { borderBottomLeftRadius: 4, borderWidth: 1 },
+  bubbleMine: { borderBottomRightRadius: 4 },
+  bubbleOther: { borderBottomLeftRadius: 4, borderWidth: 1 },
   bubbleText: { fontSize: 14, lineHeight: 20 },
   bubbleTime: { fontSize: 10, textAlign: "right" },
   emptyChat: { alignItems: "center", gap: 12, paddingTop: 80 },

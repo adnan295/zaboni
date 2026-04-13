@@ -20,13 +20,9 @@ export interface ChatMessage {
   createdAt: string | Date;
 }
 
-interface TypingState {
-  [orderId: string]: boolean;
-}
-
 interface ChatContextValue {
   getMessages: (orderId: string) => ChatMessage[];
-  isCourierTyping: (orderId: string) => boolean;
+  isOtherPartyTyping: (orderId: string, myRole: "customer" | "courier") => boolean;
   sendMessage: (orderId: string, text: string) => void;
   sendTyping: (orderId: string) => void;
   sendStopTyping: (orderId: string) => void;
@@ -43,7 +39,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [messagesByOrder, setMessagesByOrder] = useState<
     Record<string, ChatMessage[]>
   >({});
-  const [courierTyping, setCourierTyping] = useState<TypingState>({});
+  const [typingBySenderRole, setTypingBySenderRole] = useState<
+    Record<string, string | null>
+  >({});
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const joinedRoomsRef = useRef<Set<string>>(new Set());
@@ -103,16 +101,19 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     socket.on(
       "typing",
       ({ orderId, senderRole }: { senderId: string; senderRole: string; orderId: string }) => {
-        if (senderRole !== "courier" || !orderId) return;
-        setCourierTyping((prev) => ({ ...prev, [orderId]: true }));
+        if (!orderId || !senderRole) return;
+        setTypingBySenderRole((prev) => ({ ...prev, [orderId]: senderRole }));
       }
     );
 
     socket.on(
       "stop-typing",
       ({ orderId, senderRole }: { senderId: string; senderRole?: string; orderId: string }) => {
-        if (!orderId || senderRole !== "courier") return;
-        setCourierTyping((prev) => ({ ...prev, [orderId]: false }));
+        if (!orderId) return;
+        setTypingBySenderRole((prev) => {
+          if (senderRole && prev[orderId] !== senderRole) return prev;
+          return { ...prev, [orderId]: null };
+        });
       }
     );
 
@@ -157,9 +158,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     [messagesByOrder]
   );
 
-  const isCourierTyping = useCallback(
-    (orderId: string): boolean => courierTyping[orderId] ?? false,
-    [courierTyping]
+  const isOtherPartyTyping = useCallback(
+    (orderId: string, myRole: "customer" | "courier"): boolean => {
+      const typingRole = typingBySenderRole[orderId];
+      if (!typingRole) return false;
+      return typingRole !== myRole;
+    },
+    [typingBySenderRole]
   );
 
   const sendMessage = useCallback((orderId: string, text: string) => {
@@ -206,7 +211,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     <ChatContext.Provider
       value={{
         getMessages,
-        isCourierTyping,
+        isOtherPartyTyping,
         sendMessage,
         sendTyping,
         sendStopTyping,
