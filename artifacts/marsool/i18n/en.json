@@ -453,7 +453,10 @@
     "notFound": "Order not found",
     "onlineNow": "Online now",
     "connecting": "Connecting...",
-    "typing": "typing...",
+    "typing": "Courier is typing...",
+    "customerTyping": "Customer is typing...",
+    "customer": "Customer",
+    "courier": "Courier",
     "inputPlaceholder": "Type a message...",
     "empty": {
       "title": "Chat will start soon",

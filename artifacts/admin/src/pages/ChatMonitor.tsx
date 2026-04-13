@@ -83,7 +83,7 @@ function ChatThreadPanel({
 
       {/* Order text */}
       {selected.orderText && (
-        <div className="px-4 py-2 bg-orange-50 dark:bg-orange-950/20 border-b shrink-0">
+        <div className="px-4 py-2 bg-red-50 dark:bg-red-950/20 border-b shrink-0">
           <p className="text-xs text-muted-foreground">نص الطلب:</p>
           <p className="text-sm font-medium line-clamp-2">{selected.orderText}</p>
         </div>
@@ -116,12 +116,12 @@ function ChatThreadPanel({
               <div
                 className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${
                   isCustomer
-                    ? "bg-orange-500 text-white rounded-tr-sm"
+                    ? "bg-primary text-white rounded-tr-sm"
                     : "bg-muted text-foreground rounded-tl-sm"
                 }`}
               >
                 <p className="leading-relaxed break-words">{msg.text}</p>
-                <p className={`text-[10px] mt-1 ${isCustomer ? "text-orange-100" : "text-muted-foreground"}`}>
+                <p className={`text-[10px] mt-1 ${isCustomer ? "text-red-100" : "text-muted-foreground"}`}>
                   {isCustomer ? "عميل" : "مندوب"} · {formatFullTime(msg.createdAt)}
                 </p>
               </div>
@@ -221,7 +221,7 @@ export default function ChatMonitor() {
                   <button
                     key={chat.orderId}
                     onClick={() => setSelected(chat)}
-                    className={`w-full text-right px-4 py-3 border-b last:border-b-0 hover:bg-muted/50 transition-colors ${isActive ? "bg-orange-50 dark:bg-orange-950/20 border-r-2 border-r-orange-500" : ""}`}
+                    className={`w-full text-right px-4 py-3 border-b last:border-b-0 hover:bg-muted/50 transition-colors ${isActive ? "bg-red-50 dark:bg-red-950/20 border-r-2 border-r-primary" : ""}`}
                     dir="rtl"
                   >
                     {/* Row 1: order number + timestamp */}

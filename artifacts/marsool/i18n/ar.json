@@ -453,7 +453,10 @@
     "notFound": "الطلب غير موجود",
     "onlineNow": "متصل الآن",
     "connecting": "جارٍ الاتصال...",
-    "typing": "يكتب...",
+    "typing": "المندوب يكتب...",
+    "customerTyping": "العميل يكتب...",
+    "customer": "العميل",
+    "courier": "المندوب",
     "inputPlaceholder": "اكتب رسالة...",
     "empty": {
       "title": "ستبدأ المحادثة قريباً",
