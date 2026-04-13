@@ -22,7 +22,9 @@
       "noCode": "Didn't receive the code?",
       "resend": "Resend",
       "errorTitle": "Invalid Code",
-      "errorMsg": "The code is incorrect or has expired. Please try again."
+      "errorMsg": "The code is incorrect or has expired. Please try again.",
+      "hintWhatsapp": "You will receive a WhatsApp message with the verification code",
+      "noCodeWhatsapp": "Did not receive a WhatsApp message?"
     },
     "name": {
       "title": "What's your name?",
@@ -574,9 +576,18 @@
     "faq": {
       "title": "Common Questions",
       "items": [
-        { "q": "How do I cancel my order?", "a": "You can cancel your order before a courier accepts it from the order tracking screen." },
-        { "q": "How do I track my order?", "a": "Once a courier accepts your order, you can track them live from the order tracking screen." },
-        { "q": "What payment methods are accepted?", "a": "We currently accept cash on delivery only." }
+        {
+          "q": "How do I cancel my order?",
+          "a": "You can cancel your order before a courier accepts it from the order tracking screen."
+        },
+        {
+          "q": "How do I track my order?",
+          "a": "Once a courier accepts your order, you can track them live from the order tracking screen."
+        },
+        {
+          "q": "What payment methods are accepted?",
+          "a": "We currently accept cash on delivery only."
+        }
       ]
     },
     "linkError": {
