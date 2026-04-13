@@ -41,7 +41,7 @@ const HOMS_NEIGHBORHOODS = [
   "تلبيسة، ريف حمص",
   "القصير، ريف حمص",
   "المسكن الشبابي، حمص",
-  "الشيخ مسكين، حمص",
+  "طريق تدمر، حمص",
 ];
 
 const HOMS_NEIGHBORHOODS_EN = [
@@ -74,7 +74,7 @@ const HOMS_NEIGHBORHOODS_EN = [
   "Talbisa, Homs Countryside",
   "Al Qusayr, Homs Countryside",
   "Youth Housing, Homs",
-  "Al Shaykh Maskin, Homs",
+  "Palmyra Road, Homs",
 ];
 
 const GOOGLE_PLACES_KEY = typeof process !== "undefined"
