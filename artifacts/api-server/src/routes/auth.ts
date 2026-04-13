@@ -100,15 +100,20 @@ router.post("/auth/send-otp", async (req, res) => {
     return;
   }
 
+  const isDev = process.env["NODE_ENV"] !== "production";
+
   if (isWaVerifyConfigured()) {
     try {
       await waverifyRequestOtp(phone);
       res.json({ success: true, channel: "whatsapp", expiresInMinutes: OTP_TTL_MINUTES });
+      return;
     } catch (err) {
-      console.error("[auth] WaVerify request_otp failed:", (err as Error).message);
-      res.status(502).json({ error: "فشل إرسال رمز التحقق عبر واتساب — حاول لاحقاً" });
+      console.warn("[auth] WaVerify request_otp failed, falling back to local OTP:", (err as Error).message);
+      if (!isDev) {
+        res.status(502).json({ error: "فشل إرسال رمز التحقق عبر واتساب — حاول لاحقاً" });
+        return;
+      }
     }
-    return;
   }
 
   const code = generateOtp();
@@ -128,7 +133,6 @@ router.post("/auth/send-otp", async (req, res) => {
     console.warn("[auth] SMS skipped (no gateway configured):", (err as Error).message);
   }
 
-  const isDev = process.env["NODE_ENV"] !== "production";
   res.json({
     success: true,
     channel: isDev ? "dev" : "sms",
@@ -153,6 +157,9 @@ router.post("/auth/verify-otp", async (req, res) => {
     return;
   }
 
+  const isDev = process.env["NODE_ENV"] !== "production";
+  let useDbVerify = !isWaVerifyConfigured();
+
   if (isWaVerifyConfigured()) {
     try {
       const verified = await waverifyVerifyOtp(phone, code);
@@ -161,11 +168,16 @@ router.post("/auth/verify-otp", async (req, res) => {
         return;
       }
     } catch (err) {
-      console.error("[auth] WaVerify verify_otp failed:", (err as Error).message);
-      res.status(502).json({ error: "فشل التحقق من الرمز — حاول لاحقاً" });
-      return;
+      console.warn("[auth] WaVerify verify_otp failed, falling back to local OTP:", (err as Error).message);
+      if (!isDev) {
+        res.status(502).json({ error: "فشل التحقق من الرمز — حاول لاحقاً" });
+        return;
+      }
+      useDbVerify = true;
     }
-  } else {
+  }
+
+  if (useDbVerify) {
     const rows = await db
       .select()
       .from(otpCodesTable)
