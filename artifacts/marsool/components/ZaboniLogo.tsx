@@ -33,6 +33,7 @@ export default function ZaboniLogo({ size = "large", showName = false, nameColor
           shadowOffset: { width: 0, height: 6 },
           shadowOpacity: 0.35,
           shadowRadius: s.shadow,
+          elevation: 8,
         }}
         resizeMode="cover"
       />
