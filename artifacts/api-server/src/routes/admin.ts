@@ -1602,7 +1602,7 @@ const bannerBody = z.object({
   subtitleAr: z.string().default(""),
   subtitleEn: z.string().default(""),
   iconName: z.string().default("local-offer"),
-  bgColor: z.string().default("#FF6B00"),
+  bgColor: z.string().default("#DC2626"),
   sortOrder: z.number().int().default(0),
   isActive: z.boolean().default(true),
 });
