@@ -699,6 +699,11 @@
         <div class="qr-inner" id="qrCode"></div>
       </div>
       <span class="qr-label" id="qrLabel" style="display:none">امسح QR بالكاميرا أو Expo Go</span>
+      <div style="margin-top:20px">
+        <a href="#" id="expoGoBtn" style="color:rgba(255,255,255,0.6);font-size:13px;text-decoration:underline;text-underline-offset:3px;">
+          فتح في Expo Go (للمطورين)
+        </a>
+      </div>
     </section>
 
     <!-- ── Footer ── -->
@@ -727,31 +732,35 @@
 
         const deepLink = 'exps://EXPS_URL_PLACEHOLDER';
 
-        /* Mobile: try deep-link, show overlay */
-        if (isMobile) {
-          document.querySelectorAll('.btn-primary, .btn-secondary, .nav-cta').forEach(function(btn) {
-            if (btn.getAttribute('href') === '#download') {
-              btn.addEventListener('click', function(e) {
-                e.preventDefault();
-                document.getElementById('dlOverlay').classList.add('active');
-                window.location.href = deepLink;
-                setTimeout(function() {
-                  document.getElementById('dlOverlay').classList.remove('active');
-                  document.getElementById('download').scrollIntoView({ behavior: 'smooth' });
-                }, 1800);
-              });
-            }
+        /* Primary CTAs (#download anchors) → smooth scroll only, no deep link */
+        document.querySelectorAll('a[href="#download"]').forEach(function(btn) {
+          btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('download').scrollIntoView({ behavior: 'smooth' });
+          });
+        });
+
+        /* Expo deep-link: only from the explicit "Open in Expo Go" button */
+        var expoBtn = document.getElementById('expoGoBtn');
+        if (expoBtn) {
+          expoBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('dlOverlay').classList.add('active');
+            window.location.href = deepLink;
+            setTimeout(function() {
+              document.getElementById('dlOverlay').classList.remove('active');
+            }, 1800);
           });
         }
 
         /* Desktop: show QR code */
         if (!isMobile && typeof QRCodeStyling !== 'undefined') {
-          const qrWrap = document.getElementById('qrWrap');
-          const qrLabel = document.getElementById('qrLabel');
-          qrWrap.style.display = 'inline-block';
-          qrLabel.style.display = 'block';
+          var qrWrap = document.getElementById('qrWrap');
+          var qrLabel = document.getElementById('qrLabel');
+          if (qrWrap) qrWrap.style.display = 'inline-block';
+          if (qrLabel) qrLabel.style.display = 'block';
 
-          const qr = new QRCodeStyling({
+          var qr = new QRCodeStyling({
             width: 400,
             height: 400,
             data: deepLink,
