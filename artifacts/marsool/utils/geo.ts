@@ -34,8 +34,6 @@ export function interpolateCoords(from: Coords, to: Coords, t: number): Coords {
 
 export const HOMS_CENTER: Coords = { latitude: 34.7324, longitude: 36.7137 };
 
-export const DAMASCUS_CENTER = HOMS_CENTER;
-
 export function simulateCourierStart(user: Coords, offsetKm = 2): Coords {
   const deltaLat = offsetKm / 111;
   const deltaLng = offsetKm / (111 * Math.cos(toRad(user.latitude)));
