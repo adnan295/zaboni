@@ -77,7 +77,8 @@ export default function OrderTrackingScreen() {
 
   const cancelNoteLoadedRef = useRef(false);
   useEffect(() => {
-    if (!id || order?.status !== "cancelled") return;
+    const NOTE_STATUSES = ["cancelled", "searching"];
+    if (!id || !order?.status || !NOTE_STATUSES.includes(order.status)) return;
     if (cancelNoteLoadedRef.current) return;
     cancelNoteLoadedRef.current = true;
     void refreshOrder(id);
@@ -422,7 +423,11 @@ export default function OrderTrackingScreen() {
               </Animated.View>
             </Animated.View>
             <Text style={styles.heroTitle}>{t("orderTracking.searching.title")}</Text>
-            <Text style={styles.heroSub}>{t("orderTracking.searching.sub")}</Text>
+            <Text style={styles.heroSub}>
+              {order.cancelNote === "courier_cancelled"
+                ? t("orderTracking.searching.subAfterCourierCancel")
+                : t("orderTracking.searching.sub")}
+            </Text>
             <View style={styles.dotRow}>
               {[0, 1, 2].map((i) => (
                 <View key={i} style={[styles.dot, { backgroundColor: "rgba(255,255,255,0.5)" }]} />

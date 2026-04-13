@@ -452,7 +452,8 @@
     },
     "searching": {
       "title": "Looking for a courier near you",
-      "sub": "You'll get a notification when a courier accepts"
+      "sub": "You'll get a notification when a courier accepts",
+      "subAfterCourierCancel": "Courier cancelled — searching for another courier"
     },
     "courier": {
       "acceptedBanner": "Accepted your order!",
