@@ -1,10 +1,10 @@
 {
   "app": {
-    "name": "Marsool"
+    "name": "Zaboni"
   },
   "auth": {
     "phone": {
-      "title": "Welcome to Marsool",
+      "title": "Welcome to Zaboni",
       "subtitle": "Enter your phone number to continue",
       "continue": "Continue",
       "termsPrefix": "By continuing, you agree to our",
@@ -49,7 +49,7 @@
         "subtitle": "Order now and track the courier live on the map"
       },
       {
-        "title": "Best restaurants in Damascus",
+        "title": "Best restaurants in Homs",
         "subtitle": "Explore burgers, pizza, grills, and more"
       },
       {
@@ -86,7 +86,7 @@
     "signOutMessage": "Do you want to sign out?",
     "signOutCancel": "Cancel",
     "signOutConfirm": "Sign Out",
-    "version": "Marsool · Version 1.0.0",
+    "version": "Zaboni · Version 1.0.0",
     "language": {
       "title": "Choose Language",
       "arabic": "العربية",
@@ -229,7 +229,7 @@
       "hours": "{{count}} hr ago"
     },
     "seed": {
-      "welcome1Title": "Welcome to Marsool!",
+      "welcome1Title": "Welcome to Zaboni!",
       "welcome1Body": "Use code WELCOME for 25% off your first order",
       "welcome2Title": "Limited offer: Free delivery",
       "welcome2Body": "Order now and enjoy free delivery on all your orders"
@@ -378,7 +378,7 @@
   "paymentInfo": {
     "title": "Payment Methods",
     "heroTitle": "Cash on Delivery",
-    "heroSub": "The only payment method available in Marsool right now",
+    "heroSub": "The only payment method available in Zaboni right now",
     "infoBanner": "Electronic payment or credit cards are not accepted at this time.",
     "howTitle": "How does payment work?",
     "steps": [
@@ -554,16 +554,16 @@
   },
   "about": {
     "title": "About the App",
-    "tagline": "Fast delivery across Damascus",
+    "tagline": "Fast delivery across Homs",
     "version": "Version {{version}} (Build {{build}})",
     "description": {
-      "title": "About Marsool",
-      "body": "Marsool is a fast delivery app connecting you with the best restaurants in Damascus. Order from our wide selection of restaurants and get your food delivered to your door quickly."
+      "title": "About Zaboni",
+      "body": "Zaboni is a fast delivery app connecting you with the best restaurants in Homs. Order from our wide selection of restaurants and get your food delivered to your door quickly."
     },
     "features": {
       "title": "Key Features",
       "items": [
-        "Fast delivery across Damascus",
+        "Fast delivery across Homs",
         "Real-time order tracking",
         "Live chat with your courier",
         "Cash on delivery payment",
@@ -575,7 +575,7 @@
       "privacy": "Privacy Policy",
       "terms": "Terms of Service"
     },
-    "copyright": "© 2025 Marsool. All rights reserved."
+    "copyright": "© 2025 Zaboni. All rights reserved."
   },
   "courierApply": {
     "title": "Apply as a Courier",

@@ -46,7 +46,7 @@ export default function Login({ onLogin }: LoginProps) {
           <div className="mx-auto w-12 h-12 bg-primary rounded-full flex items-center justify-center text-2xl">
             🚀
           </div>
-          <CardTitle className="text-2xl font-bold">مرسول</CardTitle>
+          <CardTitle className="text-2xl font-bold">زبوني</CardTitle>
           <CardDescription>لوحة الإدارة — أدخل كلمة المرور للمتابعة</CardDescription>
         </CardHeader>
         <CardContent>

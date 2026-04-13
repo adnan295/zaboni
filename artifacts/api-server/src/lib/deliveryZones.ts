@@ -13,8 +13,8 @@ export function haversineKm(lat1: number, lon1: number, lat2: number, lon2: numb
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export const DAMASCUS_CENTER_LAT = 33.5138;
-export const DAMASCUS_CENTER_LON = 36.2765;
+export const DAMASCUS_CENTER_LAT = 34.7324;
+export const DAMASCUS_CENTER_LON = 36.7137;
 
 export const DEFAULT_DELIVERY_FEE_SYP = 5000;
 

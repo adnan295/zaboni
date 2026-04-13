@@ -29,17 +29,17 @@ const SECTIONS: Section[] = [
     titleAr: "١. قبول الشروط",
     titleEn: "1. Acceptance of Terms",
     bodyAr:
-      "باستخدامك لتطبيق مرسول، فأنت توافق على الالتزام بهذه الشروط. إذا كنت لا توافق على أي جزء منها، يرجى عدم استخدام التطبيق.",
+      "باستخدامك لتطبيق زبوني، فأنت توافق على الالتزام بهذه الشروط. إذا كنت لا توافق على أي جزء منها، يرجى عدم استخدام التطبيق.",
     bodyEn:
-      "By using the Marsool app, you agree to be bound by these terms. If you do not agree to any part of them, please do not use the app.",
+      "By using the Zaboni app, you agree to be bound by these terms. If you do not agree to any part of them, please do not use the app.",
   },
   {
     titleAr: "٢. وصف الخدمة",
     titleEn: "2. Service Description",
     bodyAr:
-      "مرسول منصة وساطة تربط بين العملاء والمندوبين في دمشق وريفها. نحن لسنا طرفاً في عملية التوصيل بل نوفر الوسيلة التقنية لإتمامها.",
+      "زبوني منصة وساطة تربط بين العملاء والمندوبين في حمص وريفها. نحن لسنا طرفاً في عملية التوصيل بل نوفر الوسيلة التقنية لإتمامها.",
     bodyEn:
-      "Marsool is a mediation platform connecting customers and couriers in Damascus and its surroundings. We are not a party to the delivery transaction; we only provide the technical means to complete it.",
+      "Zaboni is a mediation platform connecting customers and couriers in Homs and its surroundings. We are not a party to the delivery transaction; we only provide the technical means to complete it.",
   },
   {
     titleAr: "٣. التسجيل والحساب",
@@ -77,9 +77,9 @@ const SECTIONS: Section[] = [
     titleAr: "٧. حدود المسؤولية",
     titleEn: "7. Limitation of Liability",
     bodyAr:
-      "لا تتحمل مرسول مسؤولية التأخير الناجم عن ظروف خارجة عن إرادتها كحوادث السير أو ظروف الطقس القاهرة.",
+      "لا تتحمل زبوني مسؤولية التأخير الناجم عن ظروف خارجة عن إرادتها كحوادث السير أو ظروف الطقس القاهرة.",
     bodyEn:
-      "Marsool is not liable for delays caused by circumstances beyond its control such as traffic accidents or extreme weather conditions.",
+      "Zaboni is not liable for delays caused by circumstances beyond its control such as traffic accidents or extreme weather conditions.",
   },
   {
     titleAr: "٨. التعديلات على الشروط",
@@ -127,8 +127,8 @@ export default function TermsScreen() {
 
         <Text style={[styles.intro, { color: colors.mutedForeground }]}>
           {isAr
-            ? "تحكم هذه الشروط استخدامك لتطبيق مرسول وجميع الخدمات المرتبطة به. يرجى قراءتها بعناية قبل استخدام التطبيق."
-            : "These terms govern your use of the Marsool app and all related services. Please read them carefully before using the app."}
+            ? "تحكم هذه الشروط استخدامك لتطبيق زبوني وجميع الخدمات المرتبطة به. يرجى قراءتها بعناية قبل استخدام التطبيق."
+            : "These terms govern your use of the Zaboni app and all related services. Please read them carefully before using the app."}
         </Text>
 
         {SECTIONS.map((section) => (

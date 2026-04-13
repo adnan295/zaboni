@@ -119,8 +119,8 @@ export default function PrivacyScreen() {
 
         <Text style={[styles.intro, { color: colors.mutedForeground }]}>
           {isAr
-            ? "تصف هذه السياسة كيفية جمع معلوماتك واستخدامها وحمايتها عند استخدامك لتطبيق مرسول."
-            : "This policy describes how your information is collected, used, and protected when you use the Marsool app."}
+            ? "تصف هذه السياسة كيفية جمع معلوماتك واستخدامها وحمايتها عند استخدامك لتطبيق زبوني."
+            : "This policy describes how your information is collected, used, and protected when you use the Zaboni app."}
         </Text>
 
         {SECTIONS.map((section) => (

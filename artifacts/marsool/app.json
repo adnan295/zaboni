@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "مرسول",
-    "slug": "marsool",
+    "name": "زبوني",
+    "slug": "zaboni",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "marsool",
+    "scheme": "zaboni",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "description": "مرسول — خدمة توصيل سريعة وموثوقة في سوريا. اطلب من أي مطعم وتابع طلبك لحظة بلحظة.",
+    "description": "زبوني — خدمة توصيل سريعة وموثوقة في حمص. اطلب من أي مطعم وتابع طلبك لحظة بلحظة.",
     "primaryLanguage": "ar",
     "locales": {
       "ar": "./locales/ar.json",
@@ -21,7 +21,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.marsool.delivery",
+      "bundleIdentifier": "com.zaboni.delivery",
       "buildNumber": "1",
       "infoPlist": {
         "CFBundleLocalizations": ["ar", "en"],
@@ -29,7 +29,7 @@
       }
     },
     "android": {
-      "package": "com.marsool.delivery",
+      "package": "com.zaboni.delivery",
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
@@ -63,8 +63,8 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "يحتاج مرسول إلى موقعك لتحديد موقع التوصيل والمندوب القريب",
-          "locationWhenInUsePermission": "يحتاج مرسول إلى موقعك لتحديد موقع التوصيل والمندوب القريب",
+          "locationAlwaysAndWhenInUsePermission": "يحتاج زبوني إلى موقعك لتحديد موقع التوصيل والمندوب القريب",
+          "locationWhenInUsePermission": "يحتاج زبوني إلى موقعك لتحديد موقع التوصيل والمندوب القريب",
           "isIosBackgroundLocationEnabled": false,
           "isAndroidBackgroundLocationEnabled": false
         }

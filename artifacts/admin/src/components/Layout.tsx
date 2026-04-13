@@ -93,17 +93,17 @@ export default function Layout({ children, onLogout }: LayoutProps) {
           {!collapsed && (
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-sm font-bold text-primary-foreground flex-shrink-0">
-                م
+                ز
               </div>
               <div>
-                <p className="font-bold text-sm leading-tight text-sidebar-foreground">مرسول</p>
+                <p className="font-bold text-sm leading-tight text-sidebar-foreground">زبوني</p>
                 <p className="text-[10px] text-sidebar-foreground/50 leading-tight">لوحة الإدارة</p>
               </div>
             </div>
           )}
           {collapsed && (
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-sm font-bold text-primary-foreground">
-              م
+              ز
             </div>
           )}
           <button
