@@ -614,7 +614,8 @@ router.patch("/admin/orders/:id/status", async (req, res) => {
     return;
   }
 
-  notifyOrderUpdate(row.userId, row);
+  const cancelNote = parsed.data.status === "cancelled" ? "admin_cancelled" : null;
+  notifyOrderUpdate(row.userId, cancelNote ? { ...row, cancelNote } : row);
 
   const pushMsg = STATUS_PUSH_MESSAGES[parsed.data.status];
   if (pushMsg) {

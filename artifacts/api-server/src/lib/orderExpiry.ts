@@ -49,7 +49,7 @@ async function expireStaleOrders(): Promise<void> {
         note: "auto_expired",
       });
 
-      notifyOrderUpdate(order.userId, updated[0]);
+      notifyOrderUpdate(order.userId, { ...updated[0], cancelNote: "auto_expired" });
 
       const customer = await db
         .select({ name: usersTable.name })

@@ -278,7 +278,18 @@ router.get("/orders/:id", async (req, res) => {
     res.status(404).json({ error: "Order not found" });
     return;
   }
-  res.json(rows[0]);
+  const order = rows[0]!;
+  if (order.status === "cancelled") {
+    const history = await db
+      .select({ note: orderStatusHistoryTable.note })
+      .from(orderStatusHistoryTable)
+      .where(and(eq(orderStatusHistoryTable.orderId, id), eq(orderStatusHistoryTable.status, "cancelled")))
+      .orderBy(desc(orderStatusHistoryTable.createdAt))
+      .limit(1);
+    res.json({ ...order, cancelNote: history[0]?.note ?? null });
+    return;
+  }
+  res.json(order);
 });
 
 router.get("/orders/:id/courier-location", async (req, res) => {
@@ -355,7 +366,7 @@ router.delete("/orders/:id", async (req, res) => {
     orderId: id,
     status: "cancelled",
   });
-  notifyOrderUpdate(userId, updated[0]);
+  notifyOrderUpdate(userId, { ...updated[0], cancelNote: null });
   res.json(updated[0]);
 });
 

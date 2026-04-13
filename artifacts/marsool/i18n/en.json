@@ -285,7 +285,10 @@
       "offlineSub": "You will not receive new orders",
       "offlineTitle": "You are currently offline",
       "offlineBody": "Turn on availability to receive nearby orders",
-      "goOnline": "Go Online"
+      "goOnline": "Go Online",
+      "hasActiveOrder": "You have an active order",
+      "errorTitle": "Could Not Load Orders",
+      "errorBody": "Check your connection and try again"
     },
     "active": {
       "title": "Active Order",
@@ -433,7 +436,9 @@
       "confirmTitle": "Confirm Cancellation",
       "confirmBody": "Are you sure you want to cancel this order?",
       "confirm": "Yes, Cancel Order",
-      "cancelledNote": "Your order has been successfully cancelled. You can place a new order at any time.",
+      "cancelledNote": "Your order has been cancelled. You can place a new order at any time.",
+      "cancelledNoteExpired": "No courier was found within 30 minutes. Please try again.",
+      "cancelledNoteAdmin": "Your order was cancelled by the administration.",
       "cannotCancelNote": "Cannot cancel after courier acceptance — chat with the courier instead",
       "alreadyAcceptedTitle": "Cannot Cancel Order",
       "alreadyAcceptedBody": "A courier has already accepted your order and it can no longer be cancelled"
