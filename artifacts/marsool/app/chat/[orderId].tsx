@@ -182,12 +182,7 @@ export default function ChatScreen() {
         </View>
         {isCustomer && (
           <TouchableOpacity
-            onPress={() =>
-              router.push({
-                pathname: "/order-tracking/[id]",
-                params: { id: orderId },
-              })
-            }
+            onPress={() => router.back()}
             style={styles.trackIconBtn}
           >
             <MaterialIcons name="my-location" size={22} color={colors.primary} />

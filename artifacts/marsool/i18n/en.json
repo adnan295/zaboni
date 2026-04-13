@@ -60,7 +60,8 @@
     "order": {
       "searching": "Looking for a courier...",
       "accepted": "accepted your order",
-      "onWay": "Courier is on the way",
+      "pickedUp": "Courier picked up your order",
+      "onWay": "Courier is on the way to you",
       "delivered": "Delivered"
     }
   },
