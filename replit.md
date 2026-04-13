@@ -144,8 +144,9 @@ All three critical user journeys have been validated end-to-end with Playwright:
 - API direct-verified: GET /api/admin/stats, /orders, /couriers all return 200
 
 ### Bug Fixed During Testing
-- **Admin Layout.tsx**: `<Link href="..."><a ...>...</a></Link>` caused invalid HTML nesting 
-  ("a cannot be a descendant of a" browser warning). Fixed by moving className/onClick/title 
-  props directly onto `<Link>`, removing the nested `<a>` element.
+
+| # | Screen | Trigger | Expected | Actual | Fix |
+|---|--------|---------|----------|--------|-----|
+| 1 | Admin Panel — Sidebar Nav (`/admin/`) | Browser console check during any admin page navigation | No HTML nesting warnings | `a cannot be a descendant of a` warning — `<Link>` from wouter renders as `<a>`, and a nested `<a>` was inside it | Removed inner `<a>` element from each nav item in `Layout.tsx`; moved `className`, `onClick`, `title` props directly onto `<Link>` |
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
