@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -17,10 +17,13 @@ import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
-import { useOrders } from "@/context/OrderContext";
-import { useCourier } from "@/context/CourierContext";
+import { useOrders, Order } from "@/context/OrderContext";
+import { useCourier, CourierOrder } from "@/context/CourierContext";
 import { useAuth } from "@/context/AuthContext";
 import { useChat, ChatMessage } from "@/context/ChatContext";
+import { customFetch } from "@workspace/api-client-react";
+
+type AnyOrder = Order | CourierOrder;
 
 export default function ChatScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
@@ -43,10 +46,13 @@ export default function ChatScreen() {
   } = useChat();
   const [text, setText] = useState("");
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
+  const [fallbackOrder, setFallbackOrder] = useState<AnyOrder | null>(null);
+  const [loadingOrder, setLoadingOrder] = useState(false);
+  const [orderNotFound, setOrderNotFound] = useState(false);
 
   const customerOrder = getOrder(orderId ?? "");
   const courierOrder = getCourierOrder(orderId ?? "");
-  const order = customerOrder ?? courierOrder ?? null;
+  const order: AnyOrder | null = customerOrder ?? courierOrder ?? fallbackOrder;
 
   const isCustomer: boolean = order != null
     ? order.userId === user?.id
@@ -57,13 +63,38 @@ export default function ChatScreen() {
   const messages = getMessages(orderId ?? "");
   const otherIsTyping = isOtherPartyTyping(orderId ?? "", myRole);
 
+  const fetchFallbackOrder = useCallback(async () => {
+    if (!orderId || !user) return;
+    setLoadingOrder(true);
+    setOrderNotFound(false);
+    try {
+      if (user.role === "courier") {
+        await refreshActiveOrders();
+      } else {
+        const data = await customFetch<AnyOrder>(`/api/orders/${orderId}`);
+        if (data) setFallbackOrder(data);
+      }
+    } catch {
+      setOrderNotFound(true);
+    } finally {
+      setLoadingOrder(false);
+    }
+  }, [orderId, user?.id, user?.role]);
+
   useEffect(() => {
     if (!orderId) return;
     joinOrder(orderId);
-    if (!courierOrder) {
-      refreshActiveOrders().catch(() => {});
+    if (!customerOrder && !courierOrder) {
+      fetchFallbackOrder();
     }
   }, [orderId]);
+
+  useEffect(() => {
+    if (!order && !loadingOrder && courierOrder === undefined && fallbackOrder === null) {
+      const t = setTimeout(() => setOrderNotFound(true), 6000);
+      return () => clearTimeout(t);
+    }
+  }, [order, loadingOrder, courierOrder, fallbackOrder]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -107,6 +138,17 @@ export default function ChatScreen() {
   const typingLabel = isCustomer ? t("chat.typing") : t("chat.customerTyping");
 
   if (!order) {
+    if (orderNotFound) {
+      return (
+        <View style={[styles.container, { backgroundColor: colors.background, alignItems: "center", justifyContent: "center", gap: 12 }]}>
+          <MaterialIcons name="error-outline" size={48} color={colors.mutedForeground} />
+          <Text style={{ color: colors.mutedForeground, fontSize: 15 }}>{t("chat.notFound")}</Text>
+          <TouchableOpacity onPress={() => router.back()} style={[styles.sendBtn, { backgroundColor: colors.primary, width: "auto", paddingHorizontal: 20 }]}>
+            <Text style={{ color: "#fff", fontSize: 14 }}>{t("common.back") ?? "رجوع"}</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
     return (
       <View style={[styles.container, { backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }]}>
         <ActivityIndicator size="large" color={colors.primary} />
