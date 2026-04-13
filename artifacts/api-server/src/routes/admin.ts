@@ -17,6 +17,7 @@ import {
   promoBannersTable,
   restaurantCategoriesTable,
   chatMessagesTable,
+  orderStatusHistoryTable,
 } from "@workspace/db";
 import { eq, count, desc, gte, lte, getTableColumns, and, sql, avg, asc, lt } from "drizzle-orm";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
@@ -615,6 +616,14 @@ router.patch("/admin/orders/:id/status", async (req, res) => {
   }
 
   const cancelNote = parsed.data.status === "cancelled" ? "admin_cancelled" : null;
+  if (cancelNote) {
+    await db.insert(orderStatusHistoryTable).values({
+      id: `${id}_admin_cancelled_${Date.now()}`,
+      orderId: id,
+      status: "cancelled",
+      note: cancelNote,
+    });
+  }
   notifyOrderUpdate(row.userId, cancelNote ? { ...row, cancelNote } : row);
 
   const pushMsg = STATUS_PUSH_MESSAGES[parsed.data.status];

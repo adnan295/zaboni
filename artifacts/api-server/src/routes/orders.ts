@@ -279,14 +279,16 @@ router.get("/orders/:id", async (req, res) => {
     return;
   }
   const order = rows[0]!;
-  if (order.status === "cancelled") {
+  const NOTE_STATUSES = ["cancelled", "searching"];
+  if (NOTE_STATUSES.includes(order.status)) {
     const history = await db
       .select({ note: orderStatusHistoryTable.note })
       .from(orderStatusHistoryTable)
-      .where(and(eq(orderStatusHistoryTable.orderId, id), eq(orderStatusHistoryTable.status, "cancelled")))
+      .where(and(eq(orderStatusHistoryTable.orderId, id), eq(orderStatusHistoryTable.status, order.status)))
       .orderBy(desc(orderStatusHistoryTable.createdAt))
       .limit(1);
-    res.json({ ...order, cancelNote: history[0]?.note ?? null });
+    const note = history[0]?.note ?? null;
+    res.json({ ...order, cancelNote: note });
     return;
   }
   res.json(order);

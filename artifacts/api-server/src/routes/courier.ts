@@ -436,9 +436,10 @@ router.post("/courier/orders/:orderId/cancel", requireCourier, async (req, res) 
     id: `${orderId}_cancelled_courier_${Date.now()}`,
     orderId,
     status: "searching",
+    note: "courier_cancelled",
   });
 
-  notifyOrderUpdate(order.userId, updated[0]);
+  notifyOrderUpdate(order.userId, { ...updated[0], cancelNote: "courier_cancelled" });
   await sendOrderPush(order.userId, "عذراً، المندوب ألغى الطلب. سيتم البحث عن مندوب آخر.");
 
   res.json({ success: true });
