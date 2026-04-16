@@ -453,9 +453,9 @@ const menuItemBody = z.object({
   description: z.string().default(""),
   descriptionAr: z.string().default(""),
   price: z.number().min(0),
-  image: z.string().min(1),
-  category: z.string().min(1),
-  categoryAr: z.string().min(1),
+  image: z.string().default(""),
+  category: z.string().default(""),
+  categoryAr: z.string().default(""),
   isPopular: z.boolean().default(false),
 });
 
