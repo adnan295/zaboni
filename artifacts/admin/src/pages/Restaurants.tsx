@@ -234,6 +234,7 @@ function MenuDialog({
   onClose: () => void;
 }) {
   const qc = useQueryClient();
+  const { toast } = useToast();
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<MenuItem | null>(null);
   const [form, setForm] = useState<MenuItemForm>(emptyMenuItem);
@@ -251,6 +252,14 @@ function MenuDialog({
       qc.invalidateQueries({ queryKey: ["admin", "stats"] });
       setShowForm(false);
       setForm(emptyMenuItem);
+      toast({ title: "تم إضافة الصنف بنجاح" });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "فشل حفظ الصنف",
+        description: err.message || "حدث خطأ غير متوقع",
+        variant: "destructive",
+      });
     },
   });
 
@@ -260,6 +269,14 @@ function MenuDialog({
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "menu", restaurant.id] });
       setEditItem(null);
+      toast({ title: "تم تحديث الصنف بنجاح" });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "فشل تحديث الصنف",
+        description: err.message || "حدث خطأ غير متوقع",
+        variant: "destructive",
+      });
     },
   });
 
@@ -269,6 +286,14 @@ function MenuDialog({
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "menu", restaurant.id] });
       qc.invalidateQueries({ queryKey: ["admin", "stats"] });
+      toast({ title: "تم حذف الصنف" });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "فشل حذف الصنف",
+        description: err.message || "حدث خطأ غير متوقع",
+        variant: "destructive",
+      });
     },
   });
 
