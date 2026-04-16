@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ImageUpload } from "@/components/ImageUpload";
 import LocationPicker from "@/components/LocationPicker";
+import { useToast } from "@/hooks/use-toast";
 import {
   Card,
   CardContent,
@@ -215,7 +216,7 @@ function RestaurantFormDialog({
           <Button
             className="bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => onSave(form)}
-            disabled={!form.name || !form.nameAr || saving}
+            disabled={!form.name || !form.nameAr || !form.category || !form.categoryAr || saving}
           >
             {saving ? "جاري الحفظ..." : "حفظ"}
           </Button>
@@ -582,6 +583,7 @@ function HoursDialog({
 
 export default function Restaurants() {
   const qc = useQueryClient();
+  const { toast } = useToast();
   const [showForm, setShowForm] = useState(false);
   const [editRestaurant, setEditRestaurant] = useState<Restaurant | null>(null);
   const [menuRestaurant, setMenuRestaurant] = useState<Restaurant | null>(null);
@@ -599,6 +601,14 @@ export default function Restaurants() {
       qc.invalidateQueries({ queryKey: ["admin", "restaurants"] });
       qc.invalidateQueries({ queryKey: ["admin", "stats"] });
       setShowForm(false);
+      toast({ title: "تم إضافة المطعم بنجاح" });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "فشل حفظ المطعم",
+        description: err.message || "حدث خطأ غير متوقع",
+        variant: "destructive",
+      });
     },
   });
 
@@ -608,6 +618,14 @@ export default function Restaurants() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "restaurants"] });
       setEditRestaurant(null);
+      toast({ title: "تم تحديث المطعم بنجاح" });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "فشل تحديث المطعم",
+        description: err.message || "حدث خطأ غير متوقع",
+        variant: "destructive",
+      });
     },
   });
 
@@ -616,6 +634,14 @@ export default function Restaurants() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "restaurants"] });
       qc.invalidateQueries({ queryKey: ["admin", "stats"] });
+      toast({ title: "تم حذف المطعم" });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "فشل حذف المطعم",
+        description: err.message || "حدث خطأ غير متوقع",
+        variant: "destructive",
+      });
     },
   });
 
