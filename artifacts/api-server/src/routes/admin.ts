@@ -391,7 +391,7 @@ const restaurantBody = z.object({
   deliveryTime: z.string().default("30-45 دقيقة"),
   deliveryFee: z.number().min(0).default(0),
   minOrder: z.number().min(0).default(0),
-  image: z.string().min(1),
+  image: z.string().default(""),
   tags: z.array(z.string()).default([]),
   isOpen: z.boolean().default(true),
   discount: z.string().nullable().optional(),
