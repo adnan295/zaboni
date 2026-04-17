@@ -249,10 +249,10 @@ export default function HomeScreen() {
                       />
                     </View>
                   )}
-                  {!!(isAr ? banner.titleAr : banner.titleEn) && (
+                  {!!(banner.titleAr || banner.titleEn) && (
                     <View style={styles.bannerOverlay} pointerEvents="none">
-                      <Text style={styles.bannerOverlayText} numberOfLines={2}>
-                        {isAr ? banner.titleAr : banner.titleEn}
+                      <Text style={[styles.bannerOverlayText, { textAlign: isAr ? "right" : "left" }]} numberOfLines={2}>
+                        {isAr ? (banner.titleAr || banner.titleEn) : (banner.titleEn || banner.titleAr)}
                       </Text>
                     </View>
                   )}
@@ -424,7 +424,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 15,
     fontWeight: "700",
-    textAlign: "right",
     textShadowColor: "rgba(0,0,0,0.5)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
