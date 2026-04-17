@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { api, type Order } from "@/lib/api";
+import { api, type Order, type WaVerifyHealth } from "@/lib/api";
 import {
   Card,
   CardContent,
@@ -40,6 +40,72 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const PIE_COLORS = ["#DC2626", "#3b82f6", "#8b5cf6", "#6366f1", "#22c55e"];
+
+function WaVerifyHealthCard({ health, isLoading, isFetching, refetch, lastUpdated }: {
+  health: WaVerifyHealth | undefined;
+  isLoading: boolean;
+  isFetching: boolean;
+  refetch: () => void;
+  lastUpdated: Date | null;
+}) {
+  const connected = health?.ok === true;
+  const notConfigured = health?.configured === false;
+
+  return (
+    <Card className={`shadow-sm border ${
+      isLoading
+        ? "border-border"
+        : connected
+          ? "border-green-200 dark:border-green-900/40 bg-green-50/40 dark:bg-green-950/20"
+          : "border-red-200 dark:border-red-900/40 bg-red-50/40 dark:bg-red-950/20"
+    }`}>
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">📱</span>
+            <div>
+              <p className="text-sm font-medium text-foreground/80">WaVerify (OTP)</p>
+              {lastUpdated && (
+                <p className="text-xs text-muted-foreground">
+                  آخر تحديث: {lastUpdated.toLocaleTimeString("ar-SA")}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {isLoading ? (
+              <span className="text-sm text-muted-foreground">جارٍ التحقق…</span>
+            ) : (
+              <span className={`flex items-center gap-1.5 text-sm font-semibold ${connected ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                <span className="relative flex h-2.5 w-2.5">
+                  {connected && (
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                  )}
+                  <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${connected ? "bg-green-500" : "bg-red-500"}`} />
+                </span>
+                {notConfigured ? "غير مُهيَّأ" : connected ? "متصل" : "غير متصل"}
+              </span>
+            )}
+            <button
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40 border rounded px-2 py-0.5"
+              title="تحديث يدوي"
+            >
+              {isFetching ? "⟳" : "تحديث"}
+            </button>
+          </div>
+        </div>
+        {!isLoading && health?.message && (
+          <p className="mt-2 text-xs text-muted-foreground">{health.message}</p>
+        )}
+        {!isLoading && health?.error && (
+          <p className="mt-2 text-xs text-red-500">{health.error}</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 type Range = 7 | 14 | 30;
 
@@ -93,11 +159,28 @@ function StatCard({
 
 export default function Dashboard() {
   const [range, setRange] = useState<Range>(30);
+  const [waVerifyLastUpdated, setWaVerifyLastUpdated] = useState<Date | null>(null);
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["admin", "stats"],
     queryFn: api.getStats,
     refetchInterval: 10_000,
+  });
+
+  const {
+    data: waVerifyHealth,
+    isLoading: waVerifyLoading,
+    isFetching: waVerifyFetching,
+    refetch: refetchWaVerify,
+  } = useQuery({
+    queryKey: ["admin", "waverify-health"],
+    queryFn: async () => {
+      const result = await api.getWaVerifyHealth();
+      setWaVerifyLastUpdated(new Date());
+      return result;
+    },
+    refetchInterval: 60_000,
+    staleTime: 30_000,
   });
 
   const { data: activeOrders = [] } = useQuery({
@@ -222,6 +305,14 @@ export default function Dashboard() {
           <StatCard key={s.label} {...s} />
         ))}
       </div>
+
+      <WaVerifyHealthCard
+        health={waVerifyHealth}
+        isLoading={waVerifyLoading}
+        isFetching={waVerifyFetching}
+        refetch={refetchWaVerify}
+        lastUpdated={waVerifyLastUpdated}
+      />
 
       {totalActive > 0 && (
         <Card className="shadow-sm border-orange-200 dark:border-orange-900/40 bg-orange-50/50 dark:bg-orange-950/20">
