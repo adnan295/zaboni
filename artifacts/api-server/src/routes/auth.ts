@@ -153,15 +153,13 @@ router.post("/auth/verify-otp", async (req, res) => {
     return;
   }
 
-  const isDev = process.env["NODE_ENV"] !== "production";
   let useDbVerify = !isWaVerifyConfigured();
 
   if (isWaVerifyConfigured()) {
     try {
       const verified = await waverifyVerifyOtp(phone, code);
       if (!verified) {
-        res.status(401).json({ error: "الرمز غير صحيح أو منتهي الصلاحية / Invalid or expired code" });
-        return;
+        useDbVerify = true;
       }
     } catch (err) {
       console.error("[auth] WaVerify verify_otp failed, falling back to local OTP:", (err as Error).message);
