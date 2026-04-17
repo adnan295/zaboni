@@ -1,4 +1,5 @@
 const WAVERIFY_BASE = "https://syriasms.net";
+const REQUEST_TIMEOUT_MS = 10_000;
 
 export function isWaVerifyConfigured(): boolean {
   return !!process.env["WAVERIFY_API_KEY"];
@@ -23,14 +24,21 @@ async function postToWaVerify(
   body: Record<string, string>,
 ): Promise<Response> {
   const apiKey = getApiKey();
-  return fetch(`${WAVERIFY_BASE}${path}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(`${WAVERIFY_BASE}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function requestOtp(phone: string): Promise<void> {
@@ -74,4 +82,34 @@ export async function verifyOtp(phone: string, otp: string): Promise<boolean> {
 
   const data = await res.json().catch(() => null);
   return data?.success === true || data?.status === "success" || data?.verified === true;
+}
+
+export async function checkHealth(): Promise<{ ok: boolean; status: number | null; message: string }> {
+  if (!isWaVerifyConfigured()) {
+    return { ok: false, status: null, message: "WAVERIFY_API_KEY not set" };
+  }
+  try {
+    const apiKey = getApiKey();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    let res: Response;
+    try {
+      res = await fetch(`${WAVERIFY_BASE}/api/v1/status`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${apiKey}` },
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+    const body = await res.text().catch(() => "");
+    return {
+      ok: res.ok,
+      status: res.status,
+      message: res.ok ? "WaVerify reachable" : `HTTP ${res.status}: ${body.slice(0, 200)}`,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, status: null, message: msg };
+  }
 }

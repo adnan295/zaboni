@@ -6,7 +6,7 @@ import { z } from "zod";
 import jwt from "jsonwebtoken";
 import { parsePhoneNumber, isValidPhoneNumber } from "libphonenumber-js";
 import { sendSmsViaGateway } from "../lib/sms";
-import { isWaVerifyConfigured, requestOtp as waverifyRequestOtp, verifyOtp as waverifyVerifyOtp } from "../lib/waverify";
+import { isWaVerifyConfigured, requestOtp as waverifyRequestOtp, verifyOtp as waverifyVerifyOtp, checkHealth as waverifyCheckHealth } from "../lib/waverify";
 
 const router: IRouter = Router();
 
@@ -108,11 +108,7 @@ router.post("/auth/send-otp", async (req, res) => {
       res.json({ success: true, channel: "whatsapp", expiresInMinutes: OTP_TTL_MINUTES });
       return;
     } catch (err) {
-      console.warn("[auth] WaVerify request_otp failed, falling back to local OTP:", (err as Error).message);
-      if (!isDev) {
-        res.status(502).json({ error: "فشل إرسال رمز التحقق عبر واتساب — حاول لاحقاً" });
-        return;
-      }
+      console.error("[auth] WaVerify request_otp failed, falling back to local OTP:", (err as Error).message);
     }
   }
 
@@ -157,7 +153,6 @@ router.post("/auth/verify-otp", async (req, res) => {
     return;
   }
 
-  const isDev = process.env["NODE_ENV"] !== "production";
   let useDbVerify = !isWaVerifyConfigured();
 
   if (isWaVerifyConfigured()) {
@@ -168,11 +163,7 @@ router.post("/auth/verify-otp", async (req, res) => {
         return;
       }
     } catch (err) {
-      console.warn("[auth] WaVerify verify_otp failed, falling back to local OTP:", (err as Error).message);
-      if (!isDev) {
-        res.status(502).json({ error: "فشل التحقق من الرمز — حاول لاحقاً" });
-        return;
-      }
+      console.error("[auth] WaVerify verify_otp failed, falling back to local OTP:", (err as Error).message);
       useDbVerify = true;
     }
   }
@@ -382,6 +373,17 @@ router.get("/me/stats", async (req, res) => {
     totalDeliveryFees: Number(deliveryFeeRow[0]?.total ?? 0),
     memberSince: userRow[0]?.createdAt ?? null,
   });
+});
+
+router.get("/auth/waverify-health", async (req, res) => {
+  const adminSecret = process.env["ADMIN_SECRET"];
+  const token = req.headers.authorization?.replace("Bearer ", "");
+  if (!adminSecret || !token || token !== adminSecret) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const health = await waverifyCheckHealth();
+  res.status(health.ok ? 200 : 503).json(health);
 });
 
 export default router;
