@@ -10,6 +10,7 @@ import {
   Dimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Image,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -33,6 +34,8 @@ const BANNER_WIDTH = SCREEN_WIDTH - 32;
 
 type PromoBanner = {
   id: string;
+  image: string;
+  restaurantId: string | null;
   titleAr: string;
   titleEn: string;
   subtitleAr: string;
@@ -53,11 +56,7 @@ type RestaurantCategory = {
   isActive: boolean;
 };
 
-const FALLBACK_BANNERS: PromoBanner[] = [
-  { id: "f1", titleAr: "توصيل سريع لباب بيتك", titleEn: "Fast delivery to your door", subtitleAr: "أطلب الآن وتابع المندوب مباشرة على الخريطة", subtitleEn: "Order now and track your courier on the map", iconName: "delivery-dining", bgColor: "#DC2626", sortOrder: 0, isActive: true },
-  { id: "f2", titleAr: "أفضل المطاعم في حمص", titleEn: "Best restaurants in Homs", subtitleAr: "اكتشف قائمة متنوعة من البرغر، البيتزا، المشاوي وأكثر", subtitleEn: "Discover burgers, pizza, grills and more", iconName: "restaurant", bgColor: "#1e40af", sortOrder: 1, isActive: true },
-  { id: "f3", titleAr: "ادفع عند الاستلام", titleEn: "Pay on delivery", subtitleAr: "لا حاجة لبطاقة بنكية — ادفع نقداً عند وصول طلبك", subtitleEn: "No bank card needed — pay cash when your order arrives", iconName: "payments", bgColor: "#065f46", sortOrder: 2, isActive: true },
-];
+const FALLBACK_BANNERS: PromoBanner[] = [];
 
 const FALLBACK_CATEGORIES: RestaurantCategory[] = CATEGORIES
   .filter((c) => c.id !== "all")
@@ -225,28 +224,32 @@ export default function HomeScreen() {
               onMomentumScrollEnd={handleBannerScroll}
             >
               {apiBanners.map((banner) => (
-                <View
+                <TouchableOpacity
                   key={banner.id}
-                  style={[styles.bannerCard, { backgroundColor: banner.bgColor, width: BANNER_WIDTH }]}
+                  activeOpacity={banner.restaurantId ? 0.85 : 1}
+                  onPress={() => {
+                    if (banner.restaurantId) {
+                      router.push(`/restaurant/${banner.restaurantId}` as any);
+                    }
+                  }}
+                  style={[styles.bannerCard, { width: BANNER_WIDTH }]}
                 >
-                  <View style={styles.bannerContent}>
-                    <View style={styles.bannerText}>
-                      <Text style={styles.bannerTitle}>
-                        {isAr ? banner.titleAr : banner.titleEn}
-                      </Text>
-                      <Text style={styles.bannerSubtitle}>
-                        {isAr ? banner.subtitleAr : banner.subtitleEn}
-                      </Text>
-                    </View>
-                    <View style={[styles.bannerIconBg, { backgroundColor: "rgba(255,255,255,0.15)" }]}>
+                  {banner.image ? (
+                    <Image
+                      source={{ uri: banner.image }}
+                      style={styles.bannerImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={[styles.bannerImage, { backgroundColor: banner.bgColor || "#DC2626", justifyContent: "center", alignItems: "center" }]}>
                       <MaterialIcons
                         name={(banner.iconName as keyof typeof MaterialIcons.glyphMap) ?? "local-offer"}
-                        size={40}
+                        size={48}
                         color="#fff"
                       />
                     </View>
-                  </View>
-                </View>
+                  )}
+                </TouchableOpacity>
               ))}
             </ScrollView>
             {apiBanners.length > 1 && (
@@ -391,23 +394,12 @@ const styles = StyleSheet.create({
   bannersScroll: { paddingHorizontal: 16, gap: 12 },
   bannerCard: {
     borderRadius: 16,
-    padding: 20,
     overflow: "hidden",
   },
-  bannerContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  bannerText: { flex: 1, gap: 6, paddingRight: 12 },
-  bannerTitle: { fontSize: 16, fontWeight: "800", color: "#fff", lineHeight: 22 },
-  bannerSubtitle: { fontSize: 12, color: "rgba(255,255,255,0.85)", lineHeight: 18 },
-  bannerIconBg: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: "center",
-    justifyContent: "center",
+  bannerImage: {
+    width: "100%",
+    height: 160,
+    borderRadius: 16,
   },
   dotsRow: {
     flexDirection: "row",
