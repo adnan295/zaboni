@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { api, type Order, type WaVerifyHealth } from "@/lib/api";
+import { api, type Order, type WaVerifyHealth, type WaVerifyHealthLogEntry } from "@/lib/api";
 import {
   Card,
   CardContent,
@@ -41,13 +41,24 @@ const STATUS_COLORS: Record<string, string> = {
 
 const PIE_COLORS = ["#DC2626", "#3b82f6", "#8b5cf6", "#6366f1", "#22c55e"];
 
-function WaVerifyHealthCard({ health, isLoading, isFetching, refetch, lastUpdated }: {
+function WaVerifyHealthCard({
+  health,
+  isLoading,
+  isFetching,
+  refetch,
+  lastUpdated,
+  history,
+  historyLoading,
+}: {
   health: WaVerifyHealth | undefined;
   isLoading: boolean;
   isFetching: boolean;
   refetch: () => void;
   lastUpdated: Date | null;
+  history: WaVerifyHealthLogEntry[];
+  historyLoading: boolean;
 }) {
+  const [showHistory, setShowHistory] = useState(false);
   const connected = health?.ok === true;
   const notConfigured = health?.configured === false;
 
@@ -94,6 +105,13 @@ function WaVerifyHealthCard({ health, isLoading, isFetching, refetch, lastUpdate
             >
               {isFetching ? "⟳" : "تحديث"}
             </button>
+            <button
+              onClick={() => setShowHistory((v) => !v)}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors border rounded px-2 py-0.5"
+              title="السجل التاريخي"
+            >
+              {showHistory ? "إخفاء السجل" : "السجل"}
+            </button>
           </div>
         </div>
         {!isLoading && health?.message && (
@@ -101,6 +119,43 @@ function WaVerifyHealthCard({ health, isLoading, isFetching, refetch, lastUpdate
         )}
         {!isLoading && health?.error && (
           <p className="mt-2 text-xs text-red-500">{health.error}</p>
+        )}
+
+        {showHistory && (
+          <div className="mt-4 border-t pt-3">
+            <p className="text-xs font-semibold text-foreground/70 mb-2">آخر 20 فحصاً</p>
+            {historyLoading ? (
+              <p className="text-xs text-muted-foreground">جارٍ التحميل…</p>
+            ) : history.length === 0 ? (
+              <p className="text-xs text-muted-foreground">لا توجد سجلات بعد — ستظهر بعد أول فحص.</p>
+            ) : (
+              <div className="space-y-1 max-h-52 overflow-y-auto">
+                {history.map((entry) => {
+                  const dt = new Date(entry.checkedAt);
+                  return (
+                    <div
+                      key={entry.id}
+                      className="flex items-center gap-2 text-xs py-1 border-b border-border/40 last:border-0"
+                    >
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${entry.ok ? "bg-green-500" : "bg-red-500"}`} />
+                      <span className={`font-medium flex-shrink-0 ${entry.ok ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                        {entry.ok ? "متصل" : "غير متصل"}
+                      </span>
+                      {entry.httpStatus && (
+                        <span className="text-muted-foreground flex-shrink-0">{entry.httpStatus}</span>
+                      )}
+                      {entry.message && (
+                        <span className="text-muted-foreground truncate flex-1">{entry.message}</span>
+                      )}
+                      <span className="text-muted-foreground flex-shrink-0 mr-auto">
+                        {dt.toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short" })}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>
@@ -179,6 +234,17 @@ export default function Dashboard() {
       setWaVerifyLastUpdated(new Date());
       return result;
     },
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+
+  const {
+    data: waVerifyHistory = [],
+    isLoading: waVerifyHistoryLoading,
+    refetch: refetchWaVerifyHistory,
+  } = useQuery({
+    queryKey: ["admin", "waverify-health-history"],
+    queryFn: () => api.getWaVerifyHealthHistory(20),
     refetchInterval: 60_000,
     staleTime: 30_000,
   });
@@ -310,8 +376,10 @@ export default function Dashboard() {
         health={waVerifyHealth}
         isLoading={waVerifyLoading}
         isFetching={waVerifyFetching}
-        refetch={refetchWaVerify}
+        refetch={() => { refetchWaVerify(); refetchWaVerifyHistory(); }}
         lastUpdated={waVerifyLastUpdated}
+        history={waVerifyHistory}
+        historyLoading={waVerifyHistoryLoading}
       />
 
       {totalActive > 0 && (
