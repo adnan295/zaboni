@@ -302,6 +302,8 @@ export type DeliveryZone = {
 
 export type PromoBanner = {
   id: string;
+  image: string;
+  restaurantId: string | null;
   titleAr: string;
   titleEn: string;
   subtitleAr: string;

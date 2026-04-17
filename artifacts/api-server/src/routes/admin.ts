@@ -1607,7 +1607,9 @@ router.patch("/admin/courier-applications/:id/reject", requireAdmin, async (req,
 
 
 const bannerBody = z.object({
-  titleAr: z.string().min(1),
+  image: z.string().default(""),
+  restaurantId: z.string().nullable().optional(),
+  titleAr: z.string().default(""),
   titleEn: z.string().default(""),
   subtitleAr: z.string().default(""),
   subtitleEn: z.string().default(""),

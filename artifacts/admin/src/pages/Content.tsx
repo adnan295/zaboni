@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { ImageUpload } from "@/components/ImageUpload";
 import {
   Dialog,
   DialogContent,
@@ -22,15 +23,6 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 
-const ICON_SUGGESTIONS = [
-  "delivery-dining", "restaurant", "payments", "local-offer", "star", "favorite",
-  "coffee", "cake", "storefront", "medical-services", "fastfood", "lunch-dining",
-  "local-pizza", "icecream", "ramen-dining", "set-meal",
-];
-
-const COLOR_PRESETS = [
-  "#DC2626", "#1e40af", "#065f46", "#7c3aed", "#dc2626", "#d97706", "#0891b2",
-];
 
 function BannerSection() {
   const { toast } = useToast();
@@ -41,7 +33,14 @@ function BannerSection() {
     queryFn: api.getBanners,
   });
 
+  const { data: restaurants = [] } = useQuery({
+    queryKey: ["admin", "restaurants"],
+    queryFn: api.getRestaurants,
+  });
+
   const emptyBanner: Omit<PromoBanner, "id" | "createdAt" | "updatedAt"> = {
+    image: "",
+    restaurantId: null,
     titleAr: "",
     titleEn: "",
     subtitleAr: "",
@@ -65,6 +64,8 @@ function BannerSection() {
   function openEdit(b: PromoBanner) {
     setEditing(b);
     setForm({
+      image: b.image ?? "",
+      restaurantId: b.restaurantId ?? null,
       titleAr: b.titleAr,
       titleEn: b.titleEn,
       subtitleAr: b.subtitleAr,
@@ -111,7 +112,7 @@ function BannerSection() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold">البانرات الترويجية</h2>
-          <p className="text-sm text-muted-foreground">تظهر في الشاشة الرئيسية للتطبيق كشريط منزلق</p>
+          <p className="text-sm text-muted-foreground">صور تظهر في الشاشة الرئيسية كشريط منزلق — اضغط عليها للانتقال لمطعم</p>
         </div>
         <Button onClick={openCreate} className="bg-primary text-primary-foreground">
           + إضافة بانر
@@ -123,59 +124,47 @@ function BannerSection() {
       ) : banners.length === 0 ? (
         <div className="text-center py-10 text-muted-foreground">لا توجد بانرات — أضف الأول الآن</div>
       ) : (
-        <div className="rounded-xl border overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-right">معاينة</TableHead>
-                <TableHead className="text-right">العنوان (عربي)</TableHead>
-                <TableHead className="text-right">النص (عربي)</TableHead>
-                <TableHead className="text-right">الأيقونة</TableHead>
-                <TableHead className="text-right">الترتيب</TableHead>
-                <TableHead className="text-right">الحالة</TableHead>
-                <TableHead className="text-right">الإجراءات</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {banners.map((b) => (
-                <TableRow key={b.id}>
-                  <TableCell>
-                    <div
-                      className="w-12 h-8 rounded-md flex-shrink-0"
-                      style={{ backgroundColor: b.bgColor }}
-                    />
-                  </TableCell>
-                  <TableCell className="font-semibold" dir="rtl">{b.titleAr}</TableCell>
-                  <TableCell className="text-muted-foreground max-w-[200px] truncate" dir="rtl">{b.subtitleAr}</TableCell>
-                  <TableCell className="font-mono text-xs">{b.iconName}</TableCell>
-                  <TableCell>{b.sortOrder}</TableCell>
-                  <TableCell>
-                    <button
-                      onClick={() => toggleMutation.mutate({ id: b.id, isActive: !b.isActive })}
-                      className="cursor-pointer"
-                    >
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {banners.map((b) => {
+            const linkedRestaurant = restaurants.find((r) => r.id === b.restaurantId);
+            return (
+              <div key={b.id} className="rounded-xl border overflow-hidden bg-card shadow-sm">
+                {b.image ? (
+                  <img src={b.image} alt="بانر" className="w-full h-36 object-cover" />
+                ) : (
+                  <div className="w-full h-36 bg-muted flex items-center justify-center text-muted-foreground text-sm">
+                    لا توجد صورة
+                  </div>
+                )}
+                <div className="p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">ترتيب: {b.sortOrder}</span>
+                    <button onClick={() => toggleMutation.mutate({ id: b.id, isActive: !b.isActive })} className="cursor-pointer">
                       <Badge variant={b.isActive ? "default" : "secondary"} className={b.isActive ? "bg-green-600" : ""}>
                         {b.isActive ? "نشط" : "مخفي"}
                       </Badge>
                     </button>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => openEdit(b)}>تعديل</Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => { if (confirm("حذف هذا البانر؟")) deleteMutation.mutate(b.id); }}
-                        disabled={deleteMutation.isPending}
-                      >
-                        حذف
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  </div>
+                  {linkedRestaurant && (
+                    <p className="text-xs text-muted-foreground truncate">
+                      مطعم: {linkedRestaurant.nameAr}
+                    </p>
+                  )}
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="flex-1" onClick={() => openEdit(b)}>تعديل</Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => { if (confirm("حذف هذا البانر؟")) deleteMutation.mutate(b.id); }}
+                      disabled={deleteMutation.isPending}
+                    >
+                      حذف
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -185,71 +174,27 @@ function BannerSection() {
             <DialogTitle>{editing ? "تعديل البانر" : "إضافة بانر جديد"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label>العنوان (عربي) *</Label>
-                <Input value={form.titleAr} onChange={(e) => setForm((f) => ({ ...f, titleAr: e.target.value }))} placeholder="توصيل سريع..." />
-              </div>
-              <div className="space-y-1">
-                <Label>العنوان (إنجليزي)</Label>
-                <Input dir="ltr" value={form.titleEn} onChange={(e) => setForm((f) => ({ ...f, titleEn: e.target.value }))} placeholder="Fast delivery..." />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label>النص (عربي)</Label>
-                <Input value={form.subtitleAr} onChange={(e) => setForm((f) => ({ ...f, subtitleAr: e.target.value }))} placeholder="تابع المندوب..." />
-              </div>
-              <div className="space-y-1">
-                <Label>النص (إنجليزي)</Label>
-                <Input dir="ltr" value={form.subtitleEn} onChange={(e) => setForm((f) => ({ ...f, subtitleEn: e.target.value }))} placeholder="Track your courier..." />
-              </div>
+            <div className="space-y-1">
+              <Label>صورة البانر *</Label>
+              <ImageUpload
+                value={form.image}
+                onChange={(url) => setForm((f) => ({ ...f, image: url }))}
+                folder="banners"
+              />
             </div>
             <div className="space-y-1">
-              <Label>اسم الأيقونة (Material Icons)</Label>
-              <Input dir="ltr" value={form.iconName} onChange={(e) => setForm((f) => ({ ...f, iconName: e.target.value }))} placeholder="delivery-dining" />
-              <div className="flex flex-wrap gap-1 mt-1">
-                {ICON_SUGGESTIONS.map((icon) => (
-                  <button
-                    key={icon}
-                    onClick={() => setForm((f) => ({ ...f, iconName: icon }))}
-                    className={`text-xs px-2 py-0.5 rounded border ${form.iconName === icon ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
-                  >
-                    {icon}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label>لون الخلفية</Label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={form.bgColor}
-                  onChange={(e) => setForm((f) => ({ ...f, bgColor: e.target.value }))}
-                  className="w-10 h-10 rounded cursor-pointer border"
-                />
-                <Input dir="ltr" value={form.bgColor} onChange={(e) => setForm((f) => ({ ...f, bgColor: e.target.value }))} className="w-32 font-mono text-sm" />
-                <div className="flex gap-1">
-                  {COLOR_PRESETS.map((c) => (
-                    <button
-                      key={c}
-                      onClick={() => setForm((f) => ({ ...f, bgColor: c }))}
-                      className="w-6 h-6 rounded-full border-2 border-white shadow"
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
-                </div>
-              </div>
-              <div
-                className="mt-2 rounded-lg p-3 flex items-center gap-3"
-                style={{ backgroundColor: form.bgColor }}
+              <Label>الربط بمطعم (اختياري)</Label>
+              <select
+                className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                value={form.restaurantId ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, restaurantId: e.target.value || null }))}
               >
-                <div>
-                  <p className="text-white font-bold text-sm">{form.titleAr || "معاينة العنوان"}</p>
-                  <p className="text-white/80 text-xs">{form.subtitleAr || "معاينة النص"}</p>
-                </div>
-              </div>
+                <option value="">— لا يوجد ربط —</option>
+                {restaurants.map((r) => (
+                  <option key={r.id} value={r.id}>{r.nameAr}</option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">عند الضغط على البانر في التطبيق يفتح صفحة هذا المطعم</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
@@ -272,7 +217,7 @@ function BannerSection() {
           <DialogFooter className="flex-row-reverse gap-2">
             <Button
               onClick={() => saveMutation.mutate()}
-              disabled={!form.titleAr.trim() || saveMutation.isPending}
+              disabled={saveMutation.isPending}
               className="bg-primary text-primary-foreground"
             >
               {saveMutation.isPending ? "جاري الحفظ..." : "حفظ"}
