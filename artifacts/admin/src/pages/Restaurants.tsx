@@ -347,38 +347,26 @@ function MenuDialog({
               {editItem ? "تعديل الصنف" : "صنف جديد"}
             </h3>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>الاسم (إنجليزي)</Label>
-                <Input
-                  value={activeForm.name}
-                  onChange={(e) => setField("name", e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>الاسم (عربي)</Label>
+              <div className="col-span-2 space-y-1">
+                <Label>اسم الوجبة *</Label>
                 <Input
                   dir="rtl"
                   value={activeForm.nameAr}
                   onChange={(e) => setField("nameAr", e.target.value)}
+                  placeholder="مثال: شاورما دجاج"
                 />
               </div>
               <div className="space-y-1">
-                <Label>التصنيف (إنجليزي)</Label>
-                <Input
-                  value={activeForm.category}
-                  onChange={(e) => setField("category", e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>التصنيف (عربي)</Label>
+                <Label>الفئة</Label>
                 <Input
                   dir="rtl"
                   value={activeForm.categoryAr}
                   onChange={(e) => setField("categoryAr", e.target.value)}
+                  placeholder="مثال: مشاوي"
                 />
               </div>
               <div className="space-y-1">
-                <Label>السعر (ل.س)</Label>
+                <Label>السعر (ل.س) *</Label>
                 <Input
                   type="number"
                   min={0}
@@ -388,11 +376,20 @@ function MenuDialog({
                   }
                 />
               </div>
-              <div className="space-y-1">
+              <div className="col-span-2 space-y-1">
+                <Label>الوصف</Label>
+                <Input
+                  dir="rtl"
+                  value={activeForm.descriptionAr}
+                  onChange={(e) => setField("descriptionAr", e.target.value)}
+                  placeholder="وصف مختصر للوجبة (اختياري)"
+                />
+              </div>
+              <div className="col-span-2 space-y-1">
                 <ImageUpload
                   value={activeForm.image}
                   onChange={(url) => setField("image", url)}
-                  label="صورة الصنف"
+                  label="صورة الوجبة (اختيارية)"
                 />
               </div>
               <div className="col-span-2 flex items-center gap-2">
@@ -411,16 +408,21 @@ function MenuDialog({
                 size="sm"
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
                 onClick={() => {
+                  const data: MenuItemForm = {
+                    ...activeForm,
+                    name: activeForm.nameAr,
+                    category: activeForm.categoryAr,
+                    description: activeForm.descriptionAr,
+                  };
                   if (editItem) {
-                    updateMutation.mutate({ item: editItem, data: activeForm });
+                    updateMutation.mutate({ item: editItem, data });
                   } else {
-                    createMutation.mutate(form);
+                    createMutation.mutate(data);
                   }
                 }}
                 disabled={
                   createMutation.isPending ||
                   updateMutation.isPending ||
-                  !activeForm.name ||
                   !activeForm.nameAr
                 }
               >
