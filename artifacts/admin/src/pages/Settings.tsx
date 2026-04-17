@@ -44,12 +44,17 @@ export default function Settings() {
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [testLoading, setTestLoading] = useState(false);
 
+  const [alertWebhookUrl, setAlertWebhookUrl] = useState("");
+  const [webhookTestResult, setWebhookTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [webhookTestLoading, setWebhookTestLoading] = useState(false);
+
   useEffect(() => {
     if (settings) {
       setGatewayUrl(settings["sms_gateway_url"] ?? "");
       setApiKey(settings["sms_gateway_api_key"] ?? "");
       setSender(settings["sms_gateway_sender"] ?? "");
       setMethod((settings["sms_gateway_method"] as "GET" | "POST") ?? "POST");
+      setAlertWebhookUrl(settings["alert_webhook_url"] ?? "");
     }
   }, [settings]);
 
@@ -72,6 +77,42 @@ export default function Settings() {
       sms_gateway_sender: sender.trim(),
       sms_gateway_method: method,
     });
+  }
+
+  const webhookSaveMutation = useMutation({
+    mutationFn: (data: Record<string, string>) => api.updateSettings(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "settings"] });
+      toast({ title: "تم الحفظ", description: "تم حفظ رابط الويب هوك بنجاح" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "خطأ", description: err.message, variant: "destructive" });
+    },
+  });
+
+  function handleWebhookSave() {
+    webhookSaveMutation.mutate({ alert_webhook_url: alertWebhookUrl.trim() });
+  }
+
+  async function handleWebhookTest() {
+    const url = alertWebhookUrl.trim();
+    if (!url) {
+      toast({ title: "خطأ", description: "يجب إدخال رابط الويب هوك أولاً", variant: "destructive" });
+      return;
+    }
+    setWebhookTestLoading(true);
+    setWebhookTestResult(null);
+    try {
+      const result = await api.testWebhook(url);
+      setWebhookTestResult({ ok: true, message: result.message });
+      toast({ title: "نجح الاختبار ✓", description: result.message });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setWebhookTestResult({ ok: false, message });
+      toast({ title: "فشل الاختبار", description: message, variant: "destructive" });
+    } finally {
+      setWebhookTestLoading(false);
+    }
   }
 
   async function handleTest() {
@@ -257,6 +298,81 @@ export default function Settings() {
           {!smsStatus?.smsConfigured && (
             <p className="text-xs text-muted-foreground">
               ⚠️ البوابة غير مُعدَّة — سيظهر رمز OTP في سجلات السيرفر فقط (وضع التطوير)
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Alert Webhook URL Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🔔</span>
+            <div>
+              <CardTitle>رابط تنبيهات الانقطاع (Webhook)</CardTitle>
+              <CardDescription>
+                عنوان URL يُستخدم لإرسال تنبيهات عند انقطاع اتصال WaVerify — يتم استخدام هذا الرابط بدلاً من متغير البيئة
+              </CardDescription>
+            </div>
+            <div className="mr-auto">
+              {alertWebhookUrl.trim() ? (
+                <Badge variant="default" className="bg-green-600">مُعدَّل ✓</Badge>
+              ) : (
+                <Badge variant="secondary">غير مُعدَّل</Badge>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="alert-webhook-url">رابط Webhook</Label>
+            <Input
+              id="alert-webhook-url"
+              dir="ltr"
+              className="text-left font-mono text-sm"
+              placeholder="https://hooks.slack.com/services/..."
+              value={alertWebhookUrl}
+              onChange={(e) => setAlertWebhookUrl(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              يمكن استخدام Slack Incoming Webhook أو أي خدمة تستقبل طلبات POST بصيغة JSON تحتوي على حقل <code className="bg-muted px-1 rounded">text</code>
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <Button
+              onClick={handleWebhookSave}
+              disabled={webhookSaveMutation.isPending}
+              className="flex-1 bg-orange-500 hover:bg-orange-600"
+            >
+              {webhookSaveMutation.isPending ? "جاري الحفظ..." : "حفظ الرابط"}
+            </Button>
+            <Button
+              onClick={handleWebhookTest}
+              disabled={webhookTestLoading || !alertWebhookUrl.trim()}
+              variant="outline"
+              className="shrink-0"
+            >
+              {webhookTestLoading ? "جاري الاختبار..." : "اختبار الويب هوك"}
+            </Button>
+          </div>
+
+          {webhookTestResult && (
+            <div
+              className={`rounded-md p-3 text-sm ${
+                webhookTestResult.ok
+                  ? "bg-green-50 text-green-800 border border-green-200"
+                  : "bg-red-50 text-red-800 border border-red-200"
+              }`}
+            >
+              {webhookTestResult.ok ? "✓ " : "✗ "}
+              {webhookTestResult.message}
+            </div>
+          )}
+
+          {!alertWebhookUrl.trim() && (
+            <p className="text-xs text-muted-foreground">
+              ⚠️ لا يوجد رابط Webhook مُعدَّل — سيتم استخدام متغير البيئة ADMIN_ALERT_WEBHOOK_URL إن وُجد
             </p>
           )}
         </CardContent>

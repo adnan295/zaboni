@@ -22,6 +22,7 @@ import {
 import { eq, count, desc, gte, lte, getTableColumns, and, sql, avg, asc, lt } from "drizzle-orm";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
 import { sendSmsViaGateway, isSmsGatewayConfigured } from "../lib/sms";
+import { sendAdminAlertWebhook } from "../lib/waverifyMonitor";
 import { z } from "zod";
 
 const ORDER_STATUSES = [
@@ -1195,6 +1196,21 @@ router.post("/admin/sms/test", async (req, res) => {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: message });
+  }
+});
+
+router.post("/admin/webhook/test", async (req, res) => {
+  const parsed = z.object({ url: z.string().url() }).safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "يجب تقديم رابط URL صالح" });
+    return;
+  }
+  const { url } = parsed.data;
+  const ok = await sendAdminAlertWebhook(url, `[مرسول] اختبار تنبيه — الويب هوك يعمل بشكل صحيح ✓`);
+  if (ok) {
+    res.json({ ok: true, message: "تم إرسال رسالة اختبار إلى الويب هوك بنجاح" });
+  } else {
+    res.status(502).json({ error: "فشل إرسال الطلب إلى الويب هوك — تحقق من الرابط وحاول مجدداً" });
   }
 });
 
