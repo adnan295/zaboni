@@ -1,5 +1,6 @@
 import { checkHealth, isWaVerifyConfigured } from "./waverify";
 import { logger } from "./logger";
+import { db, waverifyHealthLogTable } from "@workspace/db";
 
 const POLL_INTERVAL_MS = 2 * 60 * 1000;
 const WEBHOOK_TIMEOUT_MS = 10_000;
@@ -48,6 +49,14 @@ async function pollWaVerify(): Promise<void> {
 
   const health = await checkHealth();
   const isHealthy = health.ok;
+
+  db.insert(waverifyHealthLogTable).values({
+    ok: health.ok,
+    httpStatus: health.status ?? null,
+    message: health.message ?? null,
+  }).catch((err) => {
+    logger.warn({ err }, "Failed to persist WaVerify health log entry");
+  });
 
   if (lastHealthy === null) {
     lastHealthy = isHealthy;

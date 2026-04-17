@@ -1,12 +1,13 @@
 import { Router, type IRouter } from "express";
 import { randomInt } from "crypto";
-import { db, otpCodesTable, usersTable, ordersTable } from "@workspace/db";
-import { and, eq, gt, count, sum } from "drizzle-orm";
+import { db, otpCodesTable, usersTable, ordersTable, waverifyHealthLogTable } from "@workspace/db";
+import { and, eq, gt, count, sum, desc } from "drizzle-orm";
 import { z } from "zod";
 import jwt from "jsonwebtoken";
 import { parsePhoneNumber, isValidPhoneNumber } from "libphonenumber-js";
 import { sendSmsViaGateway } from "../lib/sms";
 import { isWaVerifyConfigured, requestOtp as waverifyRequestOtp, verifyOtp as waverifyVerifyOtp, checkHealth as waverifyCheckHealth } from "../lib/waverify";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -383,7 +384,33 @@ router.get("/auth/waverify-health", async (req, res) => {
     return;
   }
   const health = await waverifyCheckHealth();
+  try {
+    await db.insert(waverifyHealthLogTable).values({
+      ok: health.ok,
+      httpStatus: health.status ?? null,
+      message: health.message ?? null,
+    });
+  } catch (err) {
+    logger.warn({ err }, "Failed to persist WaVerify health log entry");
+  }
   res.status(health.ok ? 200 : 503).json(health);
+});
+
+router.get("/auth/waverify-health/history", async (req, res) => {
+  const adminSecret = process.env["ADMIN_SECRET"];
+  const token = req.headers.authorization?.replace("Bearer ", "");
+  if (!adminSecret || !token || token !== adminSecret) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const limitParam = parseInt(String(req.query["limit"] ?? "20"), 10);
+  const limit = isNaN(limitParam) || limitParam < 1 ? 20 : Math.min(limitParam, 100);
+  const rows = await db
+    .select()
+    .from(waverifyHealthLogTable)
+    .orderBy(desc(waverifyHealthLogTable.checkedAt))
+    .limit(limit);
+  res.json(rows);
 });
 
 export default router;

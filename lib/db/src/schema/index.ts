@@ -19,3 +19,4 @@ export * from "./courier_wallet_transactions";
 export * from "./courier_applications";
 export * from "./promo_banners";
 export * from "./restaurant_categories";
+export * from "./waverify_health_log";
