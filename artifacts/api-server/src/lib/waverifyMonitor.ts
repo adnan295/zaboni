@@ -7,11 +7,11 @@ const WEBHOOK_TIMEOUT_MS = 10_000;
 let lastHealthy: boolean | null = null;
 let alertSent = false;
 
-async function sendAdminAlert(message: string): Promise<void> {
+async function sendAdminAlert(message: string): Promise<boolean> {
   const webhookUrl = process.env["ADMIN_ALERT_WEBHOOK_URL"];
   if (!webhookUrl) {
     logger.warn("ADMIN_ALERT_WEBHOOK_URL not set — skipping alert delivery");
-    return;
+    return true;
   }
 
   const controller = new AbortController();
@@ -27,13 +27,15 @@ async function sendAdminAlert(message: string): Promise<void> {
       const body = await res.text().catch(() => "");
       logger.error(
         { status: res.status, body },
-        "Admin alert webhook responded with error",
+        "Admin alert webhook responded with error — will retry next poll",
       );
-    } else {
-      logger.info("Admin alert sent via webhook");
+      return false;
     }
+    logger.info("Admin alert sent via webhook");
+    return true;
   } catch (err) {
-    logger.error({ err }, "Failed to send admin alert via webhook");
+    logger.error({ err }, "Failed to send admin alert via webhook — will retry next poll");
+    return false;
   } finally {
     clearTimeout(timer);
   }
@@ -55,10 +57,12 @@ async function pollWaVerify(): Promise<void> {
   }
 
   if (lastHealthy && !isHealthy && !alertSent) {
-    alertSent = true;
     const alertMsg = `[مرسول] تنبيه: انقطع اتصال WaVerify\nالسبب: ${health.message}`;
     logger.warn({ message: health.message }, "WaVerify connection lost — sending admin alert");
-    await sendAdminAlert(alertMsg);
+    const delivered = await sendAdminAlert(alertMsg);
+    if (delivered) {
+      alertSent = true;
+    }
   }
 
   if (!lastHealthy && isHealthy) {
