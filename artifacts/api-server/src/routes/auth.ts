@@ -159,7 +159,8 @@ router.post("/auth/verify-otp", async (req, res) => {
     try {
       const verified = await waverifyVerifyOtp(phone, code);
       if (!verified) {
-        useDbVerify = true;
+        res.status(401).json({ error: "الرمز غير صحيح أو منتهي الصلاحية / Invalid or expired code" });
+        return;
       }
     } catch (err) {
       console.error("[auth] WaVerify verify_otp failed, falling back to local OTP:", (err as Error).message);
@@ -374,7 +375,13 @@ router.get("/me/stats", async (req, res) => {
   });
 });
 
-router.get("/auth/waverify-health", async (_req, res) => {
+router.get("/auth/waverify-health", async (req, res) => {
+  const adminSecret = process.env["ADMIN_SECRET"];
+  const token = req.headers.authorization?.replace("Bearer ", "");
+  if (!adminSecret || !token || token !== adminSecret) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   const health = await waverifyCheckHealth();
   res.status(health.ok ? 200 : 503).json(health);
 });
