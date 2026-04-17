@@ -579,6 +579,12 @@ export const api = {
       body: JSON.stringify({ phone }),
     }),
 
+  testWebhook: (url: string) =>
+    apiFetch<{ ok: boolean; message: string }>("/admin/webhook/test", {
+      method: "POST",
+      body: JSON.stringify({ url }),
+    }),
+
   getSubscriptions: (date?: string) => {
     const qs = date ? `?date=${date}` : "";
     return apiFetch<SubscriptionDay>(`/admin/subscriptions${qs}`);

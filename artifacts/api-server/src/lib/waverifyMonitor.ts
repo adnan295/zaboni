@@ -1,6 +1,7 @@
 import { checkHealth, isWaVerifyConfigured } from "./waverify";
 import { logger } from "./logger";
-import { db, waverifyHealthLogTable } from "@workspace/db";
+import { db, waverifyHealthLogTable, systemSettingsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 const POLL_INTERVAL_MS = 2 * 60 * 1000;
 const WEBHOOK_TIMEOUT_MS = 10_000;
@@ -8,13 +9,23 @@ const WEBHOOK_TIMEOUT_MS = 10_000;
 let lastHealthy: boolean | null = null;
 let alertSent = false;
 
-async function sendAdminAlert(message: string): Promise<boolean> {
-  const webhookUrl = process.env["ADMIN_ALERT_WEBHOOK_URL"];
-  if (!webhookUrl) {
-    logger.warn("ADMIN_ALERT_WEBHOOK_URL not set — skipping alert delivery");
-    return true;
+async function getAlertWebhookUrl(): Promise<string | null> {
+  try {
+    const rows = await db
+      .select()
+      .from(systemSettingsTable)
+      .where(eq(systemSettingsTable.key, "alert_webhook_url"));
+    const dbValue = rows[0]?.value?.trim();
+    if (dbValue) return dbValue;
+  } catch {
   }
+  return process.env["ADMIN_ALERT_WEBHOOK_URL"] ?? null;
+}
 
+export async function sendAdminAlertWebhook(
+  webhookUrl: string,
+  message: string,
+): Promise<boolean> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT_MS);
   try {
@@ -28,18 +39,27 @@ async function sendAdminAlert(message: string): Promise<boolean> {
       const body = await res.text().catch(() => "");
       logger.error(
         { status: res.status, body },
-        "Admin alert webhook responded with error — will retry next poll",
+        "Admin alert webhook responded with error",
       );
       return false;
     }
     logger.info("Admin alert sent via webhook");
     return true;
   } catch (err) {
-    logger.error({ err }, "Failed to send admin alert via webhook — will retry next poll");
+    logger.error({ err }, "Failed to send admin alert via webhook");
     return false;
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function sendAdminAlert(message: string): Promise<boolean> {
+  const webhookUrl = await getAlertWebhookUrl();
+  if (!webhookUrl) {
+    logger.warn("No alert webhook URL configured — skipping alert delivery");
+    return true;
+  }
+  return sendAdminAlertWebhook(webhookUrl, message);
 }
 
 async function pollWaVerify(): Promise<void> {
