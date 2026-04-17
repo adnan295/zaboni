@@ -2,6 +2,7 @@ import { createServer } from "http";
 import app from "./app";
 import { createChatServer } from "./chat/server";
 import { startOrderExpiryJob } from "./lib/orderExpiry";
+import { startWaVerifyMonitor } from "./lib/waverifyMonitor";
 import { logger } from "./lib/logger";
 
 const rawPort = process.env["PORT"];
@@ -28,4 +29,5 @@ httpServer.listen(port, (err?: Error) => {
   }
   logger.info({ port }, "Server listening");
   startOrderExpiryJob();
+  startWaVerifyMonitor();
 });
