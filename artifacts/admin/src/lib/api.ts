@@ -623,4 +623,23 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ adminNote }),
     }),
+
+  getWaVerifyHealth: async (): Promise<WaVerifyHealth> => {
+    const token = getAdminToken();
+    const res = await fetch(`${API_BASE}/auth/waverify-health`, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+    const body = await res.json().catch(() => ({ ok: false }));
+    return body as WaVerifyHealth;
+  },
+};
+
+export type WaVerifyHealth = {
+  ok: boolean;
+  configured?: boolean;
+  message?: string;
+  error?: string;
 };
