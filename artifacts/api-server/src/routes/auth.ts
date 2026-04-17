@@ -7,6 +7,7 @@ import jwt from "jsonwebtoken";
 import { parsePhoneNumber, isValidPhoneNumber } from "libphonenumber-js";
 import { sendSmsViaGateway } from "../lib/sms";
 import { isWaVerifyConfigured, requestOtp as waverifyRequestOtp, verifyOtp as waverifyVerifyOtp, checkHealth as waverifyCheckHealth } from "../lib/waverify";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -389,7 +390,8 @@ router.get("/auth/waverify-health", async (req, res) => {
       httpStatus: health.status ?? null,
       message: health.message ?? null,
     });
-  } catch (_err) {
+  } catch (err) {
+    logger.warn({ err }, "Failed to persist WaVerify health log entry");
   }
   res.status(health.ok ? 200 : 503).json(health);
 });
