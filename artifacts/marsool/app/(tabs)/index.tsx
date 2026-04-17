@@ -249,6 +249,13 @@ export default function HomeScreen() {
                       />
                     </View>
                   )}
+                  {!!(banner.titleAr || banner.titleEn) && (
+                    <View style={styles.bannerOverlay} pointerEvents="none">
+                      <Text style={[styles.bannerOverlayText, { textAlign: isAr ? "right" : "left" }]} numberOfLines={2}>
+                        {isAr ? (banner.titleAr || banner.titleEn) : (banner.titleEn || banner.titleAr)}
+                      </Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -395,11 +402,31 @@ const styles = StyleSheet.create({
   bannerCard: {
     borderRadius: 16,
     overflow: "hidden",
+    position: "relative",
   },
   bannerImage: {
     width: "100%",
     height: 160,
     borderRadius: 16,
+  },
+  bannerOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: "rgba(0,0,0,0.38)",
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  bannerOverlayText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
+    textShadowColor: "rgba(0,0,0,0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   dotsRow: {
     flexDirection: "row",

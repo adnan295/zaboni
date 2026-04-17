@@ -145,6 +145,9 @@ function BannerSection() {
                       </Badge>
                     </button>
                   </div>
+                  {b.titleAr && (
+                    <p className="text-xs font-medium truncate">{b.titleAr}</p>
+                  )}
                   {linkedRestaurant && (
                     <p className="text-xs text-muted-foreground truncate">
                       مطعم: {linkedRestaurant.nameAr}
@@ -181,6 +184,15 @@ function BannerSection() {
                 onChange={(url) => setForm((f) => ({ ...f, image: url }))}
                 folder="banners"
               />
+            </div>
+            <div className="space-y-1">
+              <Label>نص البانر (اختياري)</Label>
+              <Input
+                value={form.titleAr}
+                onChange={(e) => setForm((f) => ({ ...f, titleAr: e.target.value }))}
+                placeholder="مثال: عروض اليوم أو اسم المطعم"
+              />
+              <p className="text-xs text-muted-foreground">يظهر كنص علوي فوق الصورة في التطبيق — اتركه فارغاً إذا لم تحتج نصاً</p>
             </div>
             <div className="space-y-1">
               <Label>الربط بمطعم (اختياري)</Label>
