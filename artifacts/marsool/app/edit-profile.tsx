@@ -27,16 +27,18 @@ async function uploadAvatarToStorage(localUri: string): Promise<string> {
   const ext = match ? match[1].toLowerCase() : "jpg";
   const contentType = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
 
+  const blob = await (await fetch(localUri)).blob();
+  const size = blob.size > 0 ? blob.size : 1;
+
   const urlRes = await customFetch<{ uploadURL: string; objectPath: string }>(
     "/api/storage/uploads/request-url",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: filename, size: 0, contentType }),
+      body: JSON.stringify({ name: filename, size, contentType }),
     }
   );
 
-  const blob = await (await fetch(localUri)).blob();
   const uploadResponse = await fetch(urlRes.uploadURL, {
     method: "PUT",
     headers: { "Content-Type": contentType },

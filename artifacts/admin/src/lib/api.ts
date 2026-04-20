@@ -579,6 +579,12 @@ export const api = {
       body: JSON.stringify({ phone }),
     }),
 
+  testWebhook: (url: string) =>
+    apiFetch<{ ok: boolean; message: string }>("/admin/webhook/test", {
+      method: "POST",
+      body: JSON.stringify({ url }),
+    }),
+
   getSubscriptions: (date?: string) => {
     const qs = date ? `?date=${date}` : "";
     return apiFetch<SubscriptionDay>(`/admin/subscriptions${qs}`);
@@ -635,6 +641,19 @@ export const api = {
     const body = await res.json().catch(() => ({ ok: false }));
     return body as WaVerifyHealth;
   },
+
+  getWaVerifyHealthHistory: async (limit = 20): Promise<WaVerifyHealthLogEntry[]> => {
+    const token = getAdminToken();
+    const res = await fetch(`${API_BASE}/auth/waverify-health/history?limit=${limit}`, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+    if (!res.ok) return [];
+    const body = await res.json().catch(() => []);
+    return body as WaVerifyHealthLogEntry[];
+  },
 };
 
 export type WaVerifyHealth = {
@@ -642,4 +661,12 @@ export type WaVerifyHealth = {
   configured?: boolean;
   message?: string;
   error?: string;
+};
+
+export type WaVerifyHealthLogEntry = {
+  id: number;
+  ok: boolean;
+  httpStatus: number | null;
+  message: string | null;
+  checkedAt: string;
 };
