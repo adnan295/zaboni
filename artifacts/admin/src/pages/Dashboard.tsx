@@ -357,6 +357,9 @@ export default function Dashboard() {
     count: Number(h.count),
   }));
 
+  const waVerifyDisconnected =
+    !waVerifyLoading && waVerifyHealth !== undefined && waVerifyHealth.ok === false;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -365,6 +368,33 @@ export default function Dashboard() {
           مباشر · يتحدث كل 10 ثوانٍ
         </span>
       </div>
+
+      {waVerifyDisconnected && (
+        <div
+          role="alert"
+          className="flex items-start gap-3 rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-red-700 dark:text-red-400"
+        >
+          <span className="mt-0.5 text-lg leading-none">⚠️</span>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm">
+              WaVerify غير متصل — لن تصل رسائل OTP إلى المستخدمين
+            </p>
+            {waVerifyHealth?.error && (
+              <p className="mt-0.5 text-xs opacity-80">{waVerifyHealth.error}</p>
+            )}
+            {waVerifyHealth?.message && !waVerifyHealth?.error && (
+              <p className="mt-0.5 text-xs opacity-80">{waVerifyHealth.message}</p>
+            )}
+          </div>
+          <button
+            onClick={() => { refetchWaVerify(); refetchWaVerifyHistory(); }}
+            disabled={waVerifyFetching}
+            className="flex-shrink-0 text-xs font-medium border border-red-300 dark:border-red-700 rounded px-2 py-1 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors disabled:opacity-40"
+          >
+            {waVerifyFetching ? "⟳" : "تحديث"}
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         {statCards.map((s) => (
