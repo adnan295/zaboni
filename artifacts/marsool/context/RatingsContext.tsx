@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { customFetch } from "@workspace/api-client-react";
+import { useAuth } from "./AuthContext";
 
 const STORAGE_KEY = "@marsool_ratings";
 
@@ -43,6 +44,7 @@ function normalizeApiRatings(raw: Array<Record<string, unknown>>): Rating[] {
 }
 
 export function RatingsProvider({ children }: { children: React.ReactNode }) {
+  const { token } = useAuth();
   const [ratings, setRatings] = useState<Rating[]>([]);
   const [ratingsLoaded, setRatingsLoaded] = useState(false);
 
@@ -68,8 +70,7 @@ export function RatingsProvider({ children }: { children: React.ReactNode }) {
         setRatingsLoaded(true);
       }
 
-      const hasToken = !!(await AsyncStorage.getItem("@marsool_jwt").catch(() => null));
-      if (!hasToken) return;
+      if (!token) return;
 
       try {
         const remote = await customFetch<Array<Record<string, unknown>>>("/api/orders/ratings");
@@ -95,7 +96,7 @@ export function RatingsProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [token]);
 
   const rateOrder = useCallback(
     async (
