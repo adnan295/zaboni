@@ -68,6 +68,9 @@ export function RatingsProvider({ children }: { children: React.ReactNode }) {
         setRatingsLoaded(true);
       }
 
+      const hasToken = !!(await AsyncStorage.getItem("@marsool_jwt").catch(() => null));
+      if (!hasToken) return;
+
       try {
         const remote = await customFetch<Array<Record<string, unknown>>>("/api/orders/ratings");
         if (!cancelled && Array.isArray(remote)) {
