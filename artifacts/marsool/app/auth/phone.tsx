@@ -76,7 +76,6 @@ export default function PhoneScreen() {
         params: {
           phone: fullPhone,
           channel: sendData.channel ?? "sms",
-          ...(sendData.devCode ? { devCode: sendData.devCode } : {}),
         },
       });
     } catch {

@@ -101,8 +101,6 @@ router.post("/auth/send-otp", async (req, res) => {
     return;
   }
 
-  const isDev = process.env["NODE_ENV"] !== "production";
-
   if (isWaVerifyConfigured()) {
     try {
       await waverifyRequestOtp(phone);
@@ -132,9 +130,8 @@ router.post("/auth/send-otp", async (req, res) => {
 
   res.json({
     success: true,
-    channel: isDev ? "dev" : "sms",
+    channel: "sms",
     expiresInMinutes: OTP_TTL_MINUTES,
-    ...(isDev ? { devCode: code } : {}),
   });
 });
 
