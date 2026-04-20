@@ -374,7 +374,7 @@ export async function customFetch<T = unknown>(
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);
-    if (response.status === 401 && _unauthorizedHandler) {
+    if (response.status === 401 && _unauthorizedHandler && headers.has("authorization")) {
       _unauthorizedHandler();
     }
     throw new ApiError(response, errorData, requestInfo);
