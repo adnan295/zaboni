@@ -1,0 +1,91 @@
+mkdir : An item with the specified name 
+C:\Users\planet\zaboni\artifacts\marsool\credentials already exists.
+At line:1 char:1
++ mkdir -p credentials
++ ~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ResourceExists: (C:\Users\planet...ool\credential 
+   s:String) [New-Item], IOException
+    + FullyQualifiedErrorId : DirectoryExist,Microsoft.PowerShell.Commands.NewI 
+   temCommand
+ 
+Illegal option:  \
+keytool -genkeypair [OPTION]...
+
+Generates a key pair
+
+Options:
+
+ -alias <alias>          alias name of the entry to process
+ -keyalg <alg>           key algorithm name
+ -keysize <size>         key bit size
+ -groupname <name>       Group name. For example, an Elliptic Curve name.
+ -sigalg <alg>           signature algorithm name
+ -dname <name>           distinguished name
+ -startdate <date>       certificate validity start date/time
+ -ext <value>            X.509 extension
+ -validity <days>        validity number of days
+ -keypass <arg>          key password
+ -keystore <keystore>    keystore name
+ -signer <alias>         signer alias
+ -signerkeypass <arg>    signer key password
+ -storepass <arg>        keystore password
+ -storetype <type>       keystore type
+ -providername <name>    provider name
+ -addprovider <name>     add security provider by name (e.g. SunPKCS11)
+   [-providerarg <arg>]    configure argument for -addprovider
+ -providerclass <class>  add security provider by fully-qualified class name
+   [-providerarg <arg>]    configure argument for -providerclass
+ -providerpath <list>    provider classpath
+ -v                      verbose output
+ -protected              password through protected mechanism
+
+Use "keytool -?, -h, or --help" for this help message
+-keystore : The term '-keystore' is not recognized as the name of a cmdlet, 
+function, script file, or operable program. Check the spelling of the name, or 
+if a path was included, verify that the path is correct and try again.
+At line:3 char:3
++   -keystore credentials/zaboni-release.keystore \
++   ~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (-keystore:String) [], CommandNot 
+   FoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+ 
+-alias : The term '-alias' is not recognized as the name of a cmdlet, function, 
+script file, or operable program. Check the spelling of the name, or if a path 
+was included, verify that the path is correct and try again.
+At line:4 char:3
++   -alias zaboni \
++   ~~~~~~
+    + CategoryInfo          : ObjectNotFound: (-alias:String) [], CommandNotFou 
+   ndException
+    + FullyQualifiedErrorId : CommandNotFoundException
+ 
+-keyalg : The term '-keyalg' is not recognized as the name of a cmdlet, 
+function, script file, or operable program. Check the spelling of the name, or 
+if a path was included, verify that the path is correct and try again.
+At line:5 char:3
++   -keyalg RSA \
++   ~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (-keyalg:String) [], CommandNotFo 
+   undException
+    + FullyQualifiedErrorId : CommandNotFoundException
+ 
+-keysize : The term '-keysize' is not recognized as the name of a cmdlet, 
+function, script file, or operable program. Check the spelling of the name, or 
+if a path was included, verify that the path is correct and try again.
+At line:6 char:3
++   -keysize 2048 \
++   ~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (-keysize:String) [], CommandNotF 
+   oundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+ 
+-validity : The term '-validity' is not recognized as the name of a cmdlet, 
+function, script file, or operable program. Check the spelling of the name, or 
+if a path was included, verify that the path is correct and try again.
+At line:7 char:3
++   -validity 10000 \
++   ~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (-validity:String) [], CommandNot 
+   FoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
