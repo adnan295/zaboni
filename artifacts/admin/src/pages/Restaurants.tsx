@@ -4,6 +4,13 @@ import { api, type Restaurant, type MenuItem, type RestaurantHour } from "@/lib/
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ImageUpload } from "@/components/ImageUpload";
 import LocationPicker from "@/components/LocationPicker";
 import { useToast } from "@/hooks/use-toast";
@@ -69,6 +76,12 @@ function RestaurantFormDialog({
 }) {
   const [form, setForm] = useState<RestaurantForm>(initial);
 
+  const { data: categories = [] } = useQuery({
+    queryKey: ["adminCategories"],
+    queryFn: api.getAdminCategories,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const set = <K extends keyof RestaurantForm>(
     k: K,
     v: RestaurantForm[K],
@@ -100,22 +113,29 @@ function RestaurantFormDialog({
               placeholder="اسم المطعم"
             />
           </div>
-          <div className="space-y-1">
-            <Label>التصنيف (إنجليزي)</Label>
-            <Input
+          <div className="col-span-2 space-y-1">
+            <Label>نوع المنشأة</Label>
+            <Select
               value={form.category}
-              onChange={(e) => set("category", e.target.value)}
-              placeholder="e.g. Fast Food"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>التصنيف (عربي)</Label>
-            <Input
-              dir="rtl"
-              value={form.categoryAr}
-              onChange={(e) => set("categoryAr", e.target.value)}
-              placeholder="مثلاً: وجبات سريعة"
-            />
+              onValueChange={(code) => {
+                const cat = categories.find((c) => c.code === code);
+                if (cat) {
+                  set("category", cat.code);
+                  set("categoryAr", cat.nameAr);
+                }
+              }}
+            >
+              <SelectTrigger dir="rtl">
+                <SelectValue placeholder="اختر نوع المنشأة..." />
+              </SelectTrigger>
+              <SelectContent dir="rtl">
+                {categories.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.code}>
+                    {cat.nameAr}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1">
             <Label>التقييم (0–5)</Label>
