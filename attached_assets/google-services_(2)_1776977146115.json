@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "755482099590",
+    "project_id": "marsool-fcd5c",
+    "storage_bucket": "marsool-fcd5c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:755482099590:android:25064edf8d835b4105b607",
+        "android_client_info": {
+          "package_name": "com.marsool.delivery"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBvRxYa23RzLt1ZzVbELAg8NIsUhJj6EkI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
