@@ -48,8 +48,9 @@ Thumbs.db
 .cache/
 .local/
 
-# Android signing — NEVER commit
-artifacts/marsool/credentials/
+# Android signing — NEVER commit (keep dir + .gitkeep, ignore everything else inside)
+artifacts/marsool/credentials/*
+!artifacts/marsool/credentials/.gitkeep
 artifacts/marsool/credentials.json
 *.keystore
 *.jks
