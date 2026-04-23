@@ -180,7 +180,7 @@ All push notifications now carry structured `data` fields for client-side routin
 The Replit-managed Expo account cannot reliably deliver Expo push for production builds. We send pushes through three channels in parallel: Expo (legacy), FCM (Android native), and direct APNs HTTP/2 (iOS native). The unified helper is `artifacts/api-server/src/lib/push.ts` (`sendPushToUsers`, `sendPushToRole`, `sendPushToTokens`).
 
 ### Bundle ID
-- iOS / Android: `com.marsool.delivery` (must match Firebase project `marsool-fcd5c` and the APNs key topic)
+- iOS / Android: `com.zaboni.delivery` (must match Firebase project and the APNs key topic)
 
 ### Required Replit Secrets
 - `FIREBASE_PROJECT_ID` — from the Firebase service-account JSON
@@ -189,7 +189,7 @@ The Replit-managed Expo account cannot reliably deliver Expo push for production
 - `APN_KEY` — full `.p8` content **including** `-----BEGIN PRIVATE KEY-----` … `-----END PRIVATE KEY-----`
 - `APN_KEY_ID` — 10-char Apple Key ID
 - `APPLE_TEAM_ID` — 10-char Apple Team ID
-- `APN_BUNDLE_ID` — optional override; defaults to `com.marsool.delivery`
+- `APN_BUNDLE_ID` — optional override; defaults to `com.zaboni.delivery`
 
 If FCM/APNs creds are missing, the corresponding channel auto-disables (warning logged); Expo path keeps running.
 
