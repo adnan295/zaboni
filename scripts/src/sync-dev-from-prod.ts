@@ -8,6 +8,21 @@
  * Required env vars:
  *   DATABASE_URL      – dev database connection string
  *   PROD_DATABASE_URL – production database connection string
+ *
+ * Test-data exclusion:
+ *   The script only syncs rows whose IDs match the patterns used by the admin
+ *   panel when creating records at runtime:
+ *     restaurants → id LIKE 'rest_%'   (e.g. rest_1739876543210abcde)
+ *     menu_items  → id LIKE 'item_%'   (e.g. item_1739876543210fghij)
+ *   Seed / test records (id pattern: r1, r2 … / m1, m2 …) are excluded.
+ *   If production ever contains valid rows with legacy ID formats that do not
+ *   match these prefixes, those rows will be skipped. Update the LIKE patterns
+ *   in syncRestaurants() / syncMenuItems() as needed.
+ *
+ * Sync behaviour:
+ *   This script is additive and upsert-only. Rows that exist in dev but no
+ *   longer exist in production are NOT deleted. Run with caution if you need
+ *   the dev database to be an exact mirror of production.
  */
 
 import pg from "pg";
