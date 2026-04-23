@@ -115,9 +115,9 @@ function ClassicTabLayout() {
           title: t("tabs.orders"),
           tabBarBadge: activeOrder ? "!" : undefined,
           tabBarBadgeStyle: { backgroundColor: BADGE_RED, fontSize: 10, minWidth: 16, height: 16 },
-          tabBarIcon: ({ color }) =>
+          tabBarIcon: ({ color, focused }) =>
             isIOS ? (
-              <SymbolView name="bag" tintColor={color} size={24} />
+              <SymbolView name={focused ? "bag.fill" : "bag"} tintColor={color} size={24} />
             ) : (
               <Feather name="package" size={22} color={color} />
             ),
