@@ -6,9 +6,10 @@ import {
   TouchableOpacity,
   Platform,
   ActivityIndicator,
+  Linking,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
-import { MaterialIcons } from "@expo/vector-icons";
+import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -19,6 +20,7 @@ import { useRatings } from "@/context/RatingsContext";
 import { customFetch } from "@workspace/api-client-react";
 
 const PAGE_LIMIT = 20;
+const formatWaPhone = (phone: string) => phone.replace(/[^0-9]/g, "");
 
 const STATUS_COLOR: Record<OrderStatus, string> = {
   searching: "#d97706",
@@ -140,13 +142,14 @@ function OrderCard({ order }: { order: Order }) {
 
         {isActive && order.status !== "searching" && (
           <TouchableOpacity
-            style={[styles.chatBtn, { backgroundColor: colors.secondary }]}
-            onPress={() =>
-              router.push({ pathname: "/chat/[orderId]", params: { orderId: order.id } })
-            }
+            style={[styles.chatBtn, { backgroundColor: "#25D366" }]}
+            onPress={() => {
+              const phone = formatWaPhone(order.courierPhone ?? "");
+              if (phone) Linking.openURL(`https://wa.me/${phone}`);
+            }}
           >
-            <MaterialIcons name="chat" size={16} color={colors.primary} />
-            <Text style={[styles.chatBtnText, { color: colors.primary }]}>{t("orders.chat")}</Text>
+            <MaterialCommunityIcons name="whatsapp" size={16} color="#fff" />
+            <Text style={[styles.chatBtnText, { color: "#fff" }]}>{t("orders.whatsapp")}</Text>
           </TouchableOpacity>
         )}
 

@@ -7,9 +7,10 @@ import {
   Platform,
   Animated,
   Alert,
+  Linking,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
-import { MaterialIcons } from "@expo/vector-icons";
+import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
@@ -44,7 +45,8 @@ export default function OrderTrackingScreen() {
   const { getOrder, refreshOrder } = useOrders();
   const { hasRated, ratingsLoaded } = useRatings();
   const [, forceUpdate] = useState(0);
-  const [showChatPrompt, setShowChatPrompt] = useState(false);
+
+  const formatWaPhone = (phone: string) => phone.replace(/[^0-9]/g, "");
 
   const order = getOrder(id ?? "");
   const initialOrder = order;
@@ -288,11 +290,6 @@ export default function OrderTrackingScreen() {
         if (current === "accepted") {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           Animated.spring(acceptedScale, { toValue: 1, tension: 60, friction: 8, useNativeDriver: USE_NATIVE_DRIVER }).start();
-          if (order.id) {
-            router.push(`/chat/${order.id}`);
-          } else {
-            setShowChatPrompt(true);
-          }
         } else if (current === "picked_up" || current === "on_way") {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         } else if (current === "delivered") {
@@ -310,7 +307,6 @@ export default function OrderTrackingScreen() {
           }
         } else {
           if (current === "searching") {
-            setShowChatPrompt(false);
             // Courier cancelled — reset all map/simulation state so a new courier
             // acceptance triggers a fresh simulation and GPS poll cycle
             setCourierCoords(null);
@@ -471,36 +467,6 @@ export default function OrderTrackingScreen() {
           </View>
         )}
 
-        {showChatPrompt && !isCancelled && order && (
-          <View style={[styles.chatPromptBanner, { backgroundColor: "#22c55e" }]}>
-            <View style={styles.chatPromptContent}>
-              <MaterialIcons name="check-circle" size={22} color="#fff" />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.chatPromptTitle}>{t("orderTracking.courier.acceptedBanner")}</Text>
-                <Text style={styles.chatPromptNote}>{t("orderTracking.courier.chatPromptNote")}</Text>
-              </View>
-              <TouchableOpacity onPress={() => setShowChatPrompt(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <MaterialIcons name="close" size={20} color="#fff" />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.chatPromptActions}>
-              <TouchableOpacity
-                style={styles.chatPromptBtn}
-                onPress={() => {
-                  setShowChatPrompt(false);
-                  router.push({ pathname: "/chat/[orderId]", params: { orderId: order.id } });
-                }}
-              >
-                <MaterialIcons name="chat" size={16} color="#22c55e" />
-                <Text style={styles.chatPromptBtnText}>{t("orderTracking.courier.chatPromptBtn")}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.chatPromptDismiss} onPress={() => setShowChatPrompt(false)}>
-                <Text style={styles.chatPromptDismissText}>{t("orderTracking.courier.chatPromptDismiss")}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
         {!isSearching && !isCancelled && (
           <>
             <Animated.View style={[styles.courierCard, { backgroundColor: colors.card }, isAccepted && { transform: [{ scale: acceptedScale }] }]}>
@@ -526,13 +492,14 @@ export default function OrderTrackingScreen() {
               </View>
 
               <TouchableOpacity
-                style={[styles.chatBtn, { backgroundColor: colors.primary }]}
-                onPress={() =>
-                  router.push({ pathname: "/chat/[orderId]", params: { orderId: order.id } })
-                }
+                style={[styles.chatBtn, { backgroundColor: "#25D366" }]}
+                onPress={() => {
+                  const phone = formatWaPhone(order.courierPhone ?? "");
+                  if (phone) Linking.openURL(`https://wa.me/${phone}`);
+                }}
               >
-                <MaterialIcons name="chat" size={20} color="#fff" />
-                <Text style={styles.chatBtnText}>{t("orderTracking.courier.openChat")}</Text>
+                <MaterialCommunityIcons name="whatsapp" size={20} color="#fff" />
+                <Text style={styles.chatBtnText}>{t("orderTracking.courier.whatsapp")}</Text>
               </TouchableOpacity>
             </Animated.View>
 

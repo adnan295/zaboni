@@ -145,6 +145,7 @@
     "courier": "المندوب",
     "track": "تتبع الطلب",
     "chat": "دردشة",
+    "whatsapp": "واتساب",
     "rate": "قيّم طلبك",
     "reorder": "اطلب مجدداً",
     "allLoaded": "تم تحميل جميع الطلبات",
@@ -305,6 +306,7 @@
       "address": "عنوان التوصيل",
       "orderText": "تفاصيل الطلب",
       "openChat": "دردشة مع العميل",
+      "whatsapp": "واتساب مع العميل",
       "navigate": "ملاحة GPS",
       "statusTitle": "تحديث الحالة",
       "markPickedUp": "استلمت الطلب من المطعم 📦",
@@ -463,6 +465,7 @@
     "courier": {
       "acceptedBanner": "قَبِل طلبك!",
       "openChat": "فتح الدردشة مع المندوب",
+      "whatsapp": "تواصل عبر واتساب",
       "chatPromptNote": "تواصل معه عبر الدردشة لتنسيق التفاصيل",
       "chatPromptBtn": "فتح الدردشة",
       "chatPromptDismiss": "لاحقاً"

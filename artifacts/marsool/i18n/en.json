@@ -145,6 +145,7 @@
     "courier": "Courier",
     "track": "Track Order",
     "chat": "Chat",
+    "whatsapp": "WhatsApp",
     "rate": "Rate Order",
     "reorder": "Order Again",
     "allLoaded": "All orders loaded",
@@ -305,6 +306,7 @@
       "address": "Delivery Address",
       "orderText": "Order Details",
       "openChat": "Chat with Customer",
+      "whatsapp": "WhatsApp Customer",
       "navigate": "GPS Navigation",
       "statusTitle": "Update Status",
       "markPickedUp": "Picked Up from Restaurant 📦",
@@ -463,6 +465,7 @@
     "courier": {
       "acceptedBanner": "Accepted your order!",
       "openChat": "Open Chat with Courier",
+      "whatsapp": "Contact via WhatsApp",
       "chatPromptNote": "Chat with the courier to coordinate delivery details",
       "chatPromptBtn": "Open Chat",
       "chatPromptDismiss": "Later"
