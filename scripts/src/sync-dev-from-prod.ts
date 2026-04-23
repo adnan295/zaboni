@@ -12,7 +12,7 @@
 
 import pg from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { sql } from "drizzle-orm";
+import { sql, like } from "drizzle-orm";
 import { restaurantsTable, menuItemsTable } from "@workspace/db/schema";
 
 const { Pool } = pg;
@@ -40,12 +40,15 @@ const devPool = new Pool({ connectionString: DEV_DATABASE_URL });
 const prodDb = drizzle(prodPool);
 const devDb = drizzle(devPool);
 
-async function syncRestaurants(): Promise<number> {
-  console.log("\n📦 Fetching restaurants from production...");
-  const restaurants = await prodDb.select().from(restaurantsTable);
+async function syncRestaurants(): Promise<string[]> {
+  console.log("\n📦 Fetching restaurants from production (excluding test data)...");
+  const restaurants = await prodDb
+    .select()
+    .from(restaurantsTable)
+    .where(like(restaurantsTable.id, "rest_%"));
   console.log(`   Found ${restaurants.length} restaurant(s).`);
 
-  if (restaurants.length === 0) return 0;
+  if (restaurants.length === 0) return [];
 
   console.log("💾 Upserting restaurants into dev...");
   await devDb
@@ -72,21 +75,33 @@ async function syncRestaurants(): Promise<number> {
       },
     });
 
-  return restaurants.length;
+  return restaurants.map((r) => r.id);
 }
 
-async function syncMenuItems(): Promise<number> {
-  console.log("\n🍽️  Fetching menu items from production...");
-  const items = await prodDb.select().from(menuItemsTable);
+async function syncMenuItems(restaurantIds: string[]): Promise<number> {
+  console.log("\n🍽️  Fetching menu items from production (excluding test data)...");
+  const items = await prodDb
+    .select()
+    .from(menuItemsTable)
+    .where(like(menuItemsTable.id, "item_%"));
   console.log(`   Found ${items.length} menu item(s).`);
 
   if (items.length === 0) return 0;
 
+  const filteredItems = items.filter((item) =>
+    restaurantIds.includes(item.restaurantId),
+  );
+  console.log(
+    `   Keeping ${filteredItems.length} item(s) belonging to synced restaurants.`,
+  );
+
+  if (filteredItems.length === 0) return 0;
+
   console.log("💾 Upserting menu items into dev...");
 
   const CHUNK = 100;
-  for (let i = 0; i < items.length; i += CHUNK) {
-    const chunk = items.slice(i, i + CHUNK);
+  for (let i = 0; i < filteredItems.length; i += CHUNK) {
+    const chunk = filteredItems.slice(i, i + CHUNK);
     await devDb
       .insert(menuItemsTable)
       .values(chunk)
@@ -107,7 +122,7 @@ async function syncMenuItems(): Promise<number> {
       });
   }
 
-  return items.length;
+  return filteredItems.length;
 }
 
 async function main() {
@@ -116,11 +131,11 @@ async function main() {
   console.log("   Prod DB :", PROD_DATABASE_URL.replace(/:\/\/[^@]+@/, "://***@"));
 
   try {
-    const restaurantCount = await syncRestaurants();
-    const menuItemCount = await syncMenuItems();
+    const restaurantIds = await syncRestaurants();
+    const menuItemCount = await syncMenuItems(restaurantIds);
 
     console.log("\n✅ Sync complete!");
-    console.log(`   Restaurants : ${restaurantCount}`);
+    console.log(`   Restaurants : ${restaurantIds.length}`);
     console.log(`   Menu items  : ${menuItemCount}`);
   } catch (err) {
     console.error("\n❌ Sync failed:", err);
