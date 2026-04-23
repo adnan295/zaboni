@@ -35,10 +35,6 @@ interface AddressContextValue {
 
 const AddressContext = createContext<AddressContextValue | null>(null);
 
-const DEFAULT_ADDRESSES: Address[] = [
-  { id: "a1", label: "المنزل", address: "حي النخيل، شارع الأمير محمد، الرياض", isDefault: true },
-  { id: "a2", label: "العمل", address: "طريق الملك فهد، برج المملكة، الرياض", isDefault: false },
-];
 
 function apiToLocal(a: {
   id: string;
@@ -78,20 +74,9 @@ export function AddressProvider({ children }: { children: React.ReactNode }) {
       try {
         const data = await getAddresses({});
         if (cancelled) return;
-        if (data.length === 0) {
-          for (const addr of DEFAULT_ADDRESSES) {
-            await apiCreateAddress(
-              { label: addr.label, address: addr.address, isDefault: addr.isDefault },
-              {}
-            );
-          }
-          const seeded = await getAddresses({});
-          if (!cancelled) setAddresses(seeded.map(apiToLocal));
-        } else {
-          setAddresses(data.map(apiToLocal));
-        }
+        if (!cancelled) setAddresses(data.map(apiToLocal));
       } catch {
-        if (!cancelled) setAddresses(DEFAULT_ADDRESSES);
+        if (!cancelled) setAddresses([]);
       } finally {
         if (!cancelled) setIsLoading(false);
       }

@@ -8,6 +8,7 @@ import {
   Platform,
   Animated,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -115,6 +116,17 @@ export default function RestaurantScreen() {
 
   const handleOrder = () => {
     if (!restaurant || !restaurant.isOpen) return;
+    if (!defaultAddress) {
+      Alert.alert(
+        t("orderRequest.noAddressTitle"),
+        t("orderRequest.noAddressBody"),
+        [
+          { text: t("orderRequest.addAddress"), onPress: () => router.push("/addresses"), style: "default" },
+          { text: t("common.cancel"), style: "cancel" },
+        ]
+      );
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const params: Record<string, string> = {
       restaurantName: restaurant.nameAr,
