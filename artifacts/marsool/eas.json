@@ -23,19 +23,10 @@
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
-      },
-      "ios": {
-        "buildType": "release"
       }
     }
   },
   "submit": {
-    "production": {
-      "ios": {
-        "appleId": "",
-        "ascAppId": "",
-        "appleTeamId": ""
-      }
-    }
+    "production": {}
   }
 }
