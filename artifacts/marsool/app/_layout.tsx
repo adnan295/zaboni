@@ -26,7 +26,6 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OrderProvider } from "@/context/OrderContext";
-import { ChatProvider } from "@/context/ChatContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { FavoritesProvider } from "@/context/FavoritesContext";
 import { AddressProvider } from "@/context/AddressContext";
@@ -116,7 +115,6 @@ function RootLayoutNav() {
           <Stack.Screen name="restaurant/[id]" options={{ headerShown: false, presentation: "card" }} />
           <Stack.Screen name="order-request" options={{ headerShown: false }} />
           <Stack.Screen name="order-tracking/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="chat/[orderId]" options={{ headerShown: false }} />
           <Stack.Screen name="orders" options={{ headerShown: false }} />
           <Stack.Screen name="favorites" options={{ headerShown: false }} />
           <Stack.Screen name="addresses" options={{ headerShown: false }} />
@@ -173,17 +171,15 @@ export default function RootLayout() {
                     <FavoritesProvider>
                       <AddressProvider>
                         <OrderProvider>
-                          <ChatProvider>
-                            <CourierProvider>
-                              <GestureHandlerRootView>
-                                <KeyboardProvider>
-                                  <PushNotificationSetup />
-                                  <OrderNotificationBridge />
-                                  <RootLayoutNav />
-                                </KeyboardProvider>
-                              </GestureHandlerRootView>
-                            </CourierProvider>
-                          </ChatProvider>
+                          <CourierProvider>
+                            <GestureHandlerRootView>
+                              <KeyboardProvider>
+                                <PushNotificationSetup />
+                                <OrderNotificationBridge />
+                                <RootLayoutNav />
+                              </KeyboardProvider>
+                            </GestureHandlerRootView>
+                          </CourierProvider>
                         </OrderProvider>
                       </AddressProvider>
                     </FavoritesProvider>

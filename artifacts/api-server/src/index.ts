@@ -1,6 +1,5 @@
 import { createServer } from "http";
 import app from "./app";
-import { createChatServer } from "./chat/server";
 import { startOrderExpiryJob } from "./lib/orderExpiry";
 import { startWaVerifyMonitor } from "./lib/waverifyMonitor";
 import { logger } from "./lib/logger";
@@ -20,7 +19,6 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 const httpServer = createServer(app);
-createChatServer(httpServer);
 
 httpServer.listen(port, (err?: Error) => {
   if (err) {

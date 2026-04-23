@@ -237,6 +237,7 @@ router.get("/courier/orders/active", requireCourier, async (req, res) => {
     .select({
       ...getTableColumns(ordersTable),
       customerName: usersTable.name,
+      customerPhone: usersTable.phone,
     })
     .from(ordersTable)
     .leftJoin(usersTable, eq(ordersTable.userId, usersTable.id))

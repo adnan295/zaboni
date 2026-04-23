@@ -26,6 +26,7 @@ export interface CourierOrder {
   estimatedMinutes: number;
   createdAt: string;
   customerName?: string;
+  customerPhone?: string;
   distanceKm?: number;
   destinationLat?: number | null;
   destinationLon?: number | null;

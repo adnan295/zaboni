@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import * as Location from "expo-location";
 import { default as Text } from "@/components/AppText";
-import { MaterialIcons } from "@expo/vector-icons";
+import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -189,9 +189,12 @@ export default function ActiveOrderScreen() {
     }
   };
 
-  const openChat = () => {
+  const formatWaPhone = (phone: string) => phone.replace(/[^0-9]/g, "");
+
+  const openWhatsApp = () => {
     if (!order) return;
-    router.push(`/chat/${order.id}`);
+    const phone = formatWaPhone(order.customerPhone ?? "");
+    if (phone) Linking.openURL(`https://wa.me/${phone}`);
   };
 
   const openNavigation = () => {
@@ -398,13 +401,13 @@ export default function ActiveOrderScreen() {
 
           <View style={styles.actionRow}>
             <TouchableOpacity
-              style={[styles.chatBtn, { backgroundColor: colors.secondary, borderColor: colors.border }]}
-              onPress={openChat}
+              style={[styles.chatBtn, { backgroundColor: "#25D366", borderColor: "#25D366" }]}
+              onPress={openWhatsApp}
               activeOpacity={0.8}
             >
-              <MaterialIcons name="chat" size={20} color={colors.primary} />
-              <Text style={[styles.chatBtnText, { color: colors.primary }]}>
-                {t("courier.active.openChat")}
+              <MaterialCommunityIcons name="whatsapp" size={20} color="#fff" />
+              <Text style={[styles.chatBtnText, { color: "#fff" }]}>
+                {t("courier.active.whatsapp")}
               </Text>
             </TouchableOpacity>
 

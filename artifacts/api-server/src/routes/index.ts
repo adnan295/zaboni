@@ -4,7 +4,6 @@ import restaurantsRouter from "./restaurants";
 import ordersRouter from "./orders";
 import addressesRouter from "./addresses";
 import authRouter from "./auth";
-import chatRouter from "./chat";
 import courierRouter from "./courier";
 import adminRouter from "./admin";
 import favoritesRouter from "./favorites";
@@ -26,7 +25,6 @@ router.use(storageRouter);
 router.use(requireAuth);
 router.use(ordersRouter);
 router.use(addressesRouter);
-router.use(chatRouter);
 router.use(courierRouter);
 router.use(favoritesRouter);
 
