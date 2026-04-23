@@ -1,14 +1,13 @@
 import { Router } from "express";
 import { db, usersTable, notificationLogsTable } from "@workspace/db";
-import { eq, isNotNull, desc, or, ilike } from "drizzle-orm";
+import { eq, desc, or, ilike } from "drizzle-orm";
 import { z } from "zod";
 import type { Request, Response, NextFunction } from "express";
-import { Expo } from "expo-server-sdk";
 import { broadcastAppNotification } from "../orders/server";
 import { requireAuth } from "../middleware/auth";
+import { sendPushToRole, sendPushToUsers, totalsSentCount, totalsFailedCount } from "../lib/push";
 
 const router = Router();
-const expo = new Expo();
 
 const ADMIN_SECRET = process.env["ADMIN_SECRET"];
 
@@ -45,47 +44,9 @@ router.post("/admin/notifications/broadcast", async (req, res) => {
   }
   const { title, body, target } = parsed.data;
 
-  let usersQuery = db
-    .select({ id: usersTable.id, pushToken: usersTable.pushToken, role: usersTable.role })
-    .from(usersTable)
-    .where(isNotNull(usersTable.pushToken))
-    .$dynamic();
-
-  if (target === "customers") {
-    usersQuery = usersQuery.where(eq(usersTable.role, "customer"));
-  } else if (target === "couriers") {
-    usersQuery = usersQuery.where(eq(usersTable.role, "courier"));
-  }
-
-  const users = await usersQuery;
-  const tokens = [...new Set(
-    users
-      .map((u) => u.pushToken)
-      .filter((t): t is string => !!t && Expo.isExpoPushToken(t))
-  )];
-
-  const CHUNK_SIZE = 100;
-  let sentCount = 0;
-  let failedCount = 0;
-
-  for (let i = 0; i < tokens.length; i += CHUNK_SIZE) {
-    const chunk = tokens.slice(i, i + CHUNK_SIZE);
-    const messages = chunk.map((token) => ({
-      to: token,
-      title,
-      body,
-      sound: "default" as const,
-    }));
-    try {
-      const tickets = await expo.sendPushNotificationsAsync(messages);
-      for (const ticket of tickets) {
-        if (ticket.status === "ok") sentCount++;
-        else failedCount++;
-      }
-    } catch {
-      failedCount += chunk.length;
-    }
-  }
+  const totals = await sendPushToRole(target, title, body);
+  const sentCount = totalsSentCount(totals);
+  const failedCount = totalsFailedCount(totals);
 
   const id = `notif_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
   await db.insert(notificationLogsTable).values({
@@ -99,7 +60,7 @@ router.post("/admin/notifications/broadcast", async (req, res) => {
 
   broadcastAppNotification(title, body, target);
 
-  res.json({ success: true, sentCount, failedCount, total: tokens.length });
+  res.json({ success: true, sentCount, failedCount, totals });
 });
 
 router.get("/admin/notifications/lookup-user", async (req, res) => {
@@ -114,13 +75,23 @@ router.get("/admin/notifications/lookup-user", async (req, res) => {
       name: usersTable.name,
       phone: usersTable.phone,
       role: usersTable.role,
-      hasPushToken: isNotNull(usersTable.pushToken),
+      pushToken: usersTable.pushToken,
+      fcmToken: usersTable.fcmToken,
+      apnToken: usersTable.apnToken,
     })
     .from(usersTable)
     .where(or(ilike(usersTable.phone, `%${q}%`), ilike(usersTable.name, `%${q}%`)))
     .orderBy(desc(usersTable.createdAt))
     .limit(10);
-  res.json(rows);
+  res.json(
+    rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      phone: r.phone,
+      role: r.role,
+      hasPushToken: !!(r.pushToken || r.fcmToken || r.apnToken),
+    })),
+  );
 });
 
 const sendToUserSchema = z.object({
@@ -138,7 +109,14 @@ router.post("/admin/notifications/send-to-user", async (req, res) => {
   const { phone, title, body } = parsed.data;
 
   const [user] = await db
-    .select({ id: usersTable.id, name: usersTable.name, phone: usersTable.phone, pushToken: usersTable.pushToken })
+    .select({
+      id: usersTable.id,
+      name: usersTable.name,
+      phone: usersTable.phone,
+      pushToken: usersTable.pushToken,
+      fcmToken: usersTable.fcmToken,
+      apnToken: usersTable.apnToken,
+    })
     .from(usersTable)
     .where(eq(usersTable.phone, phone))
     .limit(1);
@@ -148,25 +126,27 @@ router.post("/admin/notifications/send-to-user", async (req, res) => {
     return;
   }
 
-  if (!user.pushToken || !Expo.isExpoPushToken(user.pushToken)) {
-    // Log the failed attempt for auditability
+  if (!user.pushToken && !user.fcmToken && !user.apnToken) {
     const failId = `notif_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
-    await db.insert(notificationLogsTable).values({ id: failId, title, body, target: "targeted", sentCount: 0, failedCount: 1 });
-    res.status(422).json({ error: "لا يمتلك هذا المستخدم رمز push نشط — لم يُرسَل الإشعار", userId: user.id, userName: user.name });
+    await db.insert(notificationLogsTable).values({
+      id: failId,
+      title,
+      body,
+      target: "targeted",
+      sentCount: 0,
+      failedCount: 1,
+    });
+    res.status(422).json({
+      error: "لا يمتلك هذا المستخدم رمز push نشط — لم يُرسَل الإشعار",
+      userId: user.id,
+      userName: user.name,
+    });
     return;
   }
 
-  let sentCount = 0;
-  let failedCount = 0;
-  try {
-    const [ticket] = await expo.sendPushNotificationsAsync([
-      { to: user.pushToken, title, body, sound: "default" as const },
-    ]);
-    if (ticket?.status === "ok") sentCount = 1;
-    else failedCount = 1;
-  } catch {
-    failedCount = 1;
-  }
+  const totals = await sendPushToUsers([user.id], title, body);
+  const sentCount = totalsSentCount(totals);
+  const failedCount = totalsFailedCount(totals);
 
   const id = `notif_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
   await db.insert(notificationLogsTable).values({
@@ -178,7 +158,14 @@ router.post("/admin/notifications/send-to-user", async (req, res) => {
     failedCount,
   });
 
-  res.json({ success: sentCount === 1, sentCount, failedCount, userId: user.id, userName: user.name });
+  res.json({
+    success: sentCount > 0,
+    sentCount,
+    failedCount,
+    totals,
+    userId: user.id,
+    userName: user.name,
+  });
 });
 
 router.get("/admin/notifications/history", async (_req, res) => {
@@ -205,6 +192,30 @@ router.post("/push-token", requireAuth, async (req, res) => {
     .update(usersTable)
     .set({ pushToken: parsed.data.token })
     .where(eq(usersTable.id, userId));
+  res.json({ ok: true });
+});
+
+const deviceTokensSchema = z
+  .object({
+    fcmToken: z.string().min(1).max(512).nullable().optional(),
+    apnToken: z.string().min(1).max(256).nullable().optional(),
+  })
+  .refine((v) => v.fcmToken !== undefined || v.apnToken !== undefined, {
+    message: "Provide fcmToken and/or apnToken",
+  });
+
+router.put("/auth/device-tokens", requireAuth, async (req, res) => {
+  const parsed = deviceTokensSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const userId = req.auth!.userId;
+  const updates: { fcmToken?: string | null; apnToken?: string | null } = {};
+  if (parsed.data.fcmToken !== undefined) updates.fcmToken = parsed.data.fcmToken || null;
+  if (parsed.data.apnToken !== undefined) updates.apnToken = parsed.data.apnToken || null;
+
+  await db.update(usersTable).set(updates).where(eq(usersTable.id, userId));
   res.json({ ok: true });
 });
 

@@ -1,9 +1,9 @@
 import { Server as SocketServer, Namespace, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
 import { db, usersTable } from "@workspace/db";
-import { and, eq, isNotNull } from "drizzle-orm";
-import { Expo } from "expo-server-sdk";
+import { and, eq, isNotNull, or } from "drizzle-orm";
 import { logger } from "../lib/logger";
+import { sendPushToTokens, sendPushToUsers } from "../lib/push";
 import type { AuthPayload } from "../middleware/auth";
 
 const NEARBY_RADIUS_KM = 30;
@@ -29,7 +29,6 @@ interface AuthenticatedSocket extends Socket {
 }
 
 let _ordersNs: Namespace | null = null;
-const expo = new Expo();
 
 export function notifyOrderUpdate(customerId: string, order: unknown): void {
   if (!_ordersNs) return;
@@ -40,7 +39,7 @@ export function notifyOrderUpdate(customerId: string, order: unknown): void {
 export function broadcastAppNotification(
   title: string,
   body: string,
-  target: "all" | "customers" | "couriers"
+  target: "all" | "customers" | "couriers",
 ): void {
   if (!_ordersNs) return;
   const payload = { title, body, type: "system" as const, target };
@@ -55,27 +54,14 @@ export function broadcastAppNotification(
 export async function sendOrderPush(
   recipientId: string,
   body: string,
-  orderId?: string
+  orderId?: string,
 ): Promise<void> {
   try {
-    const users = await db
-      .select({ pushToken: usersTable.pushToken })
-      .from(usersTable)
-      .where(eq(usersTable.id, recipientId))
-      .limit(1);
+    const data: Record<string, string> = { type: "order_update", recipientId };
+    if (orderId) data.orderId = orderId;
 
-    const token = users[0]?.pushToken;
-    if (!token || !Expo.isExpoPushToken(token)) return;
-
-    await expo.sendPushNotificationsAsync([
-      {
-        to: token,
-        sound: "default",
-        title: "زبوني",
-        body,
-        data: { type: "order_update", recipientId, ...(orderId ? { orderId } : {}) },
-      },
-    ]);
+    const totals = await sendPushToUsers([recipientId], "زبوني", body, data);
+    logger.debug({ recipientId, totals }, "Sent order push notification");
   } catch (err) {
     logger.warn({ err, recipientId }, "Failed to send order push notification");
   }
@@ -92,6 +78,8 @@ export async function notifyNearbyCouriers(
       .select({
         id: usersTable.id,
         pushToken: usersTable.pushToken,
+        fcmToken: usersTable.fcmToken,
+        apnToken: usersTable.apnToken,
         courierLat: usersTable.courierLat,
         courierLon: usersTable.courierLon,
       })
@@ -100,41 +88,40 @@ export async function notifyNearbyCouriers(
         and(
           eq(usersTable.role, "courier"),
           eq(usersTable.isOnline, true),
-          isNotNull(usersTable.pushToken),
+          or(
+            isNotNull(usersTable.pushToken),
+            isNotNull(usersTable.fcmToken),
+            isNotNull(usersTable.apnToken),
+          ),
         ),
       );
 
     const DAMASCUS_LAT = 33.5138;
     const DAMASCUS_LON = 36.2765;
 
-    const messages: Parameters<typeof expo.sendPushNotificationsAsync>[0] = [];
+    const tokens = { expo: [] as string[], fcm: [] as string[], apns: [] as string[] };
 
     for (const courier of couriers) {
       const lat = courier.courierLat ?? DAMASCUS_LAT;
       const lon = courier.courierLon ?? DAMASCUS_LON;
       const dist = haversineKm(lat, lon, destLat, destLon);
       if (dist > NEARBY_RADIUS_KM) continue;
-      const token = courier.pushToken;
-      if (!token || !Expo.isExpoPushToken(token)) continue;
 
-      messages.push({
-        to: token,
-        sound: "default",
-        title: "🛵 طلب جديد قريب منك!",
-        body: restaurantName
-          ? `طلب من ${restaurantName} — رسوم التوصيل: ${deliveryFee.toLocaleString("ar-SY")} ل.س`
-          : `طلب جديد — رسوم التوصيل: ${deliveryFee.toLocaleString("ar-SY")} ل.س`,
-        data: { type: "new_order" },
-      });
+      if (courier.pushToken) tokens.expo.push(courier.pushToken);
+      if (courier.fcmToken) tokens.fcm.push(courier.fcmToken);
+      if (courier.apnToken) tokens.apns.push(courier.apnToken);
     }
 
-    if (messages.length > 0) {
-      const chunks = expo.chunkPushNotifications(messages);
-      for (const chunk of chunks) {
-        await expo.sendPushNotificationsAsync(chunk);
-      }
-      logger.info({ count: messages.length }, "Sent new-order push to nearby couriers");
-    }
+    const total = tokens.expo.length + tokens.fcm.length + tokens.apns.length;
+    if (total === 0) return;
+
+    const title = "🛵 طلب جديد قريب منك!";
+    const body = restaurantName
+      ? `طلب من ${restaurantName} — رسوم التوصيل: ${deliveryFee.toLocaleString("ar-SY")} ل.س`
+      : `طلب جديد — رسوم التوصيل: ${deliveryFee.toLocaleString("ar-SY")} ل.س`;
+
+    const totals = await sendPushToTokens(tokens, title, body, { type: "new_order" });
+    logger.info({ totals }, "Sent new-order push to nearby couriers");
   } catch (err) {
     logger.warn({ err }, "Failed to notify nearby couriers");
   }

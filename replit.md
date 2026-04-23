@@ -174,3 +174,31 @@ All push notifications now carry structured `data` fields for client-side routin
 - Order updates: `{ type: "order_update", recipientId, orderId }`
 - Chat messages: `{ type: "chat_message", userId, orderId }`
 - New order (couriers): `{ type: "new_order" }`
+
+## Native Push (FCM + APNs) — Task #99 (2026-04-23)
+
+The Replit-managed Expo account cannot reliably deliver Expo push for production builds. We send pushes through three channels in parallel: Expo (legacy), FCM (Android native), and direct APNs HTTP/2 (iOS native). The unified helper is `artifacts/api-server/src/lib/push.ts` (`sendPushToUsers`, `sendPushToRole`, `sendPushToTokens`).
+
+### Bundle ID
+- iOS / Android: `com.marsool.delivery` (must match Firebase project `marsool-fcd5c` and the APNs key topic)
+
+### Required Replit Secrets
+- `FIREBASE_PROJECT_ID` — from the Firebase service-account JSON
+- `FIREBASE_CLIENT_EMAIL` — from the service-account JSON
+- `FIREBASE_PRIVATE_KEY` — full private_key value from the service-account JSON (escaped `\n` is handled)
+- `APN_KEY` — full `.p8` content **including** `-----BEGIN PRIVATE KEY-----` … `-----END PRIVATE KEY-----`
+- `APN_KEY_ID` — 10-char Apple Key ID
+- `APPLE_TEAM_ID` — 10-char Apple Team ID
+- `APN_BUNDLE_ID` — optional override; defaults to `com.marsool.delivery`
+
+If FCM/APNs creds are missing, the corresponding channel auto-disables (warning logged); Expo path keeps running.
+
+### DB Schema
+`users.fcm_token (varchar 512)`, `users.apn_token (varchar 256)` — populated by the mobile app via `PUT /api/auth/device-tokens` on each foreground (with a 30 s cooldown).
+
+### Building
+- Android: `cd artifacts/marsool && eas build --platform android --profile production --local` (Gradle local). APK lands in `artifacts/marsool/`.
+- iOS: `cd artifacts/marsool && eas build --platform ios --profile production` (EAS remote — requires Apple credentials and login).
+
+### Foreground Token Refresh
+`hooks/usePushNotifications.ts` re-registers on every `AppState=active` (cooldown 30 s) so token rotations are picked up without a relaunch.
