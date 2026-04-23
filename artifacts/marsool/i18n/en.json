@@ -465,6 +465,7 @@
     "courier": {
       "acceptedBanner": "Accepted your order!",
       "openChat": "Open Chat with Courier",
+      "call": "Call",
       "whatsapp": "Contact via WhatsApp",
       "chatPromptNote": "Chat with the courier to coordinate delivery details",
       "chatPromptBtn": "Open Chat",

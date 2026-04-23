@@ -465,6 +465,7 @@
     "courier": {
       "acceptedBanner": "قَبِل طلبك!",
       "openChat": "فتح الدردشة مع المندوب",
+      "call": "اتصال",
       "whatsapp": "تواصل عبر واتساب",
       "chatPromptNote": "تواصل معه عبر الدردشة لتنسيق التفاصيل",
       "chatPromptBtn": "فتح الدردشة",
