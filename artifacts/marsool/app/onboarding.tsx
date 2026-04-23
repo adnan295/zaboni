@@ -48,6 +48,7 @@ export default function OnboardingScreen() {
   }>;
 
   const isLast = activeIndex === slides.length - 1;
+  const isRTL = I18nManager.isRTL;
 
   async function finish() {
     await AsyncStorage.setItem(ONBOARDING_SEEN_KEY, "1");
@@ -63,7 +64,14 @@ export default function OnboardingScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (activeIndex < slides.length - 1) {
       const nextIdx = activeIndex + 1;
-      flatListRef.current?.scrollToIndex({ index: nextIdx, animated: true });
+      if (isRTL) {
+        flatListRef.current?.scrollToOffset({
+          offset: (slides.length - 1 - nextIdx) * SCREEN_WIDTH,
+          animated: true,
+        });
+      } else {
+        flatListRef.current?.scrollToIndex({ index: nextIdx, animated: true });
+      }
       setActiveIndex(nextIdx);
     } else {
       finish();
@@ -72,11 +80,10 @@ export default function OnboardingScreen() {
 
   function handleScrollEnd(e: { nativeEvent: { contentOffset: { x: number } } }) {
     const raw = e.nativeEvent.contentOffset.x / SCREEN_WIDTH;
-    const idx = Math.round(Math.abs(raw));
+    const rawIdx = Math.round(Math.abs(raw));
+    const idx = isRTL ? slides.length - 1 - rawIdx : rawIdx;
     setActiveIndex(Math.max(0, Math.min(idx, slides.length - 1)));
   }
-
-  const isRTL = I18nManager.isRTL;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: topPadding }]}>
