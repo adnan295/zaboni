@@ -321,6 +321,9 @@ export default function OrdersTab() {
   }, [fetchPage]);
 
   const allOrders = serverOrders.length > 0 ? serverOrders : contextOrders;
+  const historyOrders = activeOrder
+    ? allOrders.filter((o) => o.id !== activeOrder.id)
+    : allOrders;
 
   const handleLoadMore = () => {
     if (!loadingMore && hasMore) {
@@ -372,7 +375,7 @@ export default function OrdersTab() {
           contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: bottomPadding }}
           renderItem={() => <SkeletonCard colors={colors} />}
         />
-      ) : allOrders.length === 0 ? (
+      ) : !activeOrder && historyOrders.length === 0 ? (
         <View style={styles.empty}>
           <MaterialIcons name="receipt-long" size={64} color={colors.mutedForeground} />
           <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
@@ -390,7 +393,7 @@ export default function OrdersTab() {
         </View>
       ) : (
         <FlatList
-          data={allOrders}
+          data={historyOrders}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: bottomPadding }}
           showsVerticalScrollIndicator={false}
