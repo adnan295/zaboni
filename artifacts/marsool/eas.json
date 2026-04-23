@@ -4,35 +4,21 @@
     "appVersionSource": "local"
   },
   "build": {
-    "development": {
-      "developmentClient": true,
-      "distribution": "internal",
-      "android": {
-        "buildType": "apk"
-      }
-    },
     "preview": {
       "distribution": "internal",
-      "android": {
-        "buildType": "apk"
-      },
       "ios": {
         "simulator": false
       }
     },
     "production": {
       "autoIncrement": true,
-      "android": {
-        "buildType": "app-bundle"
+      "ios": {
+        "buildType": "release"
       }
     }
   },
   "submit": {
     "production": {
-      "android": {
-        "serviceAccountKeyPath": "./google-service-account.json",
-        "track": "internal"
-      },
       "ios": {
         "appleId": "",
         "ascAppId": "",
