@@ -76,7 +76,6 @@ export function AddressProvider({ children }: { children: React.ReactNode }) {
         if (cancelled) return;
         if (!cancelled) setAddresses(data.map(apiToLocal));
       } catch {
-        if (!cancelled) setAddresses([]);
       } finally {
         if (!cancelled) setIsLoading(false);
       }
