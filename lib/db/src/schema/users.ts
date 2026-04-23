@@ -8,6 +8,8 @@ export const usersTable = pgTable("users", {
   role: text("role", { enum: ["customer", "courier"] }).notNull().default("customer"),
   avatarUrl: text("avatar_url"),
   pushToken: varchar("push_token", { length: 512 }),
+  fcmToken: varchar("fcm_token", { length: 512 }),
+  apnToken: varchar("apn_token", { length: 256 }),
   courierLat: doublePrecision("courier_lat"),
   courierLon: doublePrecision("courier_lon"),
   courierLocationUpdatedAt: timestamp("courier_location_updated_at", { withTimezone: true }),

@@ -19,10 +19,19 @@
       "resizeMode": "contain",
       "backgroundColor": "#DC2626"
     },
+    "notification": {
+      "icon": "./assets/images/icon.png",
+      "color": "#DC2626",
+      "androidMode": "default"
+    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.marsool.delivery",
       "buildNumber": "1",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "entitlements": {
+        "aps-environment": "production"
+      },
       "infoPlist": {
         "CFBundleLocalizations": ["ar", "en"],
         "CFBundleDevelopmentRegion": "ar"
@@ -31,6 +40,7 @@
     "android": {
       "package": "com.marsool.delivery",
       "versionCode": 1,
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#DC2626"
@@ -57,7 +67,9 @@
         "expo-notifications",
         {
           "icon": "./assets/images/icon.png",
-          "color": "#DC2626"
+          "color": "#DC2626",
+          "defaultChannel": "default",
+          "mode": "production"
         }
       ],
       [
