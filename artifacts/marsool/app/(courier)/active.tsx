@@ -197,6 +197,12 @@ export default function ActiveOrderScreen() {
     if (phone) Linking.openURL(`https://wa.me/${phone}`);
   };
 
+  const callCustomer = () => {
+    if (!order) return;
+    const phone = order.customerPhone?.trim();
+    if (phone) Linking.openURL(`tel:${phone}`);
+  };
+
   const openNavigation = () => {
     if (!order) return;
     const lat = order.destinationLat;
@@ -400,6 +406,17 @@ export default function ActiveOrderScreen() {
           </View>
 
           <View style={styles.actionRow}>
+            {order.customerPhone ? (
+              <TouchableOpacity
+                style={[styles.callBtn, { backgroundColor: "#DC2626" }]}
+                onPress={callCustomer}
+                activeOpacity={0.8}
+              >
+                <MaterialIcons name="phone" size={20} color="#fff" />
+                <Text style={styles.callBtnText}>{t("courier.active.call")}</Text>
+              </TouchableOpacity>
+            ) : null}
+
             <TouchableOpacity
               style={[styles.chatBtn, { backgroundColor: "#25D366", borderColor: "#25D366" }]}
               onPress={openWhatsApp}
@@ -539,6 +556,16 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 12,
   },
+  callBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  callBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
   chatBtn: {
     flex: 1,
     flexDirection: "row",
