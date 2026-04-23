@@ -147,7 +147,8 @@
     "chat": "Chat",
     "rate": "Rate Order",
     "reorder": "Order Again",
-    "allLoaded": "All orders loaded"
+    "allLoaded": "All orders loaded",
+    "activeOrder": "Active Order"
   },
   "favorites": {
     "title": "Favorites",
@@ -251,6 +252,8 @@
   },
   "tabs": {
     "home": "Home",
+    "favorites": "Favorites",
+    "orders": "My Orders",
     "profile": "Profile"
   },
   "courierTabs": {

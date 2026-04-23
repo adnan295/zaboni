@@ -147,7 +147,8 @@
     "chat": "دردشة",
     "rate": "قيّم طلبك",
     "reorder": "اطلب مجدداً",
-    "allLoaded": "تم تحميل جميع الطلبات"
+    "allLoaded": "تم تحميل جميع الطلبات",
+    "activeOrder": "طلب نشط"
   },
   "favorites": {
     "title": "المفضلة",
@@ -251,6 +252,8 @@
   },
   "tabs": {
     "home": "الرئيسية",
+    "favorites": "المفضلة",
+    "orders": "طلباتي",
     "profile": "حسابي"
   },
   "courierTabs": {
