@@ -199,7 +199,8 @@ export default function ActiveOrderScreen() {
 
   const callCustomer = () => {
     if (!order) return;
-    const phone = order.customerPhone?.trim();
+    const raw = order.customerPhone ?? "";
+    const phone = raw.replace(/(?!^\+)[^0-9]/g, "");
     if (phone) Linking.openURL(`tel:${phone}`);
   };
 
