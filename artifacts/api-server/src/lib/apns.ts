@@ -8,7 +8,7 @@ const CONNECT_TIMEOUT_MS = 8_000;
 const TOKEN_TTL_MS = 45 * 60 * 1000;
 
 function getBundleId(): string {
-  return process.env["APN_BUNDLE_ID"] || "com.marsool.delivery";
+  return process.env["APN_BUNDLE_ID"] || "com.zaboni.delivery";
 }
 
 let cachedToken: string | null = null;
