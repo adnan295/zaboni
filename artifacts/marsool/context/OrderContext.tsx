@@ -6,15 +6,11 @@ import React, {
   useRef,
   useEffect,
 } from "react";
-import { Platform } from "react-native";
-import { io, Socket } from "socket.io-client";
 import {
   createOrder as apiCreateOrder,
   customFetch,
 } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
-import { useNotifications } from "@/context/NotificationsContext";
-import { getApiBaseUrl } from "@/lib/apiConfig";
 
 export type OrderStatus = "searching" | "accepted" | "picked_up" | "on_way" | "delivered" | "cancelled";
 
@@ -80,85 +76,56 @@ function apiOrderToLocal(apiOrder: {
   };
 }
 
+const ACTIVE_POLL_MS = 12000;
+const IDLE_POLL_MS = 60000;
+const TERMINAL_STATUSES: OrderStatus[] = ["delivered", "cancelled"];
+
 export function OrderProvider({ children }: { children: React.ReactNode }) {
-  const { user, token, isLoading: authLoading } = useAuth();
-  const { addNotification } = useNotifications();
+  const { user, isLoading: authLoading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const statusChangeHandler = useRef<((order: Order, newStatus: OrderStatus) => void) | null>(null);
-  const socketRef = useRef<Socket | null>(null);
-  const addNotificationRef = useRef(addNotification);
-  addNotificationRef.current = addNotification;
+  const prevStatusMapRef = useRef<Record<string, OrderStatus>>({});
+
+  const fetchOrders = useCallback(async () => {
+    try {
+      const response = await customFetch("/api/orders?limit=50");
+      const data = response as { orders?: typeof response; total?: number } | unknown[];
+      const fetched = Array.isArray(data) ? data : (data as { orders?: unknown[] }).orders ?? [];
+      const mapped = (fetched as Parameters<typeof apiOrderToLocal>[0][]).map(apiOrderToLocal);
+      setOrders((prev) => {
+        const prevMap = prevStatusMapRef.current;
+        const newMap: Record<string, OrderStatus> = {};
+        for (const o of mapped) {
+          newMap[o.id] = o.status;
+          const oldStatus = prevMap[o.id];
+          if (oldStatus && oldStatus !== o.status && statusChangeHandler.current) {
+            statusChangeHandler.current(o, o.status);
+          }
+        }
+        prevStatusMapRef.current = newMap;
+        if (mapped.length === 0 && prev.length === 0) return prev;
+        return mapped;
+      });
+    } catch {
+    }
+  }, []);
 
   useEffect(() => {
     if (authLoading) return;
-
     if (!user) {
       setOrders([]);
+      prevStatusMapRef.current = {};
       return;
     }
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const response = await customFetch("/api/orders?limit=50");
-        const data = response as { orders?: typeof response; total?: number } | unknown[];
-        const fetched = Array.isArray(data) ? data : (data as { orders?: unknown[] }).orders ?? [];
-        if (!cancelled && fetched.length > 0) {
-          setOrders((fetched as Parameters<typeof apiOrderToLocal>[0][]).map(apiOrderToLocal));
-        }
-      } catch {
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [user?.id, authLoading]);
+    void fetchOrders();
+  }, [user?.id, authLoading, fetchOrders]);
 
   useEffect(() => {
-    if (!user || !token || authLoading) return;
-
-    const baseUrl = Platform.OS === "web" ? undefined : getApiBaseUrl();
-    const socketUrl = baseUrl ? `${baseUrl}/orders` : "/orders";
-
-    const socket = io(socketUrl, {
-      path: "/socket.io",
-      auth: { token },
-      transports: ["websocket", "polling"],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 2000,
-    });
-
-    socketRef.current = socket;
-
-    const handleOrderUpdate = (updatedOrder: Parameters<typeof apiOrderToLocal>[0]) => {
-      const local = apiOrderToLocal(updatedOrder);
-      setOrders((prev) => {
-        const idx = prev.findIndex((o) => o.id === local.id);
-        if (idx === -1) return [local, ...prev];
-        const updated = [...prev];
-        updated[idx] = local;
-        if (statusChangeHandler.current) {
-          statusChangeHandler.current(local, local.status);
-        }
-        return updated;
-      });
-    };
-
-    socket.on("order_status_update", handleOrderUpdate);
-
-    socket.on("app_notification", (payload: { title: string; body: string; type: "system" }) => {
-      addNotificationRef.current({
-        type: payload.type ?? "system",
-        title: payload.title,
-        body: payload.body,
-      });
-    });
-
-    return () => {
-      socket.disconnect();
-      socketRef.current = null;
-    };
-  }, [user?.id, token, authLoading]);
+    if (!user || authLoading) return;
+    const hasActive = orders.some((o) => !TERMINAL_STATUSES.includes(o.status));
+    const interval = setInterval(() => { void fetchOrders(); }, hasActive ? ACTIVE_POLL_MS : IDLE_POLL_MS);
+    return () => clearInterval(interval);
+  }, [user?.id, authLoading, orders, fetchOrders]);
 
   const setStatusChangeHandler = useCallback(
     (handler: (order: Order, newStatus: OrderStatus) => void) => {

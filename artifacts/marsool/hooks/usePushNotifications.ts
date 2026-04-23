@@ -47,13 +47,6 @@ function getNotificationTargetRoute(
     return "/(tabs)";
   }
 
-  if (type === "chat_message") {
-    if (orderId) {
-      return `/chat/${orderId}` as string;
-    }
-    return null;
-  }
-
   return null;
 }
 
