@@ -17,6 +17,7 @@ export interface CourierOrder {
   userId: string;
   orderText: string;
   restaurantName: string;
+  restaurantPhone: string;
   status: CourierOrderStatus;
   courierName: string;
   courierPhone: string;

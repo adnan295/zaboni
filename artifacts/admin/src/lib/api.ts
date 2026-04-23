@@ -65,6 +65,7 @@ export type Restaurant = {
   discount: string | null;
   lat?: number | null;
   lon?: number | null;
+  phone?: string | null;
   ordersCount?: number;
   avgCourierRating?: number | null;
 };
