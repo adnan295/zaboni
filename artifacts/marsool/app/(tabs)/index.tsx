@@ -26,7 +26,7 @@ import { useOrders } from "@/context/OrderContext";
 import { useAuth } from "@/context/AuthContext";
 import { useGetRestaurants } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
-import { getApiBaseUrl } from "@/lib/apiConfig";
+import { getApiBaseUrl, buildImageUrl } from "@/lib/apiConfig";
 import { CATEGORIES } from "@/data/restaurants";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -236,7 +236,7 @@ export default function HomeScreen() {
                 >
                   {banner.image ? (
                     <Image
-                      source={{ uri: banner.image }}
+                      source={{ uri: buildImageUrl(banner.image) }}
                       style={styles.bannerImage}
                       resizeMode="cover"
                     />

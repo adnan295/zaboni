@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import * as Haptics from "expo-haptics";
 import type { MenuItem } from "@workspace/api-client-react";
+import { buildImageUrl } from "@/lib/apiConfig";
 
 interface Props {
   item: MenuItem;
@@ -95,7 +96,7 @@ export default function MenuItemCard({ item, quantity = 0, onAdd, onRemove }: Pr
         </View>
       </View>
 
-      <Image source={{ uri: item.image }} style={styles.image} resizeMode="cover" />
+      <Image source={{ uri: buildImageUrl(item.image) }} style={styles.image} resizeMode="cover" />
     </Animated.View>
   );
 }
