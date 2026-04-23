@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 
 import { useColors } from "@/hooks/useColors";
 import { useTypography } from "@/hooks/useTypography";
+import { useOrders } from "@/context/OrderContext";
 
 function NativeTabLayout() {
   const { t } = useTranslation();
@@ -18,6 +19,14 @@ function NativeTabLayout() {
       <NativeTabs.Trigger name="index">
         <Icon sf={{ default: "house", selected: "house.fill" }} />
         <Label>{t("tabs.home")}</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="favorites">
+        <Icon sf={{ default: "heart", selected: "heart.fill" }} />
+        <Label>{t("tabs.favorites")}</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="orders">
+        <Icon sf={{ default: "bag", selected: "bag.fill" }} />
+        <Label>{t("tabs.orders")}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: "person", selected: "person.fill" }} />
@@ -32,6 +41,7 @@ function ClassicTabLayout() {
   const colorScheme = useColorScheme();
   const { t } = useTranslation();
   const { fontMedium } = useTypography();
+  const { activeOrder } = useOrders();
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
@@ -81,6 +91,32 @@ function ClassicTabLayout() {
               <SymbolView name="house" tintColor={color} size={24} />
             ) : (
               <Feather name="home" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="favorites"
+        options={{
+          title: t("tabs.favorites"),
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="heart" tintColor={color} size={24} />
+            ) : (
+              <Feather name="heart" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="orders"
+        options={{
+          title: t("tabs.orders"),
+          tabBarBadge: activeOrder ? "!" : undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.primary, fontSize: 10, minWidth: 16, height: 16 },
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="bag" tintColor={color} size={24} />
+            ) : (
+              <Feather name="package" size={22} color={color} />
             ),
         }}
       />
