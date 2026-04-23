@@ -87,8 +87,7 @@ export async function sendFcmNotification(
           const code = r.error.code || "";
           if (
             code === "messaging/registration-token-not-registered" ||
-            code === "messaging/invalid-registration-token" ||
-            code === "messaging/invalid-argument"
+            code === "messaging/invalid-registration-token"
           ) {
             result.invalidTokens.push(chunk[idx]!);
           }
