@@ -47,3 +47,9 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Android signing — NEVER commit
+artifacts/marsool/credentials/
+artifacts/marsool/credentials.json
+*.keystore
+*.jks
