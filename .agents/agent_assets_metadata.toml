@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "nO4vu-FTECWgKdzaNO53H"
@@ -24,3 +23,9 @@ id = "a2Hrl8PcJ3hr9SnJvbhcl"
 uri = "file://attached_assets/generated_images/zaboni-icon-adaptive-v2.png"
 type = "image"
 title = "generated_image"
+
+[[outputs]]
+id = "6n3iuXgIWVZohOlZXL9t1"
+uri = "file://artifacts/marsool/BUILDING.md"
+type = "text"
+title = "دليل بناء تطبيق زبوني (Android & iOS)"
