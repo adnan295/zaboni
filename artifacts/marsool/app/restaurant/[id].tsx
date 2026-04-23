@@ -22,6 +22,7 @@ import { useFavorites } from "@/context/FavoritesContext";
 import { useAddresses } from "@/context/AddressContext";
 import { useGetRestaurant, useGetRestaurantMenu } from "@workspace/api-client-react";
 import { haversineDistance } from "@/utils/geo";
+import { buildImageUrl } from "@/lib/apiConfig";
 
 interface CartEntry {
   nameAr: string;
@@ -150,7 +151,7 @@ export default function RestaurantScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 140 }}>
         <View style={styles.heroContainer}>
-          <Image source={{ uri: restaurant.image }} style={styles.heroImage} resizeMode="cover" />
+          <Image source={{ uri: buildImageUrl(restaurant.image) }} style={styles.heroImage} resizeMode="cover" />
           <View style={[styles.heroOverlay, { paddingTop: topPadding + 8 }]}>
             <TouchableOpacity
               style={[styles.backBtn, { backgroundColor: "rgba(255,255,255,0.9)" }]}

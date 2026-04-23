@@ -12,6 +12,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
+import { buildImageUrl } from "@/lib/apiConfig";
 import { useFavorites } from "@/context/FavoritesContext";
 import type { Restaurant as ApiRestaurant } from "@workspace/api-client-react";
 
@@ -45,7 +46,7 @@ export default function RestaurantCard({ restaurant, onPress }: Props) {
     >
       <View style={styles.imageContainer}>
         <Image
-          source={{ uri: restaurant.image }}
+          source={{ uri: buildImageUrl(restaurant.image) }}
           style={styles.image}
           resizeMode="cover"
         />
