@@ -1,9 +1,13 @@
 import { useEffect, useRef } from "react";
 import { AppState, type AppStateStatus, Platform } from "react-native";
 import * as Notifications from "expo-notifications";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import { useRouter } from "expo-router";
 import { getApiBaseUrl } from "@/lib/apiConfig";
 import { useAuth } from "@/context/AuthContext";
+
+const isExpoGo =
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -89,6 +93,12 @@ async function ensureAndroidChannel(): Promise<void> {
 
 async function registerForPush(authToken: string): Promise<void> {
   if (Platform.OS === "web") return;
+  if (isExpoGo) {
+    console.log(
+      "[PushNotifications] Skipped: remote push is not supported in Expo Go (SDK 53+). Use a development or production build.",
+    );
+    return;
+  }
 
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
