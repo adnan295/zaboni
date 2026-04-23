@@ -306,6 +306,7 @@
       "address": "Delivery Address",
       "orderText": "Order Details",
       "openChat": "Chat with Customer",
+      "call": "Call Customer",
       "whatsapp": "WhatsApp Customer",
       "navigate": "GPS Navigation",
       "statusTitle": "Update Status",
