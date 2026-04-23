@@ -309,6 +309,7 @@
       "call": "Call Customer",
       "callRestaurant": "Call Restaurant",
       "whatsapp": "WhatsApp Customer",
+      "whatsappRestaurant": "WhatsApp Restaurant",
       "navigate": "GPS Navigation",
       "statusTitle": "Update Status",
       "markPickedUp": "Picked Up from Restaurant 📦",
