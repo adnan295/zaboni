@@ -8,6 +8,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  I18nManager,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -138,7 +139,7 @@ export default function OtpScreen() {
         />
 
         <TouchableOpacity
-          style={styles.otpRow}
+          style={[styles.otpRow, I18nManager.isRTL && styles.otpRowLTR]}
           onPress={() => inputRef.current?.focus()}
           activeOpacity={1}
         >
@@ -201,6 +202,7 @@ const styles = StyleSheet.create({
   phone: { fontSize: 16, fontWeight: "700", marginBottom: 20 },
   hiddenInput: { position: "absolute", opacity: 0, width: 1, height: 1 },
   otpRow: { flexDirection: "row", gap: 10, marginBottom: 20 },
+  otpRowLTR: { flexDirection: "row-reverse" },
   otpBox: { width: 48, height: 56, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   otpChar: { fontSize: 22, fontWeight: "700" },
   hintBox: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, marginBottom: 28 },
