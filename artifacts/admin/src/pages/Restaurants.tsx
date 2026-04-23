@@ -47,6 +47,7 @@ const emptyRestaurant: RestaurantForm = {
   discount: null,
   lat: null,
   lon: null,
+  phone: null,
 };
 
 const emptyMenuItem: MenuItemForm = {
@@ -193,6 +194,16 @@ function RestaurantFormDialog({
               value={form.discount ?? ""}
               onChange={(e) => set("discount", e.target.value || null)}
               placeholder="مثال: 20%"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>رقم هاتف المطعم (اختياري)</Label>
+            <Input
+              type="tel"
+              value={form.phone ?? ""}
+              onChange={(e) => set("phone", e.target.value || null)}
+              placeholder="مثال: +963..."
+              dir="ltr"
             />
           </div>
           <div className="col-span-2 space-y-1">

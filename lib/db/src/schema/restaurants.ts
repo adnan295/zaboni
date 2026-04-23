@@ -19,6 +19,7 @@ export const restaurantsTable = pgTable("restaurants", {
   discount: text("discount"),
   lat: real("lat"),
   lon: real("lon"),
+  phone: text("phone"),
 });
 
 export const insertRestaurantSchema = createInsertSchema(restaurantsTable);

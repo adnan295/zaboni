@@ -191,9 +191,10 @@ router.post("/orders", async (req, res) => {
 
   let originLat = DAMASCUS_CENTER_LAT;
   let originLon = DAMASCUS_CENTER_LON;
+  let restaurantPhone = "";
   if (body.data.restaurantId) {
     const restaurant = await db
-      .select({ lat: restaurantsTable.lat, lon: restaurantsTable.lon })
+      .select({ lat: restaurantsTable.lat, lon: restaurantsTable.lon, phone: restaurantsTable.phone })
       .from(restaurantsTable)
       .where(eq(restaurantsTable.id, body.data.restaurantId))
       .limit(1);
@@ -201,6 +202,9 @@ router.post("/orders", async (req, res) => {
     if (r?.lat != null && r?.lon != null) {
       originLat = r.lat;
       originLon = r.lon;
+    }
+    if (r?.phone) {
+      restaurantPhone = r.phone;
     }
   }
 
@@ -222,6 +226,7 @@ router.post("/orders", async (req, res) => {
     userId,
     orderText: body.data.orderText,
     restaurantName: body.data.restaurantName,
+    restaurantPhone,
     status: "searching" as const,
     courierName: "",
     courierPhone: "",
