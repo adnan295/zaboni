@@ -21,7 +21,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.zaboni.delivery",
+      "bundleIdentifier": "com.marsool.delivery",
       "buildNumber": "1",
       "infoPlist": {
         "CFBundleLocalizations": ["ar", "en"],
@@ -29,7 +29,7 @@
       }
     },
     "android": {
-      "package": "com.zaboni.delivery",
+      "package": "com.marsool.delivery",
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
