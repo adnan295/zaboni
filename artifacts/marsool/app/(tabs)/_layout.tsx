@@ -12,8 +12,11 @@ import { useColors } from "@/hooks/useColors";
 import { useTypography } from "@/hooks/useTypography";
 import { useOrders } from "@/context/OrderContext";
 
+const BADGE_RED = "#DC2626";
+
 function NativeTabLayout() {
   const { t } = useTranslation();
+  const { activeOrder } = useOrders();
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="index">
@@ -24,7 +27,7 @@ function NativeTabLayout() {
         <Icon sf={{ default: "heart", selected: "heart.fill" }} />
         <Label>{t("tabs.favorites")}</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="orders">
+      <NativeTabs.Trigger name="orders" badge={activeOrder ? "!" : undefined}>
         <Icon sf={{ default: "bag", selected: "bag.fill" }} />
         <Label>{t("tabs.orders")}</Label>
       </NativeTabs.Trigger>
@@ -111,7 +114,7 @@ function ClassicTabLayout() {
         options={{
           title: t("tabs.orders"),
           tabBarBadge: activeOrder ? "!" : undefined,
-          tabBarBadgeStyle: { backgroundColor: colors.primary, fontSize: 10, minWidth: 16, height: 16 },
+          tabBarBadgeStyle: { backgroundColor: BADGE_RED, fontSize: 10, minWidth: 16, height: 16 },
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="bag" tintColor={color} size={24} />
