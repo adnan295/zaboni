@@ -54,3 +54,8 @@ artifacts/marsool/credentials/*
 artifacts/marsool/credentials.json
 *.keystore
 *.jks
+
+# Service account / credential JSONs accidentally pasted into attached_assets
+attached_assets/*firebase-adminsdk*.json
+attached_assets/*service-account*.json
+attached_assets/*.p8
