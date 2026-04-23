@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { Request, Response, NextFunction } from "express";
 import { Expo } from "expo-server-sdk";
 import { broadcastAppNotification } from "../orders/server";
+import { requireAuth } from "../middleware/auth";
 
 const router = Router();
 const expo = new Expo();
@@ -187,6 +188,24 @@ router.get("/admin/notifications/history", async (_req, res) => {
     .orderBy(desc(notificationLogsTable.createdAt))
     .limit(50);
   res.json(rows);
+});
+
+const pushTokenSchema = z.object({
+  token: z.string().min(1),
+});
+
+router.post("/push-token", requireAuth, async (req, res) => {
+  const parsed = pushTokenSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid payload — token (string) required" });
+    return;
+  }
+  const userId = req.auth!.userId;
+  await db
+    .update(usersTable)
+    .set({ pushToken: parsed.data.token })
+    .where(eq(usersTable.id, userId));
+  res.json({ ok: true });
 });
 
 export default router;
