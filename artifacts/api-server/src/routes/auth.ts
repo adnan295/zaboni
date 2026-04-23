@@ -151,9 +151,17 @@ router.post("/auth/verify-otp", async (req, res) => {
     return;
   }
 
+  const TEST_OTP = "999999";
+  const isTestOtp =
+    process.env["NODE_ENV"] !== "production" && code === TEST_OTP;
+
+  if (isTestOtp) {
+    console.log(`[auth] Test OTP used for phone ${phone} — skipping real verification`);
+  }
+
   let useDbVerify = !isWaVerifyConfigured();
 
-  if (isWaVerifyConfigured()) {
+  if (!isTestOtp && isWaVerifyConfigured()) {
     try {
       const verified = await waverifyVerifyOtp(phone, code);
       if (!verified) {
@@ -166,7 +174,7 @@ router.post("/auth/verify-otp", async (req, res) => {
     }
   }
 
-  if (useDbVerify) {
+  if (!isTestOtp && useDbVerify) {
     const rows = await db
       .select()
       .from(otpCodesTable)
