@@ -30,6 +30,7 @@ async function buildAll() {
     external: [
       "*.node",
       "sharp",
+      "@whiskeysockets/baileys",
       "better-sqlite3",
       "sqlite3",
       "canvas",

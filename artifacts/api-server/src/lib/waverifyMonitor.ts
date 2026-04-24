@@ -53,7 +53,7 @@ export async function sendAdminAlertWebhook(
   }
 }
 
-async function sendAdminAlert(message: string): Promise<boolean> {
+export async function sendAdminAlert(message: string): Promise<boolean> {
   const webhookUrl = await getAlertWebhookUrl();
   if (!webhookUrl) {
     logger.warn("No alert webhook URL configured — skipping alert delivery");
