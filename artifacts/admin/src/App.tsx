@@ -22,6 +22,7 @@ import WalletRequests from "@/pages/WalletRequests";
 import Settings from "@/pages/Settings";
 import CourierApplications from "@/pages/CourierApplications";
 import Content from "@/pages/Content";
+import Categories from "@/pages/Categories";
 import LiveMap from "@/pages/LiveMap";
 import ChatMonitor from "@/pages/ChatMonitor";
 import NotFound from "@/pages/not-found";
@@ -54,6 +55,7 @@ function Router({ onLogout }: { onLogout: () => void }) {
         <Route path="/settings" component={Settings} />
         <Route path="/courier-applications" component={CourierApplications} />
         <Route path="/content" component={Content} />
+        <Route path="/categories" component={Categories} />
         <Route path="/live-map" component={LiveMap} />
         <Route path="/chats" component={ChatMonitor} />
         <Route component={NotFound} />
