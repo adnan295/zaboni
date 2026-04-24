@@ -6,6 +6,7 @@ import makeWASocket, {
 import QRCode from "qrcode";
 import fs from "node:fs";
 import path from "node:path";
+import { sendAdminAlert } from "./waverifyMonitor";
 
 export interface WAAccountStatus {
   id: string;
@@ -30,6 +31,8 @@ function ensureDir(p: string) {
 class WhatsAppManager {
   private accounts = new Map<string, WAAccountInternal>();
   private sendIndex = 0;
+  private allDownAlertSent = false;
+  private allDownAlertInFlight = false;
 
   constructor() {
     ensureDir(SESSION_BASE);
@@ -121,6 +124,8 @@ class WhatsAppManager {
           const rawId = sock.user?.id?.split(":")[0] ?? "";
           account.phone = rawId ? `+${rawId}` : undefined;
           console.log(`[whatsapp] Account ${id} connected — phone: ${account.phone}`);
+          this.allDownAlertSent = false;
+          this.allDownAlertInFlight = false;
         }
 
         if (connection === "close") {
@@ -141,6 +146,26 @@ class WhatsAppManager {
                 console.error(`[whatsapp] Reconnect failed for ${id}:`, err),
               );
             }, 5000);
+          }
+
+          if (!this.allDownAlertSent && !this.allDownAlertInFlight && !this.isAnyConnected()) {
+            this.allDownAlertInFlight = true;
+            const all = Array.from(this.accounts.values());
+            const connectedCount = all.filter((a) => a.status === "connected").length;
+            const disconnectedCount = all.filter((a) => a.status === "disconnected" || a.status === "connecting" || a.status === "qr").length;
+            const now = new Date().toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" });
+            const alertMsg =
+              `[مرسول] تنبيه: جميع أرقام واتساب غير متصلة\n` +
+              `الأرقام المتصلة: ${connectedCount}\n` +
+              `الأرقام المنقطعة: ${disconnectedCount}\n` +
+              `الوقت: ${now}`;
+            console.warn(`[whatsapp] All accounts offline — sending admin alert`);
+            sendAdminAlert(alertMsg)
+              .then((delivered) => {
+                if (delivered) this.allDownAlertSent = true;
+              })
+              .catch((err) => console.error("[whatsapp] Failed to send all-down alert:", err))
+              .finally(() => { this.allDownAlertInFlight = false; });
           }
         }
       });
