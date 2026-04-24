@@ -32,6 +32,7 @@ class WhatsAppManager {
   private accounts = new Map<string, WAAccountInternal>();
   private sendIndex = 0;
   private allDownAlertSent = false;
+  private allDownAlertInFlight = false;
 
   constructor() {
     ensureDir(SESSION_BASE);
@@ -124,6 +125,7 @@ class WhatsAppManager {
           account.phone = rawId ? `+${rawId}` : undefined;
           console.log(`[whatsapp] Account ${id} connected — phone: ${account.phone}`);
           this.allDownAlertSent = false;
+          this.allDownAlertInFlight = false;
         }
 
         if (connection === "close") {
@@ -146,10 +148,11 @@ class WhatsAppManager {
             }, 5000);
           }
 
-          if (!this.allDownAlertSent && !this.isAnyConnected()) {
+          if (!this.allDownAlertSent && !this.allDownAlertInFlight && !this.isAnyConnected()) {
+            this.allDownAlertInFlight = true;
             const all = Array.from(this.accounts.values());
-            const connectedCount = 0;
-            const disconnectedCount = all.length;
+            const connectedCount = all.filter((a) => a.status === "connected").length;
+            const disconnectedCount = all.filter((a) => a.status === "disconnected" || a.status === "connecting" || a.status === "qr").length;
             const now = new Date().toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" });
             const alertMsg =
               `[مرسول] تنبيه: جميع أرقام واتساب غير متصلة\n` +
@@ -161,7 +164,8 @@ class WhatsAppManager {
               .then((delivered) => {
                 if (delivered) this.allDownAlertSent = true;
               })
-              .catch((err) => console.error("[whatsapp] Failed to send all-down alert:", err));
+              .catch((err) => console.error("[whatsapp] Failed to send all-down alert:", err))
+              .finally(() => { this.allDownAlertInFlight = false; });
           }
         }
       });
