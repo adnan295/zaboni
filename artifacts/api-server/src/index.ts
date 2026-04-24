@@ -1,7 +1,6 @@
 import { createServer } from "http";
 import app from "./app";
 import { startOrderExpiryJob } from "./lib/orderExpiry";
-import { startWaVerifyMonitor } from "./lib/waverifyMonitor";
 import { logger } from "./lib/logger";
 import { backfillRestaurantPhones } from "@workspace/db/migrations/backfill-restaurant-phones";
 
@@ -28,7 +27,6 @@ httpServer.listen(port, (err?: Error) => {
   }
   logger.info({ port }, "Server listening");
   startOrderExpiryJob();
-  startWaVerifyMonitor();
   backfillRestaurantPhones().catch((e) =>
     logger.error({ err: e }, "Failed to backfill restaurant phones"),
   );

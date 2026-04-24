@@ -1,4 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
+import { whatsappManager } from "../lib/whatsapp";
 import { db } from "@workspace/db";
 import {
   restaurantsTable,
@@ -1698,6 +1699,21 @@ router.patch("/admin/categories/:id", async (req, res) => {
 router.delete("/admin/categories/:id", async (req, res) => {
   const id = String(req.params["id"]);
   await db.delete(restaurantCategoriesTable).where(eq(restaurantCategoriesTable.id, id));
+  res.status(204).end();
+});
+
+router.get("/admin/whatsapp/accounts", (_req, res) => {
+  res.json(whatsappManager.getStatus());
+});
+
+router.post("/admin/whatsapp/accounts", async (_req, res) => {
+  const id = await whatsappManager.addAccount();
+  res.status(201).json({ id });
+});
+
+router.delete("/admin/whatsapp/accounts/:id", async (req, res) => {
+  const id = String(req.params["id"]);
+  await whatsappManager.disconnect(id);
   res.status(204).end();
 });
 

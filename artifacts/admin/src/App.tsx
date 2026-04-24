@@ -25,6 +25,7 @@ import Content from "@/pages/Content";
 import Categories from "@/pages/Categories";
 import LiveMap from "@/pages/LiveMap";
 import ChatMonitor from "@/pages/ChatMonitor";
+import WhatsApp from "@/pages/WhatsApp";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -58,6 +59,7 @@ function Router({ onLogout }: { onLogout: () => void }) {
         <Route path="/categories" component={Categories} />
         <Route path="/live-map" component={LiveMap} />
         <Route path="/chats" component={ChatMonitor} />
+        <Route path="/whatsapp" component={WhatsApp} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

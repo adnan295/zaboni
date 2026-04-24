@@ -29,6 +29,7 @@ const navItems = [
   { href: "/delivery-zones", label: "نطاقات التوصيل", icon: "📍" },
   { href: "/subscriptions", label: "الاشتراكات", icon: "💳" },
   { href: "/wallet-requests", label: "طلبات المحفظة", icon: "👛" },
+  { href: "/whatsapp", label: "واتساب", icon: "📱" },
   { href: "/settings", label: "الإعدادات", icon: "⚙️" },
 ];
 

@@ -1,13 +1,12 @@
 import { Router, type IRouter } from "express";
 import { randomInt } from "crypto";
-import { db, otpCodesTable, usersTable, ordersTable, waverifyHealthLogTable } from "@workspace/db";
-import { and, eq, gt, count, sum, desc } from "drizzle-orm";
+import { db, otpCodesTable, usersTable, ordersTable } from "@workspace/db";
+import { and, eq, gt, count, sum } from "drizzle-orm";
 import { z } from "zod";
 import jwt from "jsonwebtoken";
 import { parsePhoneNumber, isValidPhoneNumber } from "libphonenumber-js";
 import { sendSmsViaGateway } from "../lib/sms";
-import { isWaVerifyConfigured, requestOtp as waverifyRequestOtp, verifyOtp as waverifyVerifyOtp, checkHealth as waverifyCheckHealth } from "../lib/waverify";
-import { logger } from "../lib/logger";
+import { whatsappManager } from "../lib/whatsapp";
 
 const router: IRouter = Router();
 
@@ -101,16 +100,6 @@ router.post("/auth/send-otp", async (req, res) => {
     return;
   }
 
-  if (isWaVerifyConfigured()) {
-    try {
-      await waverifyRequestOtp(phone);
-      res.json({ success: true, channel: "whatsapp", expiresInMinutes: OTP_TTL_MINUTES });
-      return;
-    } catch (err) {
-      console.error("[auth] WaVerify request_otp failed, falling back to local OTP:", (err as Error).message);
-    }
-  }
-
   const code = generateOtp();
   const id = `${Date.now()}${Math.random().toString(36).slice(2, 8)}`;
   const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
@@ -122,15 +111,26 @@ router.post("/auth/send-otp", async (req, res) => {
 
   await db.insert(otpCodesTable).values({ id, phone, code, expiresAt });
 
-  try {
-    await sendOtpSms(phone, code);
-  } catch (err) {
-    console.warn("[auth] SMS skipped (no gateway configured):", (err as Error).message);
+  const message = `رمز التحقق الخاص بك في مرسول: ${code}`;
+
+  let channel: "whatsapp" | "sms" = "sms";
+
+  const waSent = await whatsappManager.sendMessage(phone, message);
+  if (waSent) {
+    channel = "whatsapp";
+    console.log(`[auth] OTP sent via WhatsApp to ${phone}`);
+  } else {
+    try {
+      await sendOtpSms(phone, code);
+      console.log(`[auth] OTP sent via SMS to ${phone}`);
+    } catch (err) {
+      console.warn("[auth] SMS skipped (no gateway configured):", (err as Error).message);
+    }
   }
 
   res.json({
     success: true,
-    channel: "sms",
+    channel,
     expiresInMinutes: OTP_TTL_MINUTES,
   });
 });
@@ -159,22 +159,7 @@ router.post("/auth/verify-otp", async (req, res) => {
     console.log(`[auth] Test OTP used for phone ${phone} — skipping real verification`);
   }
 
-  let useDbVerify = !isWaVerifyConfigured();
-
-  if (!isTestOtp && isWaVerifyConfigured()) {
-    try {
-      const verified = await waverifyVerifyOtp(phone, code);
-      if (!verified) {
-        res.status(401).json({ error: "الرمز غير صحيح أو منتهي الصلاحية / Invalid or expired code" });
-        return;
-      }
-    } catch (err) {
-      console.error("[auth] WaVerify verify_otp failed, falling back to local OTP:", (err as Error).message);
-      useDbVerify = true;
-    }
-  }
-
-  if (!isTestOtp && useDbVerify) {
+  if (!isTestOtp) {
     const rows = await db
       .select()
       .from(otpCodesTable)
@@ -379,43 +364,6 @@ router.get("/me/stats", async (req, res) => {
     totalDeliveryFees: Number(deliveryFeeRow[0]?.total ?? 0),
     memberSince: userRow[0]?.createdAt ?? null,
   });
-});
-
-router.get("/auth/waverify-health", async (req, res) => {
-  const adminSecret = process.env["ADMIN_SECRET"];
-  const token = req.headers.authorization?.replace("Bearer ", "");
-  if (!adminSecret || !token || token !== adminSecret) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-  const health = await waverifyCheckHealth();
-  try {
-    await db.insert(waverifyHealthLogTable).values({
-      ok: health.ok,
-      httpStatus: health.status ?? null,
-      message: health.message ?? null,
-    });
-  } catch (err) {
-    logger.warn({ err }, "Failed to persist WaVerify health log entry");
-  }
-  res.status(health.ok ? 200 : 503).json(health);
-});
-
-router.get("/auth/waverify-health/history", async (req, res) => {
-  const adminSecret = process.env["ADMIN_SECRET"];
-  const token = req.headers.authorization?.replace("Bearer ", "");
-  if (!adminSecret || !token || token !== adminSecret) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-  const limitParam = parseInt(String(req.query["limit"] ?? "20"), 10);
-  const limit = isNaN(limitParam) || limitParam < 1 ? 20 : Math.min(limitParam, 100);
-  const rows = await db
-    .select()
-    .from(waverifyHealthLogTable)
-    .orderBy(desc(waverifyHealthLogTable.checkedAt))
-    .limit(limit);
-  res.json(rows);
 });
 
 export default router;

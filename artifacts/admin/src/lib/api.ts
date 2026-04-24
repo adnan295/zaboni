@@ -655,6 +655,20 @@ export const api = {
     const body = await res.json().catch(() => []);
     return body as WaVerifyHealthLogEntry[];
   },
+
+  getWhatsAppAccounts: () => apiFetch<WAAccount[]>("/admin/whatsapp/accounts"),
+  addWhatsAppAccount: () =>
+    apiFetch<{ id: string }>("/admin/whatsapp/accounts", { method: "POST" }),
+  disconnectWhatsAppAccount: (id: string) =>
+    apiFetch<void>(`/admin/whatsapp/accounts/${id}`, { method: "DELETE" }),
+};
+
+export type WAAccount = {
+  id: string;
+  status: "connecting" | "qr" | "connected" | "disconnected";
+  qrDataUrl?: string;
+  phone?: string;
+  createdAt: string;
 };
 
 export type WaVerifyHealth = {
