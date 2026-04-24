@@ -197,12 +197,12 @@ function RestaurantFormDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label>رقم هاتف المطعم (اختياري)</Label>
+            <Label>رقم هاتف المطعم</Label>
             <Input
               type="tel"
               value={form.phone ?? ""}
               onChange={(e) => set("phone", e.target.value || null)}
-              placeholder="مثال: +963..."
+              placeholder="مثال: 0944 123 456"
               dir="ltr"
             />
           </div>
@@ -247,7 +247,7 @@ function RestaurantFormDialog({
           <Button
             className="bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => onSave(form)}
-            disabled={!form.name || !form.nameAr || !form.category || !form.categoryAr || saving}
+            disabled={!form.name || !form.nameAr || !form.category || !form.categoryAr || !form.phone || saving}
           >
             {saving ? "جاري الحفظ..." : "حفظ"}
           </Button>

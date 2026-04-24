@@ -10,6 +10,7 @@ const restaurants = [
     image: "https://images.unsplash.com/photo-1587301669222-2b3f5898b5e5?w=400&q=80",
     tags: ["دجاج", "فاست فود", "وجبات سريعة"],
     isOpen: true, discount: "خصم 20%",
+    phone: "0944 100 101",
   },
   {
     id: "r2", name: "Kudu", nameAr: "كودو",
@@ -19,6 +20,7 @@ const restaurants = [
     image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&q=80",
     tags: ["برجر", "فاست فود"],
     isOpen: true,
+    phone: "0933 200 202",
   },
   {
     id: "r3", name: "Pizza Hut", nameAr: "بيتزا هت",
@@ -28,6 +30,7 @@ const restaurants = [
     image: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&q=80",
     tags: ["بيتزا", "إيطالي"],
     isOpen: true, discount: "اشتري 1 واحصل على 1",
+    phone: "0962 300 303",
   },
   {
     id: "r4", name: "Starbucks", nameAr: "ستاربكس",
@@ -37,6 +40,7 @@ const restaurants = [
     image: "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=400&q=80",
     tags: ["قهوة", "مشروبات"],
     isOpen: true,
+    phone: "0944 400 404",
   },
   {
     id: "r5", name: "Danube Supermarket", nameAr: "دانوب",
@@ -46,6 +50,7 @@ const restaurants = [
     image: "https://images.unsplash.com/photo-1604719312566-8912e9c8a213?w=400&q=80",
     tags: ["بقالة", "خضروات", "طازج"],
     isOpen: true,
+    phone: "0933 500 505",
   },
   {
     id: "r6", name: "Herfy", nameAr: "هرفي",
@@ -55,6 +60,7 @@ const restaurants = [
     image: "https://images.unsplash.com/photo-1550547660-d9450f859349?w=400&q=80",
     tags: ["برجر", "دجاج"],
     isOpen: false,
+    phone: "0962 600 606",
   },
   {
     id: "r7", name: "Baskin Robbins", nameAr: "باسكن روبنز",
@@ -64,6 +70,7 @@ const restaurants = [
     image: "https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=400&q=80",
     tags: ["آيس كريم", "حلويات"],
     isOpen: true,
+    phone: "0944 700 707",
   },
   {
     id: "r8", name: "Al Dawaa Pharmacy", nameAr: "صيدلية الدواء",
@@ -73,6 +80,7 @@ const restaurants = [
     image: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400&q=80",
     tags: ["أدوية", "صحة"],
     isOpen: true,
+    phone: "0933 800 808",
   },
 ];
 
