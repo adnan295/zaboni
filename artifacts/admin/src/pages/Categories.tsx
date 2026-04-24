@@ -118,6 +118,12 @@ export default function CategoriesPage() {
 
   const selectedIcon = ICONS.find((i) => i.value === form.iconName);
 
+  const isDuplicateName = categories.some(
+    (c) =>
+      c.nameAr.trim() === form.nameAr.trim() &&
+      (!editing || c.id !== editing.id)
+  );
+
   return (
     <div className="space-y-6" dir="rtl">
       <div className="flex items-center justify-between">
@@ -207,7 +213,13 @@ export default function CategoriesPage() {
                   setForm((f) => ({ ...f, nameAr: e.target.value }))
                 }
                 placeholder="مثال: صيدلية، بقالية، مطاعم..."
+                className={isDuplicateName ? "border-destructive focus-visible:ring-destructive" : ""}
               />
+              {isDuplicateName && (
+                <p className="text-xs text-destructive">
+                  يوجد تصنيف بهذا الاسم مسبقًا، يرجى اختيار اسم مختلف.
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -269,7 +281,7 @@ export default function CategoriesPage() {
           <DialogFooter className="flex-row-reverse gap-2">
             <Button
               onClick={() => saveMutation.mutate()}
-              disabled={!form.nameAr.trim() || saveMutation.isPending}
+              disabled={!form.nameAr.trim() || isDuplicateName || saveMutation.isPending}
               className="bg-primary text-primary-foreground"
             >
               {saveMutation.isPending ? "جاري الحفظ..." : "حفظ"}
