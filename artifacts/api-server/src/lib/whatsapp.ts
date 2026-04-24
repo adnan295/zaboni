@@ -6,6 +6,7 @@ import makeWASocket, {
 import QRCode from "qrcode";
 import fs from "node:fs";
 import path from "node:path";
+import { sendAdminAlert } from "./waverifyMonitor";
 
 export interface WAAccountStatus {
   id: string;
@@ -30,6 +31,7 @@ function ensureDir(p: string) {
 class WhatsAppManager {
   private accounts = new Map<string, WAAccountInternal>();
   private sendIndex = 0;
+  private allDownAlertSent = false;
 
   constructor() {
     ensureDir(SESSION_BASE);
@@ -121,6 +123,7 @@ class WhatsAppManager {
           const rawId = sock.user?.id?.split(":")[0] ?? "";
           account.phone = rawId ? `+${rawId}` : undefined;
           console.log(`[whatsapp] Account ${id} connected — phone: ${account.phone}`);
+          this.allDownAlertSent = false;
         }
 
         if (connection === "close") {
@@ -141,6 +144,24 @@ class WhatsAppManager {
                 console.error(`[whatsapp] Reconnect failed for ${id}:`, err),
               );
             }, 5000);
+          }
+
+          if (!this.allDownAlertSent && !this.isAnyConnected()) {
+            const all = Array.from(this.accounts.values());
+            const connectedCount = 0;
+            const disconnectedCount = all.length;
+            const now = new Date().toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" });
+            const alertMsg =
+              `[مرسول] تنبيه: جميع أرقام واتساب غير متصلة\n` +
+              `الأرقام المتصلة: ${connectedCount}\n` +
+              `الأرقام المنقطعة: ${disconnectedCount}\n` +
+              `الوقت: ${now}`;
+            console.warn(`[whatsapp] All accounts offline — sending admin alert`);
+            sendAdminAlert(alertMsg)
+              .then((delivered) => {
+                if (delivered) this.allDownAlertSent = true;
+              })
+              .catch((err) => console.error("[whatsapp] Failed to send all-down alert:", err));
           }
         }
       });
