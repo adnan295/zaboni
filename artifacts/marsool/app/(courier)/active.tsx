@@ -204,11 +204,15 @@ export default function ActiveOrderScreen() {
     if (phone) Linking.openURL(`tel:${phone}`);
   };
 
+  const sanitizedRestaurantPhone = (order?.restaurantPhone ?? "").replace(/(?!^\+)[^0-9]/g, "");
+
   const callRestaurant = () => {
-    if (!order) return;
-    const raw = order.restaurantPhone ?? "";
-    const phone = raw.replace(/(?!^\+)[^0-9]/g, "");
-    if (phone) Linking.openURL(`tel:${phone}`);
+    if (!sanitizedRestaurantPhone) return;
+    Linking.canOpenURL(`tel:${sanitizedRestaurantPhone}`).then((supported) => {
+      if (supported) {
+        Linking.openURL(`tel:${sanitizedRestaurantPhone}`);
+      }
+    }).catch(() => {});
   };
 
   const whatsappRestaurant = () => {
@@ -431,7 +435,7 @@ export default function ActiveOrderScreen() {
               </TouchableOpacity>
             ) : null}
 
-            {order.restaurantPhone ? (
+            {sanitizedRestaurantPhone ? (
               <TouchableOpacity
                 style={[styles.callBtn, { backgroundColor: "#ea580c" }]}
                 onPress={callRestaurant}
@@ -442,7 +446,7 @@ export default function ActiveOrderScreen() {
               </TouchableOpacity>
             ) : null}
 
-            {order.restaurantPhone ? (
+            {sanitizedRestaurantPhone ? (
               <TouchableOpacity
                 style={[styles.chatBtn, { backgroundColor: "#25D366", borderColor: "#25D366" }]}
                 onPress={whatsappRestaurant}
