@@ -31,13 +31,9 @@ const ICONS: { name: string; label: string; value: string }[] = [
   { value: "set-meal",          label: "وجبة كاملة",     name: "🍱" },
 ];
 
-function toCode(nameAr: string): string {
-  return nameAr
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "_")
-    .replace(/[^a-z0-9_\u0600-\u06FF]/g, "")
-    || "category";
+function toCode(iconName: string): string {
+  const base = iconName.replace(/-/g, "_").replace(/[^a-z0-9_]/g, "") || "category";
+  return `${base}_${Date.now().toString(36)}`;
 }
 
 type CategoryForm = {
@@ -79,7 +75,7 @@ export default function CategoriesPage() {
 
   const saveMutation = useMutation({
     mutationFn: () => {
-      const code = editing ? editing.code : toCode(form.nameAr);
+      const code = editing ? editing.code : toCode(form.iconName);
       const payload = {
         code,
         nameAr: form.nameAr,
