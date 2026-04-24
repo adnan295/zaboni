@@ -398,6 +398,7 @@ const restaurantBody = z.object({
   discount: z.string().nullable().optional(),
   lat: z.number().min(-90).max(90).nullable().optional(),
   lon: z.number().min(-180).max(180).nullable().optional(),
+  phone: z.string().nullable().optional(),
 });
 
 router.post("/admin/restaurants", async (req, res) => {

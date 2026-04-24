@@ -204,6 +204,19 @@ export default function ActiveOrderScreen() {
     if (phone) Linking.openURL(`tel:${phone}`);
   };
 
+  const callRestaurant = () => {
+    if (!order) return;
+    const raw = order.restaurantPhone ?? "";
+    const phone = raw.replace(/(?!^\+)[^0-9]/g, "");
+    if (phone) Linking.openURL(`tel:${phone}`);
+  };
+
+  const whatsappRestaurant = () => {
+    if (!order) return;
+    const phone = formatWaPhone(order.restaurantPhone ?? "");
+    if (phone) Linking.openURL(`https://wa.me/${phone}`);
+  };
+
   const openNavigation = () => {
     if (!order) return;
     const lat = order.destinationLat;
@@ -415,6 +428,30 @@ export default function ActiveOrderScreen() {
               >
                 <MaterialIcons name="phone" size={20} color="#fff" />
                 <Text style={styles.callBtnText}>{t("courier.active.call")}</Text>
+              </TouchableOpacity>
+            ) : null}
+
+            {order.restaurantPhone ? (
+              <TouchableOpacity
+                style={[styles.callBtn, { backgroundColor: "#ea580c" }]}
+                onPress={callRestaurant}
+                activeOpacity={0.8}
+              >
+                <MaterialIcons name="restaurant" size={20} color="#fff" />
+                <Text style={styles.callBtnText}>{t("courier.active.callRestaurant")}</Text>
+              </TouchableOpacity>
+            ) : null}
+
+            {order.restaurantPhone ? (
+              <TouchableOpacity
+                style={[styles.chatBtn, { backgroundColor: "#25D366", borderColor: "#25D366" }]}
+                onPress={whatsappRestaurant}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="whatsapp" size={20} color="#fff" />
+                <Text style={[styles.chatBtnText, { color: "#fff" }]}>
+                  {t("courier.active.whatsappRestaurant")}
+                </Text>
               </TouchableOpacity>
             ) : null}
 

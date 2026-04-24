@@ -33,8 +33,10 @@
         "aps-environment": "production"
       },
       "infoPlist": {
+        "CFBundleDisplayName": "زبوني",
         "CFBundleLocalizations": ["ar", "en"],
-        "CFBundleDevelopmentRegion": "ar"
+        "CFBundleDevelopmentRegion": "ar",
+        "NSUserNotificationsUsageDescription": "يرسل زبوني إشعارات لتحديثات الطلبات والعروض الخاصة"
       }
     },
     "android": {
