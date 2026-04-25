@@ -35,3 +35,9 @@ id = "uOkkQuHbtL6oM67bcIqOF"
 uri = "file://artifacts/marsool/assets/images/feature-graphic.png"
 type = "image"
 title = "Google Play Feature Graphic — Modern"
+
+[[outputs]]
+id = "8dA3P41U59HBdlWNRIAO8"
+uri = "file://artifacts/marsool/assets/images/adaptive-icon.png"
+type = "image"
+title = "Android Adaptive Icon — Foreground (1024×1024)"
