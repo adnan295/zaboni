@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/zaboni-web/"
+title = "Zaboni - Legal Pages"
+version = "1.0.0"
+id = "artifacts/zaboni-web"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/zaboni-web/" ]
+localPort = 23744
+
+[services.development]
+run = "pnpm --filter @workspace/zaboni-web run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/zaboni-web", "run", "build" ]
+publicDir = "artifacts/zaboni-web/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23744"
+BASE_PATH = "/zaboni-web/"
