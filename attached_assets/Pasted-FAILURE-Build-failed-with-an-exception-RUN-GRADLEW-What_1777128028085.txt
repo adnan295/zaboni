@@ -1,0 +1,31 @@
+FAILURE: Build failed with an exception.
+[RUN_GRADLEW] * What went wrong:
+[RUN_GRADLEW] Execution failed for task ':app:lintVitalRelease'.
+[RUN_GRADLEW] > Lint found fatal errors while assembling a release target.
+[RUN_GRADLEW]   
+[RUN_GRADLEW]   Fix the issues identified by lint, or create a baseline to see only new errors.
+[RUN_GRADLEW]   To create a baseline, run `gradlew updateLintBaseline` after adding the following to the module's build.gradle file:
+[RUN_GRADLEW]   ```
+[RUN_GRADLEW]   android {
+[RUN_GRADLEW]       lint {
+[RUN_GRADLEW]           baseline = file("lint-baseline.xml")
+[RUN_GRADLEW]       }
+[RUN_GRADLEW]   }
+[RUN_GRADLEW]   ```
+[RUN_GRADLEW]   For more details, see https://developer.android.com/studio/write/lint#snapshot
+[RUN_GRADLEW]   
+[RUN_GRADLEW]   Lint found 10 errors. First failure:
+[RUN_GRADLEW]   
+[RUN_GRADLEW]   /private/var/folders/1_/3v83m6qs49j022s54jq_9xkr0000gn/T/eas-build-local-nodejs/f05d7e69-d534-4c53-ad3c-e2f1cce773d7/build/artifacts/marsool/android/app/src/main/res/values-b+ar/strings.xml:2: Error: "CFBundleDisplayName" is translated here but not found in default locale [ExtraTranslation]
+[RUN_GRADLEW]     <string name="CFBundleDisplayName">"زبوني"</string>
+[RUN_GRADLEW]             ~~~~~~~~~~~~~~~~~~~~~~~~~~
+[RUN_GRADLEW]   
+[RUN_GRADLEW]   The full lint text report is located at:
+[RUN_GRADLEW]     /private/var/folders/1_/3v83m6qs49j022s54jq_9xkr0000gn/T/eas-build-local-nodejs/f05d7e69-d534-4c53-ad3c-e2f1cce773d7/build/artifacts/marsool/android/app/build/intermediates/lint_vital_intermediate_text_report/release/lintVitalReportRelease/lint-results-release.txt
+[RUN_GRADLEW] * Try:
+[RUN_GRADLEW] > Run with --stacktrace option to get the stack trace.
+[RUN_GRADLEW] > Run with --info or --debug option to get more log output.
+[RUN_GRADLEW] > Run with --scan to get full insights.
+[RUN_GRADLEW] > Get more help at https://help.gradle.org.
+[RUN_GRADLEW] BUILD FAILED in 5m 5s
+[RUN_GRADLEW] Error: Gradle build failed with unknown error. See logs for the "Run gradlew" phase for more information.
