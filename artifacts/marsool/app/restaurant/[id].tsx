@@ -279,18 +279,14 @@ export default function RestaurantScreen() {
         <View style={styles.menuSection}>
           <Text style={[styles.menuTitle, { color: colors.foreground }]}>{t("restaurant.menu")}</Text>
           {(() => {
-            const sorted = [...filteredItems].sort((a, b) => {
-              const la = a.subcategoryAr ?? "";
-              const lb = b.subcategoryAr ?? "";
-              return la < lb ? -1 : la > lb ? 1 : 0;
-            });
             const groups: { label: string | null; items: typeof filteredItems }[] = [];
-            for (const item of sorted) {
+            const groupIndex = new Map<string | null, number>();
+            for (const item of filteredItems) {
               const label = item.subcategoryAr ?? null;
-              const last = groups[groups.length - 1];
-              if (last && last.label === label) {
-                last.items.push(item);
+              if (groupIndex.has(label)) {
+                groups[groupIndex.get(label)!].items.push(item);
               } else {
+                groupIndex.set(label, groups.length);
                 groups.push({ label, items: [item] });
               }
             }
