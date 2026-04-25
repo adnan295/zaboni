@@ -460,6 +460,8 @@ const menuItemBody = z.object({
   image: z.string().default(""),
   category: z.string().default(""),
   categoryAr: z.string().default(""),
+  subcategory: z.string().nullable().optional(),
+  subcategoryAr: z.string().nullable().optional(),
   isPopular: z.boolean().default(false),
 });
 

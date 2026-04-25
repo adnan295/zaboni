@@ -16,6 +16,8 @@ export const menuItemsTable = pgTable("menu_items", {
   image: text("image").notNull(),
   category: text("category").notNull(),
   categoryAr: text("category_ar").notNull(),
+  subcategory: text("subcategory"),
+  subcategoryAr: text("subcategory_ar"),
   isPopular: boolean("is_popular").notNull().default(false),
 });
 

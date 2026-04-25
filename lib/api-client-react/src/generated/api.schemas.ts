@@ -60,6 +60,8 @@ export interface MenuItem {
   image: string;
   category: string;
   categoryAr: string;
+  subcategory?: string | null;
+  subcategoryAr?: string | null;
   isPopular: boolean;
 }
 

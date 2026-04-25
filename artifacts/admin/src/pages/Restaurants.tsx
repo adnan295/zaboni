@@ -70,6 +70,8 @@ const emptyMenuItem: MenuItemForm = {
   image: "",
   category: "",
   categoryAr: "",
+  subcategory: null,
+  subcategoryAr: null,
   isPopular: false,
 };
 
@@ -360,6 +362,8 @@ function MenuDialog({
         image: editItem.image,
         category: editItem.category,
         categoryAr: editItem.categoryAr,
+        subcategory: editItem.subcategory ?? null,
+        subcategoryAr: editItem.subcategoryAr ?? null,
         isPopular: editItem.isPopular,
       }
     : form;
@@ -442,6 +446,15 @@ function MenuDialog({
                 />
               </div>
               <div className="space-y-1">
+                <Label>التقسيم (اختياري)</Label>
+                <Input
+                  dir="rtl"
+                  value={activeForm.subcategoryAr ?? ""}
+                  onChange={(e) => setField("subcategoryAr", e.target.value || null)}
+                  placeholder="مثال: وجبات، سندويش"
+                />
+              </div>
+              <div className="space-y-1">
                 <Label>السعر (ل.س) *</Label>
                 <Input
                   type="number"
@@ -488,6 +501,7 @@ function MenuDialog({
                     ...activeForm,
                     name: activeForm.nameAr,
                     category: activeForm.categoryAr,
+                    subcategory: activeForm.subcategoryAr || null,
                     description: activeForm.descriptionAr,
                   };
                   if (editItem) {
