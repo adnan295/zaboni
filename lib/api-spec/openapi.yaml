@@ -471,6 +471,12 @@ components:
           type: string
         categoryAr:
           type: string
+        subcategory:
+          type: string
+          nullable: true
+        subcategoryAr:
+          type: string
+          nullable: true
         isPopular:
           type: boolean
 

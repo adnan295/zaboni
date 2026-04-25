@@ -278,15 +278,35 @@ export default function RestaurantScreen() {
 
         <View style={styles.menuSection}>
           <Text style={[styles.menuTitle, { color: colors.foreground }]}>{t("restaurant.menu")}</Text>
-          {filteredItems.map((item) => (
-            <MenuItemCard
-              key={item.id}
-              item={item}
-              quantity={cart[item.id]?.qty ?? 0}
-              onAdd={isOpen ? () => addToCart(item.id, item.nameAr, item.price) : undefined}
-              onRemove={isOpen ? () => removeFromCart(item.id, item.nameAr, item.price) : undefined}
-            />
-          ))}
+          {(() => {
+            const groups: { label: string | null; items: typeof filteredItems }[] = [];
+            for (const item of filteredItems) {
+              const label = item.subcategoryAr ?? null;
+              const last = groups[groups.length - 1];
+              if (last && last.label === label) {
+                last.items.push(item);
+              } else {
+                groups.push({ label, items: [item] });
+              }
+            }
+            const hasSubcategories = groups.some((g) => g.label !== null);
+            return groups.map((group, gi) => (
+              <View key={gi}>
+                {hasSubcategories && group.label ? (
+                  <Text style={[styles.subcatLabel, { color: colors.mutedForeground }]}>{group.label}</Text>
+                ) : null}
+                {group.items.map((item) => (
+                  <MenuItemCard
+                    key={item.id}
+                    item={item}
+                    quantity={cart[item.id]?.qty ?? 0}
+                    onAdd={isOpen ? () => addToCart(item.id, item.nameAr, item.price) : undefined}
+                    onRemove={isOpen ? () => removeFromCart(item.id, item.nameAr, item.price) : undefined}
+                  />
+                ))}
+              </View>
+            ));
+          })()}
         </View>
       </ScrollView>
 
@@ -423,6 +443,7 @@ const styles = StyleSheet.create({
   catText: { fontSize: 13, fontWeight: "600" },
   menuSection: { paddingHorizontal: 16 },
   menuTitle: { fontSize: 17, fontWeight: "800", marginBottom: 12, textAlign: "right" },
+  subcatLabel: { fontSize: 13, fontWeight: "700", textAlign: "right", marginTop: 12, marginBottom: 6, paddingHorizontal: 4 },
   orderFooter: {
     position: "absolute",
     bottom: 0,
