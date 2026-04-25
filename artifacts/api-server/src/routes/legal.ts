@@ -7,7 +7,7 @@ const HTML_PAGE = (titleEn: string, titleAr: string, contentEn: string, contentA
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${titleEn} — Marsool</title>
+  <title>${titleEn} — Zaboni</title>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -60,21 +60,21 @@ const HTML_PAGE = (titleEn: string, titleAr: string, contentEn: string, contentA
       document.getElementById('btn-ar').classList.toggle('active', lang === 'ar');
       body.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
       body.setAttribute('lang', lang);
-      document.querySelector('title').textContent = lang === 'ar' ? '${titleAr} — مرسول' : '${titleEn} — Marsool';
+      document.querySelector('title').textContent = lang === 'ar' ? '${titleAr} — زبوني' : '${titleEn} — Zaboni';
       ['support','privacy'].forEach(function(key) {
         document.getElementById('nav-'+key+'-en').style.display = lang === 'ar' ? 'none' : 'inline';
         document.getElementById('nav-'+key+'-ar').style.display = lang === 'ar' ? 'inline' : 'none';
       });
-      localStorage.setItem('marsool_lang', lang);
+      localStorage.setItem('zaboni_lang', lang);
     }
-    window.addEventListener('DOMContentLoaded', function() { switchLang(localStorage.getItem('marsool_lang') || 'en'); });
+    window.addEventListener('DOMContentLoaded', function() { switchLang(localStorage.getItem('zaboni_lang') || 'en'); });
   </script>
 </head>
 <body>
   <header>
     <div class="logo-area">
-      <div class="logo-icon">م</div>
-      <span class="logo-name">مرسول</span>
+      <div class="logo-icon">Z</div>
+      <span class="logo-name">Zaboni</span>
     </div>
     <nav>
       <a href="/support" ${activePage === "support" ? 'class="active"' : ""}>
@@ -93,7 +93,7 @@ const HTML_PAGE = (titleEn: string, titleAr: string, contentEn: string, contentA
     <div id="content-ar" style="display:none">${contentAr}</div>
   </main>
   <footer>
-    <p>© ${new Date().getFullYear()} Marsool &nbsp;·&nbsp; <a href="mailto:support@zaboni.app">support@zaboni.app</a> &nbsp;·&nbsp; <a href="https://zaboni.app">zaboni.app</a></p>
+    <p>© ${new Date().getFullYear()} Zaboni &nbsp;·&nbsp; <a href="mailto:adnan.alhomsi.789@gmail.com">support@zaboni.app</a> &nbsp;·&nbsp; <a href="https://zaboni.app">zaboni.app</a></p>
   </footer>
 </body>
 </html>`;
@@ -102,7 +102,7 @@ const SUPPORT_EN = `
 <h1>Support Center</h1>
 <p class="lead">We're here to help. Find answers to common questions below, or reach out directly.</p>
 <div class="contact-grid">
-  <a href="mailto:support@zaboni.app" class="contact-card">
+  <a href="mailto:adnan.alhomsi.789@gmail.com" class="contact-card">
     <div class="contact-card-icon">✉️</div>
     <div class="contact-card-title">Email Support</div>
     <div class="contact-card-sub">support@zaboni.app</div>
@@ -120,11 +120,11 @@ const SUPPORT_EN = `
 </div>
 <h2>Frequently Asked Questions</h2>
 <h3>How do I place an order?</h3>
-<p>Open the Marsool app, browse restaurants, add items to your cart, confirm your delivery address, and tap "Place Order." You'll receive live updates at every step.</p>
+<p>Open the Zaboni app, browse restaurants, add items to your cart, confirm your delivery address, and tap "Place Order." You'll receive live updates at every step.</p>
 <h3>Can I order anything, not just from a menu?</h3>
 <p>Yes! Use the <strong>Custom Order</strong> feature — type what you want in plain words (e.g. "cola and chicken shawarma from Al-Shater Hassan") and a courier will handle the rest.</p>
 <h3>How do I pay?</h3>
-<p>Marsool uses <strong>cash on delivery only</strong>. Pay the courier when your order arrives. No cards required.</p>
+<p>Zaboni uses <strong>cash on delivery only</strong>. Pay the courier when your order arrives. No cards required.</p>
 <h3>How do I track my order?</h3>
 <p>Once a courier accepts your order, you'll see their live location on the map inside the app. Push notifications keep you updated at every step.</p>
 <h3>Can I chat with my courier?</h3>
@@ -132,24 +132,22 @@ const SUPPORT_EN = `
 <h3>How do I use a promo code?</h3>
 <p>During checkout, tap "Add Promo Code" and enter your code. Valid codes apply discounts automatically.</p>
 <h3>My order is taking too long — what should I do?</h3>
-<p>Check the live tracking map first. You can also chat with your courier directly in the app. Still concerned? Email us at <a href="mailto:support@zaboni.app">support@zaboni.app</a>.</p>
-<h3>How do I become a Marsool courier?</h3>
+<p>Check the live tracking map first. You can also chat with your courier directly in the app. Still concerned? Email us at <a href="mailto:adnan.alhomsi.789@gmail.com">support@zaboni.app</a>.</p>
+<h3>How do I become a Zaboni courier?</h3>
 <p>Tap "Join as Courier" from the main menu, fill in your details and vehicle type, and submit. Our team reviews applications and gets back to you.</p>
 <h3>How do I delete my account?</h3>
-<p>Email <a href="mailto:privacy@zaboni.app">privacy@zaboni.app</a> with your registered phone number. We'll delete your account and data within 7 business days.</p>
-<h3>Where is Marsool available?</h3>
-<p>Marsool currently operates in <strong>Homs, Syria</strong>. More cities coming soon.</p>
+<p>Email <a href="mailto:adnan.alhomsi.789@gmail.com">support@zaboni.app</a> with your registered phone number. We'll delete your account and data within 7 business days.</p>
 <div class="cta-box">
   <h3>Still need help?</h3>
   <p>Our team is available daily from 9 AM to 11 PM and typically responds within a few hours.</p>
-  <a href="mailto:support@zaboni.app" class="cta-btn">Contact Support</a>
+  <a href="mailto:adnan.alhomsi.789@gmail.com" class="cta-btn">Contact Support</a>
 </div>`;
 
 const SUPPORT_AR = `
 <h1>مركز الدعم</h1>
 <p class="lead">نحن هنا لمساعدتك. اعثر على إجابات للأسئلة الشائعة أدناه، أو تواصل مع فريقنا مباشرةً.</p>
 <div class="contact-grid">
-  <a href="mailto:support@zaboni.app" class="contact-card">
+  <a href="mailto:adnan.alhomsi.789@gmail.com" class="contact-card">
     <div class="contact-card-icon">✉️</div>
     <div class="contact-card-title">البريد الإلكتروني</div>
     <div class="contact-card-sub">support@zaboni.app</div>
@@ -167,11 +165,11 @@ const SUPPORT_AR = `
 </div>
 <h2>الأسئلة الشائعة</h2>
 <h3>كيف أضع طلباً؟</h3>
-<p>افتح تطبيق مرسول، تصفّح المطاعم، أضف العناصر إلى سلّة التسوق، أكّد عنوان التوصيل، ثم اضغط "تأكيد الطلب". ستتلقى تحديثات فورية في كل خطوة.</p>
+<p>افتح تطبيق زبوني، تصفّح المطاعم، أضف العناصر إلى سلّة التسوق، أكّد عنوان التوصيل، ثم اضغط "تأكيد الطلب". ستتلقى تحديثات فورية في كل خطوة.</p>
 <h3>هل يمكنني طلب أي شيء، وليس فقط من القائمة؟</h3>
 <p>نعم! استخدم ميزة <strong>الطلب الحر</strong> — اكتب ما تريده بكلامك العادي (مثلاً: "كولا ودجاج شاورما من الشاطر حسن") وسيتكفّل المندوب بالباقي.</p>
 <h3>كيف أدفع؟</h3>
-<p>يقبل مرسول <strong>الدفع نقداً عند الاستلام فقط</strong>. ادفع للمندوب عند وصول طلبك. لا حاجة لبطاقات.</p>
+<p>يقبل زبوني <strong>الدفع نقداً عند الاستلام فقط</strong>. ادفع للمندوب عند وصول طلبك. لا حاجة لبطاقات.</p>
 <h3>كيف أتابع طلبي؟</h3>
 <p>بمجرد قبول المندوب لطلبك، شاهد موقعه الحي على الخريطة داخل التطبيق. ستتلقى أيضاً إشعارات فورية في كل مرحلة.</p>
 <h3>هل يمكنني الدردشة مع مندوبي؟</h3>
@@ -179,23 +177,21 @@ const SUPPORT_AR = `
 <h3>كيف أستخدم كود الخصم؟</h3>
 <p>أثناء الدفع، اضغط "إضافة كود خصم" وأدخل الكود. ستُطبَّق الرموز الصالحة خصماً تلقائياً.</p>
 <h3>طلبي يتأخر — ماذا أفعل؟</h3>
-<p>تحقق أولاً من خريطة التتبع الحي. يمكنك أيضاً الدردشة مع مندوبك مباشرةً في التطبيق. ما زلت قلقاً؟ تواصل معنا على <a href="mailto:support@zaboni.app">support@zaboni.app</a>.</p>
-<h3>كيف أصبح مندوب توصيل في مرسول؟</h3>
+<p>تحقق أولاً من خريطة التتبع الحي. يمكنك أيضاً الدردشة مع مندوبك مباشرةً في التطبيق. ما زلت قلقاً؟ تواصل معنا على <a href="mailto:adnan.alhomsi.789@gmail.com">support@zaboni.app</a>.</p>
+<h3>كيف أصبح مندوب توصيل في زبوني؟</h3>
 <p>اضغط "انضم كمندوب" من القائمة الرئيسية، أدخل بياناتك ونوع مركبتك وقدّم الطلب. سيراجعه فريقنا ويتواصل معك.</p>
 <h3>كيف أحذف حسابي؟</h3>
-<p>أرسل بريداً إلكترونياً إلى <a href="mailto:privacy@zaboni.app">privacy@zaboni.app</a> مع رقم هاتفك المسجّل. سنحذف حسابك وبياناتك خلال ٧ أيام عمل.</p>
-<h3>أين يتوفر مرسول؟</h3>
-<p>يعمل مرسول حالياً في <strong>حمص، سوريا</strong>. نعمل على التوسّع إلى مزيد من المدن قريباً.</p>
+<p>أرسل بريداً إلكترونياً إلى <a href="mailto:adnan.alhomsi.789@gmail.com">support@zaboni.app</a> مع رقم هاتفك المسجّل. سنحذف حسابك وبياناتك خلال ٧ أيام عمل.</p>
 <div class="cta-box">
   <h3>لا تزال بحاجة للمساعدة؟</h3>
   <p>يتوفر فريقنا يومياً من ٩ ص حتى ١١ م، ونردّ عادةً في غضون ساعات قليلة.</p>
-  <a href="mailto:support@zaboni.app" class="cta-btn">تواصل مع الدعم</a>
+  <a href="mailto:adnan.alhomsi.789@gmail.com" class="cta-btn">تواصل مع الدعم</a>
 </div>`;
 
 const PRIVACY_EN = `
 <h1>Privacy Policy</h1>
 <p class="subtitle">Last updated: April 25, 2026</p>
-<p>Marsool ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use the Marsool mobile application and related services.</p>
+<p>Zaboni ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use the Zaboni mobile application and related services.</p>
 <h2>1. Information We Collect</h2>
 <h3>Information You Provide</h3>
 <ul>
@@ -244,7 +240,7 @@ const PRIVACY_EN = `
   <li>Withdraw consent for location access at any time via your device settings</li>
   <li>Opt out of marketing communications</li>
 </ul>
-<p>To exercise these rights, contact us at <a href="mailto:privacy@zaboni.app">privacy@zaboni.app</a>.</p>
+<p>To exercise these rights, contact us at <a href="mailto:adnan.alhomsi.789@gmail.com">support@zaboni.app</a>.</p>
 <h2>7. Children's Privacy</h2>
 <p>Our Service is not directed to children under the age of 13. We do not knowingly collect personal information from children under 13.</p>
 <h2>8. Security</h2>
@@ -253,14 +249,14 @@ const PRIVACY_EN = `
 <p>We may update this Privacy Policy from time to time. We will notify you of significant changes through the app or via push notification.</p>
 <h2>10. Contact Us</h2>
 <ul>
-  <li>Email: <a href="mailto:privacy@zaboni.app">privacy@zaboni.app</a></li>
+  <li>Email: <a href="mailto:adnan.alhomsi.789@gmail.com">support@zaboni.app</a></li>
   <li>Website: <a href="https://zaboni.app">zaboni.app</a></li>
 </ul>`;
 
 const PRIVACY_AR = `
 <h1>سياسة الخصوصية</h1>
 <p class="subtitle">آخر تحديث: ٢٥ أبريل ٢٠٢٦</p>
-<p>تلتزم شركة مرسول ("نحن") بحماية خصوصيتك. توضّح سياسة الخصوصية هذه كيفية جمعنا لمعلوماتك واستخدامها والكشف عنها وحمايتها عند استخدامك لتطبيق مرسول والخدمات المرتبطة به.</p>
+<p>تلتزم شركة زبوني ("نحن") بحماية خصوصيتك. توضّح سياسة الخصوصية هذه كيفية جمعنا لمعلوماتك واستخدامها والكشف عنها وحمايتها عند استخدامك لتطبيق زبوني والخدمات المرتبطة به.</p>
 <h2>١. المعلومات التي نجمعها</h2>
 <h3>المعلومات التي تقدّمها</h3>
 <ul>
@@ -309,7 +305,7 @@ const PRIVACY_AR = `
   <li>سحب الموافقة على الوصول إلى الموقع في أي وقت عبر إعدادات جهازك</li>
   <li>إلغاء الاشتراك في الاتصالات التسويقية</li>
 </ul>
-<p>للممارسة هذه الحقوق، تواصل معنا على <a href="mailto:privacy@zaboni.app">privacy@zaboni.app</a>.</p>
+<p>للممارسة هذه الحقوق، تواصل معنا على <a href="mailto:adnan.alhomsi.789@gmail.com">support@zaboni.app</a>.</p>
 <h2>٧. خصوصية الأطفال</h2>
 <p>لا تستهدف خدمتنا الأطفال دون سن ١٣ عاماً. لا نجمع معلومات شخصية منهم عن قصد.</p>
 <h2>٨. الأمان</h2>
@@ -318,7 +314,7 @@ const PRIVACY_AR = `
 <p>قد نحدّث هذه السياسة من وقت لآخر. سنُعلمك بالتغييرات الجوهرية عبر التطبيق أو الإشعارات الفورية.</p>
 <h2>١٠. تواصل معنا</h2>
 <ul>
-  <li>البريد الإلكتروني: <a href="mailto:privacy@zaboni.app">privacy@zaboni.app</a></li>
+  <li>البريد الإلكتروني: <a href="mailto:adnan.alhomsi.789@gmail.com">support@zaboni.app</a></li>
   <li>الموقع الإلكتروني: <a href="https://zaboni.app">zaboni.app</a></li>
 </ul>`;
 
