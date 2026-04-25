@@ -41,3 +41,9 @@ id = "8dA3P41U59HBdlWNRIAO8"
 uri = "file://artifacts/marsool/assets/images/adaptive-icon.png"
 type = "image"
 title = "Android Adaptive Icon — Foreground (1024×1024)"
+
+[[outputs]]
+id = "rIsanZ43SiMQr8bGbfuUl"
+uri = "file://artifacts/marsool/assets/images/notification-icon.png"
+type = "image"
+title = "Android Notification Icon (white on transparent)"
