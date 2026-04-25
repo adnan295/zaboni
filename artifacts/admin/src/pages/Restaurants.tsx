@@ -446,12 +446,20 @@ function MenuDialog({
                 />
               </div>
               <div className="space-y-1">
-                <Label>التقسيم (اختياري)</Label>
+                <Label>التقسيم (عربي)</Label>
                 <Input
                   dir="rtl"
                   value={activeForm.subcategoryAr ?? ""}
                   onChange={(e) => setField("subcategoryAr", e.target.value || null)}
                   placeholder="مثال: وجبات، سندويش"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Sub-category (EN)</Label>
+                <Input
+                  value={activeForm.subcategory ?? ""}
+                  onChange={(e) => setField("subcategory", e.target.value || null)}
+                  placeholder="e.g. Meals, Sandwiches"
                 />
               </div>
               <div className="space-y-1">
@@ -501,7 +509,6 @@ function MenuDialog({
                     ...activeForm,
                     name: activeForm.nameAr,
                     category: activeForm.categoryAr,
-                    subcategory: activeForm.subcategoryAr || null,
                     description: activeForm.descriptionAr,
                   };
                   if (editItem) {
