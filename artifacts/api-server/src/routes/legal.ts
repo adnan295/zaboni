@@ -2,7 +2,7 @@ import { Router } from "express";
 
 const router = Router();
 
-const HTML_PAGE = (titleEn: string, titleAr: string, contentEn: string, contentAr: string, activePage: "support" | "privacy") => `<!DOCTYPE html>
+const HTML_PAGE = (titleEn: string, titleAr: string, contentEn: string, contentAr: string, activePage: "support" | "privacy" | "delete-account") => `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -61,7 +61,7 @@ const HTML_PAGE = (titleEn: string, titleAr: string, contentEn: string, contentA
       body.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
       body.setAttribute('lang', lang);
       document.querySelector('title').textContent = lang === 'ar' ? '${titleAr} — زبوني' : '${titleEn} — Zaboni';
-      ['support','privacy'].forEach(function(key) {
+      ['support','privacy','delete-account'].forEach(function(key) {
         document.getElementById('nav-'+key+'-en').style.display = lang === 'ar' ? 'none' : 'inline';
         document.getElementById('nav-'+key+'-ar').style.display = lang === 'ar' ? 'inline' : 'none';
       });
@@ -82,6 +82,9 @@ const HTML_PAGE = (titleEn: string, titleAr: string, contentEn: string, contentA
       </a>
       <a href="/privacy" ${activePage === "privacy" ? 'class="active"' : ""}>
         <span id="nav-privacy-en">Privacy</span><span id="nav-privacy-ar" style="display:none">الخصوصية</span>
+      </a>
+      <a href="/delete-account" ${activePage === "delete-account" ? 'class="active"' : ""}>
+        <span id="nav-delete-account-en">Delete Account</span><span id="nav-delete-account-ar" style="display:none">حذف الحساب</span>
       </a>
       <div class="divider"></div>
       <button id="btn-en" onclick="switchLang('en')" class="active">English</button>
@@ -318,6 +321,82 @@ const PRIVACY_AR = `
   <li>الموقع الإلكتروني: <a href="https://zaboni.app">zaboni.app</a></li>
 </ul>`;
 
+const DELETE_ACCOUNT_EN = `
+<h1>Delete Your Account</h1>
+<p class="lead">You can request to permanently delete your Zaboni account and all associated data at any time.</p>
+<h2>What Gets Deleted</h2>
+<ul>
+  <li>Your profile and phone number</li>
+  <li>All saved delivery addresses</li>
+  <li>Your order history</li>
+  <li>Any active promo codes linked to your account</li>
+  <li>In-app chat messages</li>
+</ul>
+<h2>What May Be Retained</h2>
+<p>We may retain certain information for a limited period as required by law or for legitimate business purposes, such as:</p>
+<ul>
+  <li>Transaction records needed for accounting or legal compliance (up to 12 months)</li>
+  <li>Information needed to resolve disputes or enforce our terms</li>
+</ul>
+<h2>How to Request Deletion</h2>
+<p>Send an email from your registered account or include your registered phone number so we can locate your account.</p>
+<div class="contact-grid" style="grid-template-columns:1fr;">
+  <a href="mailto:adnan.alhomsi.789@gmail.com?subject=Account%20Deletion%20Request&body=Please%20delete%20my%20Zaboni%20account.%0A%0ARegistered%20phone%20number%3A%20" class="contact-card" style="flex-direction:row;justify-content:flex-start;gap:16px;text-align:left;">
+    <div class="contact-card-icon">✉️</div>
+    <div>
+      <div class="contact-card-title">Email Deletion Request</div>
+      <div class="contact-card-sub">support@zaboni.app — tap to open a pre-filled email</div>
+    </div>
+  </a>
+</div>
+<h2>Processing Time</h2>
+<p>We will process your deletion request within <strong>7 business days</strong>. You will receive a confirmation email once your account and data have been deleted.</p>
+<h2>Before You Delete</h2>
+<p>Please note that deleting your account is <strong>permanent and irreversible</strong>. Any pending orders should be completed or cancelled before requesting deletion. Courier accounts with outstanding earnings should contact support first.</p>
+<div class="cta-box">
+  <h3>Ready to delete your account?</h3>
+  <p>Tap the button below to open a pre-filled email request. Add your registered phone number and send.</p>
+  <a href="mailto:adnan.alhomsi.789@gmail.com?subject=Account%20Deletion%20Request&body=Please%20delete%20my%20Zaboni%20account.%0A%0ARegistered%20phone%20number%3A%20" class="cta-btn">Send Deletion Request</a>
+</div>`;
+
+const DELETE_ACCOUNT_AR = `
+<h1>حذف حسابك</h1>
+<p class="lead">يمكنك طلب حذف حساب زبوني وجميع بياناتك المرتبطة به بشكل دائم في أي وقت.</p>
+<h2>ما الذي سيُحذف</h2>
+<ul>
+  <li>ملفك الشخصي ورقم هاتفك</li>
+  <li>جميع عناوين التوصيل المحفوظة</li>
+  <li>سجل طلباتك</li>
+  <li>أي أكواد خصم مرتبطة بحسابك</li>
+  <li>رسائل الدردشة داخل التطبيق</li>
+</ul>
+<h2>ما الذي قد يُحتفظ به</h2>
+<p>قد نحتفظ ببعض المعلومات لفترة محدودة كما يقتضيه القانون أو لأغراض تجارية مشروعة، مثل:</p>
+<ul>
+  <li>سجلات المعاملات اللازمة للمحاسبة أو الامتثال القانوني (حتى ١٢ شهراً)</li>
+  <li>المعلومات اللازمة لحل النزاعات أو تطبيق شروطنا</li>
+</ul>
+<h2>كيفية طلب الحذف</h2>
+<p>أرسل بريداً إلكترونياً من حسابك المسجّل أو أدرج رقم هاتفك المسجّل حتى نتمكن من تحديد حسابك.</p>
+<div class="contact-grid" style="grid-template-columns:1fr;">
+  <a href="mailto:adnan.alhomsi.789@gmail.com?subject=%D8%B7%D9%84%D8%A8%20%D8%AD%D8%B0%D9%81%20%D8%A7%D9%84%D8%AD%D8%B3%D8%A7%D8%A8&body=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D8%8C%0A%D8%A3%D8%B1%D8%AC%D9%88%20%D8%AD%D8%B0%D9%81%20%D8%AD%D8%B3%D8%A7%D8%A8%20%D8%B2%D8%A8%D9%88%D9%86%D9%8A%20%D8%A7%D9%84%D8%AE%D8%A7%D8%B5%20%D8%A8%D9%8A.%0A%0A%D8%B1%D9%82%D9%85%20%D8%A7%D9%84%D9%87%D8%A7%D8%AA%D9%81%20%D8%A7%D9%84%D9%85%D8%B3%D8%AC%D9%91%D9%84%3A%20" class="contact-card" style="flex-direction:row;justify-content:flex-start;gap:16px;text-align:right;">
+    <div class="contact-card-icon">✉️</div>
+    <div>
+      <div class="contact-card-title">إرسال طلب حذف بالبريد الإلكتروني</div>
+      <div class="contact-card-sub">support@zaboni.app — اضغط لفتح بريد إلكتروني جاهز</div>
+    </div>
+  </a>
+</div>
+<h2>مدة المعالجة</h2>
+<p>سنعالج طلب الحذف خلال <strong>٧ أيام عمل</strong>. ستتلقى رسالة تأكيد بالبريد الإلكتروني بعد حذف حسابك وبياناتك.</p>
+<h2>قبل أن تحذف حسابك</h2>
+<p>يُرجى ملاحظة أن حذف الحساب <strong>دائم ولا يمكن التراجع عنه</strong>. يجب إتمام أي طلبات معلّقة أو إلغاؤها قبل طلب الحذف. على حسابات المندوبين التي لديها أرباح معلّقة التواصل مع الدعم أولاً.</p>
+<div class="cta-box">
+  <h3>هل أنت مستعد لحذف حسابك؟</h3>
+  <p>اضغط على الزر أدناه لفتح بريد إلكتروني جاهز. أضف رقم هاتفك المسجّل وأرسله.</p>
+  <a href="mailto:adnan.alhomsi.789@gmail.com?subject=%D8%B7%D9%84%D8%A8%20%D8%AD%D8%B0%D9%81%20%D8%A7%D9%84%D8%AD%D8%B3%D8%A7%D8%A8&body=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D8%8C%0A%D8%A3%D8%B1%D8%AC%D9%88%20%D8%AD%D8%B0%D9%81%20%D8%AD%D8%B3%D8%A7%D8%A8%20%D8%B2%D8%A8%D9%88%D9%86%D9%8A%20%D8%A7%D9%84%D8%AE%D8%A7%D8%B5%20%D8%A8%D9%8A.%0A%0A%D8%B1%D9%82%D9%85%20%D8%A7%D9%84%D9%87%D8%A7%D8%AA%D9%81%20%D8%A7%D9%84%D9%85%D8%B3%D8%AC%D9%91%D9%84%3A%20" class="cta-btn">إرسال طلب الحذف</a>
+</div>`;
+
 router.get("/support", (_req, res) => {
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.send(HTML_PAGE("Support Center", "مركز الدعم", SUPPORT_EN, SUPPORT_AR, "support"));
@@ -326,6 +405,11 @@ router.get("/support", (_req, res) => {
 router.get("/privacy", (_req, res) => {
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.send(HTML_PAGE("Privacy Policy", "سياسة الخصوصية", PRIVACY_EN, PRIVACY_AR, "privacy"));
+});
+
+router.get("/delete-account", (_req, res) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(HTML_PAGE("Delete Account", "حذف الحساب", DELETE_ACCOUNT_EN, DELETE_ACCOUNT_AR, "delete-account"));
 });
 
 router.get("/legal/privacy", (_req, res) => res.redirect(301, "/privacy"));
