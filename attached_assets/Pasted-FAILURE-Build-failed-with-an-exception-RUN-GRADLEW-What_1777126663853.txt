@@ -1,0 +1,25 @@
+FAILURE: Build failed with an exception.
+[RUN_GRADLEW] * What went wrong:
+[RUN_GRADLEW] Execution failed for task ':app:createBundleReleaseJsAndAssets'.
+[RUN_GRADLEW] > Process 'command 'node'' finished with non-zero exit value 1
+[RUN_GRADLEW] * Try:
+[RUN_GRADLEW] > Run with --stacktrace option to get the stack trace.
+[RUN_GRADLEW] > Run with --info or --debug option to get more log output.
+[RUN_GRADLEW] > Run with --scan to get full insights.
+[RUN_GRADLEW] > Get more help at https://help.gradle.org.
+[RUN_GRADLEW] BUILD FAILED in 48s
+[RUN_GRADLEW] Error: Gradle build failed with unknown error. See logs for the "Run gradlew" phase for more information.
+
+Build failed
+Gradle build failed with unknown error. See logs for the "Run gradlew" phase for more information.
+Error: Gradle build failed with unknown error. See logs for the "Run gradlew" phase for more information.
+    at resolveBuildPhaseErrorAsync (/Users/snjallr/.npm/_npx/7c5cb04dd06e9766/node_modules/@expo/build-tools/dist/buildErrors/detectError.js:61:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async BuildContext.handleBuildPhaseErrorAsync (/Users/snjallr/.npm/_npx/7c5cb04dd06e9766/node_modules/@expo/build-tools/dist/context.js:192:28)
+    at async BuildContext.runBuildPhase (/Users/snjallr/.npm/_npx/7c5cb04dd06e9766/node_modules/@expo/build-tools/dist/context.js:137:35)
+    at async buildAsync (/Users/snjallr/.npm/_npx/7c5cb04dd06e9766/node_modules/@expo/build-tools/dist/builders/android.js:132:5)
+    at async runBuilderWithHooksAsync (/Users/snjallr/.npm/_npx/7c5cb04dd06e9766/node_modules/@expo/build-tools/dist/builders/common.js:12:13)
+    at async Object.androidBuilder (/Users/snjallr/.npm/_npx/7c5cb04dd06e9766/node_modules/@expo/build-tools/dist/builders/android.js:28:16)
+    at async buildAndroidAsync (/Users/snjallr/.npm/_npx/7c5cb04dd06e9766/node_modules/eas-cli-local-build-plugin/dist/android.js:43:12)
+    at async buildAsync (/Users/snjallr/.npm/_npx/7c5cb04dd06e9766/node_modules/eas-cli-local-build-plugin/dist/build.js:54:29)
+    at async main (/Users/snjallr/.npm/_npx/7c5cb04dd06e9766/node_modules/eas-cli-local-build-plugin/dist/main.js:16:9)
