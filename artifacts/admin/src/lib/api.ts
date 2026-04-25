@@ -62,6 +62,7 @@ export type Restaurant = {
   image: string;
   tags: string[];
   isOpen: boolean;
+  isLogo: boolean;
   discount: string | null;
   lat?: number | null;
   lon?: number | null;
