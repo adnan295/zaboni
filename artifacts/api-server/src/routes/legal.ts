@@ -2,7 +2,7 @@ import { Router } from "express";
 
 const router = Router();
 
-const HTML_PAGE = (titleEn: string, titleAr: string, contentEn: string, contentAr: string, activePage: "support" | "privacy" | "delete-account") => `<!DOCTYPE html>
+const HTML_PAGE = (titleEn: string, titleAr: string, contentEn: string, contentAr: string, activePage: "support" | "privacy" | "delete-my-account") => `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -61,7 +61,7 @@ const HTML_PAGE = (titleEn: string, titleAr: string, contentEn: string, contentA
       body.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
       body.setAttribute('lang', lang);
       document.querySelector('title').textContent = lang === 'ar' ? '${titleAr} — زبوني' : '${titleEn} — Zaboni';
-      ['support','privacy','delete-account'].forEach(function(key) {
+      ['support','privacy','delete-my-account'].forEach(function(key) {
         document.getElementById('nav-'+key+'-en').style.display = lang === 'ar' ? 'none' : 'inline';
         document.getElementById('nav-'+key+'-ar').style.display = lang === 'ar' ? 'inline' : 'none';
       });
@@ -83,8 +83,8 @@ const HTML_PAGE = (titleEn: string, titleAr: string, contentEn: string, contentA
       <a href="/privacy" ${activePage === "privacy" ? 'class="active"' : ""}>
         <span id="nav-privacy-en">Privacy</span><span id="nav-privacy-ar" style="display:none">الخصوصية</span>
       </a>
-      <a href="/delete-account" ${activePage === "delete-account" ? 'class="active"' : ""}>
-        <span id="nav-delete-account-en">Delete Account</span><span id="nav-delete-account-ar" style="display:none">حذف الحساب</span>
+      <a href="/delete-my-account" ${activePage === "delete-my-account" ? 'class="active"' : ""}>
+        <span id="nav-delete-my-account-en">Delete Account</span><span id="nav-delete-my-account-ar" style="display:none">حذف الحساب</span>
       </a>
       <div class="divider"></div>
       <button id="btn-en" onclick="switchLang('en')" class="active">English</button>
@@ -407,9 +407,9 @@ router.get("/privacy", (_req, res) => {
   res.send(HTML_PAGE("Privacy Policy", "سياسة الخصوصية", PRIVACY_EN, PRIVACY_AR, "privacy"));
 });
 
-router.get("/delete-account", (_req, res) => {
+router.get("/delete-my-account", (_req, res) => {
   res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.send(HTML_PAGE("Delete Account", "حذف الحساب", DELETE_ACCOUNT_EN, DELETE_ACCOUNT_AR, "delete-account"));
+  res.send(HTML_PAGE("Delete Account", "حذف الحساب", DELETE_ACCOUNT_EN, DELETE_ACCOUNT_AR, "delete-my-account"));
 });
 
 router.get("/legal/privacy", (_req, res) => res.redirect(301, "/privacy"));
