@@ -29,3 +29,9 @@ id = "6n3iuXgIWVZohOlZXL9t1"
 uri = "file://artifacts/marsool/BUILDING.md"
 type = "text"
 title = "دليل بناء تطبيق زبوني (Android & iOS)"
+
+[[outputs]]
+id = "uOkkQuHbtL6oM67bcIqOF"
+uri = "file://artifacts/marsool/assets/images/feature-graphic.png"
+type = "image"
+title = "Google Play Feature Graphic"
