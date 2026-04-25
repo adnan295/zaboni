@@ -465,6 +465,26 @@ const menuItemBody = z.object({
   isPopular: z.boolean().default(false),
 });
 
+const updateMenuItemBody = z.object({
+  name: z.string().min(1).optional(),
+  nameAr: z.string().min(1).optional(),
+  description: z.string().optional(),
+  descriptionAr: z.string().optional(),
+  price: z.number().min(0).optional(),
+  image: z.string().optional(),
+  category: z.string().optional(),
+  categoryAr: z.string().optional(),
+  subcategory: z.preprocess(
+    (v) => (v === undefined ? undefined : v),
+    z.string().nullable().optional().transform((v) => (v == null ? null : v.trim() || null)),
+  ),
+  subcategoryAr: z.preprocess(
+    (v) => (v === undefined ? undefined : v),
+    z.string().nullable().optional().transform((v) => (v == null ? null : v.trim() || null)),
+  ),
+  isPopular: z.boolean().optional(),
+});
+
 router.post("/admin/restaurants/:id/menu", async (req, res) => {
   const restaurantId = String(req.params["id"]);
   const parsed = menuItemBody.safeParse(req.body);
@@ -483,26 +503,39 @@ router.post("/admin/restaurants/:id/menu", async (req, res) => {
 router.put("/admin/restaurants/:restaurantId/menu/:itemId", async (req, res) => {
   const itemId = String(req.params["itemId"]);
   const restaurantId = String(req.params["restaurantId"]);
-  const parsed = menuItemBody.partial().safeParse(req.body);
+  const parsed = updateMenuItemBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [row] = await db
-    .update(menuItemsTable)
-    .set(parsed.data)
-    .where(
-      and(
-        eq(menuItemsTable.id, itemId),
-        eq(menuItemsTable.restaurantId, restaurantId),
-      ),
-    )
-    .returning();
-  if (!row) {
-    res.status(404).json({ error: "Not found" });
+  const updates = Object.fromEntries(
+    Object.entries(parsed.data).filter(([, v]) => v !== undefined),
+  ) as Partial<typeof parsed.data>;
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "No fields to update" });
     return;
   }
-  res.json(row);
+  try {
+    const [row] = await db
+      .update(menuItemsTable)
+      .set(updates)
+      .where(
+        and(
+          eq(menuItemsTable.id, itemId),
+          eq(menuItemsTable.restaurantId, restaurantId),
+        ),
+      )
+      .returning();
+    if (!row) {
+      console.error(`[PUT menu item] Not found: itemId=${itemId} restaurantId=${restaurantId}`);
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    res.json(row);
+  } catch (err) {
+    console.error("[PUT menu item] DB error:", err);
+    res.status(500).json({ error: err instanceof Error ? err.message : "Database error" });
+  }
 });
 
 router.delete("/admin/restaurants/:restaurantId/menu/:itemId", async (req, res) => {
