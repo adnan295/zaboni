@@ -1,6 +1,1 @@
-{
-  "NSLocationWhenInUseUsageDescription": "Zaboni needs your location to identify the delivery address and nearby couriers",
-  "NSLocationAlwaysUsageDescription": "Zaboni needs your location to identify the delivery address and nearby couriers",
-  "NSCameraUsageDescription": "Zaboni needs camera access for order photo uploads",
-  "NSUserNotificationsUsageDescription": "Zaboni sends notifications for order updates and special offers"
-}
+{}

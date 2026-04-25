@@ -1,6 +1,1 @@
-{
-  "NSLocationWhenInUseUsageDescription": "يحتاج زبوني إلى موقعك لتحديد موقع التوصيل والمندوب القريب",
-  "NSLocationAlwaysUsageDescription": "يحتاج زبوني إلى موقعك لتحديد موقع التوصيل والمندوب القريب",
-  "NSCameraUsageDescription": "يحتاج زبوني إلى الكاميرا لرفع صور الطلبات",
-  "NSUserNotificationsUsageDescription": "يرسل زبوني إشعارات لتحديثات الطلبات والعروض الخاصة"
-}
+{}
