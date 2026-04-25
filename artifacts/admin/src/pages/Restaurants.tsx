@@ -27,6 +27,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type RestaurantForm = Omit<Restaurant, "id">;
 type MenuItemForm = Omit<MenuItem, "id" | "restaurantId">;
@@ -280,6 +290,7 @@ function MenuDialog({
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<MenuItem | null>(null);
   const [form, setForm] = useState<MenuItemForm>(emptyMenuItem);
+  const [itemToDelete, setItemToDelete] = useState<MenuItem | null>(null);
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["admin", "menu", restaurant.id],
@@ -362,6 +373,29 @@ function MenuDialog({
     setActiveForm((f) => ({ ...f, [k]: v }));
 
   return (
+    <>
+    <AlertDialog open={!!itemToDelete} onOpenChange={(o) => !o && setItemToDelete(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+          <AlertDialogDescription dir="rtl">
+            هل أنت متأكد من حذف "{itemToDelete?.nameAr}"؟ لا يمكن التراجع عن هذا الإجراء.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>إلغاء</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={() => {
+              if (itemToDelete) deleteMutation.mutate(itemToDelete);
+              setItemToDelete(null);
+            }}
+          >
+            تأكيد الحذف
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -535,10 +569,7 @@ function MenuDialog({
                     size="sm"
                     variant="outline"
                     className="h-7 px-2 text-xs text-destructive hover:text-destructive"
-                    onClick={() => {
-                      if (confirm(`حذف "${item.nameAr}"؟`))
-                        deleteMutation.mutate(item);
-                    }}
+                    onClick={() => setItemToDelete(item)}
                   >
                     حذف
                   </Button>
@@ -549,6 +580,7 @@ function MenuDialog({
         )}
       </DialogContent>
     </Dialog>
+    </>
   );
 }
 
