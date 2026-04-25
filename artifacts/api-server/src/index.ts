@@ -3,6 +3,7 @@ import app from "./app";
 import { startOrderExpiryJob } from "./lib/orderExpiry";
 import { logger } from "./lib/logger";
 import { backfillRestaurantPhones } from "@workspace/db/migrations/backfill-restaurant-phones";
+import { addMenuItemSubcategory } from "@workspace/db/migrations/add-menu-item-subcategory";
 
 const rawPort = process.env["PORT"];
 
@@ -29,5 +30,8 @@ httpServer.listen(port, (err?: Error) => {
   startOrderExpiryJob();
   backfillRestaurantPhones().catch((e) =>
     logger.error({ err: e }, "Failed to backfill restaurant phones"),
+  );
+  addMenuItemSubcategory().catch((e) =>
+    logger.error({ err: e }, "Failed to add menu item subcategory columns"),
   );
 });

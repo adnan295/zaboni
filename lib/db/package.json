@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/schema/index.ts",
-    "./migrations/backfill-restaurant-phones": "./src/migrations/backfill-restaurant-phones.ts"
+    "./migrations/backfill-restaurant-phones": "./src/migrations/backfill-restaurant-phones.ts",
+    "./migrations/add-menu-item-subcategory": "./src/migrations/add-menu-item-subcategory.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",
