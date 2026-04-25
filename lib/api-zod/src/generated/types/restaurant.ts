@@ -21,4 +21,8 @@ export interface Restaurant {
   tags: string[];
   isOpen: boolean;
   discount?: string | null;
+  isLogo?: boolean | null;
+  lat?: number | null;
+  lon?: number | null;
+  phone?: string | null;
 }

@@ -44,11 +44,11 @@ export default function RestaurantCard({ restaurant, onPress }: Props) {
       onPress={onPress}
       activeOpacity={0.92}
     >
-      <View style={styles.imageContainer}>
+      <View style={[styles.imageContainer, restaurant.isLogo && styles.logoContainer]}>
         <Image
           source={{ uri: buildImageUrl(restaurant.image) }}
           style={styles.image}
-          resizeMode="cover"
+          resizeMode={restaurant.isLogo ? "contain" : "cover"}
         />
         {!restaurant.isOpen && (
           <View style={styles.closedOverlay}>
@@ -130,6 +130,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   imageContainer: { position: "relative" },
+  logoContainer: { backgroundColor: "#ffffff" },
   image: { width: "100%", height: 160 },
   closedOverlay: {
     ...StyleSheet.absoluteFillObject,

@@ -48,6 +48,7 @@ const emptyRestaurant: RestaurantForm = {
   lat: null,
   lon: null,
   phone: null,
+  isLogo: false,
 };
 
 const emptyMenuItem: MenuItemForm = {
@@ -238,6 +239,16 @@ function RestaurantFormDialog({
               className="w-4 h-4 accent-primary"
             />
             <Label htmlFor="isOpen">مفتوح للطلبات</Label>
+          </div>
+          <div className="col-span-2 flex items-center gap-2">
+            <input
+              id="isLogo"
+              type="checkbox"
+              checked={form.isLogo ?? false}
+              onChange={(e) => set("isLogo", e.target.checked)}
+              className="w-4 h-4 accent-primary"
+            />
+            <Label htmlFor="isLogo">الصورة لوغو (تُعرض كاملةً بخلفية بيضاء)</Label>
           </div>
         </div>
         <DialogFooter>
