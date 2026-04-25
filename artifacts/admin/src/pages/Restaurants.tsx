@@ -766,7 +766,14 @@ export default function Restaurants() {
                   className="hover:bg-muted/30 transition-colors"
                 >
                   <td className="px-4 py-3">
-                    <p className="font-medium">{r.name}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="font-medium">{r.name}</p>
+                      {r.isLogo && (
+                        <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full leading-none flex-shrink-0">
+                          🖼 لوغو
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground" dir="rtl">
                       {r.nameAr}
                     </p>
