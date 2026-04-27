@@ -1,0 +1,95 @@
+Hello,
+
+Thank you for submitting the new app, Zaboni, for review. We noticed some issues that require your attention. Please see below for additional information.
+
+If you have any questions, we are here to help. Reply to this message in App Store Connect and let us know.
+
+Review Environment
+
+Submission ID: c96b482c-6cd5-48b0-a00b-7dee95a61b53
+Review date: April 27, 2026
+Review Device: iPhone 17 Pro Max and iPad Air 11-inch (M3)
+Version reviewed: 1.0.0 (2)
+
+Guideline 4.2.3(i) - Design - Minimum Functionality
+
+
+Issue Description
+
+We were required to install the WhatsApp app before we could log in to the app. Users should be able to log in and access their accounts without having to install any additional apps.
+
+Next Steps
+
+If you would like to offer authentication through WhatsApp, please use a mechanism that allows users to log in from within the app without first having to install an additional app.
+
+We recommend implementing the Safari View Controller API to display web content within the app. The Safari View Controller allows the display of a URL and inspection of the certificate from an embedded browser in an app so that customers can verify the webpage URL and SSL certificate to confirm they are entering their sign in credentials into a legitimate page.
+
+Resources
+
+For additional information on the Safari View Controller API, please review the What's New in Safari webpage.
+Guideline 5.1.1(ii) - Legal - Privacy - Data Collection and Storage
+
+Issue Description
+
+One or more purpose strings in the app do not sufficiently explain the use of protected resources. Purpose strings must clearly and completely describe the app's use of data and, in most cases, provide an example of how the data will be used.
+
+Please see attached screenshots for details.
+
+Next Steps
+
+Update the photo library purpose string to explain how the app will use the requested information and provide a specific example of how the data will be used. See the attached screenshot.
+
+Resources
+
+Purpose strings must clearly describe how an app uses the ability, data, or resource. The following are hypothetical examples of unclear purpose strings that would not pass review:
+
+- "App would like to access your Contacts"
+- "App needs microphone access"
+
+See examples of helpful, informative purpose strings.
+Guideline 2.1 - Information Needed
+
+
+We need additional information about the app's highly regulated services and/or handling of sensitive user data.
+
+The guideline 5.1.1(ix) requirements give users confidence that apps operating in highly regulated fields or that require sensitive user information are qualified to provide these services and will responsibly manage their data.
+
+Next Steps
+
+Provide detailed answers to the following questions:
+
+- Which companies or institutions provide the services offered in the app?
+- What is the relationship between Abdulmouen Altayara and the providers of these services?
+Guideline 5.1.1(v) - Data Collection and Storage
+
+
+Issue Description
+
+The app supports account creation but does not include an option to initiate account deletion. Apps that support account creation must also offer account deletion to give users more control of the data they've shared while using an app.
+
+Follow these requirements when updating an app to support account deletion:
+
+- Only offering to temporarily deactivate or disable an account is insufficient.
+- If users need to visit a website to finish deleting their account, include a link directly to the website page where they can complete the process.
+- Apps may include confirmation steps to prevent users from accidentally deleting their account. However, only apps in highly-regulated industries may require users to use customer service resources, such as making a phone call or sending an email, to complete account deletion.
+
+Next Steps
+
+Update the app to support account deletion. Once account deletion has been added, or if it is already in place, reply to this message with a screen recording captured on a physical device that demonstrates:
+
+- Creating a new account or signing in with the demo account
+- Navigating to the account deletion option
+- The complete account deletion flow from initiation to confirmation
+
+Include the recording in the Notes field of the App Review Information section in App Store Connect for future submissions.
+
+If the app is unable to offer account deletion or needs to provide additional customer service flows to facilitate and confirm account deletion, either because the app operates in a highly-regulated industry or for some other reason, reply to App Review in App Store Connect and provide additional information or documentation. For questions regarding legal obligations, check with legal counsel.
+
+Resources
+
+Review frequently asked questions and learn more about the account deletion requirements.
+Support
+
+- Reply to this message in your preferred language if you need assistance. If you need additional support, use the Contact Us module.
+- Consult with fellow developers and Apple engineers on the Apple Developer Forums.
+- Provide feedback on this message and your review experience by completing a short survey.
