@@ -1,6 +1,6 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import { View, StyleSheet } from "react-native";
-import WebView from "react-native-webview";
+import WebView, { WebViewMessageEvent } from "react-native-webview";
 
 export interface CourierMapProps {
   destinationLat: number;
@@ -56,6 +56,8 @@ window.updateCourier = function(lat, lng) {
     courierMarker.setLatLng([lat, lng]);
   }
 };
+
+window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ready' }));
 <\/script>
 </body>
 </html>`;
@@ -64,13 +66,28 @@ window.updateCourier = function(lat, lng) {
 export function CourierMap({ destinationLat, destinationLon, courierLat, courierLon }: CourierMapProps) {
   const webViewRef = useRef<WebView>(null);
   const htmlRef = useRef(makeMapHtml(destinationLat, destinationLon));
+  const [mapReady, setMapReady] = useState(false);
 
-  useEffect(() => {
-    if (courierLat == null || courierLon == null) return;
+  const injectCourier = useCallback((ready: boolean) => {
+    if (!ready || courierLat == null || courierLon == null) return;
     webViewRef.current?.injectJavaScript(
       `window.updateCourier && window.updateCourier(${courierLat}, ${courierLon}); true;`
     );
   }, [courierLat, courierLon]);
+
+  const handleMessage = useCallback((event: WebViewMessageEvent) => {
+    try {
+      const msg = JSON.parse(event.nativeEvent.data) as { type: string };
+      if (msg.type === "ready") {
+        setMapReady(true);
+        injectCourier(true);
+      }
+    } catch {}
+  }, [injectCourier]);
+
+  useEffect(() => {
+    injectCourier(mapReady);
+  }, [courierLat, courierLon, mapReady, injectCourier]);
 
   return (
     <View style={styles.container}>
@@ -81,6 +98,7 @@ export function CourierMap({ destinationLat, destinationLon, courierLat, courier
         javaScriptEnabled
         domStorageEnabled
         originWhitelist={["*"]}
+        onMessage={handleMessage}
       />
     </View>
   );
