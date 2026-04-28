@@ -86,7 +86,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "يستخدم زبوني مكتبة صورك لتغيير صورة ملفك الشخصي. يمكنك اختيار أي صورة من ألبومك لتظهر على حسابك في التطبيق.",
+          "photosPermission": "Zaboni uses your photo library to update your profile picture. You can select any photo from your album to display on your account.",
           "cameraPermission": "يستخدم زبوني الكاميرا لالتقاط صورة ملفك الشخصي مباشرة."
         }
       ]
