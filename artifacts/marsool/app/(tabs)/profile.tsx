@@ -25,7 +25,6 @@ import { useOrders } from "@/context/OrderContext";
 import { useFavorites } from "@/context/FavoritesContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import { useRatings } from "@/context/RatingsContext";
-import { useLanguage, AppLanguage } from "@/context/LanguageContext";
 import { customFetch } from "@workspace/api-client-react";
 
 interface MenuItemDef {
@@ -61,7 +60,6 @@ export default function ProfileScreen() {
   const { favorites } = useFavorites();
   const { unreadCount } = useNotifications();
   const { ratings } = useRatings();
-  const { language, setLanguage } = useLanguage();
 
   const [application, setApplication] = useState<CourierApplication | null>(null);
   const [appLoading, setAppLoading] = useState(false);
@@ -157,11 +155,6 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const handleLanguage = () => {
-    const otherLang: AppLanguage = language === "ar" ? "en" : "ar";
-    setLanguage(otherLang);
-  };
-
   const openEditName = () => {
     setEditNameValue(user?.name || "");
     setEditNameVisible(true);
@@ -203,7 +196,6 @@ export default function ProfileScreen() {
     { icon: "payment", label: t("profile.menu.payments"), onPress: () => router.push("/payment-info") },
     { icon: "help-outline", label: t("profile.menu.support"), onPress: () => router.push("/support") },
     { icon: "info-outline", label: t("profile.menu.about"), onPress: () => router.push("/about") },
-    { icon: "translate", label: t("profile.menu.language"), onPress: handleLanguage },
   ];
 
   const appStatus: AppStatus = isCourier ? "approved" : (application?.status ?? "none");
@@ -301,19 +293,6 @@ export default function ProfileScreen() {
             )}
           </View>
         )}
-
-        {/* Language chip */}
-        <View style={[styles.langChip, { backgroundColor: colors.secondary }]}>
-          <MaterialIcons name="language" size={16} color={colors.primary} />
-          <Text style={[styles.langChipText, { color: colors.primary }]}>
-            {t("profile.language.currentLabel")}
-          </Text>
-          <TouchableOpacity onPress={handleLanguage} style={[styles.langToggleBtn, { backgroundColor: colors.primary }]}>
-            <Text style={styles.langToggleBtnText}>
-              {t("profile.language.switchLabel")}
-            </Text>
-          </TouchableOpacity>
-        </View>
 
         {/* Courier section */}
         {appLoading ? (
@@ -603,19 +582,6 @@ const styles = StyleSheet.create({
   infoLabel: { fontSize: 12, marginBottom: 2 },
   infoValue: { fontSize: 14, fontWeight: "600" },
   infoDivider: { height: 1, marginHorizontal: 14 },
-  langChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 8,
-  },
-  langChipText: { flex: 1, fontSize: 14, fontWeight: "600" },
-  langToggleBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 10 },
-  langToggleBtnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
   courierCard: {
     marginHorizontal: 16,
     marginTop: 12,
