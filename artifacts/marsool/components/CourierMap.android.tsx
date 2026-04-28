@@ -22,13 +22,13 @@ function makeMapHtml(destLat: number, destLon: number): string {
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body, #map { width: 100%; height: 100%; }
-.leaflet-control-attribution { display: none !important; }
+.leaflet-control-attribution { font-size: 9px; opacity: 0.7; }
 </style>
 </head>
 <body>
 <div id="map"></div>
 <script>
-var map = L.map('map', { attributionControl: false }).setView([${destLat}, ${destLon}], 15);
+var map = L.map('map').setView([${destLat}, ${destLon}], 15);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
 var destIcon = L.divIcon({

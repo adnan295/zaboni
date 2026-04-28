@@ -24,7 +24,7 @@ const MAP_HTML = `<!DOCTYPE html>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body, #map { width: 100%; height: 100%; overflow: hidden; }
-.leaflet-control-attribution { display: none !important; }
+.leaflet-control-attribution { font-size: 9px; opacity: 0.7; }
 </style>
 </head>
 <body>
