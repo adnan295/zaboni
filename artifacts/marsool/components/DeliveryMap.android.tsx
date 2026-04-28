@@ -1,8 +1,8 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import { View, StyleSheet } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
-import WebView from "react-native-webview";
+import WebView, { WebViewMessageEvent } from "react-native-webview";
 import { Coords } from "@/utils/geo";
 
 interface DeliveryMapProps {
@@ -13,8 +13,7 @@ interface DeliveryMapProps {
   height?: number;
 }
 
-function makeMapHtml(center: Coords): string {
-  return `<!DOCTYPE html>
+const MAP_HTML = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8"/>
@@ -30,7 +29,7 @@ html, body, #map { width: 100%; height: 100%; }
 <body>
 <div id="map"></div>
 <script>
-var map = L.map('map', { zoomControl: false, attributionControl: false }).setView([${center.latitude}, ${center.longitude}], 14);
+var map = L.map('map', { zoomControl: false, attributionControl: false }).setView([34.7324, 36.7137], 14);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
 var userMarker = null;
@@ -70,17 +69,18 @@ window.updateMarkers = function(data) {
     courierMarker = null;
   }
 };
+
+window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ready' }));
 <\/script>
 </body>
 </html>`;
-}
 
 export function DeliveryMap({ userCoords, courierCoords, isSearching, etaMinutes, height = 220 }: DeliveryMapProps) {
   const webViewRef = useRef<WebView>(null);
-  const center = userCoords ?? { latitude: 34.7324, longitude: 36.7137 };
-  const htmlRef = useRef(makeMapHtml(center));
+  const [mapReady, setMapReady] = useState(false);
 
-  useEffect(() => {
+  const injectMarkers = useCallback((ready: boolean) => {
+    if (!ready) return;
     const uLat = userCoords?.latitude ?? "null";
     const uLng = userCoords?.longitude ?? "null";
     const cLat = courierCoords?.latitude ?? "null";
@@ -89,16 +89,31 @@ export function DeliveryMap({ userCoords, courierCoords, isSearching, etaMinutes
     webViewRef.current?.injectJavaScript(script);
   }, [userCoords, courierCoords, isSearching]);
 
+  const handleMessage = useCallback((event: WebViewMessageEvent) => {
+    try {
+      const msg = JSON.parse(event.nativeEvent.data) as { type: string };
+      if (msg.type === "ready") {
+        setMapReady(true);
+        injectMarkers(true);
+      }
+    } catch {}
+  }, [injectMarkers]);
+
+  useEffect(() => {
+    injectMarkers(mapReady);
+  }, [userCoords, courierCoords, isSearching, mapReady, injectMarkers]);
+
   return (
     <View style={{ height, overflow: "hidden" }}>
       <WebView
         ref={webViewRef}
-        source={{ html: htmlRef.current }}
+        source={{ html: MAP_HTML }}
         style={{ flex: 1 }}
         javaScriptEnabled
         domStorageEnabled
         originWhitelist={["*"]}
         scrollEnabled={false}
+        onMessage={handleMessage}
       />
       {etaMinutes != null && !isSearching && (
         <View style={styles.etaOverlay}>
