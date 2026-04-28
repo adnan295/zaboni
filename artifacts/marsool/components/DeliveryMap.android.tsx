@@ -23,13 +23,14 @@ const MAP_HTML = `<!DOCTYPE html>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body, #map { width: 100%; height: 100%; }
-.leaflet-control-attribution, .leaflet-control-zoom { display: none !important; }
+.leaflet-control-zoom { display: none !important; }
+.leaflet-control-attribution { font-size: 9px; opacity: 0.7; }
 </style>
 </head>
 <body>
 <div id="map"></div>
 <script>
-var map = L.map('map', { zoomControl: false, attributionControl: false }).setView([34.7324, 36.7137], 14);
+var map = L.map('map', { zoomControl: false }).setView([34.7324, 36.7137], 14);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
 var userMarker = null;
