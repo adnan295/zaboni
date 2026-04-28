@@ -24,7 +24,9 @@
       "errorTitle": "رمز غير صحيح",
       "errorMsg": "الرمز غير صحيح أو انتهت صلاحيته، يرجى المحاولة مجدداً",
       "hintWhatsapp": "ستصلك رسالة واتساب تحتوي على رمز التحقق",
-      "noCodeWhatsapp": "لم تصلك رسالة واتساب؟"
+      "noCodeWhatsapp": "لم تصلك رسالة واتساب؟",
+      "resendSms": "أرسل عبر SMS",
+      "switchToSms": "استخدم SMS بدلاً من واتساب"
     },
     "name": {
       "title": "ما اسمك؟",
@@ -100,6 +102,12 @@
     "signOutMessage": "هل تريد تسجيل الخروج؟",
     "signOutCancel": "إلغاء",
     "signOutConfirm": "خروج",
+    "deleteAccount": "حذف الحساب",
+    "deleteAccountTitle": "حذف الحساب نهائياً",
+    "deleteAccountMessage": "هذا الإجراء لا يمكن التراجع عنه. سيتم حذف حسابك وجميع بياناتك بشكل دائم.",
+    "deleteAccountConfirm": "حذف",
+    "deleteAccountCancel": "إلغاء",
+    "deleteAccountError": "تعذّر حذف الحساب، حاول مجدداً",
     "version": "زبوني · الإصدار 1.0.0",
     "language": {
       "title": "اختر اللغة",

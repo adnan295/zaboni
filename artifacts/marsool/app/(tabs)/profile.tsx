@@ -138,6 +138,25 @@ export default function ProfileScreen() {
     ]);
   };
 
+  const handleDeleteAccount = () => {
+    Alert.alert(t("profile.deleteAccountTitle"), t("profile.deleteAccountMessage"), [
+      { text: t("profile.deleteAccountCancel"), style: "cancel" },
+      {
+        text: t("profile.deleteAccountConfirm"),
+        style: "destructive",
+        onPress: async () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          try {
+            await customFetch("/api/auth/me", { method: "DELETE" });
+            await signOut();
+          } catch {
+            Alert.alert(t("profile.deleteAccountTitle"), t("profile.deleteAccountError"));
+          }
+        },
+      },
+    ]);
+  };
+
   const handleLanguage = () => {
     const otherLang: AppLanguage = language === "ar" ? "en" : "ar";
     setLanguage(otherLang);
@@ -425,6 +444,18 @@ export default function ProfileScreen() {
           <MaterialIcons name="logout" size={20} color={colors.destructive} />
           <Text style={[styles.signOutText, { color: colors.destructive }]}>
             {t("profile.signOut")}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Delete Account */}
+        <TouchableOpacity
+          style={[styles.signOutBtn, { backgroundColor: colors.card, borderColor: "#fee2e2", marginTop: 8 }]}
+          onPress={handleDeleteAccount}
+          activeOpacity={0.7}
+        >
+          <MaterialIcons name="delete-forever" size={20} color={colors.destructive} />
+          <Text style={[styles.signOutText, { color: colors.destructive }]}>
+            {t("profile.deleteAccount")}
           </Text>
         </TouchableOpacity>
 

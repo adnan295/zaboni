@@ -24,7 +24,9 @@
       "errorTitle": "Invalid Code",
       "errorMsg": "The code is incorrect or has expired. Please try again.",
       "hintWhatsapp": "You will receive a WhatsApp message with the verification code",
-      "noCodeWhatsapp": "Did not receive a WhatsApp message?"
+      "noCodeWhatsapp": "Did not receive a WhatsApp message?",
+      "resendSms": "Send via SMS",
+      "switchToSms": "Use SMS instead of WhatsApp"
     },
     "name": {
       "title": "What's your name?",
@@ -98,6 +100,12 @@
     "signOut": "Sign Out",
     "signOutTitle": "Sign Out",
     "signOutMessage": "Do you want to sign out?",
+    "deleteAccount": "Delete Account",
+    "deleteAccountTitle": "Delete Account Permanently",
+    "deleteAccountMessage": "This action cannot be undone. Your account and all your data will be permanently deleted.",
+    "deleteAccountConfirm": "Delete",
+    "deleteAccountCancel": "Cancel",
+    "deleteAccountError": "Failed to delete account. Please try again.",
     "signOutCancel": "Cancel",
     "signOutConfirm": "Sign Out",
     "version": "Zaboni · Version 1.0.0",

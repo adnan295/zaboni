@@ -82,6 +82,13 @@
           "isIosBackgroundLocationEnabled": false,
           "isAndroidBackgroundLocationEnabled": false
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "يستخدم زبوني مكتبة صورك لتغيير صورة ملفك الشخصي. يمكنك اختيار أي صورة من ألبومك لتظهر على حسابك في التطبيق.",
+          "cameraPermission": "يستخدم زبوني الكاميرا لالتقاط صورة ملفك الشخصي مباشرة."
+        }
       ]
     ],
     "experiments": {

@@ -74,6 +74,7 @@ const e164Phone = z
 
 const sendOtpSchema = z.object({
   phone: e164Phone,
+  preferSms: z.boolean().optional(),
 });
 
 const verifyOtpSchema = z.object({
@@ -89,7 +90,7 @@ router.post("/auth/send-otp", async (req, res) => {
     return;
   }
 
-  const { phone } = body.data;
+  const { phone, preferSms } = body.data;
 
   const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.socket.remoteAddress ?? "unknown";
   const phoneKey = `phone:${phone}`;
@@ -111,15 +112,19 @@ router.post("/auth/send-otp", async (req, res) => {
 
   await db.insert(otpCodesTable).values({ id, phone, code, expiresAt });
 
-  const message = `رمز التحقق الخاص بك في مرسول: ${code}`;
+  const message = `رمز التحقق الخاص بك في زبوني: ${code}`;
 
   let channel: "whatsapp" | "sms" = "sms";
 
-  const waSent = await whatsappManager.sendMessage(phone, message);
-  if (waSent) {
-    channel = "whatsapp";
-    console.log(`[auth] OTP sent via WhatsApp to ${phone}`);
-  } else {
+  if (!preferSms) {
+    const waSent = await whatsappManager.sendMessage(phone, message);
+    if (waSent) {
+      channel = "whatsapp";
+      console.log(`[auth] OTP sent via WhatsApp to ${phone}`);
+    }
+  }
+
+  if (channel === "sms") {
     try {
       await sendOtpSms(phone, code);
       console.log(`[auth] OTP sent via SMS to ${phone}`);
@@ -329,6 +334,34 @@ router.patch("/auth/me", async (req, res) => {
   if (rows.length === 0) { res.status(404).json({ error: "User not found" }); return; }
 
   res.json(rows[0]);
+});
+
+router.delete("/auth/me", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const token = authHeader.slice(7);
+  let userId: string;
+  try {
+    const payload = jwt.verify(token, getJwtSecret()) as { userId: string };
+    userId = payload.userId;
+  } catch {
+    res.status(401).json({ error: "Invalid or expired token" });
+    return;
+  }
+
+  const users = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  if (users.length === 0) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  await db.delete(usersTable).where(eq(usersTable.id, userId));
+
+  res.json({ success: true });
 });
 
 router.get("/me/stats", async (req, res) => {
