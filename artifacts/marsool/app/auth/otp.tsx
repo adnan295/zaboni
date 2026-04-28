@@ -37,7 +37,6 @@ export default function OtpScreen() {
   const [canResend, setCanResend] = useState(false);
   const [loading, setLoading] = useState(false);
   const [currentChannel, setCurrentChannel] = useState<string>(channel ?? "sms");
-  const isWhatsApp = currentChannel === "whatsapp";
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -107,23 +106,6 @@ export default function OtpScreen() {
     } catch {}
   };
 
-  const handleSwitchToSms = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setOtp("");
-    try {
-      const base = getApiBaseUrl();
-      const res = await fetch(`${base}/api/auth/send-otp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, preferSms: true }),
-      });
-      const data = await res.json() as { channel?: string };
-      if (data.channel) setCurrentChannel(data.channel);
-      setCountdown(60);
-      setCanResend(false);
-    } catch {}
-  };
-
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
   return (
@@ -189,22 +171,15 @@ export default function OtpScreen() {
         </TouchableOpacity>
 
         <View style={[styles.hintBox, { backgroundColor: colors.secondary }]}>
-          <MaterialIcons name={isWhatsApp ? "chat" : "sms"} size={14} color={colors.primary} />
+          <MaterialIcons name="sms" size={14} color={colors.primary} />
           <Text style={[styles.hint, { color: colors.primary }]}>
-            {isWhatsApp ? t("auth.otp.hintWhatsapp") : t("auth.otp.hint")}
+            {t("auth.otp.hint")}
           </Text>
         </View>
 
-        {isWhatsApp && (
-          <TouchableOpacity style={[styles.smsSwitch, { borderColor: colors.border }]} onPress={handleSwitchToSms}>
-            <MaterialIcons name="sms" size={15} color={colors.primary} />
-            <Text style={[styles.smsSwitchText, { color: colors.primary }]}>{t("auth.otp.switchToSms")}</Text>
-          </TouchableOpacity>
-        )}
-
         <View style={styles.resendRow}>
           <Text style={[styles.resendLabel, { color: colors.mutedForeground }]}>
-            {isWhatsApp ? t("auth.otp.noCodeWhatsapp") : t("auth.otp.noCode")}
+            {t("auth.otp.noCode")}
           </Text>
           {canResend ? (
             <TouchableOpacity onPress={() => handleResend()}>
@@ -238,15 +213,4 @@ const styles = StyleSheet.create({
   resendLabel: { fontSize: 14 },
   resendBtn: { fontSize: 14, fontWeight: "700" },
   resendTimer: { fontSize: 14, fontWeight: "600" },
-  smsSwitch: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    marginBottom: 16,
-  },
-  smsSwitchText: { fontSize: 13, fontWeight: "600" },
 });
