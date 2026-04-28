@@ -220,7 +220,7 @@ export default function AddressesScreen() {
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
-          keyboardVerticalOffset={Platform.OS === "android" ? 24 : 0}
+          keyboardVerticalOffset={Platform.OS === "android" ? insets.top : 0}
           style={styles.modalOverlay}
         >
           <TouchableOpacity
