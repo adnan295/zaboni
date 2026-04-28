@@ -30,13 +30,12 @@ export default function OtpScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const backIcon = useBackIcon();
-  const { phone, channel } = useLocalSearchParams<{ phone: string; channel?: string }>();
+  const { phone } = useLocalSearchParams<{ phone: string; channel?: string }>();
   const { signIn } = useAuth();
   const [otp, setOtp] = useState("");
   const [countdown, setCountdown] = useState(60);
   const [canResend, setCanResend] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [currentChannel, setCurrentChannel] = useState<string>(channel ?? "sms");
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -96,13 +95,11 @@ export default function OtpScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       const base = getApiBaseUrl();
-      const res = await fetch(`${base}/api/auth/send-otp`, {
+      await fetch(`${base}/api/auth/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone, ...(preferSms ? { preferSms: true } : {}) }),
       });
-      const data = await res.json() as { channel?: string };
-      if (data.channel) setCurrentChannel(data.channel);
     } catch {}
   };
 
