@@ -1,0 +1,24 @@
+Hello Deaa,Thank you for submitting your items for review. We noticed an issue with your submission that requires your attention.
+Submitted: Apr 28, 2026 at 06:38 AM Pacific Daylight TimeSubmitted by: Deaa JahjahNumber of items submitted: 1Submission ID: c96b482c-6cd5-48b0-a00b-7dee95a61b53App Name: Zaboni
+We look forward to working with you to resolve the issues with the following items:
+
+App Version
+
+1.0.0 for iOS
+Hello,Thank you for your efforts to follow our guidelines. There are some outstanding issues that still need your attention.If you have any questions, we are here to help. Reply to this message in App Store Connect and let us know.
+
+Review Environment
+
+Submission ID: c96b482c-6cd5-48b0-a00b-7dee95a61b53Review date: April 30, 2026Review Device: iPad Air 11-inch (M3) and iPhone 17 Pro MaxVersion reviewed: 1.0.0 (3)
+
+Guideline 2.1 - Information Needed
+
+We need additional information about the app's highly regulated services and/or handling of sensitive user data.The guideline 5.1.1(ix) requirements give users confidence that apps operating in highly regulated fields or that require sensitive user information are qualified to provide these services and will responsibly manage their data.Next StepsProvide detailed answers to the following questions:- Which companies or institutions provide the services offered in the app?- What is the relationship between Abdulmouen Altayara and the providers of these services?
+
+Guideline 5.1.1(iv) - Legal - Privacy - Data Collection and Storage
+
+Issue DescriptionThe app encourages or directs users to allow the app to access the photo library. Specifically, the app directs the user to grant permission in the following way(s):- A custom message asks users to reconsider their decision after they deny the permission request.Permission requests give users control of their personal information. It is important to respect their decision about how their data is used.Next StepsTo resolve this issue, please revise the permission request process in the app to not ask the user to reconsider denying permission.If necessary, you may provide more information about why you are requesting permission before the request appears. If the user is trying to use a feature in the app that won't function without access to the photo library, you may include a notification to inform the user and provide a link to the Settings app.Resources- Learn more about data collection and storage requirements in guideline 5.1.1.- Learn more about designing appropriate permission requests.
+
+Support
+
+شو لازم اعمل
