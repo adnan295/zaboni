@@ -69,7 +69,6 @@ export default function EditProfileScreen() {
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert(t("editProfile.permissionDenied"), t("editProfile.permissionMessage"));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
