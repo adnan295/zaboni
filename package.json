@@ -19,6 +19,9 @@
     "overrides": {
       "react": "19.1.0",
       "react-dom": "19.1.0"
+    },
+    "patchedDependencies": {
+      "@whiskeysockets/libsignal-node@2.0.1": "patches/@whiskeysockets__libsignal-node@2.0.1.patch"
     }
   }
 }
