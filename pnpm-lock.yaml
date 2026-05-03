@@ -68,6 +68,11 @@ overrides:
   react: 19.1.0
   react-dom: 19.1.0
 
+patchedDependencies:
+  '@whiskeysockets/libsignal-node@2.0.1':
+    hash: ffb951e2b6d26a3912c3e756c4533a05d0ac904c9bdb286cc056c9d2bd56cd31
+    path: patches/@whiskeysockets__libsignal-node@2.0.1.patch
+
 importers:
 
   .:
@@ -9593,14 +9598,14 @@ snapshots:
     dependencies:
       '@jest/fake-timers': 29.7.0
       '@jest/types': 29.6.3
-      '@types/node': 25.3.5
+      '@types/node': 25.6.0
       jest-mock: 29.7.0
 
   '@jest/fake-timers@29.7.0':
     dependencies:
       '@jest/types': 29.6.3
       '@sinonjs/fake-timers': 10.3.0
-      '@types/node': 25.3.5
+      '@types/node': 25.6.0
       jest-message-util: 29.7.0
       jest-mock: 29.7.0
       jest-util: 29.7.0
@@ -11564,7 +11569,7 @@ snapshots:
       '@cacheable/node-cache': 1.7.6
       '@hapi/boom': 9.1.4
       async-mutex: 0.5.0
-      libsignal: '@whiskeysockets/libsignal-node@https://codeload.github.com/whiskeysockets/libsignal-node/tar.gz/1c30d7d7e76a3b0aa120b04dc6a26f5a12dccf67'
+      libsignal: '@whiskeysockets/libsignal-node@https://codeload.github.com/whiskeysockets/libsignal-node/tar.gz/1c30d7d7e76a3b0aa120b04dc6a26f5a12dccf67(patch_hash=ffb951e2b6d26a3912c3e756c4533a05d0ac904c9bdb286cc056c9d2bd56cd31)'
       lru-cache: 11.2.7
       music-metadata: 11.12.3
       p-queue: 9.1.2
@@ -11577,10 +11582,10 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@whiskeysockets/libsignal-node@https://codeload.github.com/whiskeysockets/libsignal-node/tar.gz/1c30d7d7e76a3b0aa120b04dc6a26f5a12dccf67':
+  '@whiskeysockets/libsignal-node@https://codeload.github.com/whiskeysockets/libsignal-node/tar.gz/1c30d7d7e76a3b0aa120b04dc6a26f5a12dccf67(patch_hash=ffb951e2b6d26a3912c3e756c4533a05d0ac904c9bdb286cc056c9d2bd56cd31)':
     dependencies:
       curve25519-js: 0.0.4
-      protobufjs: 6.8.8
+      protobufjs: 7.5.6
 
   '@xmldom/xmldom@0.8.13': {}
 
@@ -13581,7 +13586,7 @@ snapshots:
   jest-mock@29.7.0:
     dependencies:
       '@jest/types': 29.6.3
-      '@types/node': 25.3.5
+      '@types/node': 25.6.0
       jest-util: 29.7.0
 
   jest-regex-util@29.6.3: {}
@@ -13589,7 +13594,7 @@ snapshots:
   jest-util@29.7.0:
     dependencies:
       '@jest/types': 29.6.3
-      '@types/node': 25.3.5
+      '@types/node': 25.6.0
       chalk: 4.1.2
       ci-info: 3.9.0
       graceful-fs: 4.2.11

@@ -1,0 +1,13 @@
+diff --git a/package.json b/package.json
+index 02814cfff10e89cdbf5c66dda1818de8f8261be8..6412d5abe8333aa788e82ea1ad29d21034d16ec2 100644
+--- a/package.json
++++ b/package.json
+@@ -13,7 +13,7 @@
+   "license": "GPL-3.0",
+   "dependencies": {
+     "curve25519-js": "^0.0.4",
+-    "protobufjs": "6.8.8"
++    "protobufjs": "7.5.6"
+   },
+   "files": [
+     "src/*",
