@@ -1,0 +1,65 @@
+
+Hello Deaa,
+
+Thank you for submitting your items for review. We noticed an issue with your submission that requires your attention.
+
+Submitted: Apr 30, 2026 at 09:36 AM Pacific Daylight Time
+Submitted by: Deaa Jahjah
+Number of items submitted: 1
+Submission ID: c96b482c-6cd5-48b0-a00b-7dee95a61b53
+App Name: Zaboni
+
+
+We look forward to working with you to resolve the issues with the following items:
+
+App Version
+1.0.0 for iOS
+
+Hello,
+
+Thank you for your resubmission. Upon further review, we identified additional issues that need your attention. See below for more information.
+
+If you have any questions, we are here to help. Reply to this message in App Store Connect and let us know.
+
+Review Environment
+Submission ID: c96b482c-6cd5-48b0-a00b-7dee95a61b53
+Review date: May 03, 2026
+Review Device: iPad Air 11-inch (M3)
+Version reviewed: 1.0.0 (4)
+
+Guideline 5.1.1(ix) - Legal - Privacy - Data Collection and Storage
+
+Issue Description
+
+The app does not meet all requirements for apps that offer highly regulated services or handle sensitive user data. Specifically:
+
+- The account that submits the app must be enrolled in the Apple Developer Program as an organization, and not as an individual.
+
+The guideline 5.1.1(ix) requirements give users confidence that apps operating in highly regulated fields or that require sensitive user information are qualified to provide these services and will responsibly manage their data.
+
+Next Steps
+
+To resolve this issue, it would be appropriate to take the following steps:
+
+- The app must be submitted through an Apple Developer Program account enrolled as an organization. You may either enroll in a new Apple Developer Program account as an organization, or request that your individual account be converted to an organization account by contacting Apple Developer Support.
+
+Please note that you cannot resolve this issue with documentation showing permission to publish this app on behalf of the content owner or institution.
+
+Resources
+
+- Learn how to transfer apps between accounts.
+- Request a fee waiver for nonprofit organizations, accredited educational institutions, or government entities.
+Support
+- Reply to this message in your preferred language if you need assistance. If you need additional support, use the Contact Us module.
+- Consult with fellow developers and Apple engineers on the Apple Developer Forums.
+- Request an App Review Appointment at Meet with Apple to discuss your app's review. Appointments subject to availability during your local business hours on Tuesdays and Thursdays.
+- Provide feedback on this message and your review experience by completing a short survey.
+
+Request a phone call from App Review
+
+At your request, we can arrange for an Apple Representative to call you within the next three to five business days to discuss your App Review issue.
+
+Request a call to discuss your app's review
+
+
+For details, next steps, and to ask questions about these issues, please visit the App Review page in App Store Connect.
