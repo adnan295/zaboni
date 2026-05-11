@@ -47,3 +47,9 @@ id = "rIsanZ43SiMQr8bGbfuUl"
 uri = "file://artifacts/marsool/assets/images/notification-icon.png"
 type = "image"
 title = "Android Notification Icon — Scooter (white on transparent)"
+
+[[outputs]]
+id = "DoNWpeOY64lJ3efljNFMx"
+uri = "file://ZABONI_OVERVIEW.md"
+type = "text"
+title = "Zaboni — Complete Platform Overview"
