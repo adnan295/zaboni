@@ -139,6 +139,18 @@ router.get("/restaurants", async (req, res) => {
   res.json(result);
 });
 
+router.get("/restaurants/food-categories", async (_req, res) => {
+  const rows = await db
+    .selectDistinct({ categoryAr: restaurantsTable.categoryAr })
+    .from(restaurantsTable)
+    .orderBy(asc(restaurantsTable.categoryAr));
+  const filtered = rows
+    .map((r) => r.categoryAr?.trim())
+    .filter((v): v is string => !!v);
+  const unique = [...new Set(filtered)];
+  res.json(unique.map((v) => ({ categoryAr: v })));
+});
+
 router.get("/restaurants/:id", async (req, res) => {
   const { id } = req.params;
   const rows = await db
