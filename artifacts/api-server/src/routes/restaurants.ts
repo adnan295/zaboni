@@ -67,9 +67,22 @@ async function getHoursForRestaurants(ids: string[], days: number[]): Promise<Ma
   return result;
 }
 
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 router.get("/restaurants", async (req, res) => {
   const search = typeof req.query["search"] === "string" ? req.query["search"].trim() : "";
   const category = typeof req.query["category"] === "string" ? req.query["category"].trim() : "";
+  const lat = typeof req.query["lat"] === "string" ? parseFloat(req.query["lat"]) : null;
+  const lon = typeof req.query["lon"] === "string" ? parseFloat(req.query["lon"]) : null;
+  const hasLocation = lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon);
 
   let query = db.select().from(restaurantsTable).$dynamic();
 
@@ -89,16 +102,38 @@ router.get("/restaurants", async (req, res) => {
     query = query.where(and(...conditions));
   }
 
-  const rows = await query.orderBy(desc(restaurantsTable.rating));
+  const rows = await query;
   const { dayOfWeek, prevDayOfWeek, nowMinutes } = getDamascusNow();
   const hoursMap = await getHoursForRestaurants(rows.map((r) => r.id), [dayOfWeek, prevDayOfWeek]);
 
   const result = rows.map((r) => {
     const byDay = hoursMap.get(r.id);
+    const distanceKm =
+      hasLocation && r.lat != null && r.lon != null
+        ? haversineKm(lat!, lon!, r.lat, r.lon)
+        : null;
     return {
       ...r,
       isOpen: computeIsOpenFromHours(byDay?.get(dayOfWeek), byDay?.get(prevDayOfWeek), nowMinutes, r.isOpen),
+      distanceKm,
     };
+  });
+
+  result.sort((a, b) => {
+    const aPriority = a.sortOrder ?? null;
+    const bPriority = b.sortOrder ?? null;
+
+    if (aPriority !== null && bPriority !== null) return aPriority - bPriority;
+    if (aPriority !== null) return -1;
+    if (bPriority !== null) return 1;
+
+    if (hasLocation) {
+      const aDist = a.distanceKm ?? Infinity;
+      const bDist = b.distanceKm ?? Infinity;
+      if (Math.abs(aDist - bDist) > 0.1) return aDist - bDist;
+    }
+
+    return b.rating - a.rating;
   });
 
   res.json(result);

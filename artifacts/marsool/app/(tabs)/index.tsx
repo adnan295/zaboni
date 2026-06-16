@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -24,10 +24,10 @@ import { useAddresses } from "@/context/AddressContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import { useOrders } from "@/context/OrderContext";
 import { useAuth } from "@/context/AuthContext";
-import { useGetRestaurants } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { getApiBaseUrl, buildImageUrl } from "@/lib/apiConfig";
 import { CATEGORIES } from "@/data/restaurants";
+import * as Location from "expo-location";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const BANNER_WIDTH = SCREEN_WIDTH - 32;
@@ -62,6 +62,42 @@ const FALLBACK_CATEGORIES: RestaurantCategory[] = CATEGORIES
   .filter((c) => c.id !== "all")
   .map((c, i) => ({ id: c.id, code: c.id, nameAr: c.name, nameEn: c.id, iconName: c.icon, sortOrder: i, isActive: true }));
 
+type RestaurantItem = {
+  id: string;
+  name: string;
+  nameAr: string;
+  category: string;
+  categoryAr: string;
+  rating: number;
+  reviewCount: number;
+  deliveryTime: string;
+  deliveryFee: number;
+  minOrder: number;
+  image: string;
+  tags: string[];
+  isOpen: boolean;
+  isLogo: boolean;
+  discount: string | null;
+  lat?: number | null;
+  lon?: number | null;
+  phone?: string | null;
+  sortOrder?: number | null;
+  distanceKm?: number | null;
+};
+
+async function fetchRestaurants(lat?: number, lon?: number): Promise<RestaurantItem[]> {
+  const base = getApiBaseUrl();
+  const params = new URLSearchParams();
+  if (lat != null && lon != null) {
+    params.set("lat", String(lat));
+    params.set("lon", String(lon));
+  }
+  const url = `${base}/api/restaurants${params.toString() ? "?" + params.toString() : ""}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("fetch failed");
+  return res.json();
+}
+
 async function fetchBanners(): Promise<PromoBanner[]> {
   const base = getApiBaseUrl();
   const res = await fetch(`${base}/api/banners`);
@@ -94,7 +130,25 @@ export default function HomeScreen() {
   const { activeOrder } = useOrders();
   const { user } = useAuth();
 
-  const { data: apiRestaurants, isLoading: restaurantsLoading, refetch } = useGetRestaurants();
+  const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") return;
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        setUserLocation({ lat: loc.coords.latitude, lon: loc.coords.longitude });
+      } catch {
+      }
+    })();
+  }, []);
+
+  const { data: apiRestaurants, isLoading: restaurantsLoading, refetch } = useQuery<RestaurantItem[]>({
+    queryKey: ["restaurants", userLocation?.lat, userLocation?.lon],
+    queryFn: () => fetchRestaurants(userLocation?.lat, userLocation?.lon),
+    staleTime: 2 * 60 * 1000,
+  });
   const { data: apiBanners = FALLBACK_BANNERS } = useQuery({ queryKey: ["banners"], queryFn: fetchBanners, staleTime: 5 * 60 * 1000, placeholderData: FALLBACK_BANNERS });
   const { data: apiCategories = FALLBACK_CATEGORIES } = useQuery({ queryKey: ["categories"], queryFn: fetchCategories, staleTime: 5 * 60 * 1000, placeholderData: FALLBACK_CATEGORIES });
 

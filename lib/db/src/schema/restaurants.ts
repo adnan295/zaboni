@@ -21,6 +21,7 @@ export const restaurantsTable = pgTable("restaurants", {
   lon: real("lon"),
   phone: text("phone"),
   isLogo: boolean("is_logo").notNull().default(false),
+  sortOrder: integer("sort_order"),
 });
 
 export const insertRestaurantSchema = createInsertSchema(restaurantsTable);
