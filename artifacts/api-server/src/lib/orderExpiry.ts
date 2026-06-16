@@ -3,7 +3,7 @@ import { and, eq, lt, sql } from "drizzle-orm";
 import { sendOrderPush, notifyOrderUpdate } from "../orders/server";
 import { logger } from "./logger";
 
-const EXPIRY_MINUTES = 30;
+const EXPIRY_MINUTES = 5;
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
 async function expireStaleOrders(): Promise<void> {
