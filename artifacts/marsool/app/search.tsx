@@ -53,15 +53,19 @@ export default function SearchScreen() {
   const [freeDeliveryOnly, setFreeDeliveryOnly] = useState(false);
   const [minRating, setMinRating] = useState<number | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [categoryOptions, setCategoryOptions] = useState<{ id: string; label: string }[]>([]);
 
-  const CATEGORY_OPTIONS: { id: string; label: string }[] = [
-    { id: "برغر", label: "🍔 " + t("search.categories.burger") },
-    { id: "بيتزا", label: "🍕 " + t("search.categories.pizza") },
-    { id: "دجاج", label: "🍗 " + t("search.categories.chicken") },
-    { id: "مشاوي", label: "🥩 " + t("search.categories.grills") },
-    { id: "حلويات", label: "🍰 " + t("search.categories.sweets") },
-    { id: "مشروبات", label: "🥤 " + t("search.categories.drinks") },
-  ];
+  useEffect(() => {
+    customFetch("/api/restaurants/food-categories")
+      .then((data) => {
+        if (Array.isArray(data)) {
+          const opts = (data as { categoryAr: string }[])
+            .map((r) => ({ id: r.categoryAr, label: r.categoryAr }));
+          setCategoryOptions(opts);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
@@ -297,7 +301,7 @@ export default function SearchScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={[styles.filtersScroll, { paddingTop: 0, paddingBottom: 8 }]}
         >
-          {CATEGORY_OPTIONS.map((cat) => (
+          {categoryOptions.map((cat) => (
             <TouchableOpacity
               key={cat.id}
               style={[
