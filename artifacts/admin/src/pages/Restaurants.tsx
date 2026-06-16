@@ -59,6 +59,7 @@ const emptyRestaurant: RestaurantForm = {
   lon: null,
   phone: null,
   isLogo: false,
+  sortOrder: null,
 };
 
 const emptyMenuItem: MenuItemForm = {
@@ -261,6 +262,19 @@ function RestaurantFormDialog({
               className="w-4 h-4 accent-primary"
             />
             <Label htmlFor="isLogo">الصورة لوغو (تُعرض كاملةً بخلفية بيضاء)</Label>
+          </div>
+          <div className="col-span-2 space-y-1">
+            <Label>الأولوية في الترتيب (اختياري)</Label>
+            <Input
+              type="number"
+              min={1}
+              value={form.sortOrder ?? ""}
+              onChange={(e) => set("sortOrder", e.target.value ? parseInt(e.target.value) : null)}
+              placeholder="1 = أول المطاعم، فارغ = بلا أولوية"
+            />
+            <p className="text-xs text-muted-foreground">
+              المطاعم ذات الأولوية تظهر أولاً بالتسلسل. المطاعم بلا أولوية تُرتَّب بعدها حسب القرب ثم التقييم.
+            </p>
           </div>
         </div>
         <DialogFooter>

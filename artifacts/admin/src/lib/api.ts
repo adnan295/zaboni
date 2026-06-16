@@ -69,6 +69,7 @@ export type Restaurant = {
   phone?: string | null;
   ordersCount?: number;
   avgCourierRating?: number | null;
+  sortOrder?: number | null;
 };
 
 export type MenuItem = {

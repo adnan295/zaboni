@@ -23,6 +23,7 @@
     "google-auth-library": "^10.6.2",
     "jsonwebtoken": "^9.0.3",
     "libphonenumber-js": "^1.12.41",
+    "long": "^5.3.2",
     "pino": "^9",
     "pino-http": "^10",
     "qrcode": "^1.5.4",
