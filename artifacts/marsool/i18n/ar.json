@@ -205,6 +205,7 @@
   "search": {
     "placeholder": "ابحث عن مطعم أو طعام...",
     "sort": {
+      "recommended": "موصى به",
       "fastest": "الأسرع",
       "rating": "الأعلى تقييماً",
       "fee": "أقل رسوم"
