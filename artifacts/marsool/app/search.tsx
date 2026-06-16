@@ -20,8 +20,9 @@ import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import RestaurantCard from "@/components/RestaurantCard";
 import { customFetch } from "@workspace/api-client-react";
+import * as Location from "expo-location";
 
-type SortOption = "fastest" | "rating" | "delivery_fee";
+type SortOption = "priority" | "fastest" | "rating" | "delivery_fee";
 
 const HISTORY_KEY = "@marsool_search_history";
 const MAX_HISTORY = 5;
@@ -36,7 +37,19 @@ export default function SearchScreen() {
 
   const [query, setQuery] = useState("");
   const [history, setHistory] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<SortOption>("rating");
+  const [sortBy, setSortBy] = useState<SortOption>("priority");
+  const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") return;
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        setUserLocation({ lat: loc.coords.latitude, lon: loc.coords.longitude });
+      } catch {}
+    })();
+  }, []);
   const [freeDeliveryOnly, setFreeDeliveryOnly] = useState(false);
   const [minRating, setMinRating] = useState<number | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -53,6 +66,7 @@ export default function SearchScreen() {
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
   const SORT_OPTIONS: { id: SortOption; label: string; icon: keyof typeof MaterialIcons.glyphMap }[] = [
+    { id: "priority", label: t("search.sort.recommended") || "موصى به", icon: "auto-awesome" },
     { id: "fastest", label: t("search.sort.fastest"), icon: "access-time" },
     { id: "rating", label: t("search.sort.rating"), icon: "star" },
     { id: "delivery_fee", label: t("search.sort.fee"), icon: "local-shipping" },
@@ -107,6 +121,8 @@ export default function SearchScreen() {
     tags: string[];
     isOpen: boolean;
     discount: string | null;
+    sortOrder?: number | null;
+    distanceKm?: number | null;
   };
 
   const [apiResults, setApiResults] = useState<Restaurant[]>([]);
@@ -126,6 +142,10 @@ export default function SearchScreen() {
         const params = new URLSearchParams();
         if (query.trim()) params.set("search", query.trim());
         if (selectedCategory) params.set("category", selectedCategory);
+        if (userLocation) {
+          params.set("lat", String(userLocation.lat));
+          params.set("lon", String(userLocation.lon));
+        }
         const url = `/api/restaurants?${params.toString()}`;
         const data = await customFetch(url) as Restaurant[];
         setApiResults(Array.isArray(data) ? data : []);
@@ -138,13 +158,14 @@ export default function SearchScreen() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, selectedCategory]);
+  }, [query, selectedCategory, userLocation]);
 
   const filtered = apiResults.filter((r) => {
     const matchRating = minRating === null || r.rating >= minRating;
     const matchFree = !freeDeliveryOnly || r.deliveryFee === 0;
     return matchRating && matchFree;
   }).sort((a, b) => {
+    if (sortBy === "priority") return 0;
     if (sortBy === "fastest") {
       const aMin = parseInt(a.deliveryTime.split("-")[0]);
       const bMin = parseInt(b.deliveryTime.split("-")[0]);
@@ -158,7 +179,7 @@ export default function SearchScreen() {
   const showResults = query.trim().length > 0 || selectedCategory !== null;
   const showHistory = !showResults && history.length > 0;
   const activeFiltersCount =
-    (sortBy !== "rating" ? 1 : 0) + (freeDeliveryOnly ? 1 : 0) + (minRating ? 1 : 0) + (selectedCategory ? 1 : 0);
+    (sortBy !== "priority" ? 1 : 0) + (freeDeliveryOnly ? 1 : 0) + (minRating ? 1 : 0) + (selectedCategory ? 1 : 0);
 
   const suggestions = t("search.suggestionsList", { returnObjects: true }) as string[];
 

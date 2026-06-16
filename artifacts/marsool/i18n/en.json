@@ -205,6 +205,7 @@
   "search": {
     "placeholder": "Search for a restaurant or food...",
     "sort": {
+      "recommended": "Recommended",
       "fastest": "Fastest",
       "rating": "Top Rated",
       "fee": "Lowest Fee"
