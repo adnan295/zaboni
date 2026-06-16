@@ -18,11 +18,15 @@ export const DAMASCUS_CENTER_LON = 36.7137;
 
 export const DEFAULT_DELIVERY_FEE_SYP = 5000;
 
+export const ROAD_DISTANCE_FACTOR = 1.35;
+
 export type ZoneFeeResult =
   | { found: true; fee: number; zone: typeof deliveryZonesTable.$inferSelect }
   | { found: false; fee: number; zone: null };
 
 export async function getFeeForDistance(distanceKm: number): Promise<ZoneFeeResult> {
+  const effectiveKm = distanceKm * ROAD_DISTANCE_FACTOR;
+
   const zones = await db
     .select()
     .from(deliveryZonesTable)
@@ -30,7 +34,7 @@ export async function getFeeForDistance(distanceKm: number): Promise<ZoneFeeResu
     .orderBy(asc(deliveryZonesTable.fromKm));
 
   for (const zone of zones) {
-    if (distanceKm >= zone.fromKm && distanceKm < zone.toKm) {
+    if (effectiveKm >= zone.fromKm && effectiveKm < zone.toKm) {
       return { found: true, fee: zone.fee, zone };
     }
   }
