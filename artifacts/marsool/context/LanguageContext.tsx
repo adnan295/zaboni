@@ -3,6 +3,9 @@ import { I18nManager } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import i18n from "@/i18n";
 
+I18nManager.allowRTL(true);
+I18nManager.forceRTL(true);
+
 export type AppLanguage = "ar";
 
 const LANG_KEY = "@marsool_language";
