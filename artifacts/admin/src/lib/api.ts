@@ -689,6 +689,34 @@ export const api = {
     apiFetch<{ id: string }>("/admin/whatsapp/accounts", { method: "POST" }),
   disconnectWhatsAppAccount: (id: string) =>
     apiFetch<void>(`/admin/whatsapp/accounts/${id}`, { method: "DELETE" }),
+
+  getHomeSectionItems: (section: "popular" | "deals") =>
+    apiFetch<HomeSectionItem[]>(`/admin/home-sections/${section}`),
+  addHomeSectionItem: (section: "popular" | "deals", restaurantId: string) =>
+    apiFetch<HomeSectionItem>(`/admin/home-sections/${section}`, {
+      method: "POST",
+      body: JSON.stringify({ restaurantId }),
+    }),
+  removeHomeSectionItem: (section: "popular" | "deals", restaurantId: string) =>
+    apiFetch<void>(`/admin/home-sections/${section}/${restaurantId}`, { method: "DELETE" }),
+  reorderHomeSectionItems: (
+    section: "popular" | "deals",
+    items: { restaurantId: string; sortOrder: number }[]
+  ) =>
+    apiFetch<{ ok: boolean }>(`/admin/home-sections/${section}/order`, {
+      method: "PUT",
+      body: JSON.stringify({ items }),
+    }),
+};
+
+export type HomeSectionItem = {
+  id: string;
+  section: "popular" | "deals";
+  restaurantId: string;
+  sortOrder: number;
+  restaurantName: string;
+  restaurantNameAr: string;
+  restaurantImage: string;
 };
 
 export type WAAccount = {
