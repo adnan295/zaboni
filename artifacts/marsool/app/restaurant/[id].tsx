@@ -487,8 +487,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   infoMain: { flex: 1, gap: 4 },
-  restaurantName: { fontSize: 20, fontWeight: "800" },
-  tags: { fontSize: 13 },
+  restaurantName: { fontSize: 20, fontWeight: "800", textAlign: "left" },
+  tags: { fontSize: 13, textAlign: "left" },
   ratingChip: {
     flexDirection: "row",
     alignItems: "center",
