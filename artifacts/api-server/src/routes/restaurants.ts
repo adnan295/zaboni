@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, restaurantsTable, menuItemsTable, restaurantHoursTable, promoBannersTable, restaurantCategoriesTable } from "@workspace/db";
+import { db, restaurantsTable, menuItemsTable, restaurantHoursTable, promoBannersTable, restaurantCategoriesTable, restaurantCategorySortOrdersTable } from "@workspace/db";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -80,9 +80,11 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
 router.get("/restaurants", async (req, res) => {
   const search = typeof req.query["search"] === "string" ? req.query["search"].trim() : "";
   const category = typeof req.query["category"] === "string" ? req.query["category"].trim() : "";
+  const categoryId = typeof req.query["categoryId"] === "string" ? req.query["categoryId"].trim() : "";
   const lat = typeof req.query["lat"] === "string" ? parseFloat(req.query["lat"]) : null;
   const lon = typeof req.query["lon"] === "string" ? parseFloat(req.query["lon"]) : null;
   const hasLocation = lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon);
+  const hasCategoryId = categoryId && categoryId !== "all";
 
   let query = db.select().from(restaurantsTable).$dynamic();
 
@@ -103,6 +105,18 @@ router.get("/restaurants", async (req, res) => {
   }
 
   const rows = await query;
+
+  let categorySortMap = new Map<string, number>();
+  if (hasCategoryId) {
+    const catSortRows = await db
+      .select()
+      .from(restaurantCategorySortOrdersTable)
+      .where(eq(restaurantCategorySortOrdersTable.categoryId, categoryId));
+    for (const r of catSortRows) {
+      categorySortMap.set(r.restaurantId, r.sortOrder);
+    }
+  }
+
   const { dayOfWeek, prevDayOfWeek, nowMinutes } = getDamascusNow();
   const hoursMap = await getHoursForRestaurants(rows.map((r) => r.id), [dayOfWeek, prevDayOfWeek]);
 
@@ -116,16 +130,24 @@ router.get("/restaurants", async (req, res) => {
       ...r,
       isOpen: computeIsOpenFromHours(byDay?.get(dayOfWeek), byDay?.get(prevDayOfWeek), nowMinutes, r.isOpen),
       distanceKm,
+      categorySortOrder: hasCategoryId ? (categorySortMap.get(r.id) ?? null) : null,
     };
   });
 
   result.sort((a, b) => {
-    const aPriority = a.sortOrder ?? null;
-    const bPriority = b.sortOrder ?? null;
-
-    if (aPriority !== null && bPriority !== null) return aPriority - bPriority;
-    if (aPriority !== null) return -1;
-    if (bPriority !== null) return 1;
+    if (hasCategoryId) {
+      const aCs = a.categorySortOrder ?? null;
+      const bCs = b.categorySortOrder ?? null;
+      if (aCs !== null && bCs !== null) return aCs - bCs;
+      if (aCs !== null) return -1;
+      if (bCs !== null) return 1;
+    } else {
+      const aPriority = a.sortOrder ?? null;
+      const bPriority = b.sortOrder ?? null;
+      if (aPriority !== null && bPriority !== null) return aPriority - bPriority;
+      if (aPriority !== null) return -1;
+      if (bPriority !== null) return 1;
+    }
 
     if (hasLocation) {
       const aDist = a.distanceKm ?? Infinity;

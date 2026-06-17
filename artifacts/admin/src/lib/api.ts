@@ -561,6 +561,19 @@ export const api = {
   deleteCategory: (id: string) =>
     apiFetch<void>(`/admin/categories/${id}`, { method: "DELETE" }),
 
+  getRestaurantCategoryOrder: (categoryId: string) =>
+    apiFetch<{ id: string; nameAr: string; name: string; image: string; sortOrder: number | null; categorySortOrder: number | null }[]>(
+      `/admin/restaurants/category-order?categoryId=${encodeURIComponent(categoryId)}`
+    ),
+  saveRestaurantCategoryOrder: (
+    categoryId: string,
+    order: { restaurantId: string; sortOrder: number }[]
+  ) =>
+    apiFetch<{ ok: boolean }>("/admin/restaurants/category-order", {
+      method: "PUT",
+      body: JSON.stringify({ categoryId, order }),
+    }),
+
   getFinancialReport: (days?: number, groupBy?: 'day' | 'week') => {
     const params = new URLSearchParams();
     if (days) params.set('days', String(days));

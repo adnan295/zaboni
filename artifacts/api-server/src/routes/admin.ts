@@ -17,6 +17,7 @@ import {
   courierApplicationsTable,
   promoBannersTable,
   restaurantCategoriesTable,
+  restaurantCategorySortOrdersTable,
   chatMessagesTable,
   orderStatusHistoryTable,
 } from "@workspace/db";
@@ -416,6 +417,60 @@ router.post("/admin/restaurants", async (req, res) => {
     .values({ id, ...parsed.data })
     .returning();
   res.status(201).json(row);
+});
+
+router.get("/admin/restaurants/category-order", requireAdmin, async (req, res) => {
+  const categoryId = typeof req.query["categoryId"] === "string" ? req.query["categoryId"].trim() : "";
+  if (!categoryId) { res.status(400).json({ error: "categoryId required" }); return; }
+
+  const [restaurants, catSortRows] = await Promise.all([
+    db.select({ id: restaurantsTable.id, nameAr: restaurantsTable.nameAr, name: restaurantsTable.name, image: restaurantsTable.image, sortOrder: restaurantsTable.sortOrder })
+      .from(restaurantsTable)
+      .orderBy(asc(restaurantsTable.nameAr)),
+    db.select().from(restaurantCategorySortOrdersTable).where(eq(restaurantCategorySortOrdersTable.categoryId, categoryId)),
+  ]);
+
+  const sortMap = new Map<string, number>();
+  for (const r of catSortRows) sortMap.set(r.restaurantId, r.sortOrder);
+
+  const result = restaurants
+    .map((r) => ({ ...r, categorySortOrder: sortMap.get(r.id) ?? null }))
+    .sort((a, b) => {
+      const aS = a.categorySortOrder ?? null;
+      const bS = b.categorySortOrder ?? null;
+      if (aS !== null && bS !== null) return aS - bS;
+      if (aS !== null) return -1;
+      if (bS !== null) return 1;
+      return a.nameAr.localeCompare(b.nameAr, "ar");
+    });
+
+  res.json(result);
+});
+
+router.put("/admin/restaurants/category-order", requireAdmin, async (req, res) => {
+  const body = z.object({
+    categoryId: z.string().min(1),
+    order: z.array(z.object({ restaurantId: z.string(), sortOrder: z.number().int() })),
+  }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const { categoryId, order } = body.data;
+  if (order.length > 0) {
+    await db.transaction(async (tx) => {
+      for (const item of order) {
+        const id = `cat_sort_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        await tx
+          .insert(restaurantCategorySortOrdersTable)
+          .values({ id, restaurantId: item.restaurantId, categoryId, sortOrder: item.sortOrder })
+          .onConflictDoUpdate({
+            target: [restaurantCategorySortOrdersTable.restaurantId, restaurantCategorySortOrdersTable.categoryId],
+            set: { sortOrder: item.sortOrder },
+          });
+      }
+    });
+  }
+
+  res.json({ ok: true });
 });
 
 router.put("/admin/restaurants/:id", async (req, res) => {
