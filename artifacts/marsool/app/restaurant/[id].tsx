@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -9,6 +9,9 @@ import {
   Animated,
   ActivityIndicator,
   Alert,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
+  type LayoutChangeEvent,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -24,6 +27,9 @@ import { useAddresses } from "@/context/AddressContext";
 import { useGetRestaurant, useGetRestaurantMenu } from "@workspace/api-client-react";
 import { haversineDistance } from "@/utils/geo";
 import { buildImageUrl } from "@/lib/apiConfig";
+
+const POPULAR_KEY = "__popular__";
+const CAT_TAB_HEIGHT = 48;
 
 interface CartEntry {
   nameAr: string;
@@ -57,18 +63,26 @@ export default function RestaurantScreen() {
   const { data: menuItemsData } = useGetRestaurantMenu(id ?? "");
   const menuItems = menuItemsData ?? [];
   const categories = Array.from(new Set(menuItems.map((m) => m.categoryAr)));
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const popularItems = menuItems.filter((m) => m.isPopular).slice(0, 4);
+  const hasPopular = popularItems.length > 0;
+
+  const allTabs: string[] = [...(hasPopular ? [POPULAR_KEY] : []), ...categories];
 
   const [cart, setCart] = useState<Record<string, CartEntry>>({});
+  const [activeCategory, setActiveCategory] = useState<string | null>(allTabs[0] ?? null);
+
+  const scrollRef = useRef<ScrollView>(null);
+  const catTabScrollRef = useRef<ScrollView>(null);
+  const sectionYRef = useRef<Record<string, number>>({});
+  const isProgrammaticScroll = useRef(false);
+  const activeCategoryRef = useRef<string | null>(allTabs[0] ?? null);
+  const allTabsRef = useRef<string[]>(allTabs);
+  allTabsRef.current = allTabs;
 
   const addToCart = (itemId: string, nameAr: string, price: number) => {
     setCart((prev) => ({
       ...prev,
-      [itemId]: {
-        nameAr,
-        price,
-        qty: (prev[itemId]?.qty ?? 0) + 1,
-      },
+      [itemId]: { nameAr, price, qty: (prev[itemId]?.qty ?? 0) + 1 },
     }));
   };
 
@@ -91,9 +105,7 @@ export default function RestaurantScreen() {
 
   const buildCartText = (): string => {
     const prefix = restaurant ? `${t("orderRequest.from")} ${restaurant.nameAr}: ` : "";
-    const items = cartEntries
-      .map((e) => (e.qty > 1 ? `${e.nameAr} × ${e.qty}` : e.nameAr))
-      .join("، ");
+    const items = cartEntries.map((e) => (e.qty > 1 ? `${e.nameAr} × ${e.qty}` : e.nameAr)).join("، ");
     return prefix + items;
   };
 
@@ -110,11 +122,35 @@ export default function RestaurantScreen() {
     toggleFavorite(restaurant);
   };
 
-  const popularItems = menuItems.filter((m) => m.isPopular).slice(0, 4);
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (isProgrammaticScroll.current) return;
+    const y = event.nativeEvent.contentOffset.y;
+    let currentCat: string | null = null;
+    for (const cat of allTabsRef.current) {
+      const secY = sectionYRef.current[cat];
+      if (secY != null && y >= secY - CAT_TAB_HEIGHT - 16) {
+        currentCat = cat;
+      }
+    }
+    if (currentCat !== activeCategoryRef.current) {
+      activeCategoryRef.current = currentCat;
+      setActiveCategory(currentCat);
+    }
+  }, []);
 
-  const filteredItems = selectedCategory
-    ? menuItems.filter((m) => m.categoryAr === selectedCategory)
-    : menuItems;
+  const scrollToCategory = (cat: string) => {
+    const y = sectionYRef.current[cat];
+    if (y == null) return;
+    isProgrammaticScroll.current = true;
+    activeCategoryRef.current = cat;
+    setActiveCategory(cat);
+    scrollRef.current?.scrollTo({ y: Math.max(0, y - CAT_TAB_HEIGHT), animated: true });
+    setTimeout(() => { isProgrammaticScroll.current = false; }, 800);
+  };
+
+  const registerSection = (cat: string) => (e: LayoutChangeEvent) => {
+    sectionYRef.current[cat] = e.nativeEvent.layout.y;
+  };
 
   const handleOrder = () => {
     if (!restaurant || !restaurant.isOpen) return;
@@ -130,10 +166,7 @@ export default function RestaurantScreen() {
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const params: Record<string, string> = {
-      restaurantName: restaurant.nameAr,
-      restaurantId: restaurant.id,
-    };
+    const params: Record<string, string> = { restaurantName: restaurant.nameAr, restaurantId: restaurant.id };
     if (hasCart) {
       params.reorderText = buildCartText();
       params.estimatedTotal = String(estimatedTotal);
@@ -163,7 +196,19 @@ export default function RestaurantScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 140 }}>
+      {/*
+        stickyHeaderIndices: child at index 2 becomes sticky.
+        Order: 0=hero, 1=infoCard, 2=catTabs(STICKY), 3+=sections
+      */}
+      <ScrollView
+        ref={scrollRef}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 140 }}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        stickyHeaderIndices={allTabs.length > 0 ? [2] : undefined}
+      >
+        {/* [0] Hero */}
         <View style={styles.heroContainer}>
           <Image source={{ uri: buildImageUrl(restaurant.image) }} style={styles.heroImage} resizeMode="cover" />
           <View style={[styles.heroOverlay, { paddingTop: topPadding + 8 }]}>
@@ -173,7 +218,6 @@ export default function RestaurantScreen() {
             >
               <MaterialIcons name={backIcon} size={22} color="#1a1a1a" />
             </TouchableOpacity>
-
             <View style={styles.heroRight}>
               {restaurant.discount && (
                 <View style={[styles.heroBadge, { backgroundColor: colors.primary }]}>
@@ -197,27 +241,23 @@ export default function RestaurantScreen() {
           </View>
         </View>
 
+        {/* [1] Info card */}
         <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
           <View style={styles.infoTop}>
             <View style={styles.infoMain}>
-              <Text style={[styles.restaurantName, { color: colors.foreground }]}>
-                {restaurant.nameAr}
-              </Text>
+              <Text style={[styles.restaurantName, { color: colors.foreground }]}>{restaurant.nameAr}</Text>
               <Text style={[styles.tags, { color: colors.mutedForeground }]}>
                 {(restaurant.tags as string[]).join(" · ")}
               </Text>
             </View>
             <View style={[styles.ratingChip, { backgroundColor: colors.secondary }]}>
               <MaterialIcons name="star" size={14} color="#FFB800" />
-              <Text style={[styles.ratingNum, { color: colors.foreground }]}>
-                {restaurant.rating}
-              </Text>
+              <Text style={[styles.ratingNum, { color: colors.foreground }]}>{restaurant.rating}</Text>
               <Text style={[styles.ratingCount, { color: colors.mutedForeground }]}>
                 ({restaurant.reviewCount.toLocaleString()})
               </Text>
             </View>
           </View>
-
           <View style={[styles.statsRow, { borderTopColor: colors.border }]}>
             <View style={styles.statItem}>
               <MaterialIcons name="access-time" size={16} color={colors.primary} />
@@ -239,56 +279,59 @@ export default function RestaurantScreen() {
           </View>
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.catScroll}
-          style={{ marginBottom: 12 }}
-        >
-          <TouchableOpacity
-            style={[
-              styles.catBtn,
-              {
-                backgroundColor: !selectedCategory ? colors.primary : colors.card,
-                borderColor: !selectedCategory ? colors.primary : colors.border,
-              },
-            ]}
-            onPress={() => setSelectedCategory(null)}
+        {/* [2] Sticky category tabs */}
+        <View style={[styles.catTabsWrap, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+          <ScrollView
+            ref={catTabScrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.catScroll}
           >
-            <Text style={[styles.catText, { color: !selectedCategory ? "#fff" : colors.foreground }]}>
-              {t("restaurant.all")}
-            </Text>
-          </TouchableOpacity>
-          {categories.map((cat) => (
-            <TouchableOpacity
-              key={cat}
-              style={[
-                styles.catBtn,
-                {
-                  backgroundColor: selectedCategory === cat ? colors.primary : colors.card,
-                  borderColor: selectedCategory === cat ? colors.primary : colors.border,
-                },
-              ]}
-              onPress={() => setSelectedCategory(cat)}
-            >
-              <Text style={[styles.catText, { color: selectedCategory === cat ? "#fff" : colors.foreground }]}>
-                {cat}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+            {allTabs.map((cat) => {
+              const isActive = activeCategory === cat;
+              const label = cat === POPULAR_KEY ? "🔥 الأكثر طلباً" : cat;
+              return (
+                <TouchableOpacity
+                  key={cat}
+                  style={[
+                    styles.catTab,
+                    { borderBottomColor: isActive ? colors.primary : "transparent" },
+                  ]}
+                  onPress={() => scrollToCategory(cat)}
+                >
+                  <Text
+                    style={[
+                      styles.catTabText,
+                      {
+                        color: isActive ? colors.primary : colors.mutedForeground,
+                        fontWeight: isActive ? "700" : "500",
+                      },
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
 
-        {popularItems.length > 0 && !selectedCategory && (
-          <View style={styles.popularSection}>
-            <View style={styles.popularHeader}>
-              <Text style={[styles.popularTitle, { color: colors.foreground }]}>🔥 الأكثر طلباً</Text>
-              <Text style={[styles.popularSubtitle, { color: colors.mutedForeground }]}>الأكثر طلباً الآن</Text>
-            </View>
+        {/* [3] Popular section */}
+        {hasPopular && (
+          <View onLayout={registerSection(POPULAR_KEY)} style={styles.sectionWrap}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>🔥 الأكثر طلباً</Text>
+            <Text style={[styles.sectionSubtitle, { color: colors.mutedForeground }]}>الأكثر طلباً الآن</Text>
             <View style={styles.popularGrid}>
               {popularItems.map((item) => (
                 <TouchableOpacity
                   key={item.id}
-                  style={[styles.popularCard, { backgroundColor: colors.card, borderColor: cart[item.id]?.qty ? colors.primary : colors.border }]}
+                  style={[
+                    styles.popularCard,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: cart[item.id]?.qty ? colors.primary : colors.border,
+                    },
+                  ]}
                   onPress={isOpen ? () => addToCart(item.id, item.nameAr, item.price) : undefined}
                   activeOpacity={isOpen ? 0.85 : 1}
                 >
@@ -303,9 +346,13 @@ export default function RestaurantScreen() {
                     </View>
                   ) : null}
                   <View style={styles.popularCardBody}>
-                    <Text style={[styles.popularItemName, { color: colors.foreground }]} numberOfLines={2}>{item.nameAr}</Text>
+                    <Text style={[styles.popularItemName, { color: colors.foreground }]} numberOfLines={2}>
+                      {item.nameAr}
+                    </Text>
                     {item.price > 0 && (
-                      <Text style={[styles.popularItemPrice, { color: colors.primary }]}>{item.price.toLocaleString()} ل.س</Text>
+                      <Text style={[styles.popularItemPrice, { color: colors.primary }]}>
+                        {item.price.toLocaleString()} ل.س
+                      </Text>
                     )}
                   </View>
                 </TouchableOpacity>
@@ -314,42 +361,33 @@ export default function RestaurantScreen() {
           </View>
         )}
 
-        <View style={styles.menuSection}>
-          <Text style={[styles.menuTitle, { color: colors.foreground }]}>{t("restaurant.menu")}</Text>
-          {(() => {
-            const groups: { label: string | null; items: typeof filteredItems }[] = [];
-            const groupIndex = new Map<string | null, number>();
-            for (const item of filteredItems) {
-              const label = item.subcategoryAr ?? null;
-              if (groupIndex.has(label)) {
-                groups[groupIndex.get(label)!].items.push(item);
-              } else {
-                groupIndex.set(label, groups.length);
-                groups.push({ label, items: [item] });
-              }
-            }
-            const hasSubcategories = groups.some((g) => g.label !== null);
-            return groups.map((group, gi) => (
-              <View key={gi}>
-                {hasSubcategories && group.label ? (
-                  <Text style={[styles.subcatLabel, { color: colors.mutedForeground }]}>{group.label}</Text>
-                ) : null}
-                {group.items.map((item) => (
-                  <MenuItemCard
-                    key={item.id}
-                    item={item}
-                    quantity={cart[item.id]?.qty ?? 0}
-                    onAdd={isOpen ? () => addToCart(item.id, item.nameAr, item.price) : undefined}
-                    onRemove={isOpen ? () => removeFromCart(item.id, item.nameAr, item.price) : undefined}
-                  />
-                ))}
-              </View>
-            ));
-          })()}
-        </View>
+        {/* [4+] One section per category */}
+        {categories.map((cat) => {
+          const catItems = menuItems.filter((m) => m.categoryAr === cat);
+          return (
+            <View key={cat} onLayout={registerSection(cat)} style={styles.sectionWrap}>
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{cat}</Text>
+              {catItems.map((item) => (
+                <MenuItemCard
+                  key={item.id}
+                  item={item}
+                  quantity={cart[item.id]?.qty ?? 0}
+                  onAdd={isOpen ? () => addToCart(item.id, item.nameAr, item.price) : undefined}
+                  onRemove={isOpen ? () => removeFromCart(item.id, item.nameAr, item.price) : undefined}
+                />
+              ))}
+            </View>
+          );
+        })}
       </ScrollView>
 
-      <View style={[styles.orderFooter, { backgroundColor: colors.background, paddingBottom: bottomPadding + 12, borderTopColor: colors.border }]}>
+      {/* Order footer */}
+      <View
+        style={[
+          styles.orderFooter,
+          { backgroundColor: colors.background, paddingBottom: bottomPadding + 12, borderTopColor: colors.border },
+        ]}
+      >
         {!isOpen && (
           <View style={[styles.closedBanner, { backgroundColor: "rgba(0,0,0,0.08)" }]}>
             <MaterialIcons name="access-time" size={16} color={colors.mutedForeground} />
@@ -358,7 +396,6 @@ export default function RestaurantScreen() {
             </Text>
           </View>
         )}
-
         {hasCart && isOpen && (
           <View style={[styles.cartSummary, { backgroundColor: colors.secondary }]}>
             <View style={styles.cartSummaryLeft}>
@@ -374,7 +411,6 @@ export default function RestaurantScreen() {
             </Text>
           </View>
         )}
-
         <TouchableOpacity
           style={[styles.orderBtn, { backgroundColor: isOpen ? colors.primary : colors.muted }]}
           onPress={handleOrder}
@@ -431,11 +467,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  heroBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
+  heroBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
   heroBadgeText: { color: "#fff", fontSize: 12, fontWeight: "700" },
   infoCard: {
     margin: 16,
@@ -472,19 +504,27 @@ const styles = StyleSheet.create({
   statDivider: { width: 1, height: "100%" },
   statLabel: { fontSize: 11 },
   statValue: { fontSize: 13, fontWeight: "700" },
-  catScroll: { paddingHorizontal: 16, gap: 8 },
-  catBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
+  catTabsWrap: {
+    height: CAT_TAB_HEIGHT,
+    borderBottomWidth: 1,
+    justifyContent: "center",
   },
-  catText: { fontSize: 13, fontWeight: "600" },
-  popularSection: { paddingHorizontal: 16, marginBottom: 8 },
-  popularHeader: { marginBottom: 12 },
-  popularTitle: { fontSize: 17, fontWeight: "800" },
-  popularSubtitle: { fontSize: 12, marginTop: 2 },
-  popularGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  catScroll: { paddingHorizontal: 12, alignItems: "center", gap: 0 },
+  catTab: {
+    paddingHorizontal: 16,
+    height: CAT_TAB_HEIGHT,
+    justifyContent: "center",
+    borderBottomWidth: 2.5,
+  },
+  catTabText: { fontSize: 13 },
+  sectionWrap: {
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 8,
+  },
+  sectionTitle: { fontSize: 17, fontWeight: "800", marginBottom: 4 },
+  sectionSubtitle: { fontSize: 12, marginBottom: 12 },
+  popularGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 8 },
   popularCard: {
     width: "47%",
     borderRadius: 14,
@@ -517,9 +557,6 @@ const styles = StyleSheet.create({
   popularCardBody: { padding: 10, gap: 4 },
   popularItemName: { fontSize: 13, fontWeight: "700" },
   popularItemPrice: { fontSize: 13, fontWeight: "800" },
-  menuSection: { paddingHorizontal: 16 },
-  menuTitle: { fontSize: 17, fontWeight: "800", marginBottom: 12 },
-  subcatLabel: { fontSize: 13, fontWeight: "700", marginTop: 12, marginBottom: 6, paddingHorizontal: 4 },
   orderFooter: {
     position: "absolute",
     bottom: 0,
