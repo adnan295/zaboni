@@ -419,14 +419,51 @@ router.post("/admin/restaurants", async (req, res) => {
   res.status(201).json(row);
 });
 
+router.get("/admin/restaurants/global-order", requireAdmin, async (req, res) => {
+  const restaurants = await db
+    .select({ id: restaurantsTable.id, nameAr: restaurantsTable.nameAr, name: restaurantsTable.name, image: restaurantsTable.image, sortOrder: restaurantsTable.sortOrder })
+    .from(restaurantsTable);
+
+  restaurants.sort((a, b) => {
+    const aSo = a.sortOrder ?? null;
+    const bSo = b.sortOrder ?? null;
+    if (aSo !== null && bSo !== null) return aSo - bSo;
+    if (aSo !== null) return -1;
+    if (bSo !== null) return 1;
+    return a.nameAr.localeCompare(b.nameAr, "ar");
+  });
+
+  res.json(restaurants);
+});
+
+router.put("/admin/restaurants/global-order", requireAdmin, async (req, res) => {
+  const body = z.object({
+    order: z.array(z.object({ restaurantId: z.string(), sortOrder: z.number().int() })),
+  }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const { order } = body.data;
+  if (order.length > 0) {
+    await db.transaction(async (tx) => {
+      for (const item of order) {
+        await tx
+          .update(restaurantsTable)
+          .set({ sortOrder: item.sortOrder })
+          .where(eq(restaurantsTable.id, item.restaurantId));
+      }
+    });
+  }
+
+  res.json({ ok: true });
+});
+
 router.get("/admin/restaurants/category-order", requireAdmin, async (req, res) => {
   const categoryId = typeof req.query["categoryId"] === "string" ? req.query["categoryId"].trim() : "";
   if (!categoryId) { res.status(400).json({ error: "categoryId required" }); return; }
 
   const [restaurants, catSortRows] = await Promise.all([
     db.select({ id: restaurantsTable.id, nameAr: restaurantsTable.nameAr, name: restaurantsTable.name, image: restaurantsTable.image, sortOrder: restaurantsTable.sortOrder })
-      .from(restaurantsTable)
-      .orderBy(asc(restaurantsTable.nameAr)),
+      .from(restaurantsTable),
     db.select().from(restaurantCategorySortOrdersTable).where(eq(restaurantCategorySortOrdersTable.categoryId, categoryId)),
   ]);
 
@@ -436,11 +473,19 @@ router.get("/admin/restaurants/category-order", requireAdmin, async (req, res) =
   const result = restaurants
     .map((r) => ({ ...r, categorySortOrder: sortMap.get(r.id) ?? null }))
     .sort((a, b) => {
+      // 1. category-specific order (nulls last)
       const aS = a.categorySortOrder ?? null;
       const bS = b.categorySortOrder ?? null;
       if (aS !== null && bS !== null) return aS - bS;
       if (aS !== null) return -1;
       if (bS !== null) return 1;
+      // 2. global sortOrder fallback (nulls last)
+      const aSo = a.sortOrder ?? null;
+      const bSo = b.sortOrder ?? null;
+      if (aSo !== null && bSo !== null) return aSo - bSo;
+      if (aSo !== null) return -1;
+      if (bSo !== null) return 1;
+      // 3. name alphabetical
       return a.nameAr.localeCompare(b.nameAr, "ar");
     });
 

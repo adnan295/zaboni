@@ -136,26 +136,36 @@ router.get("/restaurants", async (req, res) => {
 
   result.sort((a, b) => {
     if (hasCategoryId) {
+      // 1. category-specific order (nulls last)
       const aCs = a.categorySortOrder ?? null;
       const bCs = b.categorySortOrder ?? null;
       if (aCs !== null && bCs !== null) return aCs - bCs;
       if (aCs !== null) return -1;
       if (bCs !== null) return 1;
+      // 2. global sortOrder fallback (nulls last)
+      const aSo = a.sortOrder ?? null;
+      const bSo = b.sortOrder ?? null;
+      if (aSo !== null && bSo !== null) return aSo - bSo;
+      if (aSo !== null) return -1;
+      if (bSo !== null) return 1;
+      // 3. rating desc
+      return b.rating - a.rating;
     } else {
+      // global mode: sortOrder (nulls last) → distance → rating
       const aPriority = a.sortOrder ?? null;
       const bPriority = b.sortOrder ?? null;
       if (aPriority !== null && bPriority !== null) return aPriority - bPriority;
       if (aPriority !== null) return -1;
       if (bPriority !== null) return 1;
-    }
 
-    if (hasLocation) {
-      const aDist = a.distanceKm ?? Infinity;
-      const bDist = b.distanceKm ?? Infinity;
-      if (Math.abs(aDist - bDist) > 0.1) return aDist - bDist;
-    }
+      if (hasLocation) {
+        const aDist = a.distanceKm ?? Infinity;
+        const bDist = b.distanceKm ?? Infinity;
+        if (Math.abs(aDist - bDist) > 0.1) return aDist - bDist;
+      }
 
-    return b.rating - a.rating;
+      return b.rating - a.rating;
+    }
   });
 
   res.json(result);

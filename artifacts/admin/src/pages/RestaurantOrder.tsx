@@ -19,16 +19,19 @@ import { api, type RestaurantCategory } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
-type RestaurantOrderItem = {
+const ALL_TAB = "__all__";
+
+type BaseItem = {
   id: string;
   nameAr: string;
   name: string;
   image: string;
   sortOrder: number | null;
-  categorySortOrder: number | null;
 };
 
-function SortableRow({ item, index }: { item: RestaurantOrderItem; index: number }) {
+type CategoryItem = BaseItem & { categorySortOrder: number | null };
+
+function SortableRow({ item, index, isAll }: { item: BaseItem | CategoryItem; index: number; isAll: boolean }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.id });
 
@@ -37,6 +40,10 @@ function SortableRow({ item, index }: { item: RestaurantOrderItem; index: number
     transition,
     opacity: isDragging ? 0.5 : 1,
   };
+
+  const unsorted = isAll
+    ? item.sortOrder === null
+    : (item as CategoryItem).categorySortOrder === null;
 
   return (
     <div
@@ -67,7 +74,7 @@ function SortableRow({ item, index }: { item: RestaurantOrderItem; index: number
         </div>
       )}
       <span className="flex-1 text-sm font-medium text-right">{item.nameAr}</span>
-      {item.categorySortOrder === null && (
+      {unsorted && (
         <span className="text-xs text-zinc-400 shrink-0">غير مرتّب</span>
       )}
     </div>
@@ -77,41 +84,74 @@ function SortableRow({ item, index }: { item: RestaurantOrderItem; index: number
 export default function RestaurantOrderPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
-  const [items, setItems] = useState<RestaurantOrderItem[]>([]);
+  const [selectedTab, setSelectedTab] = useState<string>(ALL_TAB);
+  const [items, setItems] = useState<(BaseItem | CategoryItem)[]>([]);
   const [dirty, setDirty] = useState(false);
+
+  const isAllTab = selectedTab === ALL_TAB;
 
   const { data: categories = [] } = useQuery<RestaurantCategory[]>({
     queryKey: ["admin", "categories"],
     queryFn: api.getAdminCategories,
   });
 
-  const { data: fetchedItems, isLoading } = useQuery<RestaurantOrderItem[]>({
-    queryKey: ["admin", "restaurant-category-order", selectedCategoryId],
-    queryFn: () => api.getRestaurantCategoryOrder(selectedCategoryId),
-    enabled: !!selectedCategoryId,
+  // Global order query
+  const { data: globalItems, isLoading: globalLoading } = useQuery<BaseItem[]>({
+    queryKey: ["admin", "restaurant-global-order"],
+    queryFn: api.getRestaurantGlobalOrder,
+    enabled: isAllTab,
   });
 
+  // Category order query
+  const { data: categoryItems, isLoading: categoryLoading } = useQuery<CategoryItem[]>({
+    queryKey: ["admin", "restaurant-category-order", selectedTab],
+    queryFn: () => api.getRestaurantCategoryOrder(selectedTab),
+    enabled: !isAllTab && !!selectedTab,
+  });
+
+  const isLoading = isAllTab ? globalLoading : categoryLoading;
+
   useEffect(() => {
-    if (fetchedItems) {
-      setItems(fetchedItems);
+    const data = isAllTab ? globalItems : categoryItems;
+    if (data) {
+      setItems(data);
       setDirty(false);
     }
-  }, [fetchedItems]);
+  }, [globalItems, categoryItems, isAllTab]);
 
-  const saveMutation = useMutation({
+  const saveGlobalMutation = useMutation({
+    mutationFn: () =>
+      api.saveRestaurantGlobalOrder(
+        items.map((item, i) => ({ restaurantId: item.id, sortOrder: i }))
+      ),
+    onSuccess: () => {
+      toast({ title: "تم الحفظ", description: "تم حفظ الترتيب العام بنجاح" });
+      setDirty(false);
+      qc.invalidateQueries({ queryKey: ["admin", "restaurant-global-order"] });
+    },
+    onError: (e: Error) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
+  });
+
+  const saveCategoryMutation = useMutation({
     mutationFn: () =>
       api.saveRestaurantCategoryOrder(
-        selectedCategoryId,
+        selectedTab,
         items.map((item, i) => ({ restaurantId: item.id, sortOrder: i }))
       ),
     onSuccess: () => {
       toast({ title: "تم الحفظ", description: "تم حفظ الترتيب بنجاح" });
       setDirty(false);
-      qc.invalidateQueries({ queryKey: ["admin", "restaurant-category-order", selectedCategoryId] });
+      qc.invalidateQueries({ queryKey: ["admin", "restaurant-category-order", selectedTab] });
     },
     onError: (e: Error) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
+
+  const isPending = isAllTab ? saveGlobalMutation.isPending : saveCategoryMutation.isPending;
+
+  const handleSave = () => {
+    if (isAllTab) saveGlobalMutation.mutate();
+    else saveCategoryMutation.mutate();
+  };
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -126,9 +166,9 @@ export default function RestaurantOrderPage() {
     setDirty(true);
   }, []);
 
-  const handleCategoryChange = (id: string) => {
+  const handleTabChange = (id: string) => {
     if (dirty && !confirm("لديك تغييرات غير محفوظة. هل تريد المتابعة؟")) return;
-    setSelectedCategoryId(id);
+    setSelectedTab(id);
     setItems([]);
     setDirty(false);
   };
@@ -137,23 +177,33 @@ export default function RestaurantOrderPage() {
     <div className="p-6 max-w-2xl mx-auto" dir="rtl">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">ترتيب المطاعم حسب التصنيف</h1>
-          <p className="text-sm text-zinc-500 mt-1">اسحب المطاعم لتحديد ترتيب ظهورها في كل تصنيف</p>
+          <h1 className="text-2xl font-bold">ترتيب المطاعم</h1>
+          <p className="text-sm text-zinc-500 mt-1">اسحب المطاعم لتحديد ترتيب ظهورها</p>
         </div>
         {dirty && (
-          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? "جاري الحفظ..." : "حفظ الترتيب"}
+          <Button onClick={handleSave} disabled={isPending}>
+            {isPending ? "جاري الحفظ..." : "حفظ الترتيب"}
           </Button>
         )}
       </div>
 
       <div className="flex flex-wrap gap-2 mb-6">
+        <button
+          onClick={() => handleTabChange(ALL_TAB)}
+          className={`px-4 py-2 rounded-full text-sm font-semibold border transition-colors ${
+            selectedTab === ALL_TAB
+              ? "bg-primary text-white border-primary"
+              : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 hover:border-primary"
+          }`}
+        >
+          الكل (الترتيب العام)
+        </button>
         {categories.map((cat) => (
           <button
             key={cat.id}
-            onClick={() => handleCategoryChange(cat.id)}
+            onClick={() => handleTabChange(cat.id)}
             className={`px-4 py-2 rounded-full text-sm font-semibold border transition-colors ${
-              selectedCategoryId === cat.id
+              selectedTab === cat.id
                 ? "bg-primary text-white border-primary"
                 : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 hover:border-primary"
             }`}
@@ -163,26 +213,36 @@ export default function RestaurantOrderPage() {
         ))}
       </div>
 
-      {!selectedCategoryId && (
+      {isAllTab && !isLoading && items.length === 0 && (
+        <div className="text-center py-16 text-zinc-400">
+          <div className="text-4xl mb-3">↕️</div>
+          <p>جاري التحميل...</p>
+        </div>
+      )}
+
+      {!isAllTab && !selectedTab && (
         <div className="text-center py-16 text-zinc-400">
           <div className="text-4xl mb-3">🏷️</div>
           <p>اختر تصنيفاً لترتيب مطاعمه</p>
         </div>
       )}
 
-      {selectedCategoryId && isLoading && (
+      {isLoading && (
         <div className="text-center py-16 text-zinc-400">جاري التحميل...</div>
       )}
 
-      {selectedCategoryId && !isLoading && items.length > 0 && (
+      {!isLoading && items.length > 0 && (
         <>
           <p className="text-xs text-zinc-400 mb-3">
-            {items.length} مطعم · المطاعم غير المرتّبة تظهر بعد المرتّبة
+            {items.length} مطعم
+            {isAllTab
+              ? " · الترتيب العام يُطبّق على تبويب الكل في التطبيق"
+              : " · المطاعم غير المرتّبة تظهر بعد المرتّبة (ثم حسب الترتيب العام)"}
           </p>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
               {items.map((item, index) => (
-                <SortableRow key={item.id} item={item} index={index} />
+                <SortableRow key={item.id} item={item} index={index} isAll={isAllTab} />
               ))}
             </SortableContext>
           </DndContext>
