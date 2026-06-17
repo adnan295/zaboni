@@ -23,6 +23,7 @@ import Settings from "@/pages/Settings";
 import CourierApplications from "@/pages/CourierApplications";
 import Content from "@/pages/Content";
 import Categories from "@/pages/Categories";
+import RestaurantOrder from "@/pages/RestaurantOrder";
 import LiveMap from "@/pages/LiveMap";
 import ChatMonitor from "@/pages/ChatMonitor";
 import WhatsApp from "@/pages/WhatsApp";
@@ -57,6 +58,7 @@ function Router({ onLogout }: { onLogout: () => void }) {
         <Route path="/courier-applications" component={CourierApplications} />
         <Route path="/content" component={Content} />
         <Route path="/categories" component={Categories} />
+        <Route path="/restaurant-order" component={RestaurantOrder} />
         <Route path="/live-map" component={LiveMap} />
         <Route path="/chats" component={ChatMonitor} />
         <Route path="/whatsapp" component={WhatsApp} />

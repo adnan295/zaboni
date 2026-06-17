@@ -85,12 +85,15 @@ type RestaurantItem = {
   distanceKm?: number | null;
 };
 
-async function fetchRestaurants(lat?: number, lon?: number): Promise<RestaurantItem[]> {
+async function fetchRestaurants(lat?: number, lon?: number, categoryId?: string): Promise<RestaurantItem[]> {
   const base = getApiBaseUrl();
   const params = new URLSearchParams();
   if (lat != null && lon != null) {
     params.set("lat", String(lat));
     params.set("lon", String(lon));
+  }
+  if (categoryId && categoryId !== "all") {
+    params.set("categoryId", categoryId);
   }
   const url = `${base}/api/restaurants${params.toString() ? "?" + params.toString() : ""}`;
   const res = await fetch(url);
@@ -145,8 +148,8 @@ export default function HomeScreen() {
   }, []);
 
   const { data: apiRestaurants, isLoading: restaurantsLoading, refetch } = useQuery<RestaurantItem[]>({
-    queryKey: ["restaurants", userLocation?.lat, userLocation?.lon],
-    queryFn: () => fetchRestaurants(userLocation?.lat, userLocation?.lon),
+    queryKey: ["restaurants", userLocation?.lat, userLocation?.lon, selectedCategory],
+    queryFn: () => fetchRestaurants(userLocation?.lat, userLocation?.lon, selectedCategory),
     staleTime: 2 * 60 * 1000,
   });
   const { data: apiBanners = FALLBACK_BANNERS } = useQuery({ queryKey: ["banners"], queryFn: fetchBanners, staleTime: 5 * 60 * 1000, placeholderData: FALLBACK_BANNERS });
