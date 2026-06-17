@@ -3,19 +3,20 @@ import { setBaseUrl } from "@workspace/api-client-react";
 
 const PROD_HOST = process.env.EXPO_PUBLIC_API_HOST ?? "zaboni.app";
 const PROD = `https://${PROD_HOST}`;
-const LOCAL_DEV = "http://localhost:8080";
+const DEV_HOST = process.env.EXPO_PUBLIC_DOMAIN;
+const DEV_BASE = DEV_HOST ? `https://${DEV_HOST}` : "http://localhost:8080";
 
 export function initApiClient() {
   if (Platform.OS === "web") {
     setBaseUrl(null);
   } else {
-    setBaseUrl(__DEV__ ? LOCAL_DEV : PROD);
+    setBaseUrl(__DEV__ ? DEV_BASE : PROD);
   }
 }
 
 export function getApiBaseUrl(): string {
   if (Platform.OS === "web") return "";
-  return __DEV__ ? LOCAL_DEV : PROD;
+  return __DEV__ ? DEV_BASE : PROD;
 }
 
 export function buildImageUrl(path: string | null | undefined): string | undefined {
