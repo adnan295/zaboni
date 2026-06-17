@@ -202,3 +202,33 @@ If FCM/APNs creds are missing, the corresponding channel auto-disables (warning 
 
 ### Foreground Token Refresh
 `hooks/usePushNotifications.ts` re-registers on every `AppState=active` (cooldown 30 s) so token rotations are picked up without a relaunch.
+
+## OTA Updates (EAS Update)
+
+`expo-updates ~0.28.x` is installed and configured for over-the-air JS/UI updates without a Play Store submission.
+
+### One-time setup (required before first OTA-enabled build)
+```bash
+cd artifacts/marsool
+eas login                   # login with your Expo account
+eas init                    # links project → writes projectId to app.json + eas.json
+```
+After `eas init`, replace both `YOUR_PROJECT_ID` placeholders in `artifacts/marsool/app.json` with the real UUID it outputs.
+
+### Build once & upload to Play
+```bash
+eas build --platform android --profile production  # produces AAB
+# Upload the AAB to Google Play Console as a new release
+```
+This is the last time you need to touch Play Store for UI/JS-only changes.
+
+### Push an OTA update (after the one-time build is live)
+```bash
+cd artifacts/marsool
+eas update --channel production --message "وصف التعديل"
+```
+Users receive the update silently on next app launch (no Play Store action needed).
+
+### Config files
+- `artifacts/marsool/app.json` — `expo.updates`, `expo.runtimeVersion`, `expo.extra.eas.projectId`
+- `artifacts/marsool/eas.json` — each build profile has a `channel` (`production` / `preview`)
