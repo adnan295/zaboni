@@ -436,7 +436,7 @@ export default function HomeScreen() {
                 )}
                 {!!(banner.titleAr || banner.titleEn) && (
                   <View style={styles.bannerOverlay} pointerEvents="none">
-                    <Text style={[styles.bannerTitle, { textAlign: isAr ? "right" : "left" }]} numberOfLines={2}>
+                    <Text style={styles.bannerTitle} numberOfLines={2}>
                       {isAr ? (banner.titleAr || banner.titleEn) : (banner.titleEn || banner.titleAr)}
                     </Text>
                   </View>

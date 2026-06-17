@@ -405,7 +405,6 @@ export default function ProfileScreen() {
                     <Text style={styles.badgeText}>{item.badge}</Text>
                   </View>
                 )}
-                <MaterialIcons name="chevron-right" size={20} color={colors.mutedForeground} />
               </TouchableOpacity>
               {idx < menuItems.length - 1 && (
                 <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -473,7 +472,6 @@ export default function ProfileScreen() {
               placeholderTextColor={colors.mutedForeground}
               autoFocus
               maxLength={60}
-              textAlign="right"
             />
             <View style={styles.editNameActions}>
               <TouchableOpacity

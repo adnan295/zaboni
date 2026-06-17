@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     borderBottomWidth: 1,
   },
-  headerTitle: { fontSize: 22, fontWeight: "800", textAlign: "right" },
+  headerTitle: { fontSize: 22, fontWeight: "800" },
   empty: {
     flex: 1,
     alignItems: "center",
@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
   activeDot: { width: 8, height: 8, borderRadius: 4 },
   activeBannerLabel: { fontSize: 12, fontWeight: "700" },
   activeBannerRestaurant: { fontSize: 16, fontWeight: "800" },
-  activeBannerOrder: { fontSize: 13, lineHeight: 20, textAlign: "right" },
+  activeBannerOrder: { fontSize: 13, lineHeight: 20 },
   trackBannerBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -478,7 +478,7 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 12, fontWeight: "700" },
   date: { fontSize: 12 },
   divider: { height: 1 },
-  orderText: { fontSize: 13, lineHeight: 20, textAlign: "right" },
+  orderText: { fontSize: 13, lineHeight: 20 },
   courierRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   courierName: { fontSize: 12 },
   footer: {

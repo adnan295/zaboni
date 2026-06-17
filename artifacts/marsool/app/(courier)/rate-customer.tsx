@@ -125,7 +125,6 @@ export default function RateCustomerScreen() {
                   backgroundColor: colors.secondary,
                   borderColor: colors.border,
                   color: colors.foreground,
-                  textAlign: "right",
                 },
               ]}
               placeholder="مثال: زبون محترم وسريع الاستجابة..."
