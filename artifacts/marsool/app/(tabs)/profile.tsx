@@ -472,6 +472,7 @@ export default function ProfileScreen() {
               placeholderTextColor={colors.mutedForeground}
               autoFocus
               maxLength={60}
+              textAlign="right"
             />
             <View style={styles.editNameActions}>
               <TouchableOpacity
@@ -621,7 +622,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  menuLabel: { flex: 1, fontSize: 15, fontWeight: "500" },
+  menuLabel: { flex: 1, fontSize: 15, fontWeight: "500", textAlign: "right" },
   badge: {
     minWidth: 22,
     height: 22,

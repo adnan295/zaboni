@@ -263,6 +263,7 @@ export default function WalletScreen() {
               keyboardType="numeric"
               value={depositAmount}
               onChangeText={setDepositAmount}
+              textAlign="right"
             />
 
             <Text style={[styles.fieldLabel, { color: colors.foreground }]}>رقم الإيصال (اختياري)</Text>
@@ -272,6 +273,7 @@ export default function WalletScreen() {
               placeholderTextColor={colors.mutedForeground}
               value={depositNote}
               onChangeText={setDepositNote}
+              textAlign="right"
             />
 
             <TouchableOpacity

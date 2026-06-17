@@ -140,6 +140,7 @@ export default function CourierApplyScreen() {
               value={fullName}
               onChangeText={setFullName}
               autoCapitalize="words"
+              textAlign="right"
             />
           </FormField>
 
@@ -195,6 +196,7 @@ export default function CourierApplyScreen() {
               value={vehiclePlate}
               onChangeText={setVehiclePlate}
               autoCapitalize="characters"
+              textAlign="right"
             />
           </FormField>
 
@@ -207,6 +209,7 @@ export default function CourierApplyScreen() {
               value={idNumber}
               onChangeText={setIdNumber}
               keyboardType="numeric"
+              textAlign="right"
             />
           </FormField>
 
@@ -224,6 +227,7 @@ export default function CourierApplyScreen() {
               onChangeText={setNotes}
               multiline
               numberOfLines={3}
+              textAlign="right"
               textAlignVertical="top"
             />
           </FormField>

@@ -751,7 +751,7 @@ const styles = StyleSheet.create({
   },
   divider: { height: 1 },
   restaurantLabel: { fontSize: 12 },
-  orderText: { fontSize: 15, lineHeight: 22 },
+  orderText: { fontSize: 15, lineHeight: 22, textAlign: "right" },
   addrRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   addrText: { fontSize: 13, flex: 1 },
   deliveredActions: { marginHorizontal: 16, marginTop: 4, gap: 12 },

@@ -140,6 +140,7 @@ export default function OrderHistoryScreen() {
                 placeholderTextColor={colors.mutedForeground}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
+                textAlign="right"
                 returnKeyType="search"
               />
               {searchQuery.length > 0 && (

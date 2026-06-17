@@ -180,6 +180,7 @@ export default function EditProfileScreen() {
                 placeholder={t("editProfile.namePlaceholder")}
                 placeholderTextColor={colors.mutedForeground}
                 maxLength={60}
+                textAlign="right"
               />
             </View>
 
@@ -196,6 +197,7 @@ export default function EditProfileScreen() {
                 placeholder={t("editProfile.phonePlaceholder")}
                 placeholderTextColor={colors.mutedForeground}
                 keyboardType="phone-pad"
+                textAlign="right"
               />
             </View>
           </View>

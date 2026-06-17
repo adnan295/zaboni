@@ -164,6 +164,7 @@ export function AddressSearchBar({ onSelect, placeholder, userCoords }: AddressS
           placeholderTextColor={colors.mutedForeground}
           value={query}
           onChangeText={handleChangeText}
+          textAlign="right"
           returnKeyType="search"
         />
         {query.length > 0 && (
