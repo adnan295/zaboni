@@ -267,7 +267,7 @@ export default function AddressesScreen() {
                 placeholderTextColor={colors.mutedForeground}
                 value={editing.label}
                 onChangeText={(text) => setEditing((e) => ({ ...e, label: text }))}
-                textAlign="right"
+                textAlign="left"
                 maxLength={30}
               />
 
@@ -283,7 +283,7 @@ export default function AddressesScreen() {
                 placeholderTextColor={colors.mutedForeground}
                 value={editing.address}
                 onChangeText={(text) => setEditing((e) => ({ ...e, address: text }))}
-                textAlign="right"
+                textAlign="left"
                 multiline
                 numberOfLines={2}
                 textAlignVertical="top"

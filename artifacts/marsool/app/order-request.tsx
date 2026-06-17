@@ -229,7 +229,7 @@ export default function OrderRequestScreen() {
             multiline
             numberOfLines={5}
             textAlignVertical="top"
-            textAlign="right"
+            textAlign="left"
             autoFocus
             maxLength={500}
           />

@@ -110,7 +110,7 @@ export default function NameScreen() {
             autoFocus
             returnKeyType="done"
             onSubmitEditing={handleFinish}
-            textAlign="right"
+            textAlign="left"
             maxLength={40}
           />
 
