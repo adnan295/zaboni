@@ -5,7 +5,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Platform,
-  ActivityIndicator,
   RefreshControl,
   Dimensions,
   NativeSyntheticEvent,
@@ -18,14 +17,15 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
-import RestaurantCard from "@/components/RestaurantCard";
-import HorizontalRestaurantCard from "@/components/HorizontalRestaurantCard";
+import RestaurantCard, { RestaurantCardSkeleton } from "@/components/RestaurantCard";
+import HorizontalRestaurantCard, { HorizontalRestaurantCardSkeleton } from "@/components/HorizontalRestaurantCard";
 import { useAddresses } from "@/context/AddressContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import { useOrders } from "@/context/OrderContext";
 import { useAuth } from "@/context/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { getApiBaseUrl, buildImageUrl } from "@/lib/apiConfig";
+import { customFetch } from "@workspace/api-client-react";
 import { CATEGORIES } from "@/data/restaurants";
 import * as Location from "expo-location";
 
@@ -176,6 +176,20 @@ export default function HomeScreen() {
     staleTime: 2 * 60 * 1000,
   });
 
+  type OrderRow = { restaurantId: string | null; status: string };
+  type OrdersResponse = { orders: OrderRow[] };
+
+  const { data: userOrders = [] } = useQuery<OrderRow[]>({
+    queryKey: ["userOrdersForHome", _user?.id],
+    queryFn: async () => {
+      if (!_user?.id) return [];
+      const data = await customFetch<OrdersResponse>("/api/orders?limit=50");
+      return data?.orders ?? [];
+    },
+    enabled: !!_user?.id,
+    staleTime: 2 * 60 * 1000,
+  });
+
   const { data: apiBanners = FALLBACK_BANNERS } = useQuery({
     queryKey: ["banners"],
     queryFn: fetchBanners,
@@ -194,6 +208,11 @@ export default function HomeScreen() {
     setRefreshing(true);
     try { await refetch(); } finally { setRefreshing(false); }
   }, [refetch]);
+
+  const mainScrollRef = useRef<ScrollView>(null);
+  const popularSectionY = useRef<number>(0);
+  const dealsSectionY = useRef<number>(0);
+  const fastSectionY = useRef<number>(0);
 
   const bannerScrollRef = useRef<ScrollView>(null);
   const bannerTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -220,6 +239,25 @@ export default function HomeScreen() {
     setActiveBanner(Math.max(0, Math.min(idx, apiBanners.length - 1)));
     startBannerTimer();
   };
+
+  const orderAgainRestaurants = useMemo(() => {
+    const seen = new Set<string>();
+    const ids: string[] = [];
+    for (const order of userOrders) {
+      if (
+        order.restaurantId &&
+        order.status === "delivered" &&
+        !seen.has(order.restaurantId)
+      ) {
+        seen.add(order.restaurantId);
+        ids.push(order.restaurantId);
+        if (ids.length >= 4) break;
+      }
+    }
+    return ids
+      .map((id) => allRestaurantsData.find((r) => r.id === id))
+      .filter((r): r is RestaurantItem => r !== undefined);
+  }, [userOrders, allRestaurantsData]);
 
   const popularRestaurants = useMemo(
     () => [...allRestaurantsData].sort((a, b) => b.rating - a.rating).slice(0, 6),
@@ -273,21 +311,21 @@ export default function HomeScreen() {
         icon: "local-offer" as const,
         label: t("home.shortcutOffers"),
         color: "#FF6B35",
-        onPress: () => { setSortBy("default"); setOpenOnly(false); setSelectedCategory("all"); },
+        onPress: () => mainScrollRef.current?.scrollTo({ y: dealsSectionY.current, animated: true }),
       },
       {
         id: "fast",
         icon: "delivery-dining" as const,
         label: t("home.shortcutFast"),
         color: "#10B981",
-        onPress: () => setSortBy((p) => (p === "time" ? "default" : "time")),
+        onPress: () => mainScrollRef.current?.scrollTo({ y: fastSectionY.current, animated: true }),
       },
       {
         id: "top",
         icon: "star" as const,
         label: t("home.shortcutTopRated"),
         color: "#FFB800",
-        onPress: () => setSortBy((p) => (p === "rating" ? "default" : "rating")),
+        onPress: () => mainScrollRef.current?.scrollTo({ y: popularSectionY.current, animated: true }),
       },
     ],
     [t]
@@ -302,6 +340,7 @@ export default function HomeScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
+        ref={mainScrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
         refreshControl={
@@ -464,6 +503,30 @@ export default function HomeScreen() {
           })}
         </ScrollView>
 
+        {/* ===== Order Again Section ===== */}
+        {!isLoading && orderAgainRestaurants.length > 0 && (
+          <View style={styles.sectionWrap}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("home.orderAgain")}</Text>
+              <MaterialIcons name="replay" size={16} color={colors.primary} />
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.hListContent}
+            >
+              {orderAgainRestaurants.map((r) => (
+                <HorizontalRestaurantCard
+                  key={r.id}
+                  restaurant={r}
+                  onPress={() => router.push(`/restaurant/${r.id}` as any)}
+                  badge={t("home.orderAgainBadge")}
+                />
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         {/* ===== Active Order Banner ===== */}
         {activeOrder && (
           <TouchableOpacity
@@ -484,8 +547,11 @@ export default function HomeScreen() {
         )}
 
         {/* ===== Popular Section ===== */}
-        {!isLoading && popularRestaurants.length > 0 && (
-          <View style={styles.sectionWrap}>
+        {(isLoading || popularRestaurants.length > 0) && (
+          <View
+            style={styles.sectionWrap}
+            onLayout={(e) => { popularSectionY.current = e.nativeEvent.layout.y; }}
+          >
             <View style={styles.sectionHeaderRow}>
               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("home.popular")}</Text>
               <MaterialIcons name="star" size={16} color="#FFB800" />
@@ -495,20 +561,25 @@ export default function HomeScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.hListContent}
             >
-              {popularRestaurants.map((r) => (
-                <HorizontalRestaurantCard
-                  key={r.id}
-                  restaurant={r}
-                  onPress={() => router.push(`/restaurant/${r.id}` as any)}
-                />
-              ))}
+              {isLoading
+                ? [0, 1, 2, 3].map((i) => <HorizontalRestaurantCardSkeleton key={i} />)
+                : popularRestaurants.map((r) => (
+                    <HorizontalRestaurantCard
+                      key={r.id}
+                      restaurant={r}
+                      onPress={() => router.push(`/restaurant/${r.id}` as any)}
+                    />
+                  ))}
             </ScrollView>
           </View>
         )}
 
         {/* ===== Exclusive Deals Section ===== */}
-        {!isLoading && dealRestaurants.length > 0 && (
-          <View style={styles.sectionWrap}>
+        {(isLoading || dealRestaurants.length > 0) && (
+          <View
+            style={styles.sectionWrap}
+            onLayout={(e) => { dealsSectionY.current = e.nativeEvent.layout.y; }}
+          >
             <View style={styles.sectionHeaderRow}>
               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("home.exclusiveDeals")}</Text>
               <MaterialIcons name="local-offer" size={16} color={colors.primary} />
@@ -518,21 +589,26 @@ export default function HomeScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.hListContent}
             >
-              {dealRestaurants.map((r) => (
-                <HorizontalRestaurantCard
-                  key={r.id}
-                  restaurant={r}
-                  onPress={() => router.push(`/restaurant/${r.id}` as any)}
-                  variant="deal"
-                />
-              ))}
+              {isLoading
+                ? [0, 1, 2, 3].map((i) => <HorizontalRestaurantCardSkeleton key={i} />)
+                : dealRestaurants.map((r) => (
+                    <HorizontalRestaurantCard
+                      key={r.id}
+                      restaurant={r}
+                      onPress={() => router.push(`/restaurant/${r.id}` as any)}
+                      variant="deal"
+                    />
+                  ))}
             </ScrollView>
           </View>
         )}
 
         {/* ===== Fast Delivery Section ===== */}
-        {!isLoading && fastRestaurants.length > 0 && (
-          <View style={styles.sectionWrap}>
+        {(isLoading || fastRestaurants.length > 0) && (
+          <View
+            style={styles.sectionWrap}
+            onLayout={(e) => { fastSectionY.current = e.nativeEvent.layout.y; }}
+          >
             <View style={styles.sectionHeaderRow}>
               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("home.expressDelivery")}</Text>
               <MaterialIcons name="delivery-dining" size={16} color={colors.primary} />
@@ -542,13 +618,15 @@ export default function HomeScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.hListContent}
             >
-              {fastRestaurants.map((r) => (
-                <HorizontalRestaurantCard
-                  key={r.id}
-                  restaurant={r}
-                  onPress={() => router.push(`/restaurant/${r.id}` as any)}
-                />
-              ))}
+              {isLoading
+                ? [0, 1, 2, 3].map((i) => <HorizontalRestaurantCardSkeleton key={i} />)
+                : fastRestaurants.map((r) => (
+                    <HorizontalRestaurantCard
+                      key={r.id}
+                      restaurant={r}
+                      onPress={() => router.push(`/restaurant/${r.id}` as any)}
+                    />
+                  ))}
             </ScrollView>
           </View>
         )}
@@ -614,9 +692,7 @@ export default function HomeScreen() {
           </View>
 
           {isLoading ? (
-            <View style={styles.loadingWrap}>
-              <ActivityIndicator size="large" color={colors.primary} />
-            </View>
+            [0, 1, 2].map((i) => <RestaurantCardSkeleton key={i} />)
           ) : filteredRestaurants.length === 0 ? (
             <View style={styles.emptyWrap}>
               <MaterialIcons name="search-off" size={48} color={colors.mutedForeground} />
