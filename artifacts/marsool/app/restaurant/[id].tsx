@@ -443,8 +443,8 @@ const styles = StyleSheet.create({
   },
   catText: { fontSize: 13, fontWeight: "600" },
   menuSection: { paddingHorizontal: 16 },
-  menuTitle: { fontSize: 17, fontWeight: "800", marginBottom: 12, textAlign: "right" },
-  subcatLabel: { fontSize: 13, fontWeight: "700", textAlign: "right", marginTop: 12, marginBottom: 6, paddingHorizontal: 4 },
+  menuTitle: { fontSize: 17, fontWeight: "800", marginBottom: 12 },
+  subcatLabel: { fontSize: 13, fontWeight: "700", marginTop: 12, marginBottom: 6, paddingHorizontal: 4 },
   orderFooter: {
     position: "absolute",
     bottom: 0,
