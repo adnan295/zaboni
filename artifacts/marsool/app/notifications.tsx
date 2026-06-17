@@ -155,6 +155,7 @@ export default function NotificationsScreen() {
                 if (notif.orderId && (notif.type === "order_status" || notif.type === "rating_request")) {
                   router.push({ pathname: "/order-tracking/[id]", params: { id: notif.orderId } });
                 }
+                // system/promo: just mark as read (no specific destination)
               }}
               onDelete={() => deleteNotification(notif.id)}
             />
