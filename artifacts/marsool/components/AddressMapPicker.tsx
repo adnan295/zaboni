@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
   addressTextWrap: { flex: 1 },
   geocodingRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   geocodingText: { fontSize: 13 },
-  resolvedText: { fontSize: 14, lineHeight: 20, textAlign: "right" },
+  resolvedText: { fontSize: 14, lineHeight: 20 },
   confirmBtn: {
     flexDirection: "row",
     alignItems: "center",

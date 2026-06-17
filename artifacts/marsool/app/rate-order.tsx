@@ -288,7 +288,6 @@ export default function RateOrderScreen() {
               value={comment}
               onChangeText={setComment}
               multiline
-              textAlign="right"
               textAlignVertical="top"
               numberOfLines={3}
             />
@@ -333,7 +332,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   restaurantName: { fontSize: 16, fontWeight: "700", flex: 1 },
-  sectionHeader: { fontSize: 13, marginBottom: 12, textAlign: "right" },
+  sectionHeader: { fontSize: 13, marginBottom: 12 },
   commentCard: {
     borderRadius: 16,
     borderWidth: 1,
@@ -341,7 +340,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 8,
   },
-  commentTitle: { fontSize: 15, fontWeight: "700", textAlign: "right" },
+  commentTitle: { fontSize: 15, fontWeight: "700" },
   quickScroll: { alignSelf: "stretch" },
   quickChip: {
     paddingHorizontal: 14,
