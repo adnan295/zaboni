@@ -110,6 +110,8 @@ export default function RestaurantScreen() {
     toggleFavorite(restaurant);
   };
 
+  const popularItems = menuItems.filter((m) => m.isPopular).slice(0, 4);
+
   const filteredItems = selectedCategory
     ? menuItems.filter((m) => m.categoryAr === selectedCategory)
     : menuItems;
@@ -275,6 +277,42 @@ export default function RestaurantScreen() {
             </TouchableOpacity>
           ))}
         </ScrollView>
+
+        {popularItems.length > 0 && !selectedCategory && (
+          <View style={styles.popularSection}>
+            <View style={styles.popularHeader}>
+              <Text style={[styles.popularTitle, { color: colors.foreground }]}>🔥 الأكثر طلباً</Text>
+              <Text style={[styles.popularSubtitle, { color: colors.mutedForeground }]}>الأكثر طلباً الآن</Text>
+            </View>
+            <View style={styles.popularGrid}>
+              {popularItems.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[styles.popularCard, { backgroundColor: colors.card, borderColor: cart[item.id]?.qty ? colors.primary : colors.border }]}
+                  onPress={isOpen ? () => addToCart(item.id, item.nameAr, item.price) : undefined}
+                  activeOpacity={isOpen ? 0.85 : 1}
+                >
+                  <Image source={{ uri: buildImageUrl(item.image) }} style={styles.popularImage} resizeMode="cover" />
+                  {cart[item.id]?.qty ? (
+                    <View style={[styles.popularQtyBadge, { backgroundColor: colors.primary }]}>
+                      <Text style={styles.popularQtyText}>{cart[item.id]!.qty}</Text>
+                    </View>
+                  ) : isOpen ? (
+                    <View style={[styles.popularAddBtn, { backgroundColor: colors.primary }]}>
+                      <MaterialIcons name="add" size={16} color="#fff" />
+                    </View>
+                  ) : null}
+                  <View style={styles.popularCardBody}>
+                    <Text style={[styles.popularItemName, { color: colors.foreground }]} numberOfLines={2}>{item.nameAr}</Text>
+                    {item.price > 0 && (
+                      <Text style={[styles.popularItemPrice, { color: colors.primary }]}>{item.price.toLocaleString()} ل.س</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
 
         <View style={styles.menuSection}>
           <Text style={[styles.menuTitle, { color: colors.foreground }]}>{t("restaurant.menu")}</Text>
@@ -442,6 +480,43 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   catText: { fontSize: 13, fontWeight: "600" },
+  popularSection: { paddingHorizontal: 16, marginBottom: 8 },
+  popularHeader: { marginBottom: 12 },
+  popularTitle: { fontSize: 17, fontWeight: "800" },
+  popularSubtitle: { fontSize: 12, marginTop: 2 },
+  popularGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  popularCard: {
+    width: "47%",
+    borderRadius: 14,
+    overflow: "hidden",
+    borderWidth: 1.5,
+  },
+  popularImage: { width: "100%", height: 130 },
+  popularAddBtn: {
+    position: "absolute",
+    bottom: 68,
+    left: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  popularQtyBadge: {
+    position: "absolute",
+    bottom: 68,
+    left: 8,
+    minWidth: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+  },
+  popularQtyText: { color: "#fff", fontSize: 13, fontWeight: "800" },
+  popularCardBody: { padding: 10, gap: 4 },
+  popularItemName: { fontSize: 13, fontWeight: "700" },
+  popularItemPrice: { fontSize: 13, fontWeight: "800" },
   menuSection: { paddingHorizontal: 16 },
   menuTitle: { fontSize: 17, fontWeight: "800", marginBottom: 12 },
   subcatLabel: { fontSize: 13, fontWeight: "700", marginTop: 12, marginBottom: 6, paddingHorizontal: 4 },
