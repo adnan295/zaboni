@@ -6,6 +6,11 @@ const router: IRouter = Router();
 
 const DEFAULT_PHONE = process.env.ADMIN_PHONE || "+963999000111";
 
+router.get("/config/expo-link", (_req, res) => {
+  const domain = process.env.REPLIT_EXPO_DEV_DOMAIN;
+  res.json({ url: domain ? `exp://${domain}` : null });
+});
+
 router.get("/config/contact", async (_req, res) => {
   try {
     const rows = await db
