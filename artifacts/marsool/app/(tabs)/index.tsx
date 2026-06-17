@@ -310,41 +310,6 @@ export default function HomeScreen() {
     return "";
   };
 
-  const shortcuts = useMemo(
-    () => [
-      {
-        id: "offers",
-        icon: "local-offer" as const,
-        label: t("home.shortcutOffers"),
-        color: "#FF6B35",
-        onPress: () => {
-          if (hasDealsSection && dealsSectionY.current > 0)
-            mainScrollRef.current?.scrollTo({ y: dealsSectionY.current, animated: true });
-        },
-      },
-      {
-        id: "fast",
-        icon: "delivery-dining" as const,
-        label: t("home.shortcutFast"),
-        color: "#10B981",
-        onPress: () => {
-          if (hasFastSection && fastSectionY.current > 0)
-            mainScrollRef.current?.scrollTo({ y: fastSectionY.current, animated: true });
-        },
-      },
-      {
-        id: "top",
-        icon: "star" as const,
-        label: t("home.shortcutTopRated"),
-        color: "#FFB800",
-        onPress: () => {
-          if (hasPopularSection && popularSectionY.current > 0)
-            mainScrollRef.current?.scrollTo({ y: popularSectionY.current, animated: true });
-        },
-      },
-    ],
-    [t, hasDealsSection, hasFastSection, hasPopularSection]
-  );
 
   const filterOptions: { key: SortBy; label: string }[] = [
     { key: "rating", label: t("home.filterRating") },
@@ -455,23 +420,6 @@ export default function HomeScreen() {
             ))}
           </ScrollView>
         )}
-
-        {/* ===== Quick Shortcuts ===== */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.shortcutsScroll}
-          style={styles.shortcutsContainer}
-        >
-          {shortcuts.map((s) => (
-            <TouchableOpacity key={s.id} style={styles.shortcut} onPress={s.onPress} activeOpacity={0.8}>
-              <View style={[styles.shortcutCircle, { backgroundColor: s.color }]}>
-                <MaterialIcons name={s.icon} size={24} color="#fff" />
-              </View>
-              <Text style={[styles.shortcutLabel, { color: colors.foreground }]}>{s.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
 
         {/* ===== Visual Category Tiles ===== */}
         <ScrollView
@@ -785,19 +733,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.38)",
   },
   bannerTitle: { color: "#fff", fontSize: 16, fontWeight: "700" },
-
-  // Shortcuts
-  shortcutsContainer: { marginTop: 18 },
-  shortcutsScroll: { paddingHorizontal: 20, gap: 20 },
-  shortcut: { alignItems: "center", gap: 7 },
-  shortcutCircle: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  shortcutLabel: { fontSize: 11, fontWeight: "700" },
 
   // Category tiles
   categoriesContainer: { marginTop: 16, marginBottom: 2 },
