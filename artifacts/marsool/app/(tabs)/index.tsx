@@ -263,7 +263,7 @@ export default function HomeScreen() {
     if (bannerTimerRef.current) clearInterval(bannerTimerRef.current);
     if (apiBanners.length <= 1) return;
     bannerTimerRef.current = setInterval(() => {
-      const next = (activeBannerRef.current + 1) % apiBanners.length;
+      const next = (activeBannerRef.current - 1 + apiBanners.length) % apiBanners.length;
       activeBannerRef.current = next;
       bannerScrollRef.current?.scrollTo({ x: next * SCREEN_WIDTH, animated: true });
     }, 4000);
