@@ -176,6 +176,19 @@ export default function HomeScreen() {
     staleTime: 2 * 60 * 1000,
   });
 
+  const { data: userOrders = [] } = useQuery<{ restaurantId: string | null }[]>({
+    queryKey: ["orders", _user?.id],
+    queryFn: async () => {
+      if (!_user?.id) return [];
+      const base = getApiBaseUrl();
+      const res = await fetch(`${base}/api/orders?userId=${encodeURIComponent(_user.id)}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!_user?.id,
+    staleTime: 2 * 60 * 1000,
+  });
+
   const { data: apiBanners = FALLBACK_BANNERS } = useQuery({
     queryKey: ["banners"],
     queryFn: fetchBanners,
@@ -220,6 +233,21 @@ export default function HomeScreen() {
     setActiveBanner(Math.max(0, Math.min(idx, apiBanners.length - 1)));
     startBannerTimer();
   };
+
+  const orderAgainRestaurants = useMemo(() => {
+    const seen = new Set<string>();
+    const ids: string[] = [];
+    for (const order of userOrders) {
+      if (order.restaurantId && !seen.has(order.restaurantId)) {
+        seen.add(order.restaurantId);
+        ids.push(order.restaurantId);
+        if (ids.length >= 4) break;
+      }
+    }
+    return ids
+      .map((id) => allRestaurantsData.find((r) => r.id === id))
+      .filter((r): r is RestaurantItem => r !== undefined);
+  }, [userOrders, allRestaurantsData]);
 
   const popularRestaurants = useMemo(
     () => [...allRestaurantsData].sort((a, b) => b.rating - a.rating).slice(0, 6),
@@ -463,6 +491,30 @@ export default function HomeScreen() {
             );
           })}
         </ScrollView>
+
+        {/* ===== Order Again Section ===== */}
+        {!isLoading && orderAgainRestaurants.length > 0 && (
+          <View style={styles.sectionWrap}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("home.orderAgain")}</Text>
+              <MaterialIcons name="replay" size={16} color={colors.primary} />
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.hListContent}
+            >
+              {orderAgainRestaurants.map((r) => (
+                <HorizontalRestaurantCard
+                  key={r.id}
+                  restaurant={r}
+                  onPress={() => router.push(`/restaurant/${r.id}` as any)}
+                  badge={t("home.orderAgainBadge")}
+                />
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         {/* ===== Active Order Banner ===== */}
         {activeOrder && (

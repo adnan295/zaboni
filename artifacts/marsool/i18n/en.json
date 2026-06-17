@@ -58,6 +58,8 @@
     "filterTime": "Time",
     "filterFee": "Price",
     "openOnly": "Open Now",
+    "orderAgain": "Order Again",
+    "orderAgainBadge": "Reorder",
     "banners": [
       {
         "title": "Fast delivery to your door",
