@@ -47,6 +47,17 @@
     "searchPlaceholder": "ابحث عن مطعم أو طعام...",
     "allRestaurants": "جميع المطاعم",
     "noResults": "لا توجد نتائج",
+    "popular": "مشهورة عندنا",
+    "exclusiveDeals": "خصومات حصرية",
+    "expressDelivery": "توصيل سريع",
+    "exploreAll": "استكشف المطاعم",
+    "shortcutOffers": "العروض",
+    "shortcutFast": "سريع",
+    "shortcutTopRated": "الأعلى",
+    "filterRating": "تقييم",
+    "filterTime": "وقت",
+    "filterFee": "سعر",
+    "openOnly": "مفتوح الآن",
     "banners": [
       {
         "title": "توصيل سريع لباب بيتك",
