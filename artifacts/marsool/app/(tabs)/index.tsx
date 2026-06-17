@@ -209,6 +209,11 @@ export default function HomeScreen() {
     try { await refetch(); } finally { setRefreshing(false); }
   }, [refetch]);
 
+  const mainScrollRef = useRef<ScrollView>(null);
+  const popularSectionY = useRef<number>(0);
+  const dealsSectionY = useRef<number>(0);
+  const fastSectionY = useRef<number>(0);
+
   const bannerScrollRef = useRef<ScrollView>(null);
   const bannerTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -306,21 +311,21 @@ export default function HomeScreen() {
         icon: "local-offer" as const,
         label: t("home.shortcutOffers"),
         color: "#FF6B35",
-        onPress: () => { setSortBy("default"); setOpenOnly(false); setSelectedCategory("all"); },
+        onPress: () => mainScrollRef.current?.scrollTo({ y: dealsSectionY.current, animated: true }),
       },
       {
         id: "fast",
         icon: "delivery-dining" as const,
         label: t("home.shortcutFast"),
         color: "#10B981",
-        onPress: () => setSortBy((p) => (p === "time" ? "default" : "time")),
+        onPress: () => mainScrollRef.current?.scrollTo({ y: fastSectionY.current, animated: true }),
       },
       {
         id: "top",
         icon: "star" as const,
         label: t("home.shortcutTopRated"),
         color: "#FFB800",
-        onPress: () => setSortBy((p) => (p === "rating" ? "default" : "rating")),
+        onPress: () => mainScrollRef.current?.scrollTo({ y: popularSectionY.current, animated: true }),
       },
     ],
     [t]
@@ -335,6 +340,7 @@ export default function HomeScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
+        ref={mainScrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
         refreshControl={
@@ -542,7 +548,10 @@ export default function HomeScreen() {
 
         {/* ===== Popular Section ===== */}
         {(isLoading || popularRestaurants.length > 0) && (
-          <View style={styles.sectionWrap}>
+          <View
+            style={styles.sectionWrap}
+            onLayout={(e) => { popularSectionY.current = e.nativeEvent.layout.y; }}
+          >
             <View style={styles.sectionHeaderRow}>
               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("home.popular")}</Text>
               <MaterialIcons name="star" size={16} color="#FFB800" />
@@ -567,7 +576,10 @@ export default function HomeScreen() {
 
         {/* ===== Exclusive Deals Section ===== */}
         {(isLoading || dealRestaurants.length > 0) && (
-          <View style={styles.sectionWrap}>
+          <View
+            style={styles.sectionWrap}
+            onLayout={(e) => { dealsSectionY.current = e.nativeEvent.layout.y; }}
+          >
             <View style={styles.sectionHeaderRow}>
               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("home.exclusiveDeals")}</Text>
               <MaterialIcons name="local-offer" size={16} color={colors.primary} />
@@ -593,7 +605,10 @@ export default function HomeScreen() {
 
         {/* ===== Fast Delivery Section ===== */}
         {(isLoading || fastRestaurants.length > 0) && (
-          <View style={styles.sectionWrap}>
+          <View
+            style={styles.sectionWrap}
+            onLayout={(e) => { fastSectionY.current = e.nativeEvent.layout.y; }}
+          >
             <View style={styles.sectionHeaderRow}>
               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("home.expressDelivery")}</Text>
               <MaterialIcons name="delivery-dining" size={16} color={colors.primary} />
