@@ -28,9 +28,10 @@ interface Props {
   restaurant: HRestaurant;
   onPress: () => void;
   variant?: "default" | "deal";
+  badge?: string;
 }
 
-export default function HorizontalRestaurantCard({ restaurant, onPress, variant = "default" }: Props) {
+export default function HorizontalRestaurantCard({ restaurant, onPress, variant = "default", badge }: Props) {
   const colors = useColors();
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === "ar";
@@ -66,6 +67,12 @@ export default function HorizontalRestaurantCard({ restaurant, onPress, variant 
             <Text style={[styles.badgeText, { color: isDeal ? colors.primary : "#fff" }]}>
               {restaurant.discount}
             </Text>
+          </View>
+        )}
+        {!!badge && (
+          <View style={styles.reorderBadge}>
+            <MaterialIcons name="replay" size={9} color="#fff" />
+            <Text style={styles.badgeText}>{badge}</Text>
           </View>
         )}
       </View>
@@ -122,7 +129,19 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 6,
   },
-  badgeText: { fontSize: 10, fontWeight: "700" },
+  reorderBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: "#059669",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  badgeText: { fontSize: 10, fontWeight: "700", color: "#fff" },
   info: { padding: 10, gap: 5 },
   name: { fontSize: 13, fontWeight: "700" },
   meta: { flexDirection: "row", alignItems: "center", gap: 3 },

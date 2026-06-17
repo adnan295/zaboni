@@ -58,6 +58,8 @@
     "filterTime": "وقت",
     "filterFee": "سعر",
     "openOnly": "مفتوح الآن",
+    "orderAgain": "اطلب مجدداً",
+    "orderAgainBadge": "مجدداً",
     "banners": [
       {
         "title": "توصيل سريع لباب بيتك",
