@@ -561,6 +561,16 @@ export const api = {
   deleteCategory: (id: string) =>
     apiFetch<void>(`/admin/categories/${id}`, { method: "DELETE" }),
 
+  getRestaurantGlobalOrder: () =>
+    apiFetch<{ id: string; nameAr: string; name: string; image: string; sortOrder: number | null }[]>(
+      "/admin/restaurants/global-order"
+    ),
+  saveRestaurantGlobalOrder: (order: { restaurantId: string; sortOrder: number }[]) =>
+    apiFetch<{ ok: boolean }>("/admin/restaurants/global-order", {
+      method: "PUT",
+      body: JSON.stringify({ order }),
+    }),
+
   getRestaurantCategoryOrder: (categoryId: string) =>
     apiFetch<{ id: string; nameAr: string; name: string; image: string; sortOrder: number | null; categorySortOrder: number | null }[]>(
       `/admin/restaurants/category-order?categoryId=${encodeURIComponent(categoryId)}`
