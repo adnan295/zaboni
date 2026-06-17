@@ -10,6 +10,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { buildImageUrl } from "@/lib/apiConfig";
+import SkeletonBox from "@/components/SkeletonBox";
 
 interface HRestaurant {
   id: string;
@@ -29,6 +30,19 @@ interface Props {
   onPress: () => void;
   variant?: "default" | "deal";
   badge?: string;
+}
+
+export function HorizontalRestaurantCardSkeleton() {
+  const colors = useColors();
+  return (
+    <View style={[styles.card, { backgroundColor: colors.card }]}>
+      <SkeletonBox width={160} height={110} borderRadius={0} />
+      <View style={[styles.info, { gap: 8 }]}>
+        <SkeletonBox width={110} height={12} borderRadius={6} />
+        <SkeletonBox width={80} height={10} borderRadius={6} />
+      </View>
+    </View>
+  );
 }
 
 export default function HorizontalRestaurantCard({ restaurant, onPress, variant = "default", badge }: Props) {
