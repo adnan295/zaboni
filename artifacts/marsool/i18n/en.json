@@ -47,6 +47,17 @@
     "searchPlaceholder": "Search for a restaurant or food...",
     "allRestaurants": "All Restaurants",
     "noResults": "No results",
+    "popular": "Popular Near You",
+    "exclusiveDeals": "Exclusive Deals",
+    "expressDelivery": "Fast Delivery",
+    "exploreAll": "Explore Restaurants",
+    "shortcutOffers": "Offers",
+    "shortcutFast": "Fast",
+    "shortcutTopRated": "Top Rated",
+    "filterRating": "Rating",
+    "filterTime": "Time",
+    "filterFee": "Price",
+    "openOnly": "Open Now",
     "banners": [
       {
         "title": "Fast delivery to your door",

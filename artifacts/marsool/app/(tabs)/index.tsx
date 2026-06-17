@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import RestaurantCard from "@/components/RestaurantCard";
-import ZaboniLogo from "@/components/ZaboniLogo";
+import HorizontalRestaurantCard from "@/components/HorizontalRestaurantCard";
 import { useAddresses } from "@/context/AddressContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import { useOrders } from "@/context/OrderContext";
@@ -30,7 +30,6 @@ import { CATEGORIES } from "@/data/restaurants";
 import * as Location from "expo-location";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const BANNER_WIDTH = SCREEN_WIDTH - 32;
 
 type PromoBanner = {
   id: string;
@@ -60,7 +59,15 @@ const FALLBACK_BANNERS: PromoBanner[] = [];
 
 const FALLBACK_CATEGORIES: RestaurantCategory[] = CATEGORIES
   .filter((c) => c.id !== "all")
-  .map((c, i) => ({ id: c.id, code: c.id, nameAr: c.name, nameEn: c.id, iconName: c.icon, sortOrder: i, isActive: true }));
+  .map((c, i) => ({
+    id: c.id,
+    code: c.id,
+    nameAr: c.name,
+    nameEn: c.id,
+    iconName: c.icon,
+    sortOrder: i,
+    isActive: true,
+  }));
 
 type RestaurantItem = {
   id: string;
@@ -85,15 +92,27 @@ type RestaurantItem = {
   distanceKm?: number | null;
 };
 
-async function fetchRestaurants(lat?: number, lon?: number, categoryId?: string): Promise<RestaurantItem[]> {
+type SortBy = "default" | "rating" | "time" | "fee";
+
+const ALL_CATEGORY: { id: string; nameAr: string; nameEn: string; iconName: string } = {
+  id: "all",
+  nameAr: "الكل",
+  nameEn: "All",
+  iconName: "grid-view",
+};
+
+function parseDeliveryTime(deliveryTime: string): number {
+  const nums = deliveryTime.match(/\d+/g);
+  if (!nums || nums.length === 0) return 999;
+  return Math.max(...nums.map(Number));
+}
+
+async function fetchRestaurants(lat?: number, lon?: number): Promise<RestaurantItem[]> {
   const base = getApiBaseUrl();
   const params = new URLSearchParams();
   if (lat != null && lon != null) {
     params.set("lat", String(lat));
     params.set("lon", String(lon));
-  }
-  if (categoryId && categoryId !== "all") {
-    params.set("categoryId", categoryId);
   }
   const url = `${base}/api/restaurants${params.toString() ? "?" + params.toString() : ""}`;
   const res = await fetch(url);
@@ -119,19 +138,23 @@ async function fetchCategories(): Promise<RestaurantCategory[]> {
   return data;
 }
 
-const ALL_CATEGORY = { id: "all", nameAr: "الكل", nameEn: "All", iconName: "grid-view" };
-
 export default function HomeScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === "ar";
+
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [sortBy, setSortBy] = useState<SortBy>("default");
+  const [openOnly, setOpenOnly] = useState(false);
+  const [activeBanner, setActiveBanner] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+
   const { defaultAddress } = useAddresses();
   const { unreadCount } = useNotifications();
   const { activeOrder } = useOrders();
-  const { user } = useAuth();
+  const { user: _user } = useAuth();
 
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
 
@@ -147,41 +170,89 @@ export default function HomeScreen() {
     })();
   }, []);
 
-  const { data: apiRestaurants, isLoading: restaurantsLoading, refetch } = useQuery<RestaurantItem[]>({
-    queryKey: ["restaurants", userLocation?.lat, userLocation?.lon, selectedCategory],
-    queryFn: () => fetchRestaurants(userLocation?.lat, userLocation?.lon, selectedCategory),
+  const { data: allRestaurantsData = [], isLoading, refetch } = useQuery<RestaurantItem[]>({
+    queryKey: ["restaurants", userLocation?.lat, userLocation?.lon],
+    queryFn: () => fetchRestaurants(userLocation?.lat, userLocation?.lon),
     staleTime: 2 * 60 * 1000,
   });
-  const { data: apiBanners = FALLBACK_BANNERS } = useQuery({ queryKey: ["banners"], queryFn: fetchBanners, staleTime: 5 * 60 * 1000, placeholderData: FALLBACK_BANNERS });
-  const { data: apiCategories = FALLBACK_CATEGORIES } = useQuery({ queryKey: ["categories"], queryFn: fetchCategories, staleTime: 5 * 60 * 1000, placeholderData: FALLBACK_CATEGORIES });
 
-  const [refreshing, setRefreshing] = useState(false);
+  const { data: apiBanners = FALLBACK_BANNERS } = useQuery({
+    queryKey: ["banners"],
+    queryFn: fetchBanners,
+    staleTime: 5 * 60 * 1000,
+    placeholderData: FALLBACK_BANNERS,
+  });
+
+  const { data: apiCategories = FALLBACK_CATEGORIES } = useQuery({
+    queryKey: ["categories"],
+    queryFn: fetchCategories,
+    staleTime: 5 * 60 * 1000,
+    placeholderData: FALLBACK_CATEGORIES,
+  });
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    try {
-      await refetch();
-    } finally {
-      setRefreshing(false);
-    }
+    try { await refetch(); } finally { setRefreshing(false); }
   }, [refetch]);
 
-  const [activeBanner, setActiveBanner] = useState(0);
   const bannerScrollRef = useRef<ScrollView>(null);
+  const bannerTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startBannerTimer = useCallback(() => {
+    if (bannerTimerRef.current) clearInterval(bannerTimerRef.current);
+    if (apiBanners.length <= 1) return;
+    bannerTimerRef.current = setInterval(() => {
+      setActiveBanner((prev) => {
+        const next = (prev + 1) % apiBanners.length;
+        bannerScrollRef.current?.scrollTo({ x: next * SCREEN_WIDTH, animated: true });
+        return next;
+      });
+    }, 4000);
+  }, [apiBanners.length]);
+
+  useEffect(() => {
+    startBannerTimer();
+    return () => { if (bannerTimerRef.current) clearInterval(bannerTimerRef.current); };
+  }, [startBannerTimer]);
 
   const handleBannerScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const idx = Math.round(e.nativeEvent.contentOffset.x / BANNER_WIDTH);
+    const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
     setActiveBanner(Math.max(0, Math.min(idx, apiBanners.length - 1)));
+    startBannerTimer();
   };
 
-  const displayCategories = [ALL_CATEGORY, ...apiCategories];
+  const popularRestaurants = useMemo(
+    () => [...allRestaurantsData].sort((a, b) => b.rating - a.rating).slice(0, 6),
+    [allRestaurantsData]
+  );
 
-  const allRestaurants = apiRestaurants ?? [];
-  const filtered = allRestaurants.filter((r) => {
-    if (selectedCategory === "all") return true;
-    const selected = apiCategories.find((c) => c.id === selectedCategory);
-    return r.category === (selected?.code || selectedCategory);
-  });
+  const dealRestaurants = useMemo(
+    () => allRestaurantsData.filter((r) => r.discount),
+    [allRestaurantsData]
+  );
+
+  const fastRestaurants = useMemo(
+    () => allRestaurantsData.filter((r) => parseDeliveryTime(r.deliveryTime) <= 30),
+    [allRestaurantsData]
+  );
+
+  const filteredRestaurants = useMemo(() => {
+    let list = [...allRestaurantsData];
+    if (openOnly) list = list.filter((r) => r.isOpen);
+    if (selectedCategory !== "all") {
+      const selected = apiCategories.find((c) => c.id === selectedCategory);
+      list = list.filter((r) => r.category === (selected?.code || selectedCategory));
+    }
+    if (sortBy === "rating") list.sort((a, b) => b.rating - a.rating);
+    else if (sortBy === "time") list.sort((a, b) => parseDeliveryTime(a.deliveryTime) - parseDeliveryTime(b.deliveryTime));
+    else if (sortBy === "fee") list.sort((a, b) => a.deliveryFee - b.deliveryFee);
+    return list;
+  }, [allRestaurantsData, openOnly, selectedCategory, sortBy, apiCategories]);
+
+  const displayCategories = useMemo(
+    () => [ALL_CATEGORY, ...apiCategories],
+    [apiCategories]
+  );
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
@@ -195,19 +266,44 @@ export default function HomeScreen() {
     return "";
   };
 
-  const firstName = user?.name ? user.name.split(" ")[0] : null;
+  const shortcuts = useMemo(
+    () => [
+      {
+        id: "offers",
+        icon: "local-offer" as const,
+        label: t("home.shortcutOffers"),
+        color: "#FF6B35",
+        onPress: () => { setSortBy("default"); setOpenOnly(false); setSelectedCategory("all"); },
+      },
+      {
+        id: "fast",
+        icon: "delivery-dining" as const,
+        label: t("home.shortcutFast"),
+        color: "#10B981",
+        onPress: () => setSortBy((p) => (p === "time" ? "default" : "time")),
+      },
+      {
+        id: "top",
+        icon: "star" as const,
+        label: t("home.shortcutTopRated"),
+        color: "#FFB800",
+        onPress: () => setSortBy((p) => (p === "rating" ? "default" : "rating")),
+      },
+    ],
+    [t]
+  );
 
-  const selectedCategoryLabel = (() => {
-    const found = displayCategories.find((c) => c.id === selectedCategory);
-    if (!found) return "";
-    return isAr ? found.nameAr : found.nameEn;
-  })();
+  const filterOptions: { key: SortBy; label: string }[] = [
+    { key: "rating", label: t("home.filterRating") },
+    { key: "time", label: t("home.filterTime") },
+    { key: "fee", label: t("home.filterFee") },
+  ];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: 120 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -217,153 +313,158 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* Header */}
-        <View style={[styles.header, { paddingTop: topPadding + 16 }]}>
-          <ZaboniLogo size="small" showName={false} />
-          <TouchableOpacity style={styles.locationRow} onPress={() => router.push("/addresses")}>
-            <MaterialIcons name="location-on" size={18} color={colors.primary} />
-            <Text style={[styles.location, { color: colors.foreground }]} numberOfLines={1}>
-              {defaultAddress ? defaultAddress.label : t("home.addAddress")}
-            </Text>
-            <MaterialIcons name="keyboard-arrow-down" size={18} color={colors.foreground} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.notifBtn, { backgroundColor: colors.card }]}
-            onPress={() => router.push("/notifications")}
-          >
-            <MaterialIcons name="notifications-none" size={22} color={colors.foreground} />
-            {unreadCount > 0 && (
-              <View style={[styles.notifBadge, { backgroundColor: colors.primary }]}>
-                <Text style={styles.notifBadgeText}>{unreadCount > 9 ? "9+" : unreadCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
+        {/* ===== Colored Header ===== */}
+        <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.primary }]}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity style={styles.locationRow} onPress={() => router.push("/addresses")}>
+              <MaterialIcons name="location-on" size={16} color="rgba(255,255,255,0.9)" />
+              <Text style={styles.locationText} numberOfLines={1}>
+                {defaultAddress ? defaultAddress.label : t("home.addAddress")}
+              </Text>
+              <MaterialIcons name="keyboard-arrow-down" size={16} color="rgba(255,255,255,0.9)" />
+            </TouchableOpacity>
 
-        {/* Greeting */}
-        <View style={styles.greeting}>
-          {firstName ? (
-            <Text style={[styles.greetTitle, { color: colors.foreground }]}>
-              {t("home.greeting", { name: firstName })}
-            </Text>
-          ) : (
-            <Text style={[styles.greetTitle, { color: colors.foreground }]}>
-              {t("home.discoverTitle")}{" "}
-              <Text style={{ color: colors.primary }}>{t("home.discoverSub")}</Text>
-            </Text>
-          )}
-        </View>
-
-        {/* Search */}
-        <TouchableOpacity
-          style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}
-          onPress={() => router.push("/search")}
-          activeOpacity={0.8}
-        >
-          <MaterialIcons name="search" size={20} color={colors.mutedForeground} />
-          <Text style={[styles.searchPlaceholder, { color: colors.mutedForeground }]}>
-            {t("home.searchPlaceholder")}
-          </Text>
-          <MaterialIcons name="tune" size={18} color={colors.primary} />
-        </TouchableOpacity>
-
-        {/* Promotional Banners Carousel */}
-        {apiBanners.length > 0 && (
-          <View style={styles.bannersSection}>
-            <ScrollView
-              ref={bannerScrollRef}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              snapToInterval={BANNER_WIDTH + 12}
-              decelerationRate="fast"
-              contentContainerStyle={styles.bannersScroll}
-              onMomentumScrollEnd={handleBannerScroll}
-            >
-              {apiBanners.map((banner) => (
-                <TouchableOpacity
-                  key={banner.id}
-                  activeOpacity={banner.restaurantId ? 0.85 : 1}
-                  onPress={() => {
-                    if (banner.restaurantId) {
-                      router.push(`/restaurant/${banner.restaurantId}` as any);
-                    }
-                  }}
-                  style={[styles.bannerCard, { width: BANNER_WIDTH }]}
-                >
-                  {banner.image ? (
-                    <Image
-                      source={{ uri: buildImageUrl(banner.image) }}
-                      style={styles.bannerImage}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View style={[styles.bannerImage, { backgroundColor: banner.bgColor || "#DC2626", justifyContent: "center", alignItems: "center" }]}>
-                      <MaterialIcons
-                        name={(banner.iconName as keyof typeof MaterialIcons.glyphMap) ?? "local-offer"}
-                        size={48}
-                        color="#fff"
-                      />
-                    </View>
-                  )}
-                  {!!(banner.titleAr || banner.titleEn) && (
-                    <View style={styles.bannerOverlay} pointerEvents="none">
-                      <Text style={[styles.bannerOverlayText, { textAlign: isAr ? "right" : "left" }]} numberOfLines={2}>
-                        {isAr ? (banner.titleAr || banner.titleEn) : (banner.titleEn || banner.titleAr)}
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            {apiBanners.length > 1 && (
-              <View style={styles.dotsRow}>
-                {apiBanners.map((_, i) => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.dot,
-                      { backgroundColor: i === activeBanner ? colors.primary : colors.border },
-                    ]}
-                  />
-                ))}
-              </View>
-            )}
+            <TouchableOpacity onPress={() => router.push("/notifications")} style={styles.notifWrap}>
+              <MaterialIcons name="notifications-none" size={24} color="#fff" />
+              {unreadCount > 0 && (
+                <View style={[styles.notifBadge, { backgroundColor: "#fff" }]}>
+                  <Text style={[styles.notifBadgeText, { color: colors.primary }]}>
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
           </View>
+
+          {/* White search bar */}
+          <TouchableOpacity
+            style={[styles.searchBar, { backgroundColor: "#fff" }]}
+            onPress={() => router.push("/search")}
+            activeOpacity={0.9}
+          >
+            <MaterialIcons name="search" size={20} color={colors.mutedForeground} />
+            <Text style={[styles.searchPlaceholder, { color: colors.mutedForeground }]}>
+              {t("home.searchPlaceholder")}
+            </Text>
+            <MaterialIcons name="tune" size={17} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* ===== Full-width Banner Carousel ===== */}
+        {apiBanners.length > 0 && (
+          <ScrollView
+            ref={bannerScrollRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            decelerationRate="fast"
+            onMomentumScrollEnd={handleBannerScroll}
+            scrollEventThrottle={16}
+          >
+            {apiBanners.map((banner) => (
+              <TouchableOpacity
+                key={banner.id}
+                activeOpacity={banner.restaurantId ? 0.88 : 1}
+                onPress={() => {
+                  if (banner.restaurantId) router.push(`/restaurant/${banner.restaurantId}` as any);
+                }}
+                style={styles.bannerSlide}
+              >
+                {banner.image ? (
+                  <Image
+                    source={{ uri: buildImageUrl(banner.image) }}
+                    style={styles.bannerImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View
+                    style={[
+                      styles.bannerImage,
+                      { backgroundColor: banner.bgColor || colors.primary, alignItems: "center", justifyContent: "center" },
+                    ]}
+                  >
+                    <MaterialIcons
+                      name={(banner.iconName as keyof typeof MaterialIcons.glyphMap) ?? "local-offer"}
+                      size={64}
+                      color="#fff"
+                    />
+                  </View>
+                )}
+                {!!(banner.titleAr || banner.titleEn) && (
+                  <View style={styles.bannerOverlay} pointerEvents="none">
+                    <Text style={[styles.bannerTitle, { textAlign: isAr ? "right" : "left" }]} numberOfLines={2}>
+                      {isAr ? (banner.titleAr || banner.titleEn) : (banner.titleEn || banner.titleAr)}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         )}
 
-        {/* Categories */}
+        {/* ===== Quick Shortcuts ===== */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.shortcutsScroll}
+          style={styles.shortcutsContainer}
+        >
+          {shortcuts.map((s) => (
+            <TouchableOpacity key={s.id} style={styles.shortcut} onPress={s.onPress} activeOpacity={0.8}>
+              <View style={[styles.shortcutCircle, { backgroundColor: s.color }]}>
+                <MaterialIcons name={s.icon} size={24} color="#fff" />
+              </View>
+              <Text style={[styles.shortcutLabel, { color: colors.foreground }]}>{s.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* ===== Visual Category Tiles ===== */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoriesScroll}
           style={styles.categoriesContainer}
         >
-          {displayCategories.map((cat) => (
-            <TouchableOpacity
-              key={cat.id}
-              style={[
-                styles.categoryBtn,
-                {
-                  backgroundColor: selectedCategory === cat.id ? colors.primary : colors.card,
-                  borderColor: selectedCategory === cat.id ? colors.primary : colors.border,
-                },
-              ]}
-              onPress={() => setSelectedCategory(cat.id)}
-            >
-              <Text
-                style={[
-                  styles.categoryText,
-                  { color: selectedCategory === cat.id ? "#fff" : colors.foreground },
-                ]}
+          {displayCategories.map((cat) => {
+            const isSelected = selectedCategory === cat.id;
+            return (
+              <TouchableOpacity
+                key={cat.id}
+                style={styles.categoryTile}
+                onPress={() => setSelectedCategory(cat.id)}
+                activeOpacity={0.8}
               >
-                {isAr ? cat.nameAr : cat.nameEn}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <View
+                  style={[
+                    styles.categoryTileIcon,
+                    {
+                      backgroundColor: isSelected ? colors.primary : colors.card,
+                      borderColor: isSelected ? colors.primary : colors.border,
+                    },
+                  ]}
+                >
+                  <MaterialIcons
+                    name={(cat.iconName as keyof typeof MaterialIcons.glyphMap) ?? "grid-view"}
+                    size={24}
+                    color={isSelected ? "#fff" : colors.foreground}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.categoryTileLabel,
+                    { color: isSelected ? colors.primary : colors.mutedForeground },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {isAr ? cat.nameAr : cat.nameEn}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
 
-        {/* Active order banner */}
+        {/* ===== Active Order Banner ===== */}
         {activeOrder && (
           <TouchableOpacity
             style={[styles.orderBanner, { backgroundColor: colors.secondary }]}
@@ -371,12 +472,10 @@ export default function HomeScreen() {
               router.push({ pathname: "/order-tracking/[id]", params: { id: activeOrder.id } })
             }
           >
-            <View style={[styles.bannerDot, { backgroundColor: colors.primary }]} />
-            <View style={styles.bannerInfo}>
-              <Text style={[styles.bannerText2, { color: colors.primary }]}>
-                {getOrderStatusText()}
-              </Text>
-              <Text style={[styles.bannerSub, { color: colors.mutedForeground }]} numberOfLines={1}>
+            <View style={[styles.orderDot, { backgroundColor: colors.primary }]} />
+            <View style={styles.orderInfo}>
+              <Text style={[styles.orderStatus, { color: colors.primary }]}>{getOrderStatusText()}</Text>
+              <Text style={[styles.orderRestaurant, { color: colors.mutedForeground }]} numberOfLines={1}>
                 {activeOrder.restaurantName}
               </Text>
             </View>
@@ -384,41 +483,153 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Restaurants */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
+        {/* ===== Popular Section ===== */}
+        {!isLoading && popularRestaurants.length > 0 && (
+          <View style={styles.sectionWrap}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("home.popular")}</Text>
+              <MaterialIcons name="star" size={16} color="#FFB800" />
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.hListContent}
+            >
+              {popularRestaurants.map((r) => (
+                <HorizontalRestaurantCard
+                  key={r.id}
+                  restaurant={r}
+                  onPress={() => router.push(`/restaurant/${r.id}` as any)}
+                />
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* ===== Exclusive Deals Section ===== */}
+        {!isLoading && dealRestaurants.length > 0 && (
+          <View style={styles.sectionWrap}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("home.exclusiveDeals")}</Text>
+              <MaterialIcons name="local-offer" size={16} color={colors.primary} />
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.hListContent}
+            >
+              {dealRestaurants.map((r) => (
+                <HorizontalRestaurantCard
+                  key={r.id}
+                  restaurant={r}
+                  onPress={() => router.push(`/restaurant/${r.id}` as any)}
+                  variant="deal"
+                />
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* ===== Fast Delivery Section ===== */}
+        {!isLoading && fastRestaurants.length > 0 && (
+          <View style={styles.sectionWrap}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("home.expressDelivery")}</Text>
+              <MaterialIcons name="delivery-dining" size={16} color={colors.primary} />
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.hListContent}
+            >
+              {fastRestaurants.map((r) => (
+                <HorizontalRestaurantCard
+                  key={r.id}
+                  restaurant={r}
+                  onPress={() => router.push(`/restaurant/${r.id}` as any)}
+                />
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* ===== Filter Bar ===== */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterScroll}
+          style={styles.filterContainer}
+        >
+          {filterOptions.map((opt) => {
+            const isActive = sortBy === opt.key;
+            return (
+              <TouchableOpacity
+                key={opt.key}
+                style={[
+                  styles.filterChip,
+                  {
+                    backgroundColor: isActive ? colors.primary : colors.card,
+                    borderColor: isActive ? colors.primary : colors.border,
+                  },
+                ]}
+                onPress={() => setSortBy(isActive ? "default" : opt.key)}
+              >
+                <Text style={[styles.filterChipText, { color: isActive ? "#fff" : colors.foreground }]}>
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+          <TouchableOpacity
+            style={[
+              styles.filterChip,
+              {
+                backgroundColor: openOnly ? colors.primary : colors.card,
+                borderColor: openOnly ? colors.primary : colors.border,
+                flexDirection: "row",
+                gap: 4,
+              },
+            ]}
+            onPress={() => setOpenOnly((p) => !p)}
+          >
+            <MaterialIcons name="store" size={13} color={openOnly ? "#fff" : colors.foreground} />
+            <Text style={[styles.filterChipText, { color: openOnly ? "#fff" : colors.foreground }]}>
+              {t("home.openOnly")}
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+
+        {/* ===== Explore All Section ===== */}
+        <View style={styles.exploreSection}>
+          <View style={styles.sectionHeaderRow}>
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-              {selectedCategory === "all"
-                ? t("home.allRestaurants")
-                : selectedCategoryLabel}
-              <Text style={[styles.count, { color: colors.mutedForeground }]}> ({filtered.length})</Text>
+              {t("home.exploreAll")}
+              <Text style={[styles.count, { color: colors.mutedForeground }]}>
+                {" "}({filteredRestaurants.length})
+              </Text>
             </Text>
             <TouchableOpacity onPress={() => router.push("/search")}>
               <MaterialIcons name="search" size={22} color={colors.primary} />
             </TouchableOpacity>
           </View>
 
-          {restaurantsLoading ? (
-            <View style={styles.empty}>
-              <ActivityIndicator size="large" color="#DC2626" />
+          {isLoading ? (
+            <View style={styles.loadingWrap}>
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+          ) : filteredRestaurants.length === 0 ? (
+            <View style={styles.emptyWrap}>
+              <MaterialIcons name="search-off" size={48} color={colors.mutedForeground} />
+              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>{t("home.noResults")}</Text>
             </View>
           ) : (
-            <>
-              {filtered.map((restaurant) => (
-                <RestaurantCard
-                  key={restaurant.id}
-                  restaurant={restaurant}
-                  onPress={() => router.push(`/restaurant/${restaurant.id}`)}
-                />
-              ))}
-
-              {filtered.length === 0 && (
-                <View style={styles.empty}>
-                  <MaterialIcons name="search-off" size={48} color={colors.mutedForeground} />
-                  <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>{t("home.noResults")}</Text>
-                </View>
-              )}
-            </>
+            filteredRestaurants.map((restaurant) => (
+              <RestaurantCard
+                key={restaurant.id}
+                restaurant={restaurant as any}
+                onPress={() => router.push(`/restaurant/${restaurant.id}` as any)}
+              />
+            ))
           )}
         </View>
       </ScrollView>
@@ -428,97 +639,134 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+
+  // Header
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 20,
   },
-  locationRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  location: { fontSize: 15, fontWeight: "600" },
-  notifBtn: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", position: "relative" },
-  notifBadge: { position: "absolute", top: 4, right: 4, minWidth: 16, height: 16, borderRadius: 8, alignItems: "center", justifyContent: "center", paddingHorizontal: 3 },
-  notifBadgeText: { color: "#fff", fontSize: 9, fontWeight: "800" },
-  greeting: { paddingHorizontal: 16, marginBottom: 16 },
-  greetTitle: { fontSize: 24, fontWeight: "800", lineHeight: 34 },
-  searchContainer: {
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 14,
+    justifyContent: "space-between",
+    marginBottom: 14,
+  },
+  locationRow: { flexDirection: "row", alignItems: "center", gap: 4, flex: 1, marginRight: 12 },
+  locationText: { color: "#fff", fontSize: 14, fontWeight: "600", flexShrink: 1 },
+  notifWrap: { position: "relative" },
+  notifBadge: {
+    position: "absolute",
+    top: -3,
+    right: -3,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  notifBadgeText: { fontSize: 9, fontWeight: "800" },
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 16,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderWidth: 1,
+    paddingVertical: 13,
     gap: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
   },
   searchPlaceholder: { flex: 1, fontSize: 14 },
-  bannersSection: { marginBottom: 16 },
-  bannersScroll: { paddingHorizontal: 16, gap: 12 },
-  bannerCard: {
-    borderRadius: 16,
-    overflow: "hidden",
-    position: "relative",
-  },
-  bannerImage: {
-    width: "100%",
-    height: 160,
-    borderRadius: 16,
-  },
+
+  // Banner
+  bannerSlide: { width: SCREEN_WIDTH, height: 180 },
+  bannerImage: { width: SCREEN_WIDTH, height: 180 },
   bannerOverlay: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: "rgba(0,0,0,0.38)",
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
   },
-  bannerOverlayText: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "700",
-    textShadowColor: "rgba(0,0,0,0.5)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
-  dotsRow: {
-    flexDirection: "row",
+  bannerTitle: { color: "#fff", fontSize: 16, fontWeight: "700" },
+
+  // Shortcuts
+  shortcutsContainer: { marginTop: 18 },
+  shortcutsScroll: { paddingHorizontal: 20, gap: 20 },
+  shortcut: { alignItems: "center", gap: 7 },
+  shortcutCircle: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    marginTop: 10,
   },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  categoriesContainer: { marginBottom: 16 },
-  categoriesScroll: { paddingHorizontal: 16, gap: 8 },
-  categoryBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
-  categoryText: { fontSize: 13, fontWeight: "600" },
+  shortcutLabel: { fontSize: 11, fontWeight: "700" },
+
+  // Category tiles
+  categoriesContainer: { marginTop: 16, marginBottom: 2 },
+  categoriesScroll: { paddingHorizontal: 16, gap: 10, paddingVertical: 4 },
+  categoryTile: { alignItems: "center", gap: 6, width: 66 },
+  categoryTileIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+  },
+  categoryTileLabel: { fontSize: 11, fontWeight: "600", textAlign: "center" },
+
+  // Active order banner
   orderBanner: {
     flexDirection: "row",
     alignItems: "center",
     marginHorizontal: 16,
-    marginBottom: 20,
-    padding: 14,
+    marginTop: 14,
+    marginBottom: 4,
     borderRadius: 14,
+    padding: 12,
     gap: 10,
   },
-  bannerDot: { width: 8, height: 8, borderRadius: 4 },
-  bannerInfo: { flex: 1 },
-  bannerText2: { fontSize: 14, fontWeight: "700" },
-  bannerSub: { fontSize: 12, marginTop: 2 },
-  section: { paddingHorizontal: 16 },
-  sectionHeader: {
+  orderDot: { width: 10, height: 10, borderRadius: 5 },
+  orderInfo: { flex: 1 },
+  orderStatus: { fontSize: 14, fontWeight: "700" },
+  orderRestaurant: { fontSize: 12, marginTop: 2 },
+
+  // Section
+  sectionWrap: { marginTop: 22, marginBottom: 4 },
+  sectionHeaderRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
     marginBottom: 12,
-    writingDirection: "rtl",
   },
-  sectionTitle: { fontSize: 18, fontWeight: "800" },
-  count: { fontWeight: "400", fontSize: 14 },
-  empty: { alignItems: "center", paddingVertical: 48, gap: 12 },
-  emptyText: { fontSize: 16 },
+  sectionTitle: { fontSize: 17, fontWeight: "800" },
+  count: { fontSize: 14, fontWeight: "400" },
+  hListContent: { paddingHorizontal: 16, gap: 12 },
+
+  // Filter
+  filterContainer: { marginTop: 22, marginBottom: 4 },
+  filterScroll: { paddingHorizontal: 16, gap: 8 },
+  filterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  filterChipText: { fontSize: 13, fontWeight: "600" },
+
+  // Explore section
+  exploreSection: { marginTop: 18, paddingHorizontal: 16 },
+  loadingWrap: { alignItems: "center", paddingVertical: 40 },
+  emptyWrap: { alignItems: "center", paddingVertical: 40, gap: 8 },
+  emptyText: { fontSize: 15 },
 });
