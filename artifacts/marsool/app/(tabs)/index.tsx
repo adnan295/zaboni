@@ -468,7 +468,7 @@ export default function HomeScreen() {
                   ]}
                 >
                   <Image
-                    source={{ uri: CATEGORY_IMAGES[cat.code ?? cat.id] ?? CATEGORY_IMAGES.all }}
+                    source={{ uri: (cat as any).imageUrl || CATEGORY_IMAGES[cat.code ?? cat.id] || CATEGORY_IMAGES.all }}
                     style={styles.categoryTileImg}
                   />
                 </View>

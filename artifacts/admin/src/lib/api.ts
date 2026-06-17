@@ -327,6 +327,7 @@ export type RestaurantCategory = {
   nameAr: string;
   nameEn: string;
   iconName: string;
+  imageUrl?: string | null;
   sortOrder: number;
   isActive: boolean;
   createdAt: string;

@@ -13,6 +13,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { ImageUpload } from "@/components/ImageUpload";
 
 const ICONS: { name: string; label: string; value: string }[] = [
   { value: "grid-view",         label: "الكل",          name: "☰" },
@@ -39,12 +40,14 @@ function toCode(iconName: string): string {
 type CategoryForm = {
   nameAr: string;
   iconName: string;
+  imageUrl: string;
   isActive: boolean;
 };
 
 const emptyForm: CategoryForm = {
   nameAr: "",
   iconName: "restaurant",
+  imageUrl: "",
   isActive: true,
 };
 
@@ -69,7 +72,7 @@ export default function CategoriesPage() {
 
   function openEdit(c: RestaurantCategory) {
     setEditing(c);
-    setForm({ nameAr: c.nameAr, iconName: c.iconName, isActive: c.isActive });
+    setForm({ nameAr: c.nameAr, iconName: c.iconName, imageUrl: c.imageUrl ?? "", isActive: c.isActive });
     setDialogOpen(true);
   }
 
@@ -81,6 +84,7 @@ export default function CategoriesPage() {
         nameAr: form.nameAr,
         nameEn: form.nameAr,
         iconName: form.iconName,
+        imageUrl: form.imageUrl || null,
         isActive: form.isActive,
         sortOrder: editing?.sortOrder ?? categories.length,
       };
@@ -155,7 +159,15 @@ export default function CategoriesPage() {
                 key={c.id}
                 className="rounded-2xl border bg-card p-4 flex flex-col items-center gap-3 shadow-sm hover:shadow-md transition-shadow"
               >
-                <div className="text-4xl">{icon?.name ?? "📦"}</div>
+                {c.imageUrl ? (
+                  <img
+                    src={c.imageUrl}
+                    alt={c.nameAr}
+                    className="w-16 h-16 rounded-full object-cover border-2 border-border"
+                  />
+                ) : (
+                  <div className="text-4xl">{icon?.name ?? "📦"}</div>
+                )}
                 <p className="font-bold text-center text-sm leading-tight">{c.nameAr}</p>
                 <button
                   onClick={() =>
@@ -222,8 +234,16 @@ export default function CategoriesPage() {
               )}
             </div>
 
+            <div className="space-y-1.5">
+              <ImageUpload
+                label="صورة التصنيف (اختيارية)"
+                value={form.imageUrl}
+                onChange={(url) => setForm((f) => ({ ...f, imageUrl: url }))}
+              />
+            </div>
+
             <div className="space-y-2">
-              <Label>الأيقونة</Label>
+              <Label>الأيقونة (احتياطي إذا لم تُرفع صورة)</Label>
               <div className="grid grid-cols-4 gap-2">
                 {ICONS.map((icon) => (
                   <button
