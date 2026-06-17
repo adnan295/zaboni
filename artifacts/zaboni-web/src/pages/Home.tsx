@@ -1,9 +1,19 @@
 import { Link } from "wouter";
+import { useEffect, useState } from "react";
 
 const PLAY_URL = "https://play.google.com/store/apps/details?id=com.zaboni.delivery";
 const IOS_URL = "https://apps.apple.com/de/app/zaboni/id6763415681";
 
 export default function HomePage() {
+  const [expoUrl, setExpoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/config/expo-link")
+      .then((r) => r.json())
+      .then((d) => { if (d.url) setExpoUrl(d.url); })
+      .catch(() => {});
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col" dir="rtl">
       <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
@@ -84,6 +94,26 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+
+        {expoUrl && (
+          <section className="py-8 px-6 bg-amber-50 border-y border-amber-200">
+            <div className="max-w-lg mx-auto text-center">
+              <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-3">
+                بيئة تجريبية · للمطورين فقط
+              </p>
+              <a
+                href={expoUrl}
+                className="inline-flex items-center justify-center gap-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl px-8 py-4 transition-colors shadow-sm font-bold text-base"
+              >
+                <span className="text-xl">📱</span>
+                افتح في Expo Go
+              </a>
+              <p className="text-xs text-amber-600 mt-3">
+                يتطلب تطبيق Expo Go مثبّتاً على الجوال
+              </p>
+            </div>
+          </section>
+        )}
 
         <section className="py-14 px-6">
           <div className="max-w-2xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
