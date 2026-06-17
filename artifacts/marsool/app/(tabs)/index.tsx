@@ -101,6 +101,20 @@ const ALL_CATEGORY: { id: string; nameAr: string; nameEn: string; iconName: stri
   iconName: "grid-view",
 };
 
+const CATEGORY_IMAGES: Record<string, string> = {
+  all:          "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=200&q=80",
+  restaurants:  "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=200&q=80",
+  burgers:      "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=200&q=80",
+  pizza:        "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=200&q=80",
+  shawarma:     "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=200&q=80",
+  coffee:       "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=200&q=80",
+  sweets:       "https://images.unsplash.com/photo-1551024601-bec78aea704b?w=200&q=80",
+  juice:        "https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=200&q=80",
+  seafood:      "https://images.unsplash.com/photo-1559737558-2f5a35f4523b?w=200&q=80",
+  grocery:      "https://images.unsplash.com/photo-1542838132-92c53300491e?w=200&q=80",
+  pharmacy:     "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=200&q=80",
+};
+
 function parseDeliveryTime(deliveryTime: string): number {
   const nums = deliveryTime.match(/\d+/g);
   if (!nums || nums.length === 0) return 999;
@@ -450,22 +464,18 @@ export default function HomeScreen() {
                 <View
                   style={[
                     styles.categoryTileIcon,
-                    {
-                      backgroundColor: isSelected ? colors.primary : colors.card,
-                      borderColor: isSelected ? colors.primary : colors.border,
-                    },
+                    { borderColor: isSelected ? colors.primary : "transparent" },
                   ]}
                 >
-                  <MaterialIcons
-                    name={(cat.iconName as keyof typeof MaterialIcons.glyphMap) ?? "grid-view"}
-                    size={24}
-                    color={isSelected ? "#fff" : colors.foreground}
+                  <Image
+                    source={{ uri: CATEGORY_IMAGES[cat.code ?? cat.id] ?? CATEGORY_IMAGES.all }}
+                    style={styles.categoryTileImg}
                   />
                 </View>
                 <Text
                   style={[
                     styles.categoryTileLabel,
-                    { color: isSelected ? colors.primary : colors.mutedForeground },
+                    { color: isSelected ? colors.primary : colors.mutedForeground, fontWeight: isSelected ? "700" : "600" },
                   ]}
                   numberOfLines={1}
                 >
@@ -747,14 +757,17 @@ const styles = StyleSheet.create({
   // Category tiles
   categoriesContainer: { marginTop: 16, marginBottom: 2 },
   categoriesScroll: { paddingHorizontal: 16, gap: 10, paddingVertical: 4 },
-  categoryTile: { alignItems: "center", gap: 6, width: 66 },
+  categoryTile: { alignItems: "center", gap: 6, width: 70 },
   categoryTileIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1.5,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    overflow: "hidden",
+    borderWidth: 2.5,
+  },
+  categoryTileImg: {
+    width: "100%",
+    height: "100%",
   },
   categoryTileLabel: { fontSize: 11, fontWeight: "600", textAlign: "center" },
 
