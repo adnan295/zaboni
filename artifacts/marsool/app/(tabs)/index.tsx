@@ -280,12 +280,22 @@ export default function HomeScreen() {
   useEffect(() => { if (!hasDealsSection) dealsSectionY.current = 0; }, [hasDealsSection]);
   useEffect(() => { if (!hasFastSection) fastSectionY.current = 0; }, [hasFastSection]);
 
+  const isCategoryFiltered = selectedCategory !== "all";
+
   const filteredRestaurants = useMemo(() => {
     let list = [...allRestaurantsData];
     if (openOnly) list = list.filter((r) => r.isOpen);
     if (selectedCategory !== "all") {
       const selected = apiCategories.find((c) => c.id === selectedCategory);
-      list = list.filter((r) => r.category === (selected?.code || selectedCategory));
+      const code = selected?.code || selectedCategory;
+      const nameAr = selected?.nameAr?.toLowerCase() ?? "";
+      const nameEn = selected?.nameEn?.toLowerCase() ?? code.toLowerCase();
+      list = list.filter(
+        (r) =>
+          r.category === code ||
+          r.nameAr?.toLowerCase().includes(nameAr) ||
+          r.name?.toLowerCase().includes(nameEn)
+      );
     }
     if (sortBy === "rating") list.sort((a, b) => b.rating - a.rating);
     else if (sortBy === "time") list.sort((a, b) => parseDeliveryTime(a.deliveryTime) - parseDeliveryTime(b.deliveryTime));
@@ -510,7 +520,7 @@ export default function HomeScreen() {
         )}
 
         {/* ===== Popular Section ===== */}
-        {(isLoading || popularRestaurants.length > 0) && (
+        {!isCategoryFiltered && (isLoading || popularRestaurants.length > 0) && (
           <View
             style={styles.sectionWrap}
             onLayout={(e) => { popularSectionY.current = e.nativeEvent.layout.y; }}
@@ -538,7 +548,7 @@ export default function HomeScreen() {
         )}
 
         {/* ===== Exclusive Deals Section ===== */}
-        {(isLoading || dealRestaurants.length > 0) && (
+        {!isCategoryFiltered && (isLoading || dealRestaurants.length > 0) && (
           <View
             style={styles.sectionWrap}
             onLayout={(e) => { dealsSectionY.current = e.nativeEvent.layout.y; }}
@@ -567,7 +577,7 @@ export default function HomeScreen() {
         )}
 
         {/* ===== Fast Delivery Section ===== */}
-        {(isLoading || fastRestaurants.length > 0) && (
+        {!isCategoryFiltered && (isLoading || fastRestaurants.length > 0) && (
           <View
             style={styles.sectionWrap}
             onLayout={(e) => { fastSectionY.current = e.nativeEvent.layout.y; }}
