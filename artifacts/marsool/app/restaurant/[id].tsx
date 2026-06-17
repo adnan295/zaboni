@@ -523,8 +523,8 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     direction: "rtl",
   },
-  sectionTitle: { fontSize: 17, fontWeight: "800", marginBottom: 4 },
-  sectionSubtitle: { fontSize: 12, marginBottom: 12 },
+  sectionTitle: { fontSize: 17, fontWeight: "800", marginBottom: 4, textAlign: "left" },
+  sectionSubtitle: { fontSize: 12, marginBottom: 12, textAlign: "left" },
   popularGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 8 },
   popularCard: {
     width: "47%",
@@ -556,8 +556,8 @@ const styles = StyleSheet.create({
   },
   popularQtyText: { color: "#fff", fontSize: 13, fontWeight: "800" },
   popularCardBody: { padding: 10, gap: 4 },
-  popularItemName: { fontSize: 13, fontWeight: "700" },
-  popularItemPrice: { fontSize: 13, fontWeight: "800" },
+  popularItemName: { fontSize: 13, fontWeight: "700", textAlign: "left" },
+  popularItemPrice: { fontSize: 13, fontWeight: "800", textAlign: "left" },
   orderFooter: {
     position: "absolute",
     bottom: 0,
