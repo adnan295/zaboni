@@ -208,7 +208,7 @@ export default function SearchScreen() {
             onChangeText={setQuery}
             onSubmitEditing={handleSubmit}
             returnKeyType="search"
-            textAlign="right"
+            textAlign="left"
           />
           {query.length > 0 && (
             <TouchableOpacity onPress={() => setQuery("")}>

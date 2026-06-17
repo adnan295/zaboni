@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 12, fontWeight: "700" },
   date: { fontSize: 12 },
   divider: { height: 1 },
-  orderText: { fontSize: 13, lineHeight: 20, textAlign: "right" },
+  orderText: { fontSize: 13, lineHeight: 20, textAlign: "left" },
   courierRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   courierName: { fontSize: 12 },
   footer: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 8, marginTop: 4, flexWrap: "wrap" },

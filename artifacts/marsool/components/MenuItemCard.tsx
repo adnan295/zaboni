@@ -133,12 +133,12 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 15,
     fontWeight: "700",
-    textAlign: "right",
+    textAlign: "left",
   },
   description: {
     fontSize: 12,
     lineHeight: 18,
-    textAlign: "right",
+    textAlign: "left",
   },
   bottomRow: {
     flexDirection: "row",
