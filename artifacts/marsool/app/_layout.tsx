@@ -172,7 +172,7 @@ export default function RootLayout() {
                       <AddressProvider>
                         <OrderProvider>
                           <CourierProvider>
-                            <GestureHandlerRootView>
+                            <GestureHandlerRootView style={{ flex: 1, direction: "rtl" }}>
                               <KeyboardProvider>
                                 <PushNotificationSetup />
                                 <OrderNotificationBridge />
