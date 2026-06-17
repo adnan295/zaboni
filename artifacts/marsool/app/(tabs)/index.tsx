@@ -121,12 +121,15 @@ function parseDeliveryTime(deliveryTime: string): number {
   return Math.max(...nums.map(Number));
 }
 
-async function fetchRestaurants(lat?: number, lon?: number): Promise<RestaurantItem[]> {
+async function fetchRestaurants(lat?: number, lon?: number, categoryId?: string): Promise<RestaurantItem[]> {
   const base = getApiBaseUrl();
   const params = new URLSearchParams();
   if (lat != null && lon != null) {
     params.set("lat", String(lat));
     params.set("lon", String(lon));
+  }
+  if (categoryId && categoryId !== "all") {
+    params.set("categoryId", categoryId);
   }
   const url = `${base}/api/restaurants${params.toString() ? "?" + params.toString() : ""}`;
   const res = await fetch(url);
@@ -188,6 +191,13 @@ export default function HomeScreen() {
     queryKey: ["restaurants", userLocation?.lat, userLocation?.lon],
     queryFn: () => fetchRestaurants(userLocation?.lat, userLocation?.lon),
     staleTime: 2 * 60 * 1000,
+  });
+
+  const { data: categoryRestaurantsData = [], isLoading: isCategoryLoading } = useQuery<RestaurantItem[]>({
+    queryKey: ["restaurants-by-category", selectedCategory, userLocation?.lat, userLocation?.lon],
+    queryFn: () => fetchRestaurants(userLocation?.lat, userLocation?.lon, selectedCategory),
+    staleTime: 2 * 60 * 1000,
+    enabled: selectedCategory !== "all",
   });
 
   type OrderRow = { restaurantId: string | null; status: string };
@@ -297,25 +307,15 @@ export default function HomeScreen() {
   const isCategoryFiltered = selectedCategory !== "all";
 
   const filteredRestaurants = useMemo(() => {
-    let list = [...allRestaurantsData];
+    // When a specific category is selected, use server-returned order (admin-defined per category)
+    let list = isCategoryFiltered ? [...categoryRestaurantsData] : [...allRestaurantsData];
     if (openOnly) list = list.filter((r) => r.isOpen);
-    if (selectedCategory !== "all") {
-      const selected = apiCategories.find((c) => c.id === selectedCategory);
-      const code = selected?.code || selectedCategory;
-      const nameAr = selected?.nameAr?.toLowerCase() ?? "";
-      const nameEn = selected?.nameEn?.toLowerCase() ?? code.toLowerCase();
-      list = list.filter(
-        (r) =>
-          r.category === code ||
-          r.nameAr?.toLowerCase().includes(nameAr) ||
-          r.name?.toLowerCase().includes(nameEn)
-      );
-    }
+    // Only re-sort if user explicitly picked a sort option (preserve server order otherwise)
     if (sortBy === "rating") list.sort((a, b) => b.rating - a.rating);
     else if (sortBy === "time") list.sort((a, b) => parseDeliveryTime(a.deliveryTime) - parseDeliveryTime(b.deliveryTime));
     else if (sortBy === "fee") list.sort((a, b) => a.deliveryFee - b.deliveryFee);
     return list;
-  }, [allRestaurantsData, openOnly, selectedCategory, sortBy, apiCategories]);
+  }, [allRestaurantsData, categoryRestaurantsData, openOnly, selectedCategory, sortBy, isCategoryFiltered]);
 
   const displayCategories = useMemo(
     () => [ALL_CATEGORY, ...apiCategories],
@@ -674,7 +674,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          {isLoading ? (
+          {(isLoading || (isCategoryFiltered && isCategoryLoading)) ? (
             [0, 1, 2].map((i) => <RestaurantCardSkeleton key={i} />)
           ) : filteredRestaurants.length === 0 ? (
             <View style={styles.emptyWrap}>
