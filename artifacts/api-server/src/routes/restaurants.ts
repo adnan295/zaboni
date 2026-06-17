@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, restaurantsTable, menuItemsTable, restaurantHoursTable, promoBannersTable, restaurantCategoriesTable, restaurantCategorySortOrdersTable } from "@workspace/db";
+import { db, restaurantsTable, menuItemsTable, restaurantHoursTable, promoBannersTable, restaurantCategoriesTable, restaurantCategorySortOrdersTable, homeSectionItemsTable } from "@workspace/db";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -229,6 +229,34 @@ router.get("/categories", async (_req, res) => {
     .where(eq(restaurantCategoriesTable.isActive, true))
     .orderBy(asc(restaurantCategoriesTable.sortOrder));
   res.json(rows);
+});
+
+router.get("/home-sections/:section", async (req, res) => {
+  const section = String(req.params["section"]);
+  if (section !== "popular" && section !== "deals") {
+    res.status(400).json({ error: "Invalid section" });
+    return;
+  }
+  const items = await db
+    .select({ restaurantId: homeSectionItemsTable.restaurantId })
+    .from(homeSectionItemsTable)
+    .where(eq(homeSectionItemsTable.section, section))
+    .orderBy(asc(homeSectionItemsTable.sortOrder));
+
+  if (items.length === 0) {
+    res.json([]);
+    return;
+  }
+
+  const ids = items.map((i) => i.restaurantId);
+  const restaurants = await db
+    .select()
+    .from(restaurantsTable)
+    .where(inArray(restaurantsTable.id, ids));
+
+  const map = new Map(restaurants.map((r) => [r.id, r]));
+  const ordered = ids.map((id) => map.get(id)).filter(Boolean);
+  res.json(ordered);
 });
 
 export default router;

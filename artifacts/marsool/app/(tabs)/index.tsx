@@ -155,6 +155,13 @@ async function fetchCategories(): Promise<RestaurantCategory[]> {
   return data;
 }
 
+async function fetchHomeSection(section: "popular" | "deals"): Promise<RestaurantItem[]> {
+  const base = getApiBaseUrl();
+  const res = await fetch(`${base}/api/home-sections/${section}`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
 export default function HomeScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -233,10 +240,21 @@ export default function HomeScreen() {
     try { await refetch(); } finally { setRefreshing(false); }
   }, [refetch]);
 
+  const { data: popularRestaurants = [], isLoading: isPopularLoading } = useQuery<RestaurantItem[]>({
+    queryKey: ["home-sections", "popular"],
+    queryFn: () => fetchHomeSection("popular"),
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const { data: dealRestaurants = [], isLoading: isDealsLoading } = useQuery<RestaurantItem[]>({
+    queryKey: ["home-sections", "deals"],
+    queryFn: () => fetchHomeSection("deals"),
+    staleTime: 2 * 60 * 1000,
+  });
+
   const mainScrollRef = useRef<ScrollView>(null);
   const popularSectionY = useRef<number>(0);
   const dealsSectionY = useRef<number>(0);
-  const fastSectionY = useRef<number>(0);
 
   const bannerScrollRef = useRef<ScrollView>(null);
   const bannerTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -281,28 +299,11 @@ export default function HomeScreen() {
       .filter((r): r is RestaurantItem => r !== undefined);
   }, [userOrders, allRestaurantsData]);
 
-  const popularRestaurants = useMemo(
-    () => [...allRestaurantsData].sort((a, b) => b.rating - a.rating).slice(0, 6),
-    [allRestaurantsData]
-  );
-
-  const dealRestaurants = useMemo(
-    () => allRestaurantsData.filter((r) => r.discount !== null && r.discount !== ""),
-    [allRestaurantsData]
-  );
-
-  const fastRestaurants = useMemo(
-    () => allRestaurantsData.filter((r) => parseDeliveryTime(r.deliveryTime) <= 30),
-    [allRestaurantsData]
-  );
-
-  const hasPopularSection = isLoading || popularRestaurants.length > 0;
-  const hasDealsSection = isLoading || dealRestaurants.length > 0;
-  const hasFastSection = isLoading || fastRestaurants.length > 0;
+  const hasPopularSection = isPopularLoading || popularRestaurants.length > 0;
+  const hasDealsSection = isDealsLoading || dealRestaurants.length > 0;
 
   useEffect(() => { if (!hasPopularSection) popularSectionY.current = 0; }, [hasPopularSection]);
   useEffect(() => { if (!hasDealsSection) dealsSectionY.current = 0; }, [hasDealsSection]);
-  useEffect(() => { if (!hasFastSection) fastSectionY.current = 0; }, [hasFastSection]);
 
   const isCategoryFiltered = selectedCategory !== "all";
 
@@ -530,7 +531,7 @@ export default function HomeScreen() {
         )}
 
         {/* ===== Popular Section ===== */}
-        {!isCategoryFiltered && (isLoading || popularRestaurants.length > 0) && (
+        {!isCategoryFiltered && (isPopularLoading || popularRestaurants.length > 0) && (
           <View
             style={styles.sectionWrap}
             onLayout={(e) => { popularSectionY.current = e.nativeEvent.layout.y; }}
@@ -544,7 +545,7 @@ export default function HomeScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.hListContent}
             >
-              {isLoading
+              {isPopularLoading
                 ? [0, 1, 2, 3].map((i) => <HorizontalRestaurantCardSkeleton key={i} />)
                 : popularRestaurants.map((r) => (
                     <HorizontalRestaurantCard
@@ -558,7 +559,7 @@ export default function HomeScreen() {
         )}
 
         {/* ===== Exclusive Deals Section ===== */}
-        {!isCategoryFiltered && (isLoading || dealRestaurants.length > 0) && (
+        {!isCategoryFiltered && (isDealsLoading || dealRestaurants.length > 0) && (
           <View
             style={styles.sectionWrap}
             onLayout={(e) => { dealsSectionY.current = e.nativeEvent.layout.y; }}
@@ -572,7 +573,7 @@ export default function HomeScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.hListContent}
             >
-              {isLoading
+              {isDealsLoading
                 ? [0, 1, 2, 3].map((i) => <HorizontalRestaurantCardSkeleton key={i} />)
                 : dealRestaurants.map((r) => (
                     <HorizontalRestaurantCard
@@ -580,34 +581,6 @@ export default function HomeScreen() {
                       restaurant={r}
                       onPress={() => router.push(`/restaurant/${r.id}` as any)}
                       variant="deal"
-                    />
-                  ))}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* ===== Fast Delivery Section ===== */}
-        {!isCategoryFiltered && (isLoading || fastRestaurants.length > 0) && (
-          <View
-            style={styles.sectionWrap}
-            onLayout={(e) => { fastSectionY.current = e.nativeEvent.layout.y; }}
-          >
-            <View style={styles.sectionHeaderRow}>
-              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("home.expressDelivery")}</Text>
-              <MaterialIcons name="delivery-dining" size={16} color={colors.primary} />
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.hListContent}
-            >
-              {isLoading
-                ? [0, 1, 2, 3].map((i) => <HorizontalRestaurantCardSkeleton key={i} />)
-                : fastRestaurants.map((r) => (
-                    <HorizontalRestaurantCard
-                      key={r.id}
-                      restaurant={r}
-                      onPress={() => router.push(`/restaurant/${r.id}` as any)}
                     />
                   ))}
             </ScrollView>

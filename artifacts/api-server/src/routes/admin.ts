@@ -20,6 +20,7 @@ import {
   restaurantCategorySortOrdersTable,
   chatMessagesTable,
   orderStatusHistoryTable,
+  homeSectionItemsTable,
 } from "@workspace/db";
 import { eq, count, desc, gte, lte, getTableColumns, and, sql, avg, asc, lt } from "drizzle-orm";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
@@ -1839,6 +1840,103 @@ router.delete("/admin/categories/:id", async (req, res) => {
   await db.delete(restaurantCategoriesTable).where(eq(restaurantCategoriesTable.id, id));
   res.status(204).end();
 });
+
+// ─── Home Sections ───────────────────────────────────────────────────────────
+
+const VALID_SECTIONS = ["popular", "deals"] as const;
+type HomeSection = (typeof VALID_SECTIONS)[number];
+
+function isValidSection(s: string): s is HomeSection {
+  return (VALID_SECTIONS as readonly string[]).includes(s);
+}
+
+router.get("/admin/home-sections/:section", async (req, res) => {
+  const section = String(req.params["section"]);
+  if (!isValidSection(section)) { res.status(400).json({ error: "Invalid section" }); return; }
+
+  const items = await db
+    .select({
+      id: homeSectionItemsTable.id,
+      section: homeSectionItemsTable.section,
+      restaurantId: homeSectionItemsTable.restaurantId,
+      sortOrder: homeSectionItemsTable.sortOrder,
+      restaurantName: restaurantsTable.name,
+      restaurantNameAr: restaurantsTable.nameAr,
+      restaurantImage: restaurantsTable.image,
+    })
+    .from(homeSectionItemsTable)
+    .innerJoin(restaurantsTable, eq(homeSectionItemsTable.restaurantId, restaurantsTable.id))
+    .where(eq(homeSectionItemsTable.section, section))
+    .orderBy(asc(homeSectionItemsTable.sortOrder));
+
+  res.json(items);
+});
+
+router.post("/admin/home-sections/:section", async (req, res) => {
+  const section = String(req.params["section"]);
+  if (!isValidSection(section)) { res.status(400).json({ error: "Invalid section" }); return; }
+
+  const parsed = z.object({ restaurantId: z.string().min(1) }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  const existing = await db
+    .select({ id: homeSectionItemsTable.id, sortOrder: homeSectionItemsTable.sortOrder })
+    .from(homeSectionItemsTable)
+    .where(eq(homeSectionItemsTable.section, section))
+    .orderBy(desc(homeSectionItemsTable.sortOrder))
+    .limit(1);
+
+  const nextOrder = existing.length > 0 ? (existing[0]?.sortOrder ?? 0) + 1 : 0;
+  const id = `hs_${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
+
+  try {
+    const [row] = await db
+      .insert(homeSectionItemsTable)
+      .values({ id, section, restaurantId: parsed.data.restaurantId, sortOrder: nextOrder })
+      .returning();
+    res.status(201).json(row);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("unique")) {
+      res.status(409).json({ error: "Restaurant already in this section" });
+    } else {
+      res.status(500).json({ error: msg });
+    }
+  }
+});
+
+router.delete("/admin/home-sections/:section/:restaurantId", async (req, res) => {
+  const section = String(req.params["section"]);
+  const restaurantId = String(req.params["restaurantId"]);
+  if (!isValidSection(section)) { res.status(400).json({ error: "Invalid section" }); return; }
+
+  await db
+    .delete(homeSectionItemsTable)
+    .where(and(eq(homeSectionItemsTable.section, section), eq(homeSectionItemsTable.restaurantId, restaurantId)));
+  res.status(204).end();
+});
+
+router.put("/admin/home-sections/:section/order", async (req, res) => {
+  const section = String(req.params["section"]);
+  if (!isValidSection(section)) { res.status(400).json({ error: "Invalid section" }); return; }
+
+  const parsed = z.object({
+    items: z.array(z.object({ restaurantId: z.string(), sortOrder: z.number() })),
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  await Promise.all(
+    parsed.data.items.map(({ restaurantId, sortOrder }) =>
+      db
+        .update(homeSectionItemsTable)
+        .set({ sortOrder })
+        .where(and(eq(homeSectionItemsTable.section, section), eq(homeSectionItemsTable.restaurantId, restaurantId)))
+    )
+  );
+  res.json({ ok: true });
+});
+
+// ─── WhatsApp ─────────────────────────────────────────────────────────────────
 
 router.get("/admin/whatsapp/accounts", (_req, res) => {
   res.json(whatsappManager.getStatus());
