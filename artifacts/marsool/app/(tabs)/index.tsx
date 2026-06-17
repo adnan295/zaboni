@@ -272,6 +272,14 @@ export default function HomeScreen() {
     [allRestaurantsData]
   );
 
+  const hasPopularSection = isLoading || popularRestaurants.length > 0;
+  const hasDealsSection = isLoading || dealRestaurants.length > 0;
+  const hasFastSection = isLoading || fastRestaurants.length > 0;
+
+  useEffect(() => { if (!hasPopularSection) popularSectionY.current = 0; }, [hasPopularSection]);
+  useEffect(() => { if (!hasDealsSection) dealsSectionY.current = 0; }, [hasDealsSection]);
+  useEffect(() => { if (!hasFastSection) fastSectionY.current = 0; }, [hasFastSection]);
+
   const filteredRestaurants = useMemo(() => {
     let list = [...allRestaurantsData];
     if (openOnly) list = list.filter((r) => r.isOpen);
@@ -310,7 +318,7 @@ export default function HomeScreen() {
         label: t("home.shortcutOffers"),
         color: "#FF6B35",
         onPress: () => {
-          if (dealsSectionY.current > 0)
+          if (hasDealsSection && dealsSectionY.current > 0)
             mainScrollRef.current?.scrollTo({ y: dealsSectionY.current, animated: true });
         },
       },
@@ -320,7 +328,7 @@ export default function HomeScreen() {
         label: t("home.shortcutFast"),
         color: "#10B981",
         onPress: () => {
-          if (fastSectionY.current > 0)
+          if (hasFastSection && fastSectionY.current > 0)
             mainScrollRef.current?.scrollTo({ y: fastSectionY.current, animated: true });
         },
       },
@@ -330,12 +338,12 @@ export default function HomeScreen() {
         label: t("home.shortcutTopRated"),
         color: "#FFB800",
         onPress: () => {
-          if (popularSectionY.current > 0)
+          if (hasPopularSection && popularSectionY.current > 0)
             mainScrollRef.current?.scrollTo({ y: popularSectionY.current, animated: true });
         },
       },
     ],
-    [t]
+    [t, hasDealsSection, hasFastSection, hasPopularSection]
   );
 
   const filterOptions: { key: SortBy; label: string }[] = [
