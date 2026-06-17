@@ -26,6 +26,7 @@ import { useOrders } from "@/context/OrderContext";
 import { useAuth } from "@/context/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { getApiBaseUrl, buildImageUrl } from "@/lib/apiConfig";
+import { customFetch } from "@workspace/api-client-react";
 import { CATEGORIES } from "@/data/restaurants";
 import * as Location from "expo-location";
 
@@ -176,14 +177,15 @@ export default function HomeScreen() {
     staleTime: 2 * 60 * 1000,
   });
 
-  const { data: userOrders = [] } = useQuery<{ restaurantId: string | null }[]>({
-    queryKey: ["orders", _user?.id],
+  type OrderRow = { restaurantId: string | null; status: string };
+  type OrdersResponse = { orders: OrderRow[] };
+
+  const { data: userOrders = [] } = useQuery<OrderRow[]>({
+    queryKey: ["userOrdersForHome", _user?.id],
     queryFn: async () => {
       if (!_user?.id) return [];
-      const base = getApiBaseUrl();
-      const res = await fetch(`${base}/api/orders?userId=${encodeURIComponent(_user.id)}`);
-      if (!res.ok) return [];
-      return res.json();
+      const data = await customFetch<OrdersResponse>("/api/orders?limit=50");
+      return data?.orders ?? [];
     },
     enabled: !!_user?.id,
     staleTime: 2 * 60 * 1000,
@@ -238,7 +240,11 @@ export default function HomeScreen() {
     const seen = new Set<string>();
     const ids: string[] = [];
     for (const order of userOrders) {
-      if (order.restaurantId && !seen.has(order.restaurantId)) {
+      if (
+        order.restaurantId &&
+        order.status === "delivered" &&
+        !seen.has(order.restaurantId)
+      ) {
         seen.add(order.restaurantId);
         ids.push(order.restaurantId);
         if (ids.length >= 4) break;

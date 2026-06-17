@@ -69,8 +69,8 @@ export default function HorizontalRestaurantCard({ restaurant, onPress, variant 
             </Text>
           </View>
         )}
-        {!!badge && !restaurant.discount && (
-          <View style={[styles.badge, styles.reorderBadge]}>
+        {!!badge && (
+          <View style={styles.reorderBadge}>
             <MaterialIcons name="replay" size={9} color="#fff" />
             <Text style={styles.badgeText}>{badge}</Text>
           </View>
@@ -130,10 +130,16 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   reorderBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
     backgroundColor: "#059669",
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   badgeText: { fontSize: 10, fontWeight: "700", color: "#fff" },
   info: { padding: 10, gap: 5 },
