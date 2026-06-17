@@ -521,6 +521,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 20,
     paddingBottom: 8,
+    direction: "rtl",
   },
   sectionTitle: { fontSize: 17, fontWeight: "800", marginBottom: 4 },
   sectionSubtitle: { fontSize: 12, marginBottom: 12 },
