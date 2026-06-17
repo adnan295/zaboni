@@ -5,7 +5,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Platform,
-  ActivityIndicator,
   RefreshControl,
   Dimensions,
   NativeSyntheticEvent,
@@ -18,8 +17,8 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
-import RestaurantCard from "@/components/RestaurantCard";
-import HorizontalRestaurantCard from "@/components/HorizontalRestaurantCard";
+import RestaurantCard, { RestaurantCardSkeleton } from "@/components/RestaurantCard";
+import HorizontalRestaurantCard, { HorizontalRestaurantCardSkeleton } from "@/components/HorizontalRestaurantCard";
 import { useAddresses } from "@/context/AddressContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import { useOrders } from "@/context/OrderContext";
@@ -542,7 +541,7 @@ export default function HomeScreen() {
         )}
 
         {/* ===== Popular Section ===== */}
-        {!isLoading && popularRestaurants.length > 0 && (
+        {(isLoading || popularRestaurants.length > 0) && (
           <View style={styles.sectionWrap}>
             <View style={styles.sectionHeaderRow}>
               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("home.popular")}</Text>
@@ -553,19 +552,21 @@ export default function HomeScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.hListContent}
             >
-              {popularRestaurants.map((r) => (
-                <HorizontalRestaurantCard
-                  key={r.id}
-                  restaurant={r}
-                  onPress={() => router.push(`/restaurant/${r.id}` as any)}
-                />
-              ))}
+              {isLoading
+                ? [0, 1, 2, 3].map((i) => <HorizontalRestaurantCardSkeleton key={i} />)
+                : popularRestaurants.map((r) => (
+                    <HorizontalRestaurantCard
+                      key={r.id}
+                      restaurant={r}
+                      onPress={() => router.push(`/restaurant/${r.id}` as any)}
+                    />
+                  ))}
             </ScrollView>
           </View>
         )}
 
         {/* ===== Exclusive Deals Section ===== */}
-        {!isLoading && dealRestaurants.length > 0 && (
+        {(isLoading || dealRestaurants.length > 0) && (
           <View style={styles.sectionWrap}>
             <View style={styles.sectionHeaderRow}>
               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("home.exclusiveDeals")}</Text>
@@ -576,20 +577,22 @@ export default function HomeScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.hListContent}
             >
-              {dealRestaurants.map((r) => (
-                <HorizontalRestaurantCard
-                  key={r.id}
-                  restaurant={r}
-                  onPress={() => router.push(`/restaurant/${r.id}` as any)}
-                  variant="deal"
-                />
-              ))}
+              {isLoading
+                ? [0, 1, 2, 3].map((i) => <HorizontalRestaurantCardSkeleton key={i} />)
+                : dealRestaurants.map((r) => (
+                    <HorizontalRestaurantCard
+                      key={r.id}
+                      restaurant={r}
+                      onPress={() => router.push(`/restaurant/${r.id}` as any)}
+                      variant="deal"
+                    />
+                  ))}
             </ScrollView>
           </View>
         )}
 
         {/* ===== Fast Delivery Section ===== */}
-        {!isLoading && fastRestaurants.length > 0 && (
+        {(isLoading || fastRestaurants.length > 0) && (
           <View style={styles.sectionWrap}>
             <View style={styles.sectionHeaderRow}>
               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("home.expressDelivery")}</Text>
@@ -600,13 +603,15 @@ export default function HomeScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.hListContent}
             >
-              {fastRestaurants.map((r) => (
-                <HorizontalRestaurantCard
-                  key={r.id}
-                  restaurant={r}
-                  onPress={() => router.push(`/restaurant/${r.id}` as any)}
-                />
-              ))}
+              {isLoading
+                ? [0, 1, 2, 3].map((i) => <HorizontalRestaurantCardSkeleton key={i} />)
+                : fastRestaurants.map((r) => (
+                    <HorizontalRestaurantCard
+                      key={r.id}
+                      restaurant={r}
+                      onPress={() => router.push(`/restaurant/${r.id}` as any)}
+                    />
+                  ))}
             </ScrollView>
           </View>
         )}
@@ -672,9 +677,7 @@ export default function HomeScreen() {
           </View>
 
           {isLoading ? (
-            <View style={styles.loadingWrap}>
-              <ActivityIndicator size="large" color={colors.primary} />
-            </View>
+            [0, 1, 2].map((i) => <RestaurantCardSkeleton key={i} />)
           ) : filteredRestaurants.length === 0 ? (
             <View style={styles.emptyWrap}>
               <MaterialIcons name="search-off" size={48} color={colors.mutedForeground} />

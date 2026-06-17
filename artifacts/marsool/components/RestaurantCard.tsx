@@ -15,10 +15,31 @@ import { useColors } from "@/hooks/useColors";
 import { buildImageUrl } from "@/lib/apiConfig";
 import { useFavorites } from "@/context/FavoritesContext";
 import type { Restaurant as ApiRestaurant } from "@workspace/api-client-react";
+import SkeletonBox from "@/components/SkeletonBox";
 
 interface Props {
   restaurant: ApiRestaurant;
   onPress: () => void;
+}
+
+export function RestaurantCardSkeleton() {
+  const colors = useColors();
+  return (
+    <View style={[styles.card, { backgroundColor: colors.card }]}>
+      <SkeletonBox width={"100%"} height={160} borderRadius={0} />
+      <View style={[styles.content, { gap: 10 }]}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <SkeletonBox width={140} height={14} borderRadius={6} />
+          <SkeletonBox width={36} height={14} borderRadius={6} />
+        </View>
+        <SkeletonBox width={100} height={11} borderRadius={6} />
+        <View style={{ flexDirection: "row", gap: 12, marginTop: 2 }}>
+          <SkeletonBox width={70} height={11} borderRadius={6} />
+          <SkeletonBox width={80} height={11} borderRadius={6} />
+        </View>
+      </View>
+    </View>
+  );
 }
 
 export default function RestaurantCard({ restaurant, onPress }: Props) {
