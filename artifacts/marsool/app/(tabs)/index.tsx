@@ -148,7 +148,7 @@ export default function HomeScreen() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [sortBy, setSortBy] = useState<SortBy>("default");
   const [openOnly, setOpenOnly] = useState(false);
-  const [activeBanner, setActiveBanner] = useState(0);
+  const activeBannerRef = useRef(0);
   const [refreshing, setRefreshing] = useState(false);
 
   const { defaultAddress } = useAddresses();
@@ -221,11 +221,9 @@ export default function HomeScreen() {
     if (bannerTimerRef.current) clearInterval(bannerTimerRef.current);
     if (apiBanners.length <= 1) return;
     bannerTimerRef.current = setInterval(() => {
-      setActiveBanner((prev) => {
-        const next = (prev + 1) % apiBanners.length;
-        bannerScrollRef.current?.scrollTo({ x: next * SCREEN_WIDTH, animated: true });
-        return next;
-      });
+      const next = (activeBannerRef.current + 1) % apiBanners.length;
+      activeBannerRef.current = next;
+      bannerScrollRef.current?.scrollTo({ x: next * SCREEN_WIDTH, animated: true });
     }, 4000);
   }, [apiBanners.length]);
 
@@ -236,7 +234,7 @@ export default function HomeScreen() {
 
   const handleBannerScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-    setActiveBanner(Math.max(0, Math.min(idx, apiBanners.length - 1)));
+    activeBannerRef.current = Math.max(0, Math.min(idx, apiBanners.length - 1));
     startBannerTimer();
   };
 
@@ -265,7 +263,7 @@ export default function HomeScreen() {
   );
 
   const dealRestaurants = useMemo(
-    () => allRestaurantsData.filter((r) => r.discount),
+    () => allRestaurantsData.filter((r) => r.discount !== null && r.discount !== ""),
     [allRestaurantsData]
   );
 
@@ -311,21 +309,30 @@ export default function HomeScreen() {
         icon: "local-offer" as const,
         label: t("home.shortcutOffers"),
         color: "#FF6B35",
-        onPress: () => mainScrollRef.current?.scrollTo({ y: dealsSectionY.current, animated: true }),
+        onPress: () => {
+          if (dealsSectionY.current > 0)
+            mainScrollRef.current?.scrollTo({ y: dealsSectionY.current, animated: true });
+        },
       },
       {
         id: "fast",
         icon: "delivery-dining" as const,
         label: t("home.shortcutFast"),
         color: "#10B981",
-        onPress: () => mainScrollRef.current?.scrollTo({ y: fastSectionY.current, animated: true }),
+        onPress: () => {
+          if (fastSectionY.current > 0)
+            mainScrollRef.current?.scrollTo({ y: fastSectionY.current, animated: true });
+        },
       },
       {
         id: "top",
         icon: "star" as const,
         label: t("home.shortcutTopRated"),
         color: "#FFB800",
-        onPress: () => mainScrollRef.current?.scrollTo({ y: popularSectionY.current, animated: true }),
+        onPress: () => {
+          if (popularSectionY.current > 0)
+            mainScrollRef.current?.scrollTo({ y: popularSectionY.current, animated: true });
+        },
       },
     ],
     [t]

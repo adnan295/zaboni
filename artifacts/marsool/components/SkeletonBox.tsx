@@ -1,7 +1,9 @@
 import React, { useEffect, useRef } from "react";
-import { Animated, StyleSheet, View, ViewStyle } from "react-native";
+import { Animated, Dimensions, StyleSheet, View, ViewStyle } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useColors } from "@/hooks/useColors";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface Props {
   width: number | `${number}%`;
@@ -29,13 +31,11 @@ export default function SkeletonBox({ width, height, borderRadius = 8, style }: 
   const baseColor = colors.card === "#ffffff" || colors.card === "#fff" ? "#E8E8E8" : "#2A2A2A";
   const shimmerColor = colors.card === "#ffffff" || colors.card === "#fff" ? "#F4F4F4" : "#383838";
 
-  const resolvedWidth = typeof width === "number" ? width : width;
-
   const shimmerTranslate = translateX.interpolate({
     inputRange: [-1, 1],
-    outputRange: typeof resolvedWidth === "number"
-      ? [-resolvedWidth, resolvedWidth]
-      : [-300, 300],
+    outputRange: typeof width === "number"
+      ? [-width, width]
+      : [-SCREEN_WIDTH, SCREEN_WIDTH],
   });
 
   return (
