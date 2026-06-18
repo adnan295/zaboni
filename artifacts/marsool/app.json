@@ -57,6 +57,7 @@
       "favicon": "./assets/images/icon.png"
     },
     "plugins": [
+      "./plugins/withRoomFix",
       [
         "expo-router",
         {
