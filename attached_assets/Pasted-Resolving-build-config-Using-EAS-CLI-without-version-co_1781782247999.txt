@@ -1,0 +1,40 @@
+Resolving build config...
+Using EAS CLI without version control system is not recommended, use this mode only if you know what you are doing.
+Resolved "production" environment for the build. Learn more: https://docs.expo.dev/eas/environment-variables/#setting-the-environment-for-your-builds
+No environment variables with visibility "Plain text" and "Sensitive" found for the "production" environment on EAS.
+
+Specified value for "ios.bundleIdentifier" in app.config.ts or app.json is ignored because an ios directory was detected in the project.
+EAS Build will use the value found in the native code.
+- Incrementing buildNumber from 4 to 5.
+✔ Incremented buildNumber from 4 to 5.
+ios.buildNumber field in app config is ignored when version source is set to remote, but this value will still be in the manifest available via expo-constants. It's recommended to remove this value from app config.
+✔ Using remote iOS credentials (Expo server)
+
+Distribution Certificate is not validated for non-interactive builds.
+Using App Store Connect API Key from EAS credentials service.
+- Fetching Apple provisioning profiles
+✔ Fetched Apple provisioning profiles
+
+Project Credentials Configuration
+Project                   @replit-private-8447d1f5-ad96-432e-9a6c-cf9ce579cc26/zaboni
+Bundle Identifier         com.zaboni.delivery
+                          
+App Store Configuration   
+                          
+Distribution Certificate  
+Serial Number             2F7B0184210649CD3A6F1F68F8587E0E
+Expiration Date           Fri, 23 Apr 2027 15:32:06 PDT
+Apple Team                H5V2BKC8WA (Abdulmouen Altayara)
+Updated                   1 month ago
+                          
+Provisioning Profile      
+Developer Portal ID       GCDX65U9RR
+Status                    active
+Expiration                Fri, 23 Apr 2027 15:32:06 PDT
+Apple Team                H5V2BKC8WA (Abdulmouen Altayara)
+Updated                   1 month ago
+                          
+All credentials are ready to build @replit-private-8447d1f5-ad96-432e-9a6c-cf9ce579cc26/zaboni (com.zaboni.delivery)
+CommandError: You're currently using the bare workflow, where runtime version policies are not supported. You must set your runtime version manually. For example, define your runtime version as "1.0.0", not {"policy": "appVersion"} in your app config. https://docs.expo.dev/eas-update/runtime-versions
+Error: build:internal command failed.
+Failed to run eas build:internal

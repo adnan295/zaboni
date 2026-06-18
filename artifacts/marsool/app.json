@@ -102,9 +102,7 @@
       "fallbackToCacheTimeout": 0,
       "checkAutomatically": "ON_LOAD"
     },
-    "runtimeVersion": {
-      "policy": "sdkVersion"
-    },
+    "runtimeVersion": "1.0.2",
     "extra": {
       "eas": {
         "projectId": "YOUR_PROJECT_ID"
