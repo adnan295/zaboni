@@ -227,6 +227,7 @@ router.post("/orders", async (req, res) => {
     orderText: body.data.orderText,
     restaurantName: body.data.restaurantName,
     restaurantPhone,
+    restaurantId: body.data.restaurantId ?? null,
     status: "searching" as const,
     courierName: "",
     courierPhone: "",
