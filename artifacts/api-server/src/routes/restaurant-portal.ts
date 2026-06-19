@@ -6,6 +6,9 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { sendSmsViaGateway } from "../lib/sms";
 import { whatsappManager } from "../lib/whatsapp";
+import OpenAI, { toFile } from "openai";
+import { objectStorageClient } from "../lib/objectStorage";
+import { randomUUID } from "crypto";
 
 const router = Router();
 
@@ -330,4 +333,136 @@ router.get("/restaurant-portal/stats", requireRestaurantAuth, async (req, res) =
   });
 });
 
+function getOpenAIClient(): OpenAI {
+  if (!process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"] || !process.env["AI_INTEGRATIONS_OPENAI_API_KEY"]) {
+    throw new Error("OpenAI integration not configured");
+  }
+  return new OpenAI({
+    apiKey: process.env["AI_INTEGRATIONS_OPENAI_API_KEY"],
+    baseURL: process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"],
+  });
+}
+
+function buildPromoPrompt(restaurantName: string, oldPrice: string, newPrice: string, tagline?: string): string {
+  return `Create a professional, eye-catching promotional food banner advertisement for a restaurant named "${restaurantName}".
+
+Design requirements:
+- Style: Modern, vibrant food marketing poster like fast-food chain promotions (Burger King, KFC style)
+- Layout: Restaurant name prominently at the top in a colored badge/banner
+- Center: The food item displayed appetizingly and prominently
+- Bottom: Price section showing old price "${oldPrice}" with a strikethrough, and new discounted price "${newPrice}" highlighted in a bold colored badge or burst shape
+${tagline ? `- Tagline/slogan: "${tagline}" displayed clearly` : ""}
+- Colors: Rich, appetizing colors (reds, oranges, greens) with high contrast
+- Text must be clearly readable
+- Professional marketing quality, suitable for social media sharing
+- Square format (1:1 ratio)
+- The overall composition should look like a professional advertisement card`;
+}
+
+async function uploadBufferToStorage(buffer: Buffer, filename: string, contentType: string, restaurantId: string): Promise<string> {
+  const bucketEnv = process.env["DEFAULT_OBJECT_STORAGE_BUCKET_ID"];
+  const privateDir = process.env["PRIVATE_OBJECT_DIR"];
+  if (!bucketEnv || !privateDir) throw new Error("Object storage not configured");
+
+  const dirParts = privateDir.replace(/^gs:\/\/[^/]+\//, "").replace(/\/$/, "");
+  const bucketName = privateDir.replace(/^gs:\/\//, "").split("/")[0];
+  const objectName = `${dirParts}/promo-images/${restaurantId}/${filename}`;
+
+  const bucket = objectStorageClient.bucket(bucketName);
+  const file = bucket.file(objectName);
+  await file.save(buffer, { contentType, resumable: false });
+
+  return `/api/storage/objects/promo-images/${restaurantId}/${filename}`;
+}
+
+router.post("/restaurant-portal/promo-images/generate", requireRestaurantAuth, async (req, res) => {
+  const parsed = z.object({
+    foodImageUrl: z.string().url().optional(),
+    oldPrice: z.string().min(1),
+    newPrice: z.string().min(1),
+    tagline: z.string().optional(),
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صحيحة" }); return; }
+
+  const { restaurantId } = getRestaurantAuth(req);
+  const { foodImageUrl, oldPrice, newPrice, tagline } = parsed.data;
+
+  const [restaurant] = await db.select({ nameAr: restaurantsTable.nameAr }).from(restaurantsTable).where(eq(restaurantsTable.id, restaurantId)).limit(1);
+  const restaurantName = restaurant?.nameAr ?? "مطعمنا";
+
+  let openai: OpenAI;
+  try { openai = getOpenAIClient(); } catch { res.status(503).json({ error: "خدمة توليد الصور غير متاحة حالياً" }); return; }
+
+  const prompt = buildPromoPrompt(restaurantName, oldPrice, newPrice, tagline);
+
+  try {
+    let base64Data: string;
+
+    if (foodImageUrl) {
+      const imgRes = await fetch(foodImageUrl, { signal: AbortSignal.timeout(15000) });
+      if (!imgRes.ok) throw new Error("فشل تحميل صورة الوجبة");
+      const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+      const contentType = imgRes.headers.get("content-type") ?? "image/jpeg";
+      const ext = contentType.includes("png") ? "png" : "jpeg";
+      const imgFile = await toFile(imgBuffer, `food.${ext}`, { type: contentType });
+
+      const editResult = await openai.images.edit({
+        model: "gpt-image-1",
+        image: imgFile,
+        prompt,
+        size: "1024x1024",
+      });
+      base64Data = (editResult.data ?? [])[0]?.b64_json ?? "";
+    } else {
+      const genResult = await openai.images.generate({
+        model: "gpt-image-1",
+        prompt,
+        size: "1024x1024",
+      });
+      base64Data = (genResult.data ?? [])[0]?.b64_json ?? "";
+    }
+
+    if (!base64Data) throw new Error("لم يتم إنشاء الصورة");
+
+    const imgBuffer = Buffer.from(base64Data, "base64");
+    const filename = `${Date.now()}-${randomUUID().slice(0, 8)}.png`;
+    const resultUrl = await uploadBufferToStorage(imgBuffer, filename, "image/png", restaurantId);
+
+    const id = `promo_${Date.now()}`;
+    await db.execute(sql`
+      INSERT INTO promo_images (id, restaurant_id, restaurant_name, food_image_url, old_price, new_price, tagline, result_url)
+      VALUES (${id}, ${restaurantId}, ${restaurantName}, ${foodImageUrl ?? null}, ${oldPrice}, ${newPrice}, ${tagline ?? null}, ${resultUrl})
+    `);
+
+    res.json({ id, resultUrl, restaurantName, oldPrice, newPrice, tagline });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "خطأ غير معروف";
+    res.status(500).json({ error: `فشل توليد الصورة: ${msg}` });
+  }
+});
+
+router.get("/restaurant-portal/promo-images", requireRestaurantAuth, async (req, res) => {
+  const { restaurantId } = getRestaurantAuth(req);
+  const rows = await db.execute(sql`
+    SELECT id, restaurant_id, restaurant_name, food_image_url, old_price, new_price, tagline, result_url, created_at
+    FROM promo_images
+    WHERE restaurant_id = ${restaurantId}
+    ORDER BY created_at DESC
+    LIMIT 20
+  `);
+  const items = rows.rows.map((r: Record<string, unknown>) => ({
+    id: r["id"] as string,
+    restaurantId: r["restaurant_id"] as string,
+    restaurantName: r["restaurant_name"] as string,
+    foodImageUrl: r["food_image_url"] as string | null,
+    oldPrice: r["old_price"] as string,
+    newPrice: r["new_price"] as string,
+    tagline: r["tagline"] as string | null,
+    resultUrl: r["result_url"] as string,
+    createdAt: r["created_at"] as string,
+  }));
+  res.json(items);
+});
+
 export default router;
+
