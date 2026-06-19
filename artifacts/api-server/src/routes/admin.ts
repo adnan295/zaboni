@@ -22,7 +22,9 @@ import {
   chatMessagesTable,
   orderStatusHistoryTable,
   homeSectionItemsTable,
+  restaurantUsersTable,
 } from "@workspace/db";
+import bcrypt from "bcryptjs";
 import { eq, count, desc, gte, lte, getTableColumns, and, sql, avg, asc, lt } from "drizzle-orm";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
 import { sendSmsViaGateway, isSmsGatewayConfigured } from "../lib/sms";
@@ -1983,6 +1985,76 @@ router.put("/admin/home-sections/:section/order", async (req, res) => {
     )
   );
   res.json({ ok: true });
+});
+
+// ─── Restaurant Accounts ──────────────────────────────────────────────────────
+
+router.get("/admin/restaurant-accounts", async (_req, res) => {
+  const accounts = await db
+    .select({
+      id: restaurantUsersTable.id,
+      restaurantId: restaurantUsersTable.restaurantId,
+      phone: restaurantUsersTable.phone,
+      name: restaurantUsersTable.name,
+      authMode: restaurantUsersTable.authMode,
+      isActive: restaurantUsersTable.isActive,
+      createdAt: restaurantUsersTable.createdAt,
+      restaurantName: restaurantsTable.nameAr,
+    })
+    .from(restaurantUsersTable)
+    .leftJoin(restaurantsTable, eq(restaurantUsersTable.restaurantId, restaurantsTable.id))
+    .orderBy(desc(restaurantUsersTable.createdAt));
+  res.json(accounts);
+});
+
+router.post("/admin/restaurant-accounts", async (req, res) => {
+  const { z } = await import("zod");
+  const parsed = z.object({
+    restaurantId: z.string().min(1),
+    phone: z.string().min(1),
+    name: z.string().optional(),
+    password: z.string().optional(),
+    authMode: z.enum(["password", "otp"]).default("password"),
+    isActive: z.boolean().default(true),
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  const { restaurantId, phone, name, password, authMode, isActive } = parsed.data;
+  if (authMode === "password" && !password) { res.status(400).json({ error: "Password required for password auth mode" }); return; }
+
+  const passwordHash = password ? await bcrypt.hash(password, 10) : null;
+  const id = `ru_${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
+
+  const [account] = await db.insert(restaurantUsersTable).values({ id, restaurantId, phone, name, passwordHash, authMode, isActive }).returning();
+  res.status(201).json(account);
+});
+
+router.patch("/admin/restaurant-accounts/:id", async (req, res) => {
+  const { z } = await import("zod");
+  const accountId = String(req.params["id"]);
+  const parsed = z.object({
+    restaurantId: z.string().optional(),
+    phone: z.string().optional(),
+    name: z.string().optional(),
+    password: z.string().optional(),
+    authMode: z.enum(["password", "otp"]).optional(),
+    isActive: z.boolean().optional(),
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  const { password, ...rest } = parsed.data;
+  const updateData: Record<string, unknown> = { ...rest, updatedAt: new Date() };
+  if (password) updateData["passwordHash"] = await bcrypt.hash(password, 10);
+
+  const [updated] = await db.update(restaurantUsersTable).set(updateData).where(eq(restaurantUsersTable.id, accountId)).returning();
+  if (!updated) { res.status(404).json({ error: "Account not found" }); return; }
+  res.json(updated);
+});
+
+router.delete("/admin/restaurant-accounts/:id", async (req, res) => {
+  const accountId = String(req.params["id"]);
+  await db.delete(restaurantUsersTable).where(eq(restaurantUsersTable.id, accountId));
+  res.status(204).end();
 });
 
 // ─── WhatsApp ─────────────────────────────────────────────────────────────────
