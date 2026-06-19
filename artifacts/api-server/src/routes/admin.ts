@@ -547,6 +547,50 @@ router.delete("/admin/restaurants/:id", async (req, res) => {
   res.status(204).end();
 });
 
+router.get("/admin/restaurant-performance", async (req, res) => {
+  const daysRaw = parseInt(String(req.query["days"] ?? "7"));
+  const days = [7, 30, 0].includes(daysRaw) ? daysRaw : 7;
+  const timeFilter = days > 0
+    ? sql`AND o.created_at >= NOW() - CAST(${days} || ' days' AS INTERVAL)`
+    : sql``;
+  const rows = await db.execute(sql`
+    SELECT
+      r.id,
+      r.name_ar              AS "nameAr",
+      r.name,
+      r.image,
+      COUNT(DISTINCT o.id)::int                                                           AS "totalOrders",
+      COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'cancelled')::int                    AS "cancelledOrders",
+      CASE WHEN COUNT(DISTINCT o.id) > 0
+        THEN ROUND((COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'cancelled') * 100.0
+              / COUNT(DISTINCT o.id))::numeric, 1)
+        ELSE 0
+      END                                                                                 AS "cancellationRate",
+      ROUND(AVG(
+        EXTRACT(EPOCH FROM (o.updated_at - o.created_at)) / 60
+      ) FILTER (WHERE o.status = 'delivered')::numeric, 0)                               AS "avgDeliveryMinutes",
+      ROUND(AVG(rt.restaurant_stars)::numeric, 1)                                        AS "avgRating",
+      COUNT(DISTINCT rt.id)::int                                                          AS "ratingCount"
+    FROM restaurants r
+    LEFT JOIN orders o
+      ON (o.restaurant_id = r.id OR o.restaurant_name = r.name_ar OR o.restaurant_name = r.name)
+      ${timeFilter}
+    LEFT JOIN order_ratings rt
+      ON (rt.restaurant_id = r.id OR rt.restaurant_name = r.name_ar OR rt.restaurant_name = r.name)
+    GROUP BY r.id, r.name_ar, r.name, r.image
+    ORDER BY COUNT(DISTINCT o.id) DESC, r.name_ar ASC
+  `);
+  res.json(rows.rows.map((r: Record<string, unknown>) => ({
+    ...r,
+    totalOrders: Number(r["totalOrders"] ?? 0),
+    cancelledOrders: Number(r["cancelledOrders"] ?? 0),
+    cancellationRate: Number(r["cancellationRate"] ?? 0),
+    avgDeliveryMinutes: r["avgDeliveryMinutes"] != null ? Number(r["avgDeliveryMinutes"]) : null,
+    avgRating: r["avgRating"] != null ? Number(r["avgRating"]) : null,
+    ratingCount: Number(r["ratingCount"] ?? 0),
+  })));
+});
+
 router.get("/admin/restaurants/:id/menu", async (req, res) => {
   const restaurantId = String(req.params["id"]);
   const rows = await db

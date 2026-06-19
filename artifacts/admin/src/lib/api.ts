@@ -227,6 +227,19 @@ export type RatingsPage = {
   avgCourierStars: number | null;
 };
 
+export type RestaurantPerformance = {
+  id: string;
+  nameAr: string;
+  name: string;
+  image: string;
+  totalOrders: number;
+  cancelledOrders: number;
+  cancellationRate: number;
+  avgDeliveryMinutes: number | null;
+  avgRating: number | null;
+  ratingCount: number;
+};
+
 export type RestaurantHour = {
   id: string;
   restaurantId: string;
@@ -708,6 +721,9 @@ export const api = {
     apiFetch<{ id: string }>("/admin/whatsapp/accounts", { method: "POST" }),
   disconnectWhatsAppAccount: (id: string) =>
     apiFetch<void>(`/admin/whatsapp/accounts/${id}`, { method: "DELETE" }),
+
+  getRestaurantPerformance: (days: number) =>
+    apiFetch<RestaurantPerformance[]>(`/admin/restaurant-performance?days=${days}`),
 
   getHomeSectionItems: (section: "popular" | "deals") =>
     apiFetch<HomeSectionItem[]>(`/admin/home-sections/${section}`),
