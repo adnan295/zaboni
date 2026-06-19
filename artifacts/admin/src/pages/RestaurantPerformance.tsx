@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { api, type RestaurantPerformance } from "@/lib/api";
 
-type SortKey = keyof Pick<
+type NumericSortKey = keyof Pick<
   RestaurantPerformance,
   "totalOrders" | "cancellationRate" | "avgDeliveryMinutes" | "avgRating"
 >;
+type SortKey = NumericSortKey | "nameAr";
 type SortDir = "asc" | "desc";
 
 function Stars({ value }: { value: number | null }) {
@@ -71,6 +73,7 @@ export default function RestaurantPerformancePage() {
   const [days, setDays] = useState(7);
   const [sortKey, setSortKey] = useState<SortKey>("totalOrders");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [, navigate] = useLocation();
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin", "restaurant-performance", days],
@@ -83,13 +86,17 @@ export default function RestaurantPerformancePage() {
       setSortDir((d) => (d === "desc" ? "asc" : "desc"));
     } else {
       setSortKey(key);
-      setSortDir("desc");
+      setSortDir(key === "nameAr" ? "asc" : "desc");
     }
   }
 
   const sorted = [...(data ?? [])].sort((a, b) => {
-    const av = a[sortKey] ?? -1;
-    const bv = b[sortKey] ?? -1;
+    if (sortKey === "nameAr") {
+      const cmp = a.nameAr.localeCompare(b.nameAr, "ar");
+      return sortDir === "asc" ? cmp : -cmp;
+    }
+    const av = a[sortKey as NumericSortKey] ?? -1;
+    const bv = b[sortKey as NumericSortKey] ?? -1;
     return sortDir === "desc" ? (bv as number) - (av as number) : (av as number) - (bv as number);
   });
 
@@ -100,7 +107,7 @@ export default function RestaurantPerformancePage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">أداء المطاعم 📊</h1>
+          <h1 className="text-2xl font-bold tracking-tight">أداء المطاعم 📈</h1>
           <p className="text-sm text-muted-foreground mt-1">
             مؤشرات الأداء لكل مطعم — الطلبات، الإلغاء، وقت التوصيل، والتقييم
           </p>
@@ -166,7 +173,7 @@ export default function RestaurantPerformancePage() {
             <table className="w-full text-sm">
               <thead className="bg-muted/50 border-b">
                 <tr>
-                  <th className="text-right px-4 py-3 font-medium">المطعم</th>
+                  <SortHeader col="nameAr" label="المطعم" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                   <SortHeader col="totalOrders" label="الطلبات" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                   <SortHeader col="cancellationRate" label="معدل الإلغاء %" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                   <SortHeader col="avgDeliveryMinutes" label="متوسط وقت التوصيل" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
@@ -179,7 +186,11 @@ export default function RestaurantPerformancePage() {
                   return (
                     <tr
                       key={r.id}
-                      className={`transition-colors ${
+                      onClick={() => navigate("/restaurants")}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === "Enter" && navigate("/restaurants")}
+                      className={`cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40 ${
                         alert === "red"
                           ? "bg-red-50 hover:bg-red-100/70 dark:bg-red-950/20 dark:hover:bg-red-950/30"
                           : alert === "amber"
@@ -270,7 +281,7 @@ export default function RestaurantPerformancePage() {
       <div className="text-xs text-muted-foreground mt-2 space-y-1">
         <p>🔴 <strong>يحتاج تدخل:</strong> معدل إلغاء ≥ 20% أو تقييم &lt; 3.0</p>
         <p>🟡 <strong>يحتاج متابعة:</strong> معدل إلغاء 10–20% أو تقييم 3.0–3.5</p>
-        <p>⏱ وقت التوصيل محسوب من لحظة إنشاء الطلب حتى التوصيل</p>
+        <p>⏱ وقت التوصيل محسوب من لحظة إنشاء الطلب حتى التوصيل — انقر على أي صف للانتقال لصفحة المطاعم</p>
       </div>
     </div>
   );
