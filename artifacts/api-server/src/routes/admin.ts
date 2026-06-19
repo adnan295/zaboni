@@ -18,6 +18,7 @@ import {
   promoBannersTable,
   restaurantCategoriesTable,
   restaurantCategorySortOrdersTable,
+  categoryRestaurantExclusionsTable,
   chatMessagesTable,
   orderStatusHistoryTable,
   homeSectionItemsTable,
@@ -1838,6 +1839,43 @@ router.patch("/admin/categories/:id", async (req, res) => {
 router.delete("/admin/categories/:id", async (req, res) => {
   const id = String(req.params["id"]);
   await db.delete(restaurantCategoriesTable).where(eq(restaurantCategoriesTable.id, id));
+  res.status(204).end();
+});
+
+// ─── Category Restaurant Exclusions ──────────────────────────────────────────
+
+router.get("/admin/categories/:categoryId/exclusions", async (req, res) => {
+  const categoryId = String(req.params["categoryId"]);
+  const rows = await db
+    .select({ restaurantId: categoryRestaurantExclusionsTable.restaurantId })
+    .from(categoryRestaurantExclusionsTable)
+    .where(eq(categoryRestaurantExclusionsTable.categoryId, categoryId));
+  res.json(rows.map((r) => r.restaurantId));
+});
+
+router.post("/admin/categories/:categoryId/exclusions", async (req, res) => {
+  const categoryId = String(req.params["categoryId"]);
+  const { restaurantId } = req.body as { restaurantId?: string };
+  if (!restaurantId) { res.status(400).json({ error: "restaurantId required" }); return; }
+  const id = `excl_${categoryId}_${restaurantId}`;
+  await db
+    .insert(categoryRestaurantExclusionsTable)
+    .values({ id, categoryId, restaurantId })
+    .onConflictDoNothing();
+  res.status(201).json({ ok: true });
+});
+
+router.delete("/admin/categories/:categoryId/exclusions/:restaurantId", async (req, res) => {
+  const categoryId = String(req.params["categoryId"]);
+  const restaurantId = String(req.params["restaurantId"]);
+  await db
+    .delete(categoryRestaurantExclusionsTable)
+    .where(
+      and(
+        eq(categoryRestaurantExclusionsTable.categoryId, categoryId),
+        eq(categoryRestaurantExclusionsTable.restaurantId, restaurantId)
+      )
+    );
   res.status(204).end();
 });
 

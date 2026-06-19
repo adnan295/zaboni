@@ -22,3 +22,4 @@ export * from "./restaurant_categories";
 export * from "./restaurant_category_sort_orders";
 export * from "./waverify_health_log";
 export * from "./home_section_items";
+export * from "./category_restaurant_exclusions";

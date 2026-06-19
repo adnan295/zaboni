@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request } from "express";
-import { db, restaurantsTable, menuItemsTable, restaurantHoursTable, promoBannersTable, restaurantCategoriesTable, restaurantCategorySortOrdersTable, homeSectionItemsTable } from "@workspace/db";
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { db, restaurantsTable, menuItemsTable, restaurantHoursTable, promoBannersTable, restaurantCategoriesTable, restaurantCategorySortOrdersTable, homeSectionItemsTable, categoryRestaurantExclusionsTable } from "@workspace/db";
+import { and, asc, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -114,6 +114,18 @@ router.get("/restaurants", async (req, res) => {
 
   if (conditions.length > 0) {
     query = query.where(and(...conditions));
+  }
+
+  // Filter out restaurants excluded from this category
+  if (hasCategoryId) {
+    const excluded = await db
+      .select({ restaurantId: categoryRestaurantExclusionsTable.restaurantId })
+      .from(categoryRestaurantExclusionsTable)
+      .where(eq(categoryRestaurantExclusionsTable.categoryId, categoryId));
+    if (excluded.length > 0) {
+      const excludedIds = excluded.map((e) => e.restaurantId);
+      query = query.where(notInArray(restaurantsTable.id, excludedIds));
+    }
   }
 
   const rows = await query;
