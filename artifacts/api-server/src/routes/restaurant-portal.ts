@@ -6,8 +6,8 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { sendSmsViaGateway } from "../lib/sms";
 import { whatsappManager } from "../lib/whatsapp";
-import OpenAI, { toFile } from "openai";
 import { objectStorageClient } from "../lib/objectStorage";
+import { composeBanner, BANNER_CONFIGS } from "../lib/promoBannerComposer";
 import { randomUUID } from "crypto";
 
 const router = Router();
@@ -521,15 +521,6 @@ async function uploadBannerToPublicStorage(buffer: Buffer, restaurantId: string,
   return `/api/storage/public-objects/${relPath}`;
 }
 
-function getOpenAIClient(): OpenAI {
-  if (!process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"] || !process.env["AI_INTEGRATIONS_OPENAI_API_KEY"]) {
-    throw new Error("OpenAI integration not configured");
-  }
-  return new OpenAI({
-    apiKey: process.env["AI_INTEGRATIONS_OPENAI_API_KEY"],
-    baseURL: process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"],
-  });
-}
 
 interface PromoTemplate {
   id: string;
@@ -772,38 +763,25 @@ router.post("/restaurant-portal/promo-images/generate", requireRestaurantAuth, a
   const [restaurant] = await db.select({ nameAr: restaurantsTable.nameAr }).from(restaurantsTable).where(eq(restaurantsTable.id, restaurantId)).limit(1);
   const restaurantName = restaurant?.nameAr ?? "مطعمنا";
 
-  let openai: OpenAI;
-  try { openai = getOpenAIClient(); } catch { res.status(503).json({ error: "خدمة توليد الصور غير متاحة حالياً" }); return; }
-
-  const prompt = template.buildPrompt(restaurantName, oldPrice, newPrice, tagline);
+  const bannerConfig = BANNER_CONFIGS[templateId];
+  if (!bannerConfig) { res.status(400).json({ error: "القالب المختار غير مدعوم" }); return; }
 
   try {
-    let base64Data: string;
-
+    let foodBuffer: Buffer | undefined;
     if (foodObjectPath) {
-      const { buffer: imgBuffer, contentType } = await readFoodImageFromStorage(foodObjectPath);
-      const ext = contentType.includes("png") ? "png" : "jpeg";
-      const imgFile = await toFile(imgBuffer, `food.${ext}`, { type: contentType });
-
-      const editResult = await openai.images.edit({
-        model: "gpt-image-1",
-        image: imgFile,
-        prompt,
-        size: "1024x1024",
-      });
-      base64Data = (editResult.data ?? [])[0]?.b64_json ?? "";
-    } else {
-      const genResult = await openai.images.generate({
-        model: "gpt-image-1",
-        prompt,
-        size: "1024x1024",
-      });
-      base64Data = (genResult.data ?? [])[0]?.b64_json ?? "";
+      const { buffer: imgBuffer } = await readFoodImageFromStorage(foodObjectPath);
+      foodBuffer = imgBuffer;
     }
 
-    if (!base64Data) throw new Error("لم يتم إنشاء الصورة");
+    const bannerBuffer = await composeBanner(
+      bannerConfig,
+      restaurantName,
+      oldPrice,
+      newPrice,
+      tagline ?? "عرض خاص لفترة محدودة",
+      foodBuffer,
+    );
 
-    const bannerBuffer = Buffer.from(base64Data, "base64");
     const filename = `${Date.now()}-${randomUUID().slice(0, 8)}.png`;
     const resultUrl = await uploadBannerToPublicStorage(bannerBuffer, restaurantId, filename);
 
