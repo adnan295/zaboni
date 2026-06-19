@@ -1,14 +1,20 @@
 /**
- * Central banner registry.
- * Each entry maps a templateId → layout + palette → compositor function.
+ * Central banner registry — exactly 4 layout templates (A/B/C/D).
+ * Each template maps to one compositor + one fixed colour palette.
  */
-import { BannerInput, LayoutPalette, ensureAppLogo } from "./bannerShared";
+import path from "path";
+import { writeFile, mkdir } from "fs/promises";
+import { existsSync } from "fs";
+import sharp from "sharp";
+
+import { BannerInput, LayoutPalette, ASSETS_DIR, ensureAppLogo } from "./bannerShared";
 import { composeBannerA, PALETTE_A } from "./templates/bannerA";
 import { composeBannerB, PALETTE_B } from "./templates/bannerB";
 import { composeBannerC, PALETTE_C } from "./templates/bannerC";
 import { composeBannerD, PALETTE_D } from "./templates/bannerD";
 
 export type { BannerInput };
+export { ASSETS_DIR };
 
 type Layout = "A" | "B" | "C" | "D";
 
@@ -21,101 +27,53 @@ interface TemplateSpec {
   palette: LayoutPalette;
 }
 
+export interface PublicTemplate {
+  id: string;
+  nameAr: string;
+  description: string;
+  emoji: string;
+  layoutGroup: Layout;
+  previewUrl: string;
+}
+
 const TEMPLATES: TemplateSpec[] = [
-  // ── Layout A: Split Classic ──────────────────────────────────────────
   {
-    id: "a-pink",
+    id: "template-a",
     nameAr: "كلاسيك وردي",
-    description: "نص يسار · صورة يمين · وردي فيوشيا",
+    description: "نص يسار — صورة يمين — وردي فيوشيا",
     emoji: "🩷",
     layout: "A",
     palette: PALETTE_A["a-pink"]!,
   },
   {
-    id: "a-dark",
-    nameAr: "كلاسيك أسود ذهبي",
-    description: "نص يسار · صورة يمين · فاخر",
-    emoji: "🖤",
-    layout: "A",
-    palette: PALETTE_A["a-dark"]!,
-  },
-  {
-    id: "a-green",
-    nameAr: "كلاسيك أخضر",
-    description: "نص يسار · صورة يمين · أخضر",
-    emoji: "🟢",
-    layout: "A",
-    palette: PALETTE_A["a-green"]!,
-  },
-  // ── Layout B: Branded Header ─────────────────────────────────────────
-  {
-    id: "b-pink",
-    nameAr: "هيدر وردي",
-    description: "شعار زبوني + شعارك · عنوان كبير · كوبون تذكرة",
+    id: "template-b",
+    nameAr: "هيدر مع الشعار",
+    description: "هيدر أبيض بشعاريك — عنوان كبير — كوبون تذكرة",
     emoji: "🎟️",
     layout: "B",
-    palette: PALETTE_B["b-pink"]!,
+    palette: PALETTE_B,
   },
   {
-    id: "b-blue",
-    nameAr: "هيدر أزرق",
-    description: "شعار زبوني + شعارك · عنوان كبير · كوبون تذكرة",
-    emoji: "💙",
-    layout: "B",
-    palette: PALETTE_B["b-blue"]!,
-  },
-  {
-    id: "b-orange",
-    nameAr: "هيدر برتقالي",
-    description: "شعار زبوني + شعارك · عنوان كبير · كوبون تذكرة",
-    emoji: "🧡",
-    layout: "B",
-    palette: PALETTE_B["b-orange"]!,
-  },
-  // ── Layout C: Full Bleed Dark ────────────────────────────────────────
-  {
-    id: "c-red",
-    nameAr: "تغطية كاملة وردي",
-    description: "الطعام يملأ الصورة · بادج خصم دائري وسط",
+    id: "template-c",
+    nameAr: "تغطية كاملة",
+    description: "الطعام يملأ الصورة — شارة خصم دائرية — شريط معلومات",
     emoji: "🔥",
     layout: "C",
-    palette: PALETTE_C["c-red"]!,
+    palette: PALETTE_C,
   },
   {
-    id: "c-gold",
-    nameAr: "تغطية كاملة ذهبي",
-    description: "الطعام يملأ الصورة · بادج خصم ذهبي",
-    emoji: "✨",
-    layout: "C",
-    palette: PALETTE_C["c-gold"]!,
-  },
-  // ── Layout D: Minimal Card ───────────────────────────────────────────
-  {
-    id: "d-white-pink",
-    nameAr: "بطاقة بيضاء وردي",
-    description: "خلفية فاتحة · صورة دائرية · نص أنيق",
+    id: "template-d",
+    nameAr: "بطاقة بيضاء",
+    description: "خلفية فاتحة — صورة دائرية أنيقة — نص كبير",
     emoji: "🃏",
     layout: "D",
     palette: PALETTE_D["d-white-pink"]!,
   },
-  {
-    id: "d-cream-green",
-    nameAr: "بطاقة كريمي أخضر",
-    description: "خلفية فاتحة · صورة دائرية · نص أنيق",
-    emoji: "🌿",
-    layout: "D",
-    palette: PALETTE_D["d-cream-green"]!,
-  },
 ];
 
-/** Flat list for the API (no palette exposed). */
-export type PublicTemplate = {
-  id: string;
-  nameAr: string;
-  description: string;
-  emoji: string;
-  layoutGroup: string;
-};
+function previewUrl(id: string) {
+  return `/api/restaurant-portal/promo-templates/preview/${id}.jpg`;
+}
 
 export function listPublicTemplates(): PublicTemplate[] {
   return TEMPLATES.map(t => ({
@@ -124,10 +82,10 @@ export function listPublicTemplates(): PublicTemplate[] {
     description: t.description,
     emoji: t.emoji,
     layoutGroup: t.layout,
+    previewUrl: previewUrl(t.id),
   }));
 }
 
-/** Compose a banner given a templateId + BannerInput (without appLogoBuffer — we load it here). */
 export async function composeBannerByTemplate(
   templateId: string,
   input: Omit<BannerInput, "appLogoBuffer">,
@@ -144,22 +102,56 @@ export async function composeBannerByTemplate(
   }
 }
 
-/** Generate a small 400×400 sample preview for a given templateId (no food image). */
-export async function generateTemplatePreview(templateId: string): Promise<Buffer> {
-  const sampleInput: Omit<BannerInput, "appLogoBuffer"> = {
-    restaurantName: "مطعمك",
-    oldPrice: "25,000",
-    newPrice: "17,500",
-    tagline: "عرض خاص لفترة محدودة",
-    couponCode: "PROMO30",
-  };
-  const full = await composeBannerByTemplate(templateId, sampleInput);
-  // Downscale to 400×400 for preview thumbnail
-  const sharp = (await import("sharp")).default;
+// ── Preview generation ──────────────────────────────────────────────────────
+
+const SAMPLE_INPUT: Omit<BannerInput, "appLogoBuffer"> = {
+  restaurantName: "مطعمك",
+  oldPrice: "25,000",
+  newPrice: "17,500",
+  tagline: "عرض خاص لفترة محدودة",
+  couponCode: "SAVE30",
+};
+
+async function buildPreviewJpeg(templateId: string): Promise<Buffer> {
+  const full = await composeBannerByTemplate(templateId, SAMPLE_INPUT);
   return sharp(full).resize(400, 400).jpeg({ quality: 82 }).toBuffer();
 }
 
-// ── Legacy exports (keep backward compat with old imports) ────────────
+let _previewsPromise: Promise<void> | null = null;
+let _previewsReady = false;
+
+export async function ensurePreviewsExist(): Promise<void> {
+  if (_previewsReady) return;
+  if (_previewsPromise) return _previewsPromise;
+  _previewsPromise = (async () => {
+    const dir = path.join(ASSETS_DIR, "previews");
+    await mkdir(dir, { recursive: true });
+    await Promise.all(
+      TEMPLATES.map(async t => {
+        const filePath = path.join(dir, `${t.id}.jpg`);
+        if (!existsSync(filePath)) {
+          const buf = await buildPreviewJpeg(t.id);
+          await writeFile(filePath, buf);
+        }
+      }),
+    );
+    _previewsReady = true;
+  })();
+  return _previewsPromise;
+}
+
+/** Serve a cached preview JPEG for a given template id. */
+export async function getPreviewBuffer(templateId: string): Promise<Buffer | null> {
+  const spec = TEMPLATES.find(t => t.id === templateId);
+  if (!spec) return null;
+  await ensurePreviewsExist();
+  const filePath = path.join(ASSETS_DIR, "previews", `${templateId}.jpg`);
+  if (!existsSync(filePath)) return null;
+  const { readFile } = await import("fs/promises");
+  return readFile(filePath);
+}
+
+// ── Legacy backward-compat exports ─────────────────────────────────────────
 export { PALETTE_A as BANNER_CONFIGS };
 export async function composeBanner(
   config: LayoutPalette,

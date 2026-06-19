@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { readFileSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -37,7 +37,22 @@ let _appLogoPng: Buffer | null = null;
 export async function ensureAppLogo(): Promise<Buffer> {
   if (_appLogoPng) return _appLogoPng;
   const svgPath = path.join(ASSETS_DIR, "zaboni-logo.svg");
-  _appLogoPng = await sharp(svgPath).resize(160, 160).png().toBuffer();
+  if (existsSync(svgPath)) {
+    try {
+      _appLogoPng = await sharp(svgPath).resize(200, 200).png().toBuffer();
+      return _appLogoPng;
+    } catch {
+      // fall through to programmatic fallback
+    }
+  }
+  // Programmatic fallback: pink rounded square with white Z-mark
+  const fallbackSvg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">
+    <rect width="200" height="200" rx="44" fill="#E91E8C"/>
+    <rect x="50" y="66" width="100" height="14" rx="7" fill="white"/>
+    <rect x="50" y="120" width="100" height="14" rx="7" fill="white"/>
+    <polygon points="150,66 150,80 64,120 64,134 50,134 50,120 136,80 136,66" fill="white"/>
+  </svg>`);
+  _appLogoPng = await sharp(fallbackSvg).resize(200, 200).png().toBuffer();
   return _appLogoPng;
 }
 
@@ -53,6 +68,15 @@ export function hexToRgb(hex: string) {
 export function parsePrice(p: string) {
   const m = p.trim().match(/^([\d,\.]+)\s*(.*)$/);
   return m ? { num: m[1]!, unit: m[2]!.trim() } : { num: p, unit: "" };
+}
+
+export function calcDiscountPct(oldPrice: string, newPrice: string): number {
+  const oldP = parsePrice(oldPrice);
+  const newP = parsePrice(newPrice);
+  const oldN = parseFloat(oldP.num.replace(/,/g, ""));
+  const newN = parseFloat(newP.num.replace(/,/g, ""));
+  if (!oldN || oldN <= newN) return 0;
+  return Math.round((1 - newN / oldN) * 100);
 }
 
 export function splitTagline(tagline: string, maxWords = 2): string[] {
@@ -75,6 +99,14 @@ export async function makeCircularBuffer(buf: Buffer, size: number): Promise<Buf
     `<svg><circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}" fill="white"/></svg>`,
   );
   const resized = await sharp(buf).resize(size, size, { fit: "cover" }).png().toBuffer();
+  return sharp(resized).composite([{ input: mask, blend: "dest-in" }]).png().toBuffer();
+}
+
+export async function makeOvalBuffer(buf: Buffer, w: number, h: number): Promise<Buffer> {
+  const mask = Buffer.from(
+    `<svg width="${w}" height="${h}"><ellipse cx="${w / 2}" cy="${h / 2}" rx="${w / 2}" ry="${h / 2}" fill="white"/></svg>`,
+  );
+  const resized = await sharp(buf).resize(w, h, { fit: "cover" }).png().toBuffer();
   return sharp(resized).composite([{ input: mask, blend: "dest-in" }]).png().toBuffer();
 }
 

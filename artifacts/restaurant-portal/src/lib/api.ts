@@ -176,6 +176,7 @@ export type PromoTemplate = {
   description: string;
   emoji: string;
   layoutGroup: string;
+  previewUrl: string;
 };
 
 export type GeneratePromoResult = {

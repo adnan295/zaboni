@@ -325,7 +325,7 @@ function TemplateCard({
   onSelect: () => void;
 }) {
   const [imgError, setImgError] = useState(false);
-  const previewSrc = `/api/restaurant-portal/promo-templates/${template.id}/preview`;
+  const previewSrc = template.previewUrl;
 
   return (
     <button
