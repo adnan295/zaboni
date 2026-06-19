@@ -1,5 +1,6 @@
 import { pgTable, text, integer, real, boolean, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { restaurantsTable } from "./restaurants";
 
 export const promoCodesTable = pgTable("promo_codes", {
   id: text("id").primaryKey(),
@@ -11,6 +12,7 @@ export const promoCodesTable = pgTable("promo_codes", {
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  restaurantId: text("restaurant_id").references(() => restaurantsTable.id, { onDelete: "cascade" }),
 });
 
 export const promoUsesTable = pgTable("promo_uses", {

@@ -84,6 +84,30 @@ export const api = {
     apiFetch<GeneratePromoResult>("/restaurant-portal/promo-images/generate", { method: "POST", body: JSON.stringify(data) }),
 
   getPromoImages: () => apiFetch<PromoImage[]>("/restaurant-portal/promo-images"),
+
+  getPromos: () => apiFetch<RestaurantPromo[]>("/restaurant-portal/promos"),
+
+  createPromo: (data: {
+    code: string;
+    type: "percent" | "fixed";
+    value: number;
+    maxUses?: number | null;
+    maxUsesPerUser?: number;
+    expiresAt?: string | null;
+    isActive?: boolean;
+  }) => apiFetch<RestaurantPromo>("/restaurant-portal/promos", { method: "POST", body: JSON.stringify(data) }),
+
+  updatePromo: (id: string, data: Partial<{
+    code: string;
+    type: "percent" | "fixed";
+    value: number;
+    maxUses: number | null;
+    maxUsesPerUser: number;
+    expiresAt: string | null;
+    isActive: boolean;
+  }>) => apiFetch<RestaurantPromo>(`/restaurant-portal/promos/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+
+  deletePromo: (id: string) => apiFetch<void>(`/restaurant-portal/promos/${id}`, { method: "DELETE" }),
 };
 
 export type Restaurant = {
@@ -191,6 +215,19 @@ export type RatingsData = {
   totalCount: number;
   distribution: { stars: number; count: number; pct: number }[];
   ratings: { id: string; restaurantStars: number; comment: string; createdAt: string }[];
+};
+
+export type RestaurantPromo = {
+  id: string;
+  code: string;
+  type: "percent" | "fixed";
+  value: number;
+  maxUses: number | null;
+  maxUsesPerUser: number;
+  expiresAt: string | null;
+  isActive: boolean;
+  createdAt: string;
+  usedCount: number;
 };
 
 export type Analytics = {
