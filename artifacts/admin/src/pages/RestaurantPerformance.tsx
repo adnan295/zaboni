@@ -186,10 +186,10 @@ export default function RestaurantPerformancePage() {
                   return (
                     <tr
                       key={r.id}
-                      onClick={() => navigate("/restaurants")}
+                      onClick={() => navigate(`/restaurants?edit=${r.id}`)}
                       role="button"
                       tabIndex={0}
-                      onKeyDown={(e) => e.key === "Enter" && navigate("/restaurants")}
+                      onKeyDown={(e) => e.key === "Enter" && navigate(`/restaurants?edit=${r.id}`)}
                       className={`cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40 ${
                         alert === "red"
                           ? "bg-red-50 hover:bg-red-100/70 dark:bg-red-950/20 dark:hover:bg-red-950/30"
