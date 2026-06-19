@@ -1842,6 +1842,17 @@ router.delete("/admin/categories/:id", async (req, res) => {
   res.status(204).end();
 });
 
+router.put("/admin/categories/reorder", async (req, res) => {
+  const parsed = z.object({ order: z.array(z.object({ id: z.string(), sortOrder: z.number().int() })) }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  await Promise.all(
+    parsed.data.order.map(({ id, sortOrder }) =>
+      db.update(restaurantCategoriesTable).set({ sortOrder, updatedAt: new Date() }).where(eq(restaurantCategoriesTable.id, id))
+    )
+  );
+  res.json({ ok: true });
+});
+
 // ─── Category Restaurant Exclusions ──────────────────────────────────────────
 
 router.get("/admin/categories/:categoryId/exclusions", async (req, res) => {

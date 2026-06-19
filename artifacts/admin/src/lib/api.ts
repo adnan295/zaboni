@@ -561,6 +561,8 @@ export const api = {
     apiFetch<RestaurantCategory>(`/admin/categories/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteCategory: (id: string) =>
     apiFetch<void>(`/admin/categories/${id}`, { method: "DELETE" }),
+  reorderCategories: (order: { id: string; sortOrder: number }[]) =>
+    apiFetch<{ ok: boolean }>("/admin/categories/reorder", { method: "PUT", body: JSON.stringify({ order }) }),
 
   getRestaurantGlobalOrder: () =>
     apiFetch<{ id: string; nameAr: string; name: string; image: string; sortOrder: number | null }[]>(

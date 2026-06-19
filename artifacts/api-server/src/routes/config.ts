@@ -32,4 +32,18 @@ router.get("/config/contact", async (_req, res) => {
   }
 });
 
+router.get("/config/app", async (_req, res) => {
+  try {
+    const rows = await db
+      .select()
+      .from(systemSettingsTable)
+      .where(inArray(systemSettingsTable.key, ["show_all_tab"]));
+    const map: Record<string, string> = {};
+    for (const r of rows) map[r.key] = r.value;
+    res.json({ showAllTab: (map["show_all_tab"] ?? "1") !== "0" });
+  } catch {
+    res.json({ showAllTab: true });
+  }
+});
+
 export default router;

@@ -155,6 +155,17 @@ async function fetchCategories(): Promise<RestaurantCategory[]> {
   return data;
 }
 
+async function fetchAppConfig(): Promise<{ showAllTab: boolean }> {
+  try {
+    const base = getApiBaseUrl();
+    const res = await fetch(`${base}/api/config/app`);
+    if (!res.ok) return { showAllTab: true };
+    return res.json();
+  } catch {
+    return { showAllTab: true };
+  }
+}
+
 async function fetchHomeSection(section: "popular" | "deals"): Promise<RestaurantItem[]> {
   const base = getApiBaseUrl();
   const res = await fetch(`${base}/api/home-sections/${section}`);
@@ -233,6 +244,12 @@ export default function HomeScreen() {
     queryFn: fetchCategories,
     staleTime: 5 * 60 * 1000,
     placeholderData: FALLBACK_CATEGORIES,
+  });
+
+  const { data: appConfig } = useQuery({
+    queryKey: ["appConfig"],
+    queryFn: fetchAppConfig,
+    staleTime: 5 * 60 * 1000,
   });
 
   const onRefresh = useCallback(async () => {
@@ -318,10 +335,18 @@ export default function HomeScreen() {
     return list;
   }, [allRestaurantsData, categoryRestaurantsData, openOnly, selectedCategory, sortBy, isCategoryFiltered]);
 
+  const showAllTab = appConfig?.showAllTab !== false;
+
   const displayCategories = useMemo(
-    () => [ALL_CATEGORY, ...apiCategories],
-    [apiCategories]
+    () => (showAllTab ? [ALL_CATEGORY, ...apiCategories] : apiCategories),
+    [apiCategories, showAllTab]
   );
+
+  useEffect(() => {
+    if (!showAllTab && selectedCategory === "all" && apiCategories.length > 0) {
+      setSelectedCategory(apiCategories[0].id);
+    }
+  }, [showAllTab, selectedCategory, apiCategories]);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
