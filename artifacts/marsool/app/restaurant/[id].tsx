@@ -468,8 +468,11 @@ export default function RestaurantScreen() {
             <View key={cat} onLayout={registerSection(cat)} style={styles.sectionWrap}>
               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{cat}</Text>
               {catItems.map((item) => {
-                const available = (item as MenuItemWithDeal).isAvailable !== false;
-                const effectivePrice = getEffectivePrice(item as MenuItemWithDeal);
+                const typedItem = item as MenuItemWithDeal;
+                const available = typedItem.isAvailable !== false;
+                const effectivePrice = getEffectivePrice(typedItem);
+                const itemIsDeal = !!typedItem.isDeal;
+                const itemDealPrice = typedItem.isDeal && typedItem.dealPrice ? typedItem.dealPrice : undefined;
                 return (
                   <View key={item.id} style={{ opacity: available ? 1 : 0.5 }}>
                     {!available && (
@@ -482,6 +485,8 @@ export default function RestaurantScreen() {
                       quantity={cart[item.id]?.qty ?? 0}
                       onAdd={isOpen && available ? () => addToCart(item.id, item.nameAr, effectivePrice) : undefined}
                       onRemove={isOpen && available ? () => removeFromCart(item.id, item.nameAr, effectivePrice) : undefined}
+                      isDeal={itemIsDeal}
+                      dealPrice={itemDealPrice}
                     />
                   </View>
                 );
