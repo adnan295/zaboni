@@ -753,6 +753,8 @@ export const api = {
     }),
   getSlaAlerts: (minAge = 5) =>
     apiFetch<SlaAlert[]>(`/admin/sla-alerts?minAge=${minAge}`),
+  getCancellationStats: (days: number) =>
+    apiFetch<CancellationStats>(`/admin/cancellation-stats?days=${days}`),
 };
 
 export type SlaAlert = {
@@ -791,6 +793,24 @@ export type WAAccount = {
   qrDataUrl?: string;
   phone?: string;
   createdAt: string;
+};
+
+export type CancellationStats = {
+  days: number;
+  total: number;
+  byReason: {
+    autoExpired: number;
+    customerInitiated: number;
+    postAccept: number;
+  };
+  byHour: { hour: number; count: number }[];
+  byZone: { zone: string; count: number }[];
+  byRestaurant: {
+    restaurantName: string;
+    totalOrders: number;
+    cancelled: number;
+    rate: number;
+  }[];
 };
 
 export type WaVerifyHealth = {
