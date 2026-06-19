@@ -25,6 +25,7 @@ const navItems = [
   { href: "/users", label: "المستخدمون", icon: "👤" },
   { href: "/restaurant-performance", label: "أداء المطاعم", icon: "📈" },
   { href: "/churn", label: "العملاء الغائبون", icon: "💤" },
+  { href: "/cancellation", label: "تحليل الإلغاءات", icon: "❌" },
   { href: "/ratings", label: "التقييمات", icon: "⭐" },
   { href: "/promos", label: "أكواد الخصم", icon: "🎟️" },
   { href: "/notifications", label: "الإشعارات", icon: "🔔" },

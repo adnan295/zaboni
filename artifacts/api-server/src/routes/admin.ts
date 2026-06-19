@@ -814,6 +814,123 @@ router.get("/admin/sla-alerts", async (req, res) => {
   );
 });
 
+router.get("/admin/cancellation-stats", async (req, res) => {
+  const daysRaw = parseInt(String(req.query["days"] ?? "30"));
+  const days = [7, 30, 90].includes(daysRaw) ? daysRaw : 30;
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  // 1. Reason breakdown
+  const reasonRows = await db.execute(sql`
+    SELECT
+      CASE
+        WHEN osh.note = 'auto_expired' THEN 'auto_expired'
+        WHEN o.courier_id = '' OR o.courier_id IS NULL THEN 'customer'
+        ELSE 'post_accept'
+      END AS reason,
+      COUNT(*)::int AS count
+    FROM orders o
+    LEFT JOIN order_status_history osh
+      ON osh.order_id = o.id AND osh.status = 'cancelled'
+    WHERE o.status = 'cancelled'
+      AND o.created_at >= ${since}
+    GROUP BY reason
+  `);
+
+  // 2. By hour (Damascus time)
+  const hourRows = await db.execute(sql`
+    WITH hour_series AS (SELECT generate_series(0, 23)::int AS hour)
+    SELECT
+      h.hour,
+      COALESCE(c.count, 0)::int AS count
+    FROM hour_series h
+    LEFT JOIN (
+      SELECT EXTRACT(HOUR FROM created_at AT TIME ZONE 'Asia/Damascus')::int AS hour,
+             COUNT(*)::int AS count
+      FROM orders
+      WHERE status = 'cancelled' AND created_at >= ${since}
+      GROUP BY 1
+    ) c ON c.hour = h.hour
+    ORDER BY h.hour
+  `);
+
+  // 3. By delivery zone (Haversine from Damascus center 33.5138, 36.2765)
+  const zoneRows = await db.execute(sql`
+    SELECT
+      COALESCE(dz.label, 'خارج النطاق') AS zone,
+      COUNT(*)::int AS count
+    FROM orders o
+    LEFT JOIN LATERAL (
+      SELECT dz2.label
+      FROM delivery_zones dz2
+      WHERE dz2.is_active = true
+        AND (
+          6371 * 2 * ASIN(SQRT(
+            POWER(SIN(RADIANS((COALESCE(o.destination_lat, 33.5138) - 33.5138) / 2)), 2) +
+            COS(RADIANS(33.5138)) * COS(RADIANS(COALESCE(o.destination_lat, 33.5138))) *
+            POWER(SIN(RADIANS((COALESCE(o.destination_lon, 36.2765) - 36.2765) / 2)), 2)
+          ))
+        ) BETWEEN dz2.from_km AND dz2.to_km
+      ORDER BY dz2.from_km
+      LIMIT 1
+    ) dz ON true
+    WHERE o.status = 'cancelled'
+      AND o.created_at >= ${since}
+    GROUP BY COALESCE(dz.label, 'خارج النطاق')
+    ORDER BY count DESC
+  `);
+
+  // 4. Per-restaurant cancellation rates
+  const restaurantRows = await db.execute(sql`
+    SELECT
+      restaurant_name AS "restaurantName",
+      COUNT(*)::int AS "totalOrders",
+      COUNT(*) FILTER (WHERE status = 'cancelled')::int AS cancelled,
+      ROUND(
+        CAST(COUNT(*) FILTER (WHERE status = 'cancelled') AS numeric)
+        / NULLIF(COUNT(*), 0) * 100,
+        1
+      ) AS rate
+    FROM orders
+    WHERE created_at >= ${since}
+      AND restaurant_name <> ''
+    GROUP BY restaurant_name
+    HAVING COUNT(*) FILTER (WHERE status = 'cancelled') > 0
+    ORDER BY rate DESC
+    LIMIT 20
+  `);
+
+  // Summarise reason counts
+  const reasonMap: Record<string, number> = {};
+  for (const r of reasonRows.rows as { reason: string; count: number }[]) {
+    reasonMap[r.reason] = Number(r.count);
+  }
+  const total = Object.values(reasonMap).reduce((s, v) => s + v, 0);
+
+  res.json({
+    days,
+    total,
+    byReason: {
+      autoExpired: reasonMap["auto_expired"] ?? 0,
+      customerInitiated: reasonMap["customer"] ?? 0,
+      postAccept: reasonMap["post_accept"] ?? 0,
+    },
+    byHour: (hourRows.rows as { hour: number; count: number }[]).map((r) => ({
+      hour: Number(r.hour),
+      count: Number(r.count),
+    })),
+    byZone: (zoneRows.rows as { zone: string; count: number }[]).map((r) => ({
+      zone: r.zone,
+      count: Number(r.count),
+    })),
+    byRestaurant: (restaurantRows.rows as { restaurantName: string; totalOrders: number; cancelled: number; rate: number }[]).map((r) => ({
+      restaurantName: r.restaurantName,
+      totalOrders: Number(r.totalOrders),
+      cancelled: Number(r.cancelled),
+      rate: Number(r.rate),
+    })),
+  });
+});
+
 const STATUS_PUSH_MESSAGES: Record<string, string> = {
   accepted: "قبل مندوب طلبك وهو في الطريق لاستلامه!",
   picked_up: "المندوب استلم طلبك من المطعم 📦",
