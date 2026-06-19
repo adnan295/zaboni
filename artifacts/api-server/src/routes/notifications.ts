@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, usersTable, notificationLogsTable } from "@workspace/db";
-import { eq, desc, or, ilike, inArray } from "drizzle-orm";
+import { eq, desc, or, ilike, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Request, Response, NextFunction } from "express";
 import { broadcastAppNotification } from "../orders/server";
@@ -181,6 +181,83 @@ router.get("/notifications", requireAuth, async (_req, res) => {
     .orderBy(desc(notificationLogsTable.createdAt))
     .limit(30);
   res.json(rows);
+});
+
+const churnSchema = z.object({
+  inactiveDays: z.coerce.number().int().min(1).max(365).default(7),
+});
+
+router.get("/admin/churn", async (req, res) => {
+  const parsed = churnSchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { inactiveDays } = parsed.data;
+
+  const rows = await db.execute(sql`
+    SELECT
+      u.id,
+      u.name,
+      u.phone,
+      MAX(o.created_at)           AS "lastOrderAt",
+      COUNT(o.id)::int            AS "totalOrders",
+      (u.push_token IS NOT NULL OR u.fcm_token IS NOT NULL OR u.apn_token IS NOT NULL) AS "hasPushToken"
+    FROM users u
+    LEFT JOIN orders o ON o.user_id = u.id
+    WHERE u.role = 'customer'
+    GROUP BY u.id, u.name, u.phone, u.push_token, u.fcm_token, u.apn_token
+    HAVING
+      MAX(o.created_at) < NOW() - CAST(${inactiveDays} || ' days' AS INTERVAL)
+      OR MAX(o.created_at) IS NULL
+    ORDER BY MAX(o.created_at) ASC NULLS FIRST
+  `);
+
+  res.json(
+    (rows.rows as Record<string, unknown>[]).map((r) => ({
+      id: r["id"],
+      name: r["name"] ?? null,
+      phone: r["phone"],
+      lastOrderAt: r["lastOrderAt"] ?? null,
+      totalOrders: Number(r["totalOrders"] ?? 0),
+      hasPushToken: Boolean(r["hasPushToken"]),
+    })),
+  );
+});
+
+const bulkUsersSchema = z.object({
+  userIds: z.array(z.string()).min(1).max(500),
+  title: z.string().min(1).max(200),
+  body: z.string().min(1).max(1000),
+  promoCode: z.string().optional(),
+});
+
+router.post("/admin/notifications/bulk-users", async (req, res) => {
+  const parsed = bulkUsersSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { userIds, title, body, promoCode } = parsed.data;
+
+  const data: Record<string, string> = { type: "churn_reactivation" };
+  if (promoCode) data["promoCode"] = promoCode;
+
+  const totals = await sendPushToUsers(userIds, title, body, data);
+  const sentCount = totalsSentCount(totals);
+  const failedCount = totalsFailedCount(totals);
+
+  const id = `notif_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+  await db.insert(notificationLogsTable).values({
+    id,
+    title,
+    body,
+    target: "targeted",
+    sentCount,
+    failedCount,
+  });
+
+  res.json({ success: true, sentCount, failedCount, totals });
 });
 
 router.get("/admin/notifications/history", async (_req, res) => {

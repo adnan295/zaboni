@@ -25,6 +25,7 @@ const navItems = [
   { href: "/courier-applications", label: "طلبات الانضمام", icon: "📋" },
   { href: "/users", label: "المستخدمون", icon: "👤" },
   { href: "/restaurant-performance", label: "أداء المطاعم", icon: "📈" },
+  { href: "/churn", label: "العملاء الغائبون", icon: "💤" },
   { href: "/ratings", label: "التقييمات", icon: "⭐" },
   { href: "/promos", label: "أكواد الخصم", icon: "🎟️" },
   { href: "/notifications", label: "الإشعارات", icon: "🔔" },

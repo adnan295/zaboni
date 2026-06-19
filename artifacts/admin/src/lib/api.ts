@@ -725,6 +725,14 @@ export const api = {
   getRestaurantPerformance: (days: number) =>
     apiFetch<RestaurantPerformance[]>(`/admin/restaurant-performance?days=${days}`),
 
+  getChurnUsers: (inactiveDays: number) =>
+    apiFetch<ChurnUser[]>(`/admin/churn?inactiveDays=${inactiveDays}`),
+  sendBulkNotification: (data: { userIds: string[]; title: string; body: string; promoCode?: string }) =>
+    apiFetch<{ success: boolean; sentCount: number; failedCount: number }>("/admin/notifications/bulk-users", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   getHomeSectionItems: (section: "popular" | "deals") =>
     apiFetch<HomeSectionItem[]>(`/admin/home-sections/${section}`),
   addHomeSectionItem: (section: "popular" | "deals", restaurantId: string) =>
@@ -742,6 +750,15 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ items }),
     }),
+};
+
+export type ChurnUser = {
+  id: string;
+  name: string | null;
+  phone: string;
+  lastOrderAt: string | null;
+  totalOrders: number;
+  hasPushToken: boolean;
 };
 
 export type HomeSectionItem = {
