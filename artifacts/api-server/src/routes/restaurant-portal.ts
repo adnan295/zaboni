@@ -1,5 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
-import { db, restaurantUsersTable, restaurantsTable, menuItemsTable, restaurantHoursTable, ordersTable, otpCodesTable, orderRatingsTable } from "@workspace/db";
+import { db, restaurantUsersTable, restaurantsTable, menuItemsTable, restaurantHoursTable, ordersTable, otpCodesTable, orderRatingsTable, promoCodesTable, promoUsesTable } from "@workspace/db";
 import { eq, desc, and, gte, count, sql } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
@@ -607,6 +607,98 @@ Typography: Structured, professional Arabic font. Formal and readable.
 Visual style: Fine-dining or seafood restaurant prestige. Colors: #0D2137 navy, #1565C0 medium blue, #FFFFFF white, #C9A84C gold trim. All visible text must be in Arabic script. Authoritative and elegant social-media advertisement.`,
   },
 ];
+
+router.get("/restaurant-portal/promos", requireRestaurantAuth, async (req, res) => {
+  const { restaurantId } = getRestaurantAuth(req);
+  const promos = await db
+    .select({
+      id: promoCodesTable.id,
+      code: promoCodesTable.code,
+      type: promoCodesTable.type,
+      value: promoCodesTable.value,
+      maxUses: promoCodesTable.maxUses,
+      maxUsesPerUser: promoCodesTable.maxUsesPerUser,
+      expiresAt: promoCodesTable.expiresAt,
+      isActive: promoCodesTable.isActive,
+      createdAt: promoCodesTable.createdAt,
+      usedCount: count(promoUsesTable.id),
+    })
+    .from(promoCodesTable)
+    .leftJoin(promoUsesTable, eq(promoUsesTable.promoId, promoCodesTable.id))
+    .where(eq(promoCodesTable.restaurantId, restaurantId))
+    .groupBy(promoCodesTable.id)
+    .orderBy(desc(promoCodesTable.createdAt));
+  res.json(promos);
+});
+
+router.post("/restaurant-portal/promos", requireRestaurantAuth, async (req, res) => {
+  const { restaurantId } = getRestaurantAuth(req);
+  const parsed = z.object({
+    code: z.string().min(1).max(32).transform(v => v.toUpperCase()),
+    type: z.enum(["percent", "fixed"]),
+    value: z.number().positive(),
+    maxUses: z.number().int().positive().nullable().optional(),
+    maxUsesPerUser: z.number().int().min(1).default(1),
+    expiresAt: z.string().datetime().nullable().optional(),
+    isActive: z.boolean().default(true),
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صحيحة" }); return; }
+
+  const id = `rp_${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
+  const [promo] = await db.insert(promoCodesTable).values({
+    id,
+    restaurantId,
+    code: parsed.data.code,
+    type: parsed.data.type,
+    value: parsed.data.value,
+    maxUses: parsed.data.maxUses ?? null,
+    maxUsesPerUser: parsed.data.maxUsesPerUser,
+    expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null,
+    isActive: parsed.data.isActive,
+  }).returning();
+  res.status(201).json(promo);
+});
+
+router.put("/restaurant-portal/promos/:id", requireRestaurantAuth, async (req, res) => {
+  const { restaurantId } = getRestaurantAuth(req);
+  const promoId = String(req.params["id"]);
+  const [existing] = await db.select({ id: promoCodesTable.id })
+    .from(promoCodesTable)
+    .where(and(eq(promoCodesTable.id, promoId), eq(promoCodesTable.restaurantId, restaurantId)))
+    .limit(1);
+  if (!existing) { res.status(404).json({ error: "الكود غير موجود" }); return; }
+
+  const parsed = z.object({
+    code: z.string().min(1).max(32).transform(v => v.toUpperCase()).optional(),
+    type: z.enum(["percent", "fixed"]).optional(),
+    value: z.number().positive().optional(),
+    maxUses: z.number().int().positive().nullable().optional(),
+    maxUsesPerUser: z.number().int().min(1).optional(),
+    expiresAt: z.string().datetime().nullable().optional(),
+    isActive: z.boolean().optional(),
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صحيحة" }); return; }
+
+  const updateData: Record<string, unknown> = { ...parsed.data };
+  if (parsed.data.expiresAt !== undefined) {
+    updateData["expiresAt"] = parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null;
+  }
+
+  const [updated] = await db.update(promoCodesTable).set(updateData).where(eq(promoCodesTable.id, promoId)).returning();
+  res.json(updated);
+});
+
+router.delete("/restaurant-portal/promos/:id", requireRestaurantAuth, async (req, res) => {
+  const { restaurantId } = getRestaurantAuth(req);
+  const promoId = String(req.params["id"]);
+  const [existing] = await db.select({ id: promoCodesTable.id })
+    .from(promoCodesTable)
+    .where(and(eq(promoCodesTable.id, promoId), eq(promoCodesTable.restaurantId, restaurantId)))
+    .limit(1);
+  if (!existing) { res.status(404).json({ error: "الكود غير موجود" }); return; }
+  await db.delete(promoCodesTable).where(eq(promoCodesTable.id, promoId));
+  res.status(204).end();
+});
 
 router.get("/restaurant-portal/promo-templates", requireRestaurantAuth, (_req, res) => {
   const templates = PROMO_TEMPLATES.map(({ id, nameAr, description, swatch }) => ({ id, nameAr, description, swatch }));

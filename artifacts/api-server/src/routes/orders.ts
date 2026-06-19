@@ -18,7 +18,7 @@ const createOrderSchema = z.object({
   totalPrice: z.number().int().positive().optional(),
 });
 
-async function validatePromoForUser(code: string, userId: string, deliveryFee?: number): Promise<{
+async function validatePromoForUser(code: string, userId: string, deliveryFee?: number, restaurantId?: string): Promise<{
   valid: false; error: string;
 } | {
   valid: true;
@@ -38,6 +38,9 @@ async function validatePromoForUser(code: string, userId: string, deliveryFee?: 
   if (promos.length === 0) return { valid: false, error: "invalid" };
   const promo = promos[0]!;
   if (promo.expiresAt && promo.expiresAt < now) return { valid: false, error: "expired" };
+  if (promo.restaurantId != null && promo.restaurantId !== (restaurantId ?? "")) {
+    return { valid: false, error: "wrong_restaurant" };
+  }
 
   const [globalUseRow] = await db
     .select({ c: count() })
@@ -162,7 +165,7 @@ router.post("/orders/validate-promo", async (req, res) => {
     const { fee } = await getFeeForDistance(distKm);
     feeForPromo = fee;
   }
-  const result = await validatePromoForUser(body.data.code, userId, feeForPromo);
+  const result = await validatePromoForUser(body.data.code, userId, feeForPromo, body.data.restaurantId);
   if (!result.valid) {
     res.status(422).json({ valid: false, error: result.error });
     return;
@@ -214,7 +217,7 @@ router.post("/orders", async (req, res) => {
 
   let promoUseData: { promoId: string; discountAmount: number } | null = null;
   if (body.data.promoCode) {
-    const promoResult = await validatePromoForUser(body.data.promoCode, userId, zoneFee);
+    const promoResult = await validatePromoForUser(body.data.promoCode, userId, zoneFee, body.data.restaurantId);
     if (!promoResult.valid) {
       res.status(422).json({ error: "invalid_promo", reason: promoResult.error });
       return;
