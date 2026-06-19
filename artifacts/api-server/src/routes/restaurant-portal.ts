@@ -277,6 +277,7 @@ router.patch("/restaurant-portal/menu/:itemId/deal", requireRestaurantAuth, asyn
   const parsed = z.object({
     isDeal: z.boolean(),
     dealPrice: z.number().positive().nullable().optional(),
+    dealExpiresAt: z.string().datetime().nullable().optional(),
   }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "isDeal (boolean) مطلوب" }); return; }
   if (parsed.data.isDeal && !parsed.data.dealPrice) {
@@ -287,9 +288,13 @@ router.patch("/restaurant-portal/menu/:itemId/deal", requireRestaurantAuth, asyn
   if (parsed.data.isDeal && parsed.data.dealPrice && parsed.data.dealPrice >= existing.price) {
     res.status(400).json({ error: "سعر العرض يجب أن يكون أقل من السعر الأصلي" }); return;
   }
+  const dealExpiresAt = parsed.data.isDeal && parsed.data.dealExpiresAt
+    ? new Date(parsed.data.dealExpiresAt)
+    : null;
   const [updated] = await db.update(menuItemsTable).set({
     isDeal: parsed.data.isDeal,
     dealPrice: parsed.data.isDeal ? (parsed.data.dealPrice ?? null) : null,
+    dealExpiresAt,
   }).where(eq(menuItemsTable.id, itemId)).returning();
   res.json(updated);
 });
