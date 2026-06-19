@@ -15,6 +15,7 @@ async function buildAll() {
   await rm(distDir, { recursive: true, force: true });
   // Copy static assets
   await cp(path.resolve(artifactDir, "src/fonts"), path.resolve(distDir, "fonts"), { recursive: true }).catch(() => {});
+  await cp(path.resolve(artifactDir, "src/assets"), path.resolve(distDir, "assets"), { recursive: true }).catch(() => {});
 
   await esbuild({
     entryPoints: [path.resolve(artifactDir, "src/index.ts")],

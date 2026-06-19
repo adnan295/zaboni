@@ -80,7 +80,7 @@ export const api = {
 
   getPromoTemplates: () => apiFetch<PromoTemplate[]>("/restaurant-portal/promo-templates"),
 
-  generatePromoImage: (data: { foodObjectPath?: string; oldPrice: string; newPrice: string; tagline?: string; templateId: string }) =>
+  generatePromoImage: (data: { foodObjectPath?: string; oldPrice: string; newPrice: string; tagline?: string; couponCode?: string; templateId: string }) =>
     apiFetch<GeneratePromoResult>("/restaurant-portal/promo-images/generate", { method: "POST", body: JSON.stringify(data) }),
 
   getPromoImages: () => apiFetch<PromoImage[]>("/restaurant-portal/promo-images"),
@@ -174,7 +174,8 @@ export type PromoTemplate = {
   id: string;
   nameAr: string;
   description: string;
-  swatch: string;
+  emoji: string;
+  layoutGroup: string;
 };
 
 export type GeneratePromoResult = {

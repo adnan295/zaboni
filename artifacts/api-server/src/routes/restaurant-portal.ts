@@ -7,7 +7,7 @@ import { z } from "zod";
 import { sendSmsViaGateway } from "../lib/sms";
 import { whatsappManager } from "../lib/whatsapp";
 import { objectStorageClient } from "../lib/objectStorage";
-import { composeBanner, BANNER_CONFIGS } from "../lib/promoBannerComposer";
+import { composeBannerByTemplate, listPublicTemplates, generateTemplatePreview } from "../lib/promoBannerComposer";
 import { randomUUID } from "crypto";
 
 const router = Router();
@@ -522,130 +522,6 @@ async function uploadBannerToPublicStorage(buffer: Buffer, restaurantId: string,
 }
 
 
-interface PromoTemplate {
-  id: string;
-  nameAr: string;
-  description: string;
-  swatch: string;
-  buildPrompt: (restaurantName: string, oldPrice: string, newPrice: string, tagline?: string) => string;
-}
-
-const PROMO_TEMPLATES: PromoTemplate[] = [
-  {
-    id: "classic-red",
-    nameAr: "وردي ناري",
-    description: "مثل Yemeksepeti — وردي فيوشيا نابض مع كوبون أبيض",
-    swatch: "🩷",
-    buildPrompt: (name, old, now, tagline) =>
-      `Create a square 1:1 food delivery promotional banner in the exact style of Yemeksepeti app marketing — bold, modern, professional.
-
-BACKGROUND: Solid hot magenta-pink (#E91E8C) — flat, no gradients, no textures. The entire canvas is this vibrant pink.
-
-COMPOSITION:
-- Top-left: A small white rounded-rectangle pill badge containing the restaurant name "${name}" in bold dark Arabic text, small and clean — like an app logo tag.
-- Center-left area: 2–3 lines of large bold white Arabic text. First line regular weight, second line extremely bold and large. ${tagline ? `Text reads: "${tagline}"` : `Text reads: "عرض خاص لفترة محدودة"`}
-- Center: A horizontal coupon/ticket shape in white with a dashed vertical divider in the middle. Left half has a mint-green (#A8E6CF) background showing old price "${old}" in dark crossed-out Arabic numerals. Right half shows new price "${now}" in large bold dark Arabic numerals with a small Arabic label above it.
-- Bottom-left or top-right: A single beautifully photographed food item (burger or pizza slice) with a completely transparent/removed background, floating naturally on the pink — cut-out style, no shadow box, the food image bleeds to the edge. The food looks delicious and high quality.
-
-TYPOGRAPHY: Modern rounded sans-serif Arabic. All Arabic script. No decorative borders. No textures.
-STYLE: Exactly like Yemeksepeti / Getir app promotional social media post. Clean, energetic, delivery-app quality. 1080x1080px social media standard.`,
-  },
-  {
-    id: "dark-luxury",
-    nameAr: "أسود ذهبي راقي",
-    description: "خلفية سوداء مع أكل طافٍ وبادج ذهبي فاخر",
-    swatch: "🖤",
-    buildPrompt: (name, old, now, tagline) =>
-      `Create a square 1:1 food delivery promotional banner in a premium luxury delivery-app style — dark, sophisticated, modern.
-
-BACKGROUND: Flat deep charcoal black (#1A1A1A) — no textures, no gradients. Clean solid dark canvas.
-
-COMPOSITION:
-- Top-left: A small rounded-rectangle white pill badge with restaurant name "${name}" in bold dark Arabic text — clean minimal app-style tag.
-- Center-left: Large bold white Arabic text block, 2 lines. ${tagline ? `"${tagline}"` : `"عرض حصري لهذا الأسبوع"`} — first line normal weight, second line ultra-bold.
-- Center: A sleek horizontal pill/coupon shape with a dark gold (#C9A84C) left half showing old price "${old}" crossed out in white Arabic numerals, and a white right half showing new price "${now}" in large bold dark Arabic numerals. Clean separation with a subtle dashed divider.
-- Top-right or bottom-right: A beautifully lit food item (gourmet burger, sushi, or steak) photographed with transparent background — cut-out floating on the dark canvas, slightly oversized, bleeding to the edge. Professional food photography quality.
-
-TYPOGRAPHY: Bold modern Arabic sans-serif throughout. All text in Arabic script. Gold (#C9A84C) and white only.
-STYLE: Premium dark delivery-app banner. Like a luxury restaurant on a high-end food delivery platform. Clean, no clutter, professional 1080x1080.`,
-  },
-  {
-    id: "fresh-green",
-    nameAr: "أخضر طازج عصري",
-    description: "أخضر زمردي نابض مع أكل صحي طافٍ وكوبون أبيض",
-    swatch: "🟢",
-    buildPrompt: (name, old, now, tagline) =>
-      `Create a square 1:1 food promotional banner in a fresh, modern delivery-app style.
-
-BACKGROUND: Solid vibrant emerald green (#00A86B) — flat, no texture, no gradients. Clean full-canvas green.
-
-COMPOSITION:
-- Top-left: Small white rounded-rectangle pill with restaurant name "${name}" in bold dark Arabic — clean app-style tag.
-- Center-left: 2 lines of large bold white Arabic text. ${tagline ? `"${tagline}"` : `"طازج يومياً على بابك"`} — second line ultra-bold and larger.
-- Center: Horizontal white coupon/ticket shape with dashed middle divider. Left half light green (#C8F5E0) with old price "${old}" in crossed-out dark Arabic numerals. Right half white with new price "${now}" in large bold green Arabic numerals.
-- Top-right or bottom-right: Fresh food item (salad bowl, healthy wrap, fruit plate, or grilled chicken) with transparent background cut-out — floating on green, oversize, edge-bleeding. Vibrant natural colors.
-
-TYPOGRAPHY: Clean modern rounded Arabic sans-serif. All Arabic script.
-STYLE: Fresh food delivery promotional post — energetic, healthy, clean. Exactly like top delivery apps' social media marketing. 1080x1080px.`,
-  },
-  {
-    id: "bold-orange",
-    nameAr: "برتقالي ناري",
-    description: "برتقالي نابض بطاقة سعر بيضاء وأكل طافٍ",
-    swatch: "🟠",
-    buildPrompt: (name, old, now, tagline) =>
-      `Create a square 1:1 food promotional banner in a bold, energetic delivery-app style.
-
-BACKGROUND: Solid vivid orange (#FF6B00) — completely flat, no gradients, no patterns. Strong orange canvas.
-
-COMPOSITION:
-- Top-left: Small white rounded-rectangle pill badge with restaurant name "${name}" in bold dark Arabic text — minimal clean app tag.
-- Center-left: 2 lines of large bold white Arabic text. ${tagline ? `"${tagline}"` : `"عرض اليوم فقط لا تفوّته"`} — second line ultra-bold, larger size.
-- Center: A horizontal white coupon/ticket badge with perforated dashed divider. Left half with a warm yellow (#FFE066) background showing old price "${old}" in crossed-out dark Arabic numerals. Right half white showing new price "${now}" in large bold orange Arabic numerals with Arabic label above.
-- Top-right or bottom-left: Appetizing food with transparent background — shawarma, pizza, fried chicken, or kebab — cut-out floating on orange, oversized and slightly tilted for energy, bleeding off the canvas edge.
-
-TYPOGRAPHY: Heavy bold Arabic rounded sans-serif. All Arabic script. High energy layout.
-STYLE: Street food delivery energy, exactly like top delivery app promotions on Instagram. 1080x1080px professional banner.`,
-  },
-  {
-    id: "clean-white",
-    nameAr: "أبيض نظيف عصري",
-    description: "خلفية بيضاء ناعمة مع تفاصيل ملونة وأكل طافٍ",
-    swatch: "⬜",
-    buildPrompt: (name, old, now, tagline) =>
-      `Create a square 1:1 food promotional banner in a clean, minimal modern delivery-app style.
-
-BACKGROUND: Pure soft white (#FAFAFA) — clean, flat, airy. A very subtle large rounded organic blob shape in very light pink (#FFE8F0) fills the bottom-right two-thirds of the canvas — like a soft background accent, not distracting.
-
-COMPOSITION:
-- Top-left: Small hot pink (#E91E8C) rounded-rectangle pill with restaurant name "${name}" in bold white Arabic text — vibrant contrast app tag.
-- Center-left: 2 lines of large bold dark (#1A1A1A) Arabic text. ${tagline ? `"${tagline}"` : `"عرض خاص لزبائننا المميزين"`} — second line bolder and larger.
-- Center: A horizontal coupon/ticket badge. Left half in hot pink (#E91E8C) showing old price "${old}" in crossed-out white Arabic numerals. Right half white with a pink border showing new price "${now}" in large bold dark Arabic numerals with small Arabic label.
-- Bottom-right or top-right: Hero food item (gourmet burger, dessert, or coffee) with completely transparent background — cut-out floating on white, beautifully lit, oversized and natural, slightly bleeding off canvas.
-
-TYPOGRAPHY: Modern clean Arabic sans-serif. Dark on white, white on pink. All Arabic script.
-STYLE: Premium minimal food delivery social media post. Clean, aspirational, café/restaurant quality. 1080x1080px.`,
-  },
-  {
-    id: "deep-blue",
-    nameAr: "أزرق عميق جريء",
-    description: "كحلي غامق نابض مع بادج أبيض وأكل طافٍ",
-    swatch: "🔵",
-    buildPrompt: (name, old, now, tagline) =>
-      `Create a square 1:1 food promotional banner in a bold modern delivery-app style.
-
-BACKGROUND: Solid deep cobalt blue (#1565C0) — flat, clean, no gradients or textures. Strong full-canvas blue.
-
-COMPOSITION:
-- Top-left: Small white rounded-rectangle pill badge with restaurant name "${name}" in bold dark blue Arabic text — clean minimal app-style tag.
-- Center-left: 2 lines of large bold white Arabic text. ${tagline ? `"${tagline}"` : `"توصيل سريع وعرض لا يُقاوم"`} — first line regular, second line ultra-bold and large.
-- Center: A horizontal white coupon/ticket shape with dashed divider. Left half with a light sky-blue (#B3D9FF) background showing old price "${old}" in crossed-out dark Arabic numerals. Right half pure white with new price "${now}" in large bold blue Arabic numerals and Arabic label above.
-- Top-right or bottom-right: A beautifully photographed food item (seafood, grilled fish, or premium burger) with completely transparent background — cut-out floating on blue, oversized, bleeding off canvas. Professional quality.
-
-TYPOGRAPHY: Bold modern Arabic rounded sans-serif. All Arabic script. High contrast white on blue.
-STYLE: Professional food delivery promotional post — bold, trustworthy, exactly like top delivery app marketing on social media. 1080x1080px.`,
-  },
-];
 
 router.get("/restaurant-portal/promos", requireRestaurantAuth, async (req, res) => {
   const { restaurantId } = getRestaurantAuth(req);
@@ -740,8 +616,19 @@ router.delete("/restaurant-portal/promos/:id", requireRestaurantAuth, async (req
 });
 
 router.get("/restaurant-portal/promo-templates", requireRestaurantAuth, (_req, res) => {
-  const templates = PROMO_TEMPLATES.map(({ id, nameAr, description, swatch }) => ({ id, nameAr, description, swatch }));
-  res.json(templates);
+  res.json(listPublicTemplates());
+});
+
+router.get("/restaurant-portal/promo-templates/:id/preview", requireRestaurantAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const jpeg = await generateTemplatePreview(id as string);
+    res.setHeader("Content-Type", "image/jpeg");
+    res.setHeader("Cache-Control", "public, max-age=604800");
+    res.end(jpeg);
+  } catch (err) {
+    res.status(400).json({ error: "preview unavailable" });
+  }
 });
 
 router.post("/restaurant-portal/promo-images/generate", requireRestaurantAuth, async (req, res) => {
@@ -750,21 +637,24 @@ router.post("/restaurant-portal/promo-images/generate", requireRestaurantAuth, a
     oldPrice: z.string().min(1),
     newPrice: z.string().min(1),
     tagline: z.string().optional(),
+    couponCode: z.string().optional(),
     templateId: z.string().min(1),
   }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صحيحة" }); return; }
 
   const { restaurantId } = getRestaurantAuth(req);
-  const { foodObjectPath, oldPrice, newPrice, tagline, templateId } = parsed.data;
+  const { foodObjectPath, oldPrice, newPrice, tagline, couponCode, templateId } = parsed.data;
 
-  const template = PROMO_TEMPLATES.find(t => t.id === templateId);
+  const templates = listPublicTemplates();
+  const template = templates.find(t => t.id === templateId);
   if (!template) { res.status(400).json({ error: "القالب المختار غير موجود" }); return; }
 
-  const [restaurant] = await db.select({ nameAr: restaurantsTable.nameAr }).from(restaurantsTable).where(eq(restaurantsTable.id, restaurantId)).limit(1);
+  const [restaurant] = await db
+    .select({ nameAr: restaurantsTable.nameAr, image: restaurantsTable.image })
+    .from(restaurantsTable)
+    .where(eq(restaurantsTable.id, restaurantId))
+    .limit(1);
   const restaurantName = restaurant?.nameAr ?? "مطعمنا";
-
-  const bannerConfig = BANNER_CONFIGS[templateId];
-  if (!bannerConfig) { res.status(400).json({ error: "القالب المختار غير مدعوم" }); return; }
 
   try {
     let foodBuffer: Buffer | undefined;
@@ -773,26 +663,38 @@ router.post("/restaurant-portal/promo-images/generate", requireRestaurantAuth, a
       foodBuffer = imgBuffer;
     }
 
-    const bannerBuffer = await composeBanner(
-      bannerConfig,
+    // Try to download restaurant logo from object storage
+    let restaurantLogoBuffer: Buffer | undefined;
+    if (restaurant?.image) {
+      try {
+        const { buffer: logoImg } = await readFoodImageFromStorage(restaurant.image);
+        restaurantLogoBuffer = logoImg;
+      } catch {
+        // logo is optional — ignore errors
+      }
+    }
+
+    const bannerBuffer = await composeBannerByTemplate(templateId, {
       restaurantName,
       oldPrice,
       newPrice,
-      tagline ?? "عرض خاص لفترة محدودة",
-      foodBuffer,
-    );
+      tagline: tagline ?? "عرض خاص لفترة محدودة",
+      couponCode,
+      foodImageBuffer: foodBuffer,
+      restaurantLogoBuffer,
+    });
 
     const filename = `${Date.now()}-${randomUUID().slice(0, 8)}.png`;
     const resultUrl = await uploadBannerToPublicStorage(bannerBuffer, restaurantId, filename);
 
-    const id = `promo_${Date.now()}`;
+    const genId = `promo_${Date.now()}`;
     const foodPublicUrl = foodObjectPath ? `/api/storage/public-objects/${foodObjectPath}` : null;
     await db.execute(sql`
       INSERT INTO promo_images (id, restaurant_id, restaurant_name, food_image_url, old_price, new_price, tagline, result_url, template_id)
-      VALUES (${id}, ${restaurantId}, ${restaurantName}, ${foodPublicUrl}, ${oldPrice}, ${newPrice}, ${tagline ?? null}, ${resultUrl}, ${templateId})
+      VALUES (${genId}, ${restaurantId}, ${restaurantName}, ${foodPublicUrl}, ${oldPrice}, ${newPrice}, ${tagline ?? null}, ${resultUrl}, ${templateId})
     `);
 
-    res.json({ id, resultUrl, restaurantName, oldPrice, newPrice, tagline, templateId, templateName: template.nameAr });
+    res.json({ id: genId, resultUrl, restaurantName, oldPrice, newPrice, tagline, templateId, templateName: template.nameAr });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "خطأ غير معروف";
     res.status(500).json({ error: `فشل توليد الصورة: ${msg}` });

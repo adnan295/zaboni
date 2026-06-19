@@ -11,6 +11,13 @@ import { cn } from "@/lib/utils";
 const MAX_FILE_MB = 5;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
+const LAYOUT_LABELS: Record<string, string> = {
+  A: "كلاسيك — نص يسار، صورة يمين",
+  B: "هيدر — شعار + كوبون تذكرة",
+  C: "تغطية كاملة — الطعام خلفية",
+  D: "بطاقة — صورة دائرية أنيقة",
+};
+
 export default function PromoImages() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -22,6 +29,7 @@ export default function PromoImages() {
   const [oldPrice, setOldPrice] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [tagline, setTagline] = useState("");
+  const [couponCode, setCouponCode] = useState("");
   const [uploading, setUploading] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState("");
   const [generatedTemplateName, setGeneratedTemplateName] = useState("");
@@ -41,6 +49,13 @@ export default function PromoImages() {
   function getTemplateName(templateId: string): string {
     return templates.find(t => t.id === templateId)?.nameAr ?? templateId;
   }
+
+  const groups = templates.reduce<Record<string, PromoTemplate[]>>((acc, t) => {
+    const g = t.layoutGroup ?? "A";
+    if (!acc[g]) acc[g] = [];
+    acc[g]!.push(t);
+    return acc;
+  }, {});
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -81,6 +96,7 @@ export default function PromoImages() {
       oldPrice,
       newPrice,
       tagline: tagline || undefined,
+      couponCode: couponCode || undefined,
       templateId: selectedTemplateId,
     }),
     onSuccess: (data) => {
@@ -103,45 +119,46 @@ export default function PromoImages() {
         </CardHeader>
         <CardContent className="space-y-5">
 
-          <div className="space-y-2">
+          {/* ── Template Picker ── */}
+          <div className="space-y-3">
             <Label className="text-sm font-semibold">
               اختر القالب <span className="text-destructive">*</span>
             </Label>
+
             {templates.length === 0 ? (
-              <div className="grid grid-cols-3 gap-2">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />
+              <div className="grid grid-cols-2 gap-3">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="aspect-square rounded-xl bg-muted animate-pulse" />
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {templates.map(t => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setSelectedTemplateId(t.id)}
-                    className={cn(
-                      "relative flex flex-col items-center gap-1 rounded-xl border-2 p-3 text-center transition-all hover:border-primary/50 hover:bg-accent/30",
-                      selectedTemplateId === t.id
-                        ? "border-primary bg-primary/5 shadow-sm"
-                        : "border-border bg-background",
-                    )}
-                  >
-                    {selectedTemplateId === t.id && (
-                      <span className="absolute top-1.5 left-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-white">✓</span>
-                    )}
-                    <span className="text-2xl">{t.swatch}</span>
-                    <span className="text-xs font-semibold leading-tight">{t.nameAr}</span>
-                    <span className="text-[10px] text-muted-foreground leading-tight">{t.description}</span>
-                  </button>
+              <div className="space-y-4">
+                {Object.entries(groups).map(([group, groupTemplates]) => (
+                  <div key={group}>
+                    <p className="text-xs font-semibold text-muted-foreground mb-2 pb-1 border-b">
+                      {LAYOUT_LABELS[group] ?? group}
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {groupTemplates.map(t => (
+                        <TemplateCard
+                          key={t.id}
+                          template={t}
+                          selected={selectedTemplateId === t.id}
+                          onSelect={() => setSelectedTemplateId(t.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
+
             {!selectedTemplateId && templates.length > 0 && (
               <p className="text-xs text-muted-foreground/70">يرجى اختيار قالب قبل التوليد</p>
             )}
           </div>
 
+          {/* ── Food image upload ── */}
           <div className="space-y-2">
             <Label>صورة الوجبة (اختياري)</Label>
             <div
@@ -175,6 +192,7 @@ export default function PromoImages() {
             )}
           </div>
 
+          {/* ── Prices ── */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label>السعر الأصلي <span className="text-destructive">*</span></Label>
@@ -194,6 +212,7 @@ export default function PromoImages() {
             </div>
           </div>
 
+          {/* ── Tagline ── */}
           <div className="space-y-1">
             <Label>شعار أو وصف العرض (اختياري)</Label>
             <Input
@@ -201,6 +220,19 @@ export default function PromoImages() {
               value={tagline}
               onChange={e => setTagline(e.target.value)}
             />
+          </div>
+
+          {/* ── Coupon Code ── */}
+          <div className="space-y-1">
+            <Label>كود الكوبون (اختياري)</Label>
+            <Input
+              placeholder="مثال: SAVE20"
+              value={couponCode}
+              onChange={e => setCouponCode(e.target.value)}
+              className="font-mono tracking-widest"
+              dir="ltr"
+            />
+            <p className="text-xs text-muted-foreground">إذا أدخلت كوداً سيظهر على البوستر بدل السعر الجديد في خانة الكوبون</p>
           </div>
 
           <Button
@@ -220,6 +252,7 @@ export default function PromoImages() {
         </CardContent>
       </Card>
 
+      {/* ── Result ── */}
       {generatedUrl && (
         <Card className="border-primary/30">
           <CardHeader>
@@ -248,6 +281,7 @@ export default function PromoImages() {
         </Card>
       )}
 
+      {/* ── History ── */}
       {history.length > 0 && (
         <div>
           <h3 className="font-semibold mb-3 text-muted-foreground">البوسترات السابقة</h3>
@@ -278,5 +312,58 @@ export default function PromoImages() {
         </div>
       )}
     </div>
+  );
+}
+
+function TemplateCard({
+  template,
+  selected,
+  onSelect,
+}: {
+  template: PromoTemplate;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const [imgError, setImgError] = useState(false);
+  const previewSrc = `/api/restaurant-portal/promo-templates/${template.id}/preview`;
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        "relative flex flex-col rounded-xl border-2 overflow-hidden text-right transition-all hover:border-primary/60",
+        selected
+          ? "border-primary shadow-md ring-2 ring-primary/20"
+          : "border-border bg-background hover:bg-accent/20",
+      )}
+    >
+      {selected && (
+        <span className="absolute top-2 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] text-white shadow">✓</span>
+      )}
+
+      {/* Preview thumbnail */}
+      <div className="aspect-square w-full overflow-hidden bg-muted">
+        {!imgError ? (
+          <img
+            src={previewSrc}
+            alt={template.nameAr}
+            className="w-full h-full object-cover"
+            onError={() => setImgError(true)}
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-1 text-muted-foreground">
+            <span className="text-3xl">{template.emoji}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Label */}
+      <div className="px-2 py-1.5 bg-background">
+        <p className="text-xs font-semibold leading-tight truncate">{template.nameAr}</p>
+        <p className="text-[10px] text-muted-foreground leading-tight mt-0.5 truncate">{template.description}</p>
+      </div>
+    </button>
   );
 }
