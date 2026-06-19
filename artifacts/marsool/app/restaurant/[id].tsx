@@ -29,6 +29,7 @@ import { haversineDistance } from "@/utils/geo";
 import { buildImageUrl } from "@/lib/apiConfig";
 
 const POPULAR_KEY = "__popular__";
+const DEALS_KEY = "__deals__";
 const CAT_TAB_HEIGHT = 48;
 
 interface CartEntry {
@@ -63,10 +64,16 @@ export default function RestaurantScreen() {
   const { data: menuItemsData } = useGetRestaurantMenu(id ?? "");
   const menuItems = menuItemsData ?? [];
   const categories = Array.from(new Set(menuItems.map((m) => m.categoryAr)));
+  const dealItems = menuItems.filter((m) => (m as typeof m & { isDeal?: boolean }).isDeal).slice(0, 10);
+  const hasDeals = dealItems.length > 0;
   const popularItems = menuItems.filter((m) => m.isPopular).slice(0, 4);
   const hasPopular = popularItems.length > 0;
 
-  const allTabs: string[] = [...(hasPopular ? [POPULAR_KEY] : []), ...categories];
+  const allTabs: string[] = [
+    ...(hasDeals ? [DEALS_KEY] : []),
+    ...(hasPopular ? [POPULAR_KEY] : []),
+    ...categories,
+  ];
 
   const [cart, setCart] = useState<Record<string, CartEntry>>({});
   const [activeCategory, setActiveCategory] = useState<string | null>(allTabs[0] ?? null);
@@ -289,7 +296,7 @@ export default function RestaurantScreen() {
           >
             {allTabs.map((cat) => {
               const isActive = activeCategory === cat;
-              const label = cat === POPULAR_KEY ? "🔥 الأكثر طلباً" : cat;
+              const label = cat === DEALS_KEY ? "العروض 🔥" : cat === POPULAR_KEY ? "🔥 الأكثر طلباً" : cat;
               return (
                 <TouchableOpacity
                   key={cat}
@@ -316,7 +323,69 @@ export default function RestaurantScreen() {
           </ScrollView>
         </View>
 
-        {/* [3] Popular section */}
+        {/* [3] Deals section */}
+        {hasDeals && (
+          <View onLayout={registerSection(DEALS_KEY)} style={styles.sectionWrap}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>العروض 🔥</Text>
+            <Text style={[styles.sectionSubtitle, { color: colors.mutedForeground }]}>أصناف بأسعار مخفضة</Text>
+            <View style={styles.popularGrid}>
+              {dealItems.map((item) => {
+                const typedItem = item as typeof item & { isDeal?: boolean; dealPrice?: number | null; isAvailable?: boolean };
+                const itemAvailable = typedItem.isAvailable !== false;
+                const canAdd = isOpen && itemAvailable;
+                const dealPrice = typedItem.dealPrice ?? item.price;
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[
+                      styles.popularCard,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: cart[item.id]?.qty ? colors.primary : "#F97316",
+                        opacity: itemAvailable ? 1 : 0.5,
+                      },
+                    ]}
+                    onPress={canAdd ? () => addToCart(item.id, item.nameAr, dealPrice) : undefined}
+                    activeOpacity={canAdd ? 0.85 : 1}
+                  >
+                    <Image source={{ uri: buildImageUrl(item.image) }} style={styles.popularImage} resizeMode="cover" />
+                    <View style={styles.dealBadge}>
+                      <Text style={styles.dealBadgeText}>🔥 عرض</Text>
+                    </View>
+                    {!itemAvailable ? (
+                      <View style={styles.unavailableBadge}>
+                        <Text style={styles.unavailableText}>غير متوفر</Text>
+                      </View>
+                    ) : cart[item.id]?.qty ? (
+                      <View style={[styles.popularQtyBadge, { backgroundColor: colors.primary }]}>
+                        <Text style={styles.popularQtyText}>{cart[item.id]!.qty}</Text>
+                      </View>
+                    ) : canAdd ? (
+                      <View style={[styles.popularAddBtn, { backgroundColor: "#F97316" }]}>
+                        <MaterialIcons name="add" size={16} color="#fff" />
+                      </View>
+                    ) : null}
+                    <View style={styles.popularCardBody}>
+                      <Text style={[styles.popularItemName, { color: colors.foreground }]} numberOfLines={2}>
+                        {item.nameAr}
+                      </Text>
+                      <View style={styles.dealPriceRow}>
+                        <Text style={[styles.dealOriginalPrice, { color: colors.mutedForeground }]}>
+                          {item.price.toLocaleString()} ل.س
+                        </Text>
+                        <Text style={styles.dealNewPrice}>
+                          {dealPrice.toLocaleString()} ل.س
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {/* [4] Popular section */}
         {hasPopular && (
           <View onLayout={registerSection(POPULAR_KEY)} style={styles.sectionWrap}>
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>🔥 الأكثر طلباً</Text>
@@ -639,4 +708,18 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   unavailableText: { color: "#fff", fontSize: 11, fontWeight: "700" },
+  dealBadge: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    zIndex: 10,
+    backgroundColor: "rgba(249,115,22,0.92)",
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  dealBadgeText: { color: "#fff", fontSize: 11, fontWeight: "700" },
+  dealPriceRow: { flexDirection: "row", alignItems: "center", gap: 4, flexWrap: "wrap" },
+  dealOriginalPrice: { fontSize: 11, textDecorationLine: "line-through" },
+  dealNewPrice: { fontSize: 13, fontWeight: "800", color: "#F97316" },
 });
