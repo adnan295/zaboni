@@ -1,4 +1,4 @@
-import { pgTable, text, real, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, real, boolean, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { restaurantsTable } from "./restaurants";
@@ -22,6 +22,7 @@ export const menuItemsTable = pgTable("menu_items", {
   isAvailable: boolean("is_available").notNull().default(true),
   isDeal: boolean("is_deal").notNull().default(false),
   dealPrice: real("deal_price"),
+  dealExpiresAt: timestamp("deal_expires_at"),
 });
 
 export const insertMenuItemSchema = createInsertSchema(menuItemsTable);

@@ -14,8 +14,15 @@ const emptyItem: Omit<MenuItem, "id" | "restaurantId"> = {
   name: "", nameAr: "", price: 0, category: "", categoryAr: "",
   description: null, descriptionAr: null, image: "", isPopular: false,
   subcategory: null, subcategoryAr: null, isAvailable: true,
-  isDeal: false, dealPrice: null,
+  isDeal: false, dealPrice: null, dealExpiresAt: null,
 };
+
+function formatExpiry(expiresAt: string | null): string | null {
+  if (!expiresAt) return null;
+  const d = new Date(expiresAt);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleString("ar-SY", { dateStyle: "short", timeStyle: "short" });
+}
 
 export default function Menu() {
   const { toast } = useToast();
@@ -24,6 +31,7 @@ export default function Menu() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [dealPriceInput, setDealPriceInput] = useState<Record<string, string>>({});
+  const [dealExpiryInput, setDealExpiryInput] = useState<Record<string, string>>({});
 
   const { data: items = [], isLoading } = useQuery({ queryKey: ["portal-menu"], queryFn: api.getMenu });
 
@@ -68,13 +76,13 @@ export default function Menu() {
   });
 
   const dealMutation = useMutation({
-    mutationFn: ({ id, isDeal, dealPrice }: { id: string; isDeal: boolean; dealPrice?: number | null }) =>
-      api.updateItemDeal(id, isDeal, dealPrice),
-    onMutate: async ({ id, isDeal, dealPrice }) => {
+    mutationFn: ({ id, isDeal, dealPrice, dealExpiresAt }: { id: string; isDeal: boolean; dealPrice?: number | null; dealExpiresAt?: string | null }) =>
+      api.updateItemDeal(id, isDeal, dealPrice, dealExpiresAt),
+    onMutate: async ({ id, isDeal, dealPrice, dealExpiresAt }) => {
       await qc.cancelQueries({ queryKey: ["portal-menu"] });
       const prev = qc.getQueryData<MenuItem[]>(["portal-menu"]);
       qc.setQueryData<MenuItem[]>(["portal-menu"], old =>
-        old?.map(it => it.id === id ? { ...it, isDeal, dealPrice: isDeal ? (dealPrice ?? null) : null } : it) ?? []
+        old?.map(it => it.id === id ? { ...it, isDeal, dealPrice: isDeal ? (dealPrice ?? null) : null, dealExpiresAt: isDeal ? (dealExpiresAt ?? null) : null } : it) ?? []
       );
       return { prev };
     },
@@ -84,6 +92,7 @@ export default function Menu() {
     },
     onSuccess: (_data, { id }) => {
       setDealPriceInput(prev => { const next = { ...prev }; delete next[id]; return next; });
+      setDealExpiryInput(prev => { const next = { ...prev }; delete next[id]; return next; });
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ["portal-menu"] }),
   });
@@ -133,6 +142,11 @@ export default function Menu() {
                         <span className="font-bold text-orange-600">{item.dealPrice} ل.س</span>
                         <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-medium">عرض 🔥</span>
                       </div>
+                      {item.dealExpiresAt && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          ⏱ ينتهي: {formatExpiry(item.dealExpiresAt)}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <Button
@@ -190,32 +204,48 @@ export default function Menu() {
                           )}
                           {item.isPopular && <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">🔥 شائع</span>}
                         </div>
+                        {item.isDeal && item.dealExpiresAt && (
+                          <p className="text-xs text-muted-foreground mt-1">⏱ ينتهي: {formatExpiry(item.dealExpiresAt)}</p>
+                        )}
                       </div>
                     </div>
 
                     {!item.isDeal && (
-                      <div className="mt-3 flex gap-2 items-center">
-                        <Input
-                          type="number"
-                          min="0"
-                          placeholder="سعر العرض"
-                          className="h-8 text-sm"
-                          value={dealPriceInput[item.id] ?? ""}
-                          onChange={e => setDealPriceInput(prev => ({ ...prev, [item.id]: e.target.value }))}
-                        />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-orange-300 text-orange-600 hover:bg-orange-50 shrink-0"
-                          disabled={dealMutation.isPending || !dealPriceInput[item.id]}
-                          onClick={() => {
-                            const price = parseFloat(dealPriceInput[item.id] ?? "");
-                            if (!price || price <= 0) return;
-                            dealMutation.mutate({ id: item.id, isDeal: true, dealPrice: price });
-                          }}
-                        >
-                          تفعيل عرض 🔥
-                        </Button>
+                      <div className="mt-3 space-y-2">
+                        <div className="flex gap-2 items-center">
+                          <Input
+                            type="number"
+                            min="0"
+                            placeholder="سعر العرض"
+                            className="h-8 text-sm"
+                            value={dealPriceInput[item.id] ?? ""}
+                            onChange={e => setDealPriceInput(prev => ({ ...prev, [item.id]: e.target.value }))}
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-orange-300 text-orange-600 hover:bg-orange-50 shrink-0"
+                            disabled={dealMutation.isPending || !dealPriceInput[item.id]}
+                            onClick={() => {
+                              const price = parseFloat(dealPriceInput[item.id] ?? "");
+                              if (!price || price <= 0) return;
+                              const expiryLocal = dealExpiryInput[item.id];
+                              const dealExpiresAt = expiryLocal ? new Date(expiryLocal).toISOString() : null;
+                              dealMutation.mutate({ id: item.id, isDeal: true, dealPrice: price, dealExpiresAt });
+                            }}
+                          >
+                            تفعيل عرض 🔥
+                          </Button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="datetime-local"
+                            className="h-8 text-xs"
+                            value={dealExpiryInput[item.id] ?? ""}
+                            onChange={e => setDealExpiryInput(prev => ({ ...prev, [item.id]: e.target.value }))}
+                          />
+                          <span className="text-xs text-muted-foreground shrink-0">انتهاء (اختياري)</span>
+                        </div>
                       </div>
                     )}
 

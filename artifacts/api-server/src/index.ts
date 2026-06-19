@@ -1,6 +1,7 @@
 import { createServer } from "http";
 import app from "./app";
 import { startOrderExpiryJob } from "./lib/orderExpiry";
+import { startDealExpiryJob } from "./lib/dealExpiry";
 import { logger } from "./lib/logger";
 import { ensurePreviewsExist } from "./lib/promoBannerComposer";
 import { backfillRestaurantPhones } from "@workspace/db/migrations/backfill-restaurant-phones";
@@ -11,6 +12,7 @@ import { addPromoImagesTemplate } from "@workspace/db/migrations/add-promo-image
 import { addMenuItemAvailability } from "@workspace/db/migrations/add-menu-item-availability";
 import { addPromoRestaurant } from "@workspace/db/migrations/add-promo-restaurant";
 import { addMenuItemDeals } from "@workspace/db/migrations/add-menu-item-deals";
+import { addDealExpiresAt } from "@workspace/db/migrations/add-deal-expires-at";
 
 const rawPort = process.env["PORT"];
 
@@ -35,6 +37,7 @@ httpServer.listen(port, (err?: Error) => {
   }
   logger.info({ port }, "Server listening");
   startOrderExpiryJob();
+  startDealExpiryJob();
   // Generate banner template preview PNGs at startup so <img> tags work immediately
   ensurePreviewsExist().catch((e) =>
     logger.error({ err: e }, "Failed to generate banner previews"),
@@ -62,5 +65,8 @@ httpServer.listen(port, (err?: Error) => {
   );
   addMenuItemDeals().catch((e: unknown) =>
     logger.error({ err: e }, "Failed to run menu item deals migration"),
+  );
+  addDealExpiresAt().catch((e: unknown) =>
+    logger.error({ err: e }, "Failed to run deal expires at migration"),
   );
 });
