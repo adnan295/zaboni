@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getToken } from "@/lib/api";
 
 const API_BASE = "/api";
 
@@ -39,9 +40,13 @@ export function ImageUpload({ value, onChange, label = "الصورة" }: ImageUp
     setUploadError(null);
 
     try {
+      const token = getToken();
       const urlRes = await fetch(`${API_BASE}/storage/uploads/request-url`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           name: file.name,
           size: file.size,
