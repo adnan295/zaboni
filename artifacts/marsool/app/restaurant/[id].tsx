@@ -64,7 +64,14 @@ export default function RestaurantScreen() {
   const { data: menuItemsData } = useGetRestaurantMenu(id ?? "");
   const menuItems = menuItemsData ?? [];
   const categories = Array.from(new Set(menuItems.map((m) => m.categoryAr)));
-  const dealItems = menuItems.filter((m) => (m as typeof m & { isDeal?: boolean }).isDeal).slice(0, 10);
+  type MenuItemWithDeal = typeof menuItems[number] & { isDeal?: boolean; dealPrice?: number | null };
+
+  const getEffectivePrice = (item: MenuItemWithDeal): number => {
+    const typed = item as MenuItemWithDeal;
+    return typed.isDeal && typed.dealPrice ? typed.dealPrice : item.price;
+  };
+
+  const dealItems = menuItems.filter((m) => (m as MenuItemWithDeal).isDeal);
   const hasDeals = dealItems.length > 0;
   const popularItems = menuItems.filter((m) => m.isPopular).slice(0, 4);
   const hasPopular = popularItems.length > 0;
@@ -330,10 +337,9 @@ export default function RestaurantScreen() {
             <Text style={[styles.sectionSubtitle, { color: colors.mutedForeground }]}>أصناف بأسعار مخفضة</Text>
             <View style={styles.popularGrid}>
               {dealItems.map((item) => {
-                const typedItem = item as typeof item & { isDeal?: boolean; dealPrice?: number | null; isAvailable?: boolean };
-                const itemAvailable = typedItem.isAvailable !== false;
+                const itemAvailable = (item as MenuItemWithDeal).isAvailable !== false;
                 const canAdd = isOpen && itemAvailable;
-                const dealPrice = typedItem.dealPrice ?? item.price;
+                const dealPrice = getEffectivePrice(item as MenuItemWithDeal);
                 return (
                   <TouchableOpacity
                     key={item.id}
@@ -392,8 +398,10 @@ export default function RestaurantScreen() {
             <Text style={[styles.sectionSubtitle, { color: colors.mutedForeground }]}>الأكثر طلباً الآن</Text>
             <View style={styles.popularGrid}>
               {popularItems.map((item) => {
-                const itemAvailable = (item as typeof item & { isAvailable?: boolean }).isAvailable !== false;
+                const itemAvailable = (item as MenuItemWithDeal).isAvailable !== false;
                 const canAdd = isOpen && itemAvailable;
+                const effectivePrice = getEffectivePrice(item as MenuItemWithDeal);
+                const itemIsDeal = !!(item as MenuItemWithDeal).isDeal;
                 return (
                   <TouchableOpacity
                     key={item.id}
@@ -401,14 +409,19 @@ export default function RestaurantScreen() {
                       styles.popularCard,
                       {
                         backgroundColor: colors.card,
-                        borderColor: cart[item.id]?.qty ? colors.primary : colors.border,
+                        borderColor: cart[item.id]?.qty ? colors.primary : itemIsDeal ? "#F97316" : colors.border,
                         opacity: itemAvailable ? 1 : 0.5,
                       },
                     ]}
-                    onPress={canAdd ? () => addToCart(item.id, item.nameAr, item.price) : undefined}
+                    onPress={canAdd ? () => addToCart(item.id, item.nameAr, effectivePrice) : undefined}
                     activeOpacity={canAdd ? 0.85 : 1}
                   >
                     <Image source={{ uri: buildImageUrl(item.image) }} style={styles.popularImage} resizeMode="cover" />
+                    {itemIsDeal && (
+                      <View style={styles.dealBadge}>
+                        <Text style={styles.dealBadgeText}>🔥 عرض</Text>
+                      </View>
+                    )}
                     {!itemAvailable ? (
                       <View style={styles.unavailableBadge}>
                         <Text style={styles.unavailableText}>غير متوفر</Text>
@@ -418,7 +431,7 @@ export default function RestaurantScreen() {
                         <Text style={styles.popularQtyText}>{cart[item.id]!.qty}</Text>
                       </View>
                     ) : canAdd ? (
-                      <View style={[styles.popularAddBtn, { backgroundColor: colors.primary }]}>
+                      <View style={[styles.popularAddBtn, { backgroundColor: itemIsDeal ? "#F97316" : colors.primary }]}>
                         <MaterialIcons name="add" size={16} color="#fff" />
                       </View>
                     ) : null}
@@ -426,11 +439,20 @@ export default function RestaurantScreen() {
                       <Text style={[styles.popularItemName, { color: colors.foreground }]} numberOfLines={2}>
                         {item.nameAr}
                       </Text>
-                      {item.price > 0 && (
+                      {itemIsDeal ? (
+                        <View style={styles.dealPriceRow}>
+                          <Text style={[styles.dealOriginalPrice, { color: colors.mutedForeground }]}>
+                            {item.price.toLocaleString()} ل.س
+                          </Text>
+                          <Text style={styles.dealNewPrice}>
+                            {effectivePrice.toLocaleString()} ل.س
+                          </Text>
+                        </View>
+                      ) : item.price > 0 ? (
                         <Text style={[styles.popularItemPrice, { color: colors.primary }]}>
                           {item.price.toLocaleString()} ل.س
                         </Text>
-                      )}
+                      ) : null}
                     </View>
                   </TouchableOpacity>
                 );
@@ -446,7 +468,8 @@ export default function RestaurantScreen() {
             <View key={cat} onLayout={registerSection(cat)} style={styles.sectionWrap}>
               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{cat}</Text>
               {catItems.map((item) => {
-                const available = (item as typeof item & { isAvailable?: boolean }).isAvailable !== false;
+                const available = (item as MenuItemWithDeal).isAvailable !== false;
+                const effectivePrice = getEffectivePrice(item as MenuItemWithDeal);
                 return (
                   <View key={item.id} style={{ opacity: available ? 1 : 0.5 }}>
                     {!available && (
@@ -457,8 +480,8 @@ export default function RestaurantScreen() {
                     <MenuItemCard
                       item={item}
                       quantity={cart[item.id]?.qty ?? 0}
-                      onAdd={isOpen && available ? () => addToCart(item.id, item.nameAr, item.price) : undefined}
-                      onRemove={isOpen && available ? () => removeFromCart(item.id, item.nameAr, item.price) : undefined}
+                      onAdd={isOpen && available ? () => addToCart(item.id, item.nameAr, effectivePrice) : undefined}
+                      onRemove={isOpen && available ? () => removeFromCart(item.id, item.nameAr, effectivePrice) : undefined}
                     />
                   </View>
                 );

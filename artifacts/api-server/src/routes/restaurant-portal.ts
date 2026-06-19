@@ -282,8 +282,11 @@ router.patch("/restaurant-portal/menu/:itemId/deal", requireRestaurantAuth, asyn
   if (parsed.data.isDeal && !parsed.data.dealPrice) {
     res.status(400).json({ error: "يجب تحديد سعر العرض عند تفعيل العرض" }); return;
   }
-  const [existing] = await db.select({ id: menuItemsTable.id }).from(menuItemsTable).where(and(eq(menuItemsTable.id, itemId), eq(menuItemsTable.restaurantId, restaurantId))).limit(1);
+  const [existing] = await db.select({ id: menuItemsTable.id, price: menuItemsTable.price }).from(menuItemsTable).where(and(eq(menuItemsTable.id, itemId), eq(menuItemsTable.restaurantId, restaurantId))).limit(1);
   if (!existing) { res.status(404).json({ error: "الصنف غير موجود" }); return; }
+  if (parsed.data.isDeal && parsed.data.dealPrice && parsed.data.dealPrice >= existing.price) {
+    res.status(400).json({ error: "سعر العرض يجب أن يكون أقل من السعر الأصلي" }); return;
+  }
   const [updated] = await db.update(menuItemsTable).set({
     isDeal: parsed.data.isDeal,
     dealPrice: parsed.data.isDeal ? (parsed.data.dealPrice ?? null) : null,
