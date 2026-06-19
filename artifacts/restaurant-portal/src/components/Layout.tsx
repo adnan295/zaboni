@@ -7,17 +7,19 @@ interface LayoutProps {
   children: React.ReactNode;
   onLogout: () => void;
   restaurantName: string;
+  newOrderCount?: number;
+  onOrdersViewed?: () => void;
 }
 
 const navItems = [
   { href: "/", label: "لوحة التحكم", icon: "📊" },
   { href: "/menu", label: "قائمة الطعام", icon: "🍽️" },
-  { href: "/orders", label: "الطلبات", icon: "📦" },
+  { href: "/orders", label: "الطلبات", icon: "📦", badgeKey: true },
   { href: "/hours", label: "أوقات العمل", icon: "🕐" },
   { href: "/settings", label: "إعدادات المطعم", icon: "⚙️" },
 ];
 
-export default function Layout({ children, onLogout, restaurantName }: LayoutProps) {
+export default function Layout({ children, onLogout, restaurantName, newOrderCount = 0, onOrdersViewed }: LayoutProps) {
   const [location] = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -25,6 +27,13 @@ export default function Layout({ children, onLogout, restaurantName }: LayoutPro
   const handleLogout = () => {
     clearToken();
     onLogout();
+  };
+
+  const handleNavClick = (href: string) => {
+    setMobileOpen(false);
+    if (href === "/orders" && onOrdersViewed) {
+      onOrdersViewed();
+    }
   };
 
   return (
@@ -61,11 +70,12 @@ export default function Layout({ children, onLogout, restaurantName }: LayoutPro
         <nav className="flex-1 overflow-y-auto py-3">
           {navItems.map(item => {
             const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+            const showBadge = item.badgeKey && newOrderCount > 0;
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={() => setMobileOpen(false)}
+                onClick={() => handleNavClick(item.href)}
                 className={cn(
                   "flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors mx-2 rounded-lg",
                   isActive
@@ -73,8 +83,24 @@ export default function Layout({ children, onLogout, restaurantName }: LayoutPro
                     : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 )}
               >
-                <span className="text-base shrink-0">{item.icon}</span>
-                {!collapsed && <span>{item.label}</span>}
+                <span className="text-base shrink-0 relative">
+                  {item.icon}
+                  {showBadge && collapsed && (
+                    <span className="absolute -top-1 -left-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">
+                      {newOrderCount > 9 ? "9+" : newOrderCount}
+                    </span>
+                  )}
+                </span>
+                {!collapsed && (
+                  <span className="flex-1 flex items-center justify-between">
+                    {item.label}
+                    {showBadge && (
+                      <span className="bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center leading-none">
+                        {newOrderCount > 99 ? "99+" : newOrderCount}
+                      </span>
+                    )}
+                  </span>
+                )}
               </Link>
             );
           })}
