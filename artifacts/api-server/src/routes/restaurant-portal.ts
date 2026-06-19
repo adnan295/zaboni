@@ -542,69 +542,117 @@ interface PromoTemplate {
 const PROMO_TEMPLATES: PromoTemplate[] = [
   {
     id: "classic-red",
-    nameAr: "كلاسيكي أحمر",
-    description: "أسلوب المطاعم العالمية — أحمر وأبيض بخط عريض",
-    swatch: "🔴",
+    nameAr: "وردي ناري",
+    description: "مثل Yemeksepeti — وردي فيوشيا نابض مع كوبون أبيض",
+    swatch: "🩷",
     buildPrompt: (name, old, now, tagline) =>
-      `Create a professional promotional food advertisement banner in bold RED and WHITE color scheme, fast-food chain style (like KFC or Burger King). Square 1:1 format.
-Layout: Top section — deep red banner with the restaurant name "${name}" in large bold white Arabic text. Center — food item displayed large and appetizingly. Bottom — price burst shape: old price "${old}" in white with a diagonal strikethrough line, new discounted price "${now}" in a bright yellow starburst badge with large bold Arabic numerals.${tagline ? ` Slogan "${tagline}" in white Arabic text on red ribbon.` : ""}
-Typography: Bold condensed Arabic font throughout. High contrast white on red and red on white.
-Visual style: Glossy, vibrant, fast-food marketing quality. Rich red (#CC0000), white, and yellow (#FFD700) accents. All visible text must be in Arabic script. Professional social-media-ready advertisement.`,
+      `Create a square 1:1 food delivery promotional banner in the exact style of Yemeksepeti app marketing — bold, modern, professional.
+
+BACKGROUND: Solid hot magenta-pink (#E91E8C) — flat, no gradients, no textures. The entire canvas is this vibrant pink.
+
+COMPOSITION:
+- Top-left: A small white rounded-rectangle pill badge containing the restaurant name "${name}" in bold dark Arabic text, small and clean — like an app logo tag.
+- Center-left area: 2–3 lines of large bold white Arabic text. First line regular weight, second line extremely bold and large. ${tagline ? `Text reads: "${tagline}"` : `Text reads: "عرض خاص لفترة محدودة"`}
+- Center: A horizontal coupon/ticket shape in white with a dashed vertical divider in the middle. Left half has a mint-green (#A8E6CF) background showing old price "${old}" in dark crossed-out Arabic numerals. Right half shows new price "${now}" in large bold dark Arabic numerals with a small Arabic label above it.
+- Bottom-left or top-right: A single beautifully photographed food item (burger or pizza slice) with a completely transparent/removed background, floating naturally on the pink — cut-out style, no shadow box, the food image bleeds to the edge. The food looks delicious and high quality.
+
+TYPOGRAPHY: Modern rounded sans-serif Arabic. All Arabic script. No decorative borders. No textures.
+STYLE: Exactly like Yemeksepeti / Getir app promotional social media post. Clean, energetic, delivery-app quality. 1080x1080px social media standard.`,
   },
   {
     id: "dark-luxury",
-    nameAr: "داكن فاخر",
-    description: "أسود وذهبي — مطاعم فاخرة وراقية",
+    nameAr: "أسود ذهبي راقي",
+    description: "خلفية سوداء مع أكل طافٍ وبادج ذهبي فاخر",
     swatch: "🖤",
     buildPrompt: (name, old, now, tagline) =>
-      `Create a premium luxury food promotional banner in deep BLACK and GOLD color scheme. Square 1:1 format.
-Layout: Dark charcoal/black background. Top — ornate gold decorative border with restaurant name "${name}" in elegant gold Arabic calligraphy. Center — food item beautifully lit on dark surface, styled like a fine-dining photograph. Bottom — elegant price display: old price "${old}" in muted gray Arabic text with a thin gold strikethrough, new price "${now}" in large shimmering gold Arabic numerals inside a gold-bordered rectangle.${tagline ? ` Tagline "${tagline}" in small gold italic Arabic text.` : ""}
-Typography: Refined serif Arabic font. Restrained, luxurious spacing.
-Visual style: Moody, high-end restaurant photography aesthetic. Colors: #1A1A1A background, #C9A84C gold, #FFFFFF white accents. All visible text must be in Arabic script. Premium social-media advertisement quality.`,
+      `Create a square 1:1 food delivery promotional banner in a premium luxury delivery-app style — dark, sophisticated, modern.
+
+BACKGROUND: Flat deep charcoal black (#1A1A1A) — no textures, no gradients. Clean solid dark canvas.
+
+COMPOSITION:
+- Top-left: A small rounded-rectangle white pill badge with restaurant name "${name}" in bold dark Arabic text — clean minimal app-style tag.
+- Center-left: Large bold white Arabic text block, 2 lines. ${tagline ? `"${tagline}"` : `"عرض حصري لهذا الأسبوع"`} — first line normal weight, second line ultra-bold.
+- Center: A sleek horizontal pill/coupon shape with a dark gold (#C9A84C) left half showing old price "${old}" crossed out in white Arabic numerals, and a white right half showing new price "${now}" in large bold dark Arabic numerals. Clean separation with a subtle dashed divider.
+- Top-right or bottom-right: A beautifully lit food item (gourmet burger, sushi, or steak) photographed with transparent background — cut-out floating on the dark canvas, slightly oversized, bleeding to the edge. Professional food photography quality.
+
+TYPOGRAPHY: Bold modern Arabic sans-serif throughout. All text in Arabic script. Gold (#C9A84C) and white only.
+STYLE: Premium dark delivery-app banner. Like a luxury restaurant on a high-end food delivery platform. Clean, no clutter, professional 1080x1080.`,
   },
   {
     id: "fresh-green",
-    nameAr: "أخضر طازج",
-    description: "أخضر وأبيض — أكل صحي وطازج",
+    nameAr: "أخضر طازج عصري",
+    description: "أخضر زمردي نابض مع أكل صحي طافٍ وكوبون أبيض",
     swatch: "🟢",
     buildPrompt: (name, old, now, tagline) =>
-      `Create a fresh, healthy food promotional banner in vibrant GREEN and WHITE color scheme. Square 1:1 format.
-Layout: Fresh white background with lush green accents. Top — leaf-green header band with restaurant name "${name}" in crisp white Arabic text. Center — food item surrounded by fresh herbs, vegetables or natural elements for a healthy feel. Bottom — price tag styled like a green label: old price "${old}" in gray Arabic text with strikethrough, new price "${now}" in bold white Arabic numerals on a green rounded badge.${tagline ? ` Tagline "${tagline}" in green Arabic text on white ribbon.` : ""}
-Typography: Clean modern Arabic font. Airy, natural spacing.
-Visual style: Organic, fresh, health-food market quality. Colors: #2E7D32 deep green, #81C784 light green, pure white, #F9FBF5 off-white background. All visible text must be in Arabic script. Natural and appetizing social-media advertisement.`,
+      `Create a square 1:1 food promotional banner in a fresh, modern delivery-app style.
+
+BACKGROUND: Solid vibrant emerald green (#00A86B) — flat, no texture, no gradients. Clean full-canvas green.
+
+COMPOSITION:
+- Top-left: Small white rounded-rectangle pill with restaurant name "${name}" in bold dark Arabic — clean app-style tag.
+- Center-left: 2 lines of large bold white Arabic text. ${tagline ? `"${tagline}"` : `"طازج يومياً على بابك"`} — second line ultra-bold and larger.
+- Center: Horizontal white coupon/ticket shape with dashed middle divider. Left half light green (#C8F5E0) with old price "${old}" in crossed-out dark Arabic numerals. Right half white with new price "${now}" in large bold green Arabic numerals.
+- Top-right or bottom-right: Fresh food item (salad bowl, healthy wrap, fruit plate, or grilled chicken) with transparent background cut-out — floating on green, oversize, edge-bleeding. Vibrant natural colors.
+
+TYPOGRAPHY: Clean modern rounded Arabic sans-serif. All Arabic script.
+STYLE: Fresh food delivery promotional post — energetic, healthy, clean. Exactly like top delivery apps' social media marketing. 1080x1080px.`,
   },
   {
     id: "bold-orange",
-    nameAr: "برتقالي جريء",
-    description: "برتقالي وأصفر — أكل شعبي وسريع",
+    nameAr: "برتقالي ناري",
+    description: "برتقالي نابض بطاقة سعر بيضاء وأكل طافٍ",
     swatch: "🟠",
     buildPrompt: (name, old, now, tagline) =>
-      `Create an energetic, eye-catching food promotional banner in warm ORANGE and YELLOW color scheme. Square 1:1 format.
-Layout: Vibrant orange-to-yellow gradient background. Top — bold white Arabic text of restaurant name "${name}" with a dark orange drop shadow on a curved banner ribbon. Center — food item displayed prominently with warm lighting and steam effects for street-food energy. Bottom — dynamic price section: old price "${old}" in white Arabic text with a bold strikethrough, new price "${now}" in large black Arabic numerals on a bright yellow starburst.${tagline ? ` Slogan "${tagline}" in bold Arabic on orange banner.` : ""}
-Typography: Heavy display Arabic font, punchy and bold.
-Visual style: Street food festival energy, warm and inviting. Colors: #E65100 deep orange, #FF9800 orange, #FFD600 yellow, white. All visible text must be in Arabic script. Bold and exciting social-media advertisement.`,
+      `Create a square 1:1 food promotional banner in a bold, energetic delivery-app style.
+
+BACKGROUND: Solid vivid orange (#FF6B00) — completely flat, no gradients, no patterns. Strong orange canvas.
+
+COMPOSITION:
+- Top-left: Small white rounded-rectangle pill badge with restaurant name "${name}" in bold dark Arabic text — minimal clean app tag.
+- Center-left: 2 lines of large bold white Arabic text. ${tagline ? `"${tagline}"` : `"عرض اليوم فقط لا تفوّته"`} — second line ultra-bold, larger size.
+- Center: A horizontal white coupon/ticket badge with perforated dashed divider. Left half with a warm yellow (#FFE066) background showing old price "${old}" in crossed-out dark Arabic numerals. Right half white showing new price "${now}" in large bold orange Arabic numerals with Arabic label above.
+- Top-right or bottom-left: Appetizing food with transparent background — shawarma, pizza, fried chicken, or kebab — cut-out floating on orange, oversized and slightly tilted for energy, bleeding off the canvas edge.
+
+TYPOGRAPHY: Heavy bold Arabic rounded sans-serif. All Arabic script. High energy layout.
+STYLE: Street food delivery energy, exactly like top delivery app promotions on Instagram. 1080x1080px professional banner.`,
   },
   {
     id: "clean-white",
-    nameAr: "أبيض أنيق",
-    description: "بسيط وعصري — كافيهات ومطاعم أنيقة",
+    nameAr: "أبيض نظيف عصري",
+    description: "خلفية بيضاء ناعمة مع تفاصيل ملونة وأكل طافٍ",
     swatch: "⬜",
     buildPrompt: (name, old, now, tagline) =>
-      `Create a minimal, elegant food promotional banner in a clean WHITE and GRAY color scheme with a single accent color. Square 1:1 format.
-Layout: Pure white background with subtle light gray geometric borders. Top — thin gray separator line with restaurant name "${name}" in small refined dark Arabic text. Center — food item photographed in a clean, minimal style with plenty of white space. Bottom — typographic price display: old price "${old}" in small light gray Arabic text with a thin strikethrough, new price "${now}" in large dark Arabic numerals with a terracotta or dusty-rose accent badge.${tagline ? ` Tagline "${tagline}" in light gray Arabic text, centered below price.` : ""}
-Typography: Light-weight modern Arabic sans-serif. Generous whitespace.
-Visual style: Modern café, editorial minimalism. Colors: #FFFFFF white, #F5F5F5 light gray, #212121 near-black, #B85C38 terracotta accent. All visible text must be in Arabic script. Sophisticated and premium-feeling social-media advertisement.`,
+      `Create a square 1:1 food promotional banner in a clean, minimal modern delivery-app style.
+
+BACKGROUND: Pure soft white (#FAFAFA) — clean, flat, airy. A very subtle large rounded organic blob shape in very light pink (#FFE8F0) fills the bottom-right two-thirds of the canvas — like a soft background accent, not distracting.
+
+COMPOSITION:
+- Top-left: Small hot pink (#E91E8C) rounded-rectangle pill with restaurant name "${name}" in bold white Arabic text — vibrant contrast app tag.
+- Center-left: 2 lines of large bold dark (#1A1A1A) Arabic text. ${tagline ? `"${tagline}"` : `"عرض خاص لزبائننا المميزين"`} — second line bolder and larger.
+- Center: A horizontal coupon/ticket badge. Left half in hot pink (#E91E8C) showing old price "${old}" in crossed-out white Arabic numerals. Right half white with a pink border showing new price "${now}" in large bold dark Arabic numerals with small Arabic label.
+- Bottom-right or top-right: Hero food item (gourmet burger, dessert, or coffee) with completely transparent background — cut-out floating on white, beautifully lit, oversized and natural, slightly bleeding off canvas.
+
+TYPOGRAPHY: Modern clean Arabic sans-serif. Dark on white, white on pink. All Arabic script.
+STYLE: Premium minimal food delivery social media post. Clean, aspirational, café/restaurant quality. 1080x1080px.`,
   },
   {
     id: "deep-blue",
-    nameAr: "أزرق غامق",
-    description: "كحلي وأبيض — مأكولات بحرية ومطاعم رسمية",
+    nameAr: "أزرق عميق جريء",
+    description: "كحلي غامق نابض مع بادج أبيض وأكل طافٍ",
     swatch: "🔵",
     buildPrompt: (name, old, now, tagline) =>
-      `Create a formal, trustworthy food promotional banner in deep NAVY BLUE and WHITE color scheme. Square 1:1 format.
-Layout: Deep navy blue background (#0D2137) with subtle wave or geometric pattern overlay. Top — restaurant name "${name}" in large clean white Arabic text on a navy header band with a thin gold accent line. Center — food item elegantly presented, styled for a formal dining or seafood restaurant atmosphere. Bottom — price display in a clean white card-style panel: old price "${old}" in gray Arabic strikethrough text, new price "${now}" in bold navy Arabic numerals on a white rounded rectangle badge.${tagline ? ` Tagline "${tagline}" in white Arabic text on navy ribbon.` : ""}
-Typography: Structured, professional Arabic font. Formal and readable.
-Visual style: Fine-dining or seafood restaurant prestige. Colors: #0D2137 navy, #1565C0 medium blue, #FFFFFF white, #C9A84C gold trim. All visible text must be in Arabic script. Authoritative and elegant social-media advertisement.`,
+      `Create a square 1:1 food promotional banner in a bold modern delivery-app style.
+
+BACKGROUND: Solid deep cobalt blue (#1565C0) — flat, clean, no gradients or textures. Strong full-canvas blue.
+
+COMPOSITION:
+- Top-left: Small white rounded-rectangle pill badge with restaurant name "${name}" in bold dark blue Arabic text — clean minimal app-style tag.
+- Center-left: 2 lines of large bold white Arabic text. ${tagline ? `"${tagline}"` : `"توصيل سريع وعرض لا يُقاوم"`} — first line regular, second line ultra-bold and large.
+- Center: A horizontal white coupon/ticket shape with dashed divider. Left half with a light sky-blue (#B3D9FF) background showing old price "${old}" in crossed-out dark Arabic numerals. Right half pure white with new price "${now}" in large bold blue Arabic numerals and Arabic label above.
+- Top-right or bottom-right: A beautifully photographed food item (seafood, grilled fish, or premium burger) with completely transparent background — cut-out floating on blue, oversized, bleeding off canvas. Professional quality.
+
+TYPOGRAPHY: Bold modern Arabic rounded sans-serif. All Arabic script. High contrast white on blue.
+STYLE: Professional food delivery promotional post — bold, trustworthy, exactly like top delivery app marketing on social media. 1080x1080px.`,
   },
 ];
 
