@@ -483,10 +483,11 @@ export const api = {
       method: "DELETE",
     }),
 
-  getOrders: (page = 1, limit = 50, dateFrom?: string, dateTo?: string) => {
+  getOrders: (page = 1, limit = 50, dateFrom?: string, dateTo?: string, orderId?: string) => {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo) params.set("dateTo", dateTo);
+    if (orderId) params.set("orderId", orderId);
     return apiFetch<OrdersPage>(`/admin/orders?${params.toString()}`);
   },
   getActiveOrders: () => apiFetch<Order[]>("/admin/orders/active"),
