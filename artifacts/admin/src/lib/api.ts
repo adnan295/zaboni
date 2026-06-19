@@ -585,6 +585,18 @@ export const api = {
       body: JSON.stringify({ categoryId, order }),
     }),
 
+  getCategoryExclusions: (categoryId: string) =>
+    apiFetch<string[]>(`/admin/categories/${encodeURIComponent(categoryId)}/exclusions`),
+  addCategoryExclusion: (categoryId: string, restaurantId: string) =>
+    apiFetch<{ ok: boolean }>(`/admin/categories/${encodeURIComponent(categoryId)}/exclusions`, {
+      method: "POST",
+      body: JSON.stringify({ restaurantId }),
+    }),
+  removeCategoryExclusion: (categoryId: string, restaurantId: string) =>
+    apiFetch<void>(`/admin/categories/${encodeURIComponent(categoryId)}/exclusions/${encodeURIComponent(restaurantId)}`, {
+      method: "DELETE",
+    }),
+
   getFinancialReport: (days?: number, groupBy?: 'day' | 'week') => {
     const params = new URLSearchParams();
     if (days) params.set('days', String(days));
