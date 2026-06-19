@@ -50,7 +50,7 @@ export default function Layout({ children, onLogout }: LayoutProps) {
   });
 
   const { data: slaAlerts = [] } = useQuery({
-    queryKey: ["admin", "sla-alerts"],
+    queryKey: ["admin", "sla-alerts", 10],
     queryFn: () => api.getSlaAlerts(10),
     refetchInterval: 30_000,
   });
