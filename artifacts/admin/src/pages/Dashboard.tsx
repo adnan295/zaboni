@@ -254,7 +254,7 @@ function SlaAlertsWidget({ alerts, isLoading }: { alerts: SlaAlert[]; isLoading:
               const isRed = alert.ageMinutes > 20;
               const isAmber = alert.ageMinutes > 10 && alert.ageMinutes <= 20;
               return (
-                <Link key={alert.id} href="/orders">
+                <Link key={alert.id} href={`/orders?search=${encodeURIComponent(alert.id)}`}>
                   <div
                     className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm border shadow-sm cursor-pointer transition-colors hover:opacity-80 ${
                       isRed
@@ -355,7 +355,7 @@ export default function Dashboard() {
   });
 
   const { data: slaAlerts = [], isLoading: slaLoading } = useQuery({
-    queryKey: ["admin", "sla-alerts"],
+    queryKey: ["admin", "sla-alerts", 5],
     queryFn: () => api.getSlaAlerts(5),
     refetchInterval: 30_000,
   });
