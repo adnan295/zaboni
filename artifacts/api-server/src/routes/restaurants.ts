@@ -1,8 +1,20 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { db, restaurantsTable, menuItemsTable, restaurantHoursTable, promoBannersTable, restaurantCategoriesTable, restaurantCategorySortOrdersTable, homeSectionItemsTable } from "@workspace/db";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
+
+function resolveImageUrl(imageUrl: string | null | undefined, req: Request): string | null | undefined {
+  if (!imageUrl || imageUrl.startsWith("http")) return imageUrl;
+  const domains = process.env.REPLIT_DOMAINS;
+  if (domains) {
+    const primary = domains.split(",")[0].trim();
+    return `https://${primary}${imageUrl}`;
+  }
+  const proto = req.get("x-forwarded-proto") ?? req.protocol;
+  const host = req.get("x-forwarded-host") ?? req.get("host") ?? "localhost";
+  return `${proto}://${host}${imageUrl}`;
+}
 
 function getDamascusNow(): { dayOfWeek: number; prevDayOfWeek: number; nowMinutes: number } {
   const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Damascus" }));
@@ -222,13 +234,13 @@ router.get("/banners", async (_req, res) => {
   res.json(rows);
 });
 
-router.get("/categories", async (_req, res) => {
+router.get("/categories", async (req, res) => {
   const rows = await db
     .select()
     .from(restaurantCategoriesTable)
     .where(eq(restaurantCategoriesTable.isActive, true))
     .orderBy(asc(restaurantCategoriesTable.sortOrder));
-  res.json(rows);
+  res.json(rows.map((r) => ({ ...r, imageUrl: resolveImageUrl(r.imageUrl, req) })));
 });
 
 router.get("/home-sections/:section", async (req, res) => {
