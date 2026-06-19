@@ -36,6 +36,18 @@ export function ensureFonts() {
 let _appLogoPng: Buffer | null = null;
 export async function ensureAppLogo(): Promise<Buffer> {
   if (_appLogoPng) return _appLogoPng;
+  // 1st choice: pre-committed 200×200 PNG (fastest — no conversion needed)
+  const pngPath = path.join(ASSETS_DIR, "zaboni-logo-200.png");
+  if (existsSync(pngPath)) {
+    try {
+      const { readFile } = await import("fs/promises");
+      _appLogoPng = await readFile(pngPath);
+      return _appLogoPng;
+    } catch {
+      // fall through
+    }
+  }
+  // 2nd choice: convert SVG at runtime
   const svgPath = path.join(ASSETS_DIR, "zaboni-logo.svg");
   if (existsSync(svgPath)) {
     try {
@@ -45,7 +57,7 @@ export async function ensureAppLogo(): Promise<Buffer> {
       // fall through to programmatic fallback
     }
   }
-  // Programmatic fallback: pink rounded square with white Z-mark
+  // 3rd choice: programmatic pink Z-mark (no files needed)
   const fallbackSvg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">
     <rect width="200" height="200" rx="44" fill="#E91E8C"/>
     <rect x="50" y="66" width="100" height="14" rx="7" fill="white"/>
