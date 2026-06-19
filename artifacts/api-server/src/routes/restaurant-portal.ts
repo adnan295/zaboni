@@ -260,6 +260,17 @@ router.put("/restaurant-portal/menu/:itemId", requireRestaurantAuth, async (req,
   res.json(updated);
 });
 
+router.patch("/restaurant-portal/menu/:itemId/availability", requireRestaurantAuth, async (req, res) => {
+  const { restaurantId } = getRestaurantAuth(req);
+  const itemId = String(req.params["itemId"]);
+  const parsed = z.object({ isAvailable: z.boolean() }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "isAvailable (boolean) مطلوب" }); return; }
+  const [existing] = await db.select({ id: menuItemsTable.id }).from(menuItemsTable).where(and(eq(menuItemsTable.id, itemId), eq(menuItemsTable.restaurantId, restaurantId))).limit(1);
+  if (!existing) { res.status(404).json({ error: "الصنف غير موجود" }); return; }
+  const [updated] = await db.update(menuItemsTable).set({ isAvailable: parsed.data.isAvailable }).where(eq(menuItemsTable.id, itemId)).returning();
+  res.json(updated);
+});
+
 router.delete("/restaurant-portal/menu/:itemId", requireRestaurantAuth, async (req, res) => {
   const { restaurantId } = getRestaurantAuth(req);
   const itemId = String(req.params["itemId"]);
