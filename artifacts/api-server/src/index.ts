@@ -6,6 +6,7 @@ import { backfillRestaurantPhones } from "@workspace/db/migrations/backfill-rest
 import { addMenuItemSubcategory } from "@workspace/db/migrations/add-menu-item-subcategory";
 import { addRestaurantPortal } from "@workspace/db/migrations/add-restaurant-portal";
 import { addPromoImages } from "@workspace/db/migrations/add-promo-images";
+import { addPromoImagesTemplate } from "@workspace/db/migrations/add-promo-images-template";
 
 const rawPort = process.env["PORT"];
 
@@ -41,5 +42,8 @@ httpServer.listen(port, (err?: Error) => {
   );
   addPromoImages().catch((e: unknown) =>
     logger.error({ err: e }, "Failed to run promo images migration"),
+  );
+  addPromoImagesTemplate().catch((e: unknown) =>
+    logger.error({ err: e }, "Failed to run promo images template migration"),
   );
 });
