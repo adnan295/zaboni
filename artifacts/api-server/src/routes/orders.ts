@@ -15,6 +15,7 @@ const createOrderSchema = z.object({
   lat: z.number().min(-90).max(90).optional(),
   lon: z.number().min(-180).max(180).optional(),
   restaurantId: z.string().optional(),
+  totalPrice: z.number().int().positive().optional(),
 });
 
 async function validatePromoForUser(code: string, userId: string, deliveryFee?: number): Promise<{
@@ -237,6 +238,7 @@ router.post("/orders", async (req, res) => {
     destinationLat: destLat,
     destinationLon: destLon,
     deliveryFee: zoneFee,
+    totalPrice: body.data.totalPrice ?? null,
     estimatedMinutes,
   };
 

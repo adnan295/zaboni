@@ -183,8 +183,10 @@ export type Stats = {
 export type Analytics = {
   todayOrders: number;
   todayRevenue: number;
+  todayDeliveryRevenue: number;
   weekOrders: number;
   weekRevenue: number;
+  weekDeliveryRevenue: number;
   dailySeries: { date: string; orders: number; revenue: number }[];
   topItems: { name: string; count: number }[];
   peakHours: { hour: number; count: number }[];
