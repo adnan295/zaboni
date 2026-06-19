@@ -8,6 +8,13 @@ import type { AuthPayload } from "../middleware/auth";
 
 const NEARBY_RADIUS_KM = 30;
 
+interface RestaurantPortalSocketPayload {
+  tokenType: "restaurant_portal";
+  restaurantId: string;
+  restaurantUserId: string;
+  phone: string;
+}
+
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -26,6 +33,7 @@ function getJwtSecret(): string | null {
 
 interface AuthenticatedSocket extends Socket {
   auth?: AuthPayload;
+  restaurantAuth?: RestaurantPortalSocketPayload;
 }
 
 let _ordersNs: Namespace | null = null;
@@ -34,6 +42,12 @@ export function notifyOrderUpdate(customerId: string, order: unknown): void {
   if (!_ordersNs) return;
   _ordersNs.to(`user:${customerId}`).emit("order_status_update", order);
   logger.debug({ customerId }, "Emitted order_status_update to customer");
+}
+
+export function notifyRestaurantNewOrder(restaurantId: string, order: unknown): void {
+  if (!_ordersNs) return;
+  _ordersNs.to(`restaurant:${restaurantId}`).emit("new_restaurant_order", order);
+  logger.debug({ restaurantId }, "Emitted new_restaurant_order to restaurant room");
 }
 
 export function broadcastAppNotification(
@@ -142,8 +156,12 @@ export function setupOrdersNamespace(io: SocketServer): void {
     if (!secret) return next(new Error("JWT_SECRET not configured"));
 
     try {
-      const payload = jwt.verify(token, secret) as AuthPayload;
-      socket.auth = payload;
+      const decoded = jwt.verify(token, secret) as AuthPayload | RestaurantPortalSocketPayload;
+      if ((decoded as RestaurantPortalSocketPayload).tokenType === "restaurant_portal") {
+        socket.restaurantAuth = decoded as RestaurantPortalSocketPayload;
+      } else {
+        socket.auth = decoded as AuthPayload;
+      }
       next();
     } catch {
       next(new Error("Invalid or expired token"));
@@ -151,6 +169,16 @@ export function setupOrdersNamespace(io: SocketServer): void {
   });
 
   ns.on("connection", async (socket: AuthenticatedSocket) => {
+    if (socket.restaurantAuth) {
+      const { restaurantId, restaurantUserId } = socket.restaurantAuth;
+      socket.join(`restaurant:${restaurantId}`);
+      logger.info({ restaurantId, restaurantUserId, socketId: socket.id }, "Restaurant portal socket connected");
+      socket.on("disconnect", () => {
+        logger.info({ restaurantId, socketId: socket.id }, "Restaurant portal socket disconnected");
+      });
+      return;
+    }
+
     const userId = socket.auth!.userId;
     socket.join(`user:${userId}`);
 

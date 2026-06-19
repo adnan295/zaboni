@@ -13,14 +13,16 @@ import Hours from "@/pages/Hours";
 import Settings from "@/pages/Settings";
 import PromoImages from "@/pages/PromoImages";
 import NotFound from "@/pages/not-found";
+import { useRestaurantSocket } from "@/hooks/useRestaurantSocket";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 10_000 } },
 });
 
 function Router({ restaurantName, onLogout }: { restaurantName: string; onLogout: () => void }) {
+  const { newOrderCount, clearNewOrderCount } = useRestaurantSocket(true);
   return (
-    <Layout restaurantName={restaurantName} onLogout={onLogout}>
+    <Layout restaurantName={restaurantName} onLogout={onLogout} newOrderCount={newOrderCount} onOrdersViewed={clearNewOrderCount}>
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/menu" component={Menu} />
