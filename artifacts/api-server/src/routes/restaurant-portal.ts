@@ -7,6 +7,35 @@ import { z } from "zod";
 
 const router = Router();
 
+const SEND_OTP_LIMIT = 3;
+const SEND_OTP_WINDOW_MS = 5 * 60 * 1000;
+const VERIFY_OTP_LIMIT = 5;
+const VERIFY_OTP_WINDOW_MS = 10 * 60 * 1000;
+
+const sendOtpBucket = new Map<string, { count: number; resetAt: number }>();
+const verifyOtpBucket = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(
+  map: Map<string, { count: number; resetAt: number }>,
+  key: string,
+  limit: number,
+  windowMs: number,
+): boolean {
+  const now = Date.now();
+  const entry = map.get(key);
+  if (!entry || now > entry.resetAt) {
+    map.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  if (entry.count >= limit) return false;
+  entry.count++;
+  return true;
+}
+
+function getClientIp(req: Request): string {
+  return (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.socket.remoteAddress ?? "unknown";
+}
+
 function getJwtSecret(): string {
   const secret = process.env["JWT_SECRET"];
   if (!secret) throw new Error("JWT_SECRET is not configured");
@@ -19,7 +48,7 @@ interface RestaurantPortalPayload {
   phone: string;
 }
 
-function requireRestaurantAuth(req: Request, res: Response, next: NextFunction): void {
+async function requireRestaurantAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith("Bearer ")) {
     res.status(401).json({ error: "Authentication required" });
@@ -33,17 +62,24 @@ function requireRestaurantAuth(req: Request, res: Response, next: NextFunction):
     res.status(503).json({ error: "Server configuration error" });
     return;
   }
+  let payload: RestaurantPortalPayload;
   try {
-    const payload = jwt.verify(token, secret) as RestaurantPortalPayload;
-    if (!payload.restaurantId) {
+    payload = jwt.verify(token, secret) as RestaurantPortalPayload;
+    if (!payload.restaurantId || !payload.restaurantUserId) {
       res.status(401).json({ error: "Invalid token" });
       return;
     }
-    (req as Request & { restaurantAuth?: RestaurantPortalPayload }).restaurantAuth = payload;
-    next();
   } catch {
     res.status(401).json({ error: "Invalid or expired token" });
+    return;
   }
+  const [user] = await db.select({ isActive: restaurantUsersTable.isActive }).from(restaurantUsersTable).where(eq(restaurantUsersTable.id, payload.restaurantUserId)).limit(1);
+  if (!user || !user.isActive) {
+    res.status(401).json({ error: "Account is disabled" });
+    return;
+  }
+  (req as Request & { restaurantAuth?: RestaurantPortalPayload }).restaurantAuth = payload;
+  next();
 }
 
 function getRestaurantAuth(req: Request): RestaurantPortalPayload {
@@ -76,6 +112,12 @@ router.post("/restaurant-portal/auth/request-otp", async (req, res) => {
   const parsed = z.object({ phone: z.string().min(1) }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "رقم الهاتف مطلوب" }); return; }
 
+  const ip = getClientIp(req);
+  if (!checkRateLimit(sendOtpBucket, `phone:${parsed.data.phone}`, SEND_OTP_LIMIT, SEND_OTP_WINDOW_MS) ||
+      !checkRateLimit(sendOtpBucket, `ip:${ip}`, SEND_OTP_LIMIT * 3, SEND_OTP_WINDOW_MS)) {
+    res.status(429).json({ error: "محاولات كثيرة — حاول لاحقاً" }); return;
+  }
+
   const [user] = await db.select().from(restaurantUsersTable).where(eq(restaurantUsersTable.phone, parsed.data.phone)).limit(1);
   if (!user || !user.isActive) { res.status(404).json({ error: "لا يوجد حساب بهذا الرقم" }); return; }
   if (user.authMode !== "otp") { res.status(400).json({ error: "هذا الحساب يستخدم كلمة المرور للدخول" }); return; }
@@ -92,6 +134,12 @@ router.post("/restaurant-portal/auth/request-otp", async (req, res) => {
 router.post("/restaurant-portal/auth/verify-otp", async (req, res) => {
   const parsed = z.object({ phone: z.string().min(1), code: z.string().min(4) }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "بيانات غير صحيحة" }); return; }
+
+  const ip = getClientIp(req);
+  if (!checkRateLimit(verifyOtpBucket, `phone:${parsed.data.phone}`, VERIFY_OTP_LIMIT, VERIFY_OTP_WINDOW_MS) ||
+      !checkRateLimit(verifyOtpBucket, `ip:${ip}`, VERIFY_OTP_LIMIT * 3, VERIFY_OTP_WINDOW_MS)) {
+    res.status(429).json({ error: "محاولات كثيرة — حاول لاحقاً" }); return;
+  }
 
   const [user] = await db.select().from(restaurantUsersTable).where(eq(restaurantUsersTable.phone, parsed.data.phone)).limit(1);
   if (!user || !user.isActive) { res.status(404).json({ error: "لا يوجد حساب بهذا الرقم" }); return; }
