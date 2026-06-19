@@ -4,6 +4,8 @@ import { eq, desc, and, gte, count, sql } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { sendSmsViaGateway } from "../lib/sms";
+import { whatsappManager } from "../lib/whatsapp";
 
 const router = Router();
 
@@ -46,6 +48,7 @@ interface RestaurantPortalPayload {
   restaurantUserId: string;
   restaurantId: string;
   phone: string;
+  tokenType: "restaurant_portal";
 }
 
 async function requireRestaurantAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -65,7 +68,7 @@ async function requireRestaurantAuth(req: Request, res: Response, next: NextFunc
   let payload: RestaurantPortalPayload;
   try {
     payload = jwt.verify(token, secret) as RestaurantPortalPayload;
-    if (!payload.restaurantId || !payload.restaurantUserId) {
+    if (payload.tokenType !== "restaurant_portal" || !payload.restaurantId || !payload.restaurantUserId) {
       res.status(401).json({ error: "Invalid token" });
       return;
     }
@@ -86,7 +89,13 @@ function getRestaurantAuth(req: Request): RestaurantPortalPayload {
   return (req as Request & { restaurantAuth?: RestaurantPortalPayload }).restaurantAuth!;
 }
 
-function issueToken(payload: RestaurantPortalPayload): string {
+function issueToken(user: { id: string; restaurantId: string; phone: string }): string {
+  const payload: RestaurantPortalPayload = {
+    restaurantUserId: user.id,
+    restaurantId: user.restaurantId,
+    phone: user.phone,
+    tokenType: "restaurant_portal",
+  };
   return jwt.sign(payload, getJwtSecret(), { expiresIn: "30d" });
 }
 
@@ -102,9 +111,8 @@ router.post("/restaurant-portal/auth/login", async (req, res) => {
   if (!valid) { res.status(401).json({ error: "رقم الهاتف أو كلمة المرور غير صحيحة" }); return; }
 
   const [restaurant] = await db.select({ id: restaurantsTable.id, nameAr: restaurantsTable.nameAr, name: restaurantsTable.name, image: restaurantsTable.image }).from(restaurantsTable).where(eq(restaurantsTable.id, user.restaurantId)).limit(1);
-  let secret: string;
-  try { secret = getJwtSecret(); } catch { res.status(503).json({ error: "Server configuration error" }); return; }
-  const token = jwt.sign({ restaurantUserId: user.id, restaurantId: user.restaurantId, phone: user.phone }, secret, { expiresIn: "30d" });
+  let token: string;
+  try { token = issueToken(user); } catch { res.status(503).json({ error: "Server configuration error" }); return; }
   res.json({ token, restaurant, authMode: user.authMode });
 });
 
@@ -125,10 +133,25 @@ router.post("/restaurant-portal/auth/request-otp", async (req, res) => {
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
   const otpId = `rotp_${Date.now()}`;
+
+  await db.update(otpCodesTable).set({ used: true }).where(and(eq(otpCodesTable.phone, parsed.data.phone), eq(otpCodesTable.used, false)));
   await db.insert(otpCodesTable).values({ id: otpId, phone: parsed.data.phone, code, expiresAt });
 
+  const message = `رمز التحقق الخاص بك في زبوني: ${code}`;
+  let channel: "whatsapp" | "sms" = "sms";
+  const waSent = await whatsappManager.sendMessage(parsed.data.phone, message);
+  if (waSent) {
+    channel = "whatsapp";
+  } else {
+    try {
+      await sendSmsViaGateway(parsed.data.phone, message);
+    } catch (err) {
+      console.warn("[restaurant-portal] SMS skipped (no gateway configured):", (err as Error).message);
+    }
+  }
+
   const devCode = process.env["NODE_ENV"] !== "production" ? code : undefined;
-  res.json({ ok: true, devCode });
+  res.json({ ok: true, channel, devCode });
 });
 
 router.post("/restaurant-portal/auth/verify-otp", async (req, res) => {
@@ -154,9 +177,8 @@ router.post("/restaurant-portal/auth/verify-otp", async (req, res) => {
   await db.update(otpCodesTable).set({ used: true }).where(eq(otpCodesTable.id, otp.id));
 
   const [restaurant] = await db.select({ id: restaurantsTable.id, nameAr: restaurantsTable.nameAr, name: restaurantsTable.name, image: restaurantsTable.image }).from(restaurantsTable).where(eq(restaurantsTable.id, user.restaurantId)).limit(1);
-  let secret: string;
-  try { secret = getJwtSecret(); } catch { res.status(503).json({ error: "Server configuration error" }); return; }
-  const token = jwt.sign({ restaurantUserId: user.id, restaurantId: user.restaurantId, phone: user.phone }, secret, { expiresIn: "30d" });
+  let token: string;
+  try { token = issueToken(user); } catch { res.status(503).json({ error: "Server configuration error" }); return; }
   res.json({ token, restaurant, authMode: user.authMode });
 });
 

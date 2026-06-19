@@ -35,7 +35,15 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   }
 
   try {
-    const payload = jwt.verify(token, secret) as AuthPayload;
+    const payload = jwt.verify(token, secret) as AuthPayload & { tokenType?: string };
+    if (payload.tokenType === "restaurant_portal") {
+      res.status(401).json({ error: "Invalid token type" });
+      return;
+    }
+    if (!payload.userId) {
+      res.status(401).json({ error: "Invalid token" });
+      return;
+    }
     req.auth = payload;
     next();
   } catch {
