@@ -100,6 +100,8 @@ export default function Orders() {
 
   const filtered = orders.filter((o) => {
     const matchesSearch =
+      !search ||
+      o.id.toLowerCase().includes(search.toLowerCase()) ||
       o.orderText.includes(search) ||
       o.restaurantName.toLowerCase().includes(search.toLowerCase()) ||
       o.address.toLowerCase().includes(search.toLowerCase()) ||
