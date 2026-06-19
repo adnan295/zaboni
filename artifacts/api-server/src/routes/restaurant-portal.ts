@@ -309,6 +309,77 @@ router.get("/restaurant-portal/orders", requireRestaurantAuth, async (req, res) 
   res.json(orders);
 });
 
+router.get("/restaurant-portal/analytics", requireRestaurantAuth, async (req, res) => {
+  const { restaurantId } = getRestaurantAuth(req);
+
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  const weekStart = new Date(now);
+  weekStart.setDate(weekStart.getDate() - 6);
+  weekStart.setHours(0, 0, 0, 0);
+
+  const [todayStats, weekStats, dailyRows, peakRows, popularItems] = await Promise.all([
+    db.select({
+      orders: count(),
+      revenue: sql<number>`COALESCE(SUM(delivery_fee), 0)`,
+    }).from(ordersTable).where(and(
+      eq(ordersTable.restaurantId, restaurantId),
+      eq(ordersTable.status, "delivered"),
+      gte(ordersTable.createdAt, todayStart),
+    )),
+    db.select({
+      orders: count(),
+      revenue: sql<number>`COALESCE(SUM(delivery_fee), 0)`,
+    }).from(ordersTable).where(and(
+      eq(ordersTable.restaurantId, restaurantId),
+      eq(ordersTable.status, "delivered"),
+      gte(ordersTable.createdAt, weekStart),
+    )),
+    db.select({
+      date: sql<string>`TO_CHAR(created_at AT TIME ZONE 'Asia/Damascus', 'YYYY-MM-DD')`,
+      orders: count(),
+      revenue: sql<number>`COALESCE(SUM(delivery_fee), 0)`,
+    }).from(ordersTable).where(and(
+      eq(ordersTable.restaurantId, restaurantId),
+      eq(ordersTable.status, "delivered"),
+      gte(ordersTable.createdAt, weekStart),
+    )).groupBy(sql`TO_CHAR(created_at AT TIME ZONE 'Asia/Damascus', 'YYYY-MM-DD')`)
+      .orderBy(sql`TO_CHAR(created_at AT TIME ZONE 'Asia/Damascus', 'YYYY-MM-DD')`),
+    db.select({
+      hour: sql<number>`EXTRACT(HOUR FROM created_at AT TIME ZONE 'Asia/Damascus')::int`,
+      count: count(),
+    }).from(ordersTable).where(and(
+      eq(ordersTable.restaurantId, restaurantId),
+      gte(ordersTable.createdAt, weekStart),
+    )).groupBy(sql`EXTRACT(HOUR FROM created_at AT TIME ZONE 'Asia/Damascus')::int`)
+      .orderBy(sql`EXTRACT(HOUR FROM created_at AT TIME ZONE 'Asia/Damascus')::int`),
+    db.select({ nameAr: menuItemsTable.nameAr, name: menuItemsTable.name })
+      .from(menuItemsTable)
+      .where(and(eq(menuItemsTable.restaurantId, restaurantId), eq(menuItemsTable.isPopular, true)))
+      .limit(5),
+  ]);
+
+  const dailyMap = new Map(dailyRows.map(r => [r.date, r]));
+  const dailySeries = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(now);
+    d.setDate(d.getDate() - (6 - i));
+    const dateStr = d.toISOString().slice(0, 10);
+    const row = dailyMap.get(dateStr);
+    return { date: dateStr, orders: Number(row?.orders ?? 0), revenue: Number(row?.revenue ?? 0) };
+  });
+
+  res.json({
+    todayOrders: Number(todayStats[0]?.orders ?? 0),
+    todayRevenue: Number(todayStats[0]?.revenue ?? 0),
+    weekOrders: Number(weekStats[0]?.orders ?? 0),
+    weekRevenue: Number(weekStats[0]?.revenue ?? 0),
+    dailySeries,
+    topItems: popularItems.map(i => ({ name: i.nameAr || i.name })),
+    peakHours: peakRows.map(r => ({ hour: Number(r.hour), count: Number(r.count) })),
+  });
+});
+
 router.get("/restaurant-portal/stats", requireRestaurantAuth, async (req, res) => {
   const { restaurantId } = getRestaurantAuth(req);
   const [restaurant] = await db.select({ rating: restaurantsTable.rating, isOpen: restaurantsTable.isOpen }).from(restaurantsTable).where(eq(restaurantsTable.id, restaurantId)).limit(1);

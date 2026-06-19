@@ -12,7 +12,8 @@ interface LayoutProps {
 }
 
 const navItems = [
-  { href: "/", label: "لوحة التحكم", icon: "📊" },
+  { href: "/", label: "لوحة التحكم", icon: "🏠" },
+  { href: "/analytics", label: "التقارير", icon: "📊" },
   { href: "/menu", label: "قائمة الطعام", icon: "🍽️" },
   { href: "/orders", label: "الطلبات", icon: "📦", badgeKey: true },
   { href: "/hours", label: "أوقات العمل", icon: "🕐" },

@@ -12,6 +12,7 @@ import Orders from "@/pages/Orders";
 import Hours from "@/pages/Hours";
 import Settings from "@/pages/Settings";
 import PromoImages from "@/pages/PromoImages";
+import Analytics from "@/pages/Analytics";
 import NotFound from "@/pages/not-found";
 import { useRestaurantSocket } from "@/hooks/useRestaurantSocket";
 
@@ -28,6 +29,7 @@ function Router({ restaurantName, onLogout }: { restaurantName: string; onLogout
         <Route path="/menu" component={Menu} />
         <Route path="/orders" component={Orders} />
         <Route path="/hours" component={Hours} />
+        <Route path="/analytics" component={Analytics} />
         <Route path="/promo" component={PromoImages} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />

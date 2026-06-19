@@ -71,6 +71,8 @@ export const api = {
 
   getStats: () => apiFetch<Stats>("/restaurant-portal/stats"),
 
+  getAnalytics: () => apiFetch<Analytics>("/restaurant-portal/analytics"),
+
   getPromoTemplates: () => apiFetch<PromoTemplate[]>("/restaurant-portal/promo-templates"),
 
   generatePromoImage: (data: { foodObjectPath?: string; oldPrice: string; newPrice: string; tagline?: string; templateId: string }) =>
@@ -176,4 +178,14 @@ export type Stats = {
   menuItemCount: number;
   rating: number;
   isOpen: boolean;
+};
+
+export type Analytics = {
+  todayOrders: number;
+  todayRevenue: number;
+  weekOrders: number;
+  weekRevenue: number;
+  dailySeries: { date: string; orders: number; revenue: number }[];
+  topItems: { name: string }[];
+  peakHours: { hour: number; count: number }[];
 };
