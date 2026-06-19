@@ -29,6 +29,7 @@ function requireAdmin(req: Request, res: Response, next: NextFunction): void {
 }
 
 router.use("/admin/notifications", requireAdmin);
+router.use("/admin/churn", requireAdmin);
 
 const broadcastSchema = z.object({
   title: z.string().min(1).max(200),

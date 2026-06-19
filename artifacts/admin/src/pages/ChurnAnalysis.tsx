@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api, type ChurnUser, type PromoCode } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -32,15 +32,27 @@ function daysAgo(dateStr: string | null): string {
 
 export default function ChurnAnalysisPage() {
   const { toast } = useToast();
-  const [inactiveDays, setInactiveDays] = useState(7);
   const [inputDays, setInputDays] = useState("7");
+  const [debouncedDays, setDebouncedDays] = useState(7);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showDialog, setShowDialog] = useState(false);
   const [form, setForm] = useState({ title: "", body: "", promoCode: "" });
 
+  useEffect(() => {
+    const v = parseInt(inputDays);
+    if (isNaN(v) || v < 1 || v > 365) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedDays(v);
+      setSelected(new Set());
+    }, 500);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [inputDays]);
+
   const { data: users = [], isLoading, refetch } = useQuery({
-    queryKey: ["admin", "churn", inactiveDays],
-    queryFn: () => api.getChurnUsers(inactiveDays),
+    queryKey: ["admin", "churn", debouncedDays],
+    queryFn: () => api.getChurnUsers(debouncedDays),
   });
 
   const { data: promos = [] } = useQuery({
@@ -48,7 +60,7 @@ export default function ChurnAnalysisPage() {
     queryFn: api.getPromos,
   });
 
-  const activePromos = (promos as PromoCode[]).filter((p) => p.isActive);
+  const activePromos = (promos as PromoCode[]).filter((p: PromoCode) => p.isActive);
 
   const sendMutation = useMutation({
     mutationFn: () =>
@@ -72,14 +84,6 @@ export default function ChurnAnalysisPage() {
       toast({ title: "خطأ", description: e.message, variant: "destructive" });
     },
   });
-
-  function applyDays() {
-    const v = parseInt(inputDays);
-    if (!isNaN(v) && v >= 1 && v <= 365) {
-      setInactiveDays(v);
-      setSelected(new Set());
-    }
-  }
 
   function toggleAll() {
     if (selected.size === users.length) {
@@ -119,13 +123,9 @@ export default function ChurnAnalysisPage() {
             max={365}
             value={inputDays}
             onChange={(e) => setInputDays(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && applyDays()}
             className="w-20 text-center"
           />
           <Label className="text-sm">يوم</Label>
-          <Button size="sm" variant="outline" onClick={applyDays}>
-            تطبيق
-          </Button>
         </div>
 
         {!isLoading && (
@@ -169,7 +169,7 @@ export default function ChurnAnalysisPage() {
       ) : users.length === 0 ? (
         <div className="border rounded-lg bg-card shadow-sm flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
           <span className="text-4xl">🎉</span>
-          <p className="font-medium">لا يوجد عملاء غائبون منذ أكثر من {inactiveDays} يوم</p>
+          <p className="font-medium">لا يوجد عملاء غائبون منذ أكثر من {debouncedDays} يوم</p>
         </div>
       ) : (
         <div className="border rounded-lg overflow-hidden bg-card shadow-sm">
