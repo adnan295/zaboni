@@ -322,41 +322,50 @@ export default function RestaurantScreen() {
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>🔥 الأكثر طلباً</Text>
             <Text style={[styles.sectionSubtitle, { color: colors.mutedForeground }]}>الأكثر طلباً الآن</Text>
             <View style={styles.popularGrid}>
-              {popularItems.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={[
-                    styles.popularCard,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: cart[item.id]?.qty ? colors.primary : colors.border,
-                    },
-                  ]}
-                  onPress={isOpen ? () => addToCart(item.id, item.nameAr, item.price) : undefined}
-                  activeOpacity={isOpen ? 0.85 : 1}
-                >
-                  <Image source={{ uri: buildImageUrl(item.image) }} style={styles.popularImage} resizeMode="cover" />
-                  {cart[item.id]?.qty ? (
-                    <View style={[styles.popularQtyBadge, { backgroundColor: colors.primary }]}>
-                      <Text style={styles.popularQtyText}>{cart[item.id]!.qty}</Text>
-                    </View>
-                  ) : isOpen ? (
-                    <View style={[styles.popularAddBtn, { backgroundColor: colors.primary }]}>
-                      <MaterialIcons name="add" size={16} color="#fff" />
-                    </View>
-                  ) : null}
-                  <View style={styles.popularCardBody}>
-                    <Text style={[styles.popularItemName, { color: colors.foreground }]} numberOfLines={2}>
-                      {item.nameAr}
-                    </Text>
-                    {item.price > 0 && (
-                      <Text style={[styles.popularItemPrice, { color: colors.primary }]}>
-                        {item.price.toLocaleString()} ل.س
+              {popularItems.map((item) => {
+                const itemAvailable = (item as typeof item & { isAvailable?: boolean }).isAvailable !== false;
+                const canAdd = isOpen && itemAvailable;
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[
+                      styles.popularCard,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: cart[item.id]?.qty ? colors.primary : colors.border,
+                        opacity: itemAvailable ? 1 : 0.5,
+                      },
+                    ]}
+                    onPress={canAdd ? () => addToCart(item.id, item.nameAr, item.price) : undefined}
+                    activeOpacity={canAdd ? 0.85 : 1}
+                  >
+                    <Image source={{ uri: buildImageUrl(item.image) }} style={styles.popularImage} resizeMode="cover" />
+                    {!itemAvailable ? (
+                      <View style={styles.unavailableBadge}>
+                        <Text style={styles.unavailableText}>غير متوفر</Text>
+                      </View>
+                    ) : cart[item.id]?.qty ? (
+                      <View style={[styles.popularQtyBadge, { backgroundColor: colors.primary }]}>
+                        <Text style={styles.popularQtyText}>{cart[item.id]!.qty}</Text>
+                      </View>
+                    ) : canAdd ? (
+                      <View style={[styles.popularAddBtn, { backgroundColor: colors.primary }]}>
+                        <MaterialIcons name="add" size={16} color="#fff" />
+                      </View>
+                    ) : null}
+                    <View style={styles.popularCardBody}>
+                      <Text style={[styles.popularItemName, { color: colors.foreground }]} numberOfLines={2}>
+                        {item.nameAr}
                       </Text>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              ))}
+                      {item.price > 0 && (
+                        <Text style={[styles.popularItemPrice, { color: colors.primary }]}>
+                          {item.price.toLocaleString()} ل.س
+                        </Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
         )}
