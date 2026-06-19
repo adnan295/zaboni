@@ -8,7 +8,9 @@ import { z } from "zod";
 const router = Router();
 
 function getJwtSecret(): string {
-  return process.env["JWT_SECRET"] ?? "fallback-secret";
+  const secret = process.env["JWT_SECRET"];
+  if (!secret) throw new Error("JWT_SECRET is not configured");
+  return secret;
 }
 
 interface RestaurantPortalPayload {
@@ -24,8 +26,15 @@ function requireRestaurantAuth(req: Request, res: Response, next: NextFunction):
     return;
   }
   const token = authHeader.slice(7);
+  let secret: string;
   try {
-    const payload = jwt.verify(token, getJwtSecret()) as RestaurantPortalPayload;
+    secret = getJwtSecret();
+  } catch {
+    res.status(503).json({ error: "Server configuration error" });
+    return;
+  }
+  try {
+    const payload = jwt.verify(token, secret) as RestaurantPortalPayload;
     if (!payload.restaurantId) {
       res.status(401).json({ error: "Invalid token" });
       return;
@@ -57,7 +66,9 @@ router.post("/restaurant-portal/auth/login", async (req, res) => {
   if (!valid) { res.status(401).json({ error: "رقم الهاتف أو كلمة المرور غير صحيحة" }); return; }
 
   const [restaurant] = await db.select({ id: restaurantsTable.id, nameAr: restaurantsTable.nameAr, name: restaurantsTable.name, image: restaurantsTable.image }).from(restaurantsTable).where(eq(restaurantsTable.id, user.restaurantId)).limit(1);
-  const token = issueToken({ restaurantUserId: user.id, restaurantId: user.restaurantId, phone: user.phone });
+  let secret: string;
+  try { secret = getJwtSecret(); } catch { res.status(503).json({ error: "Server configuration error" }); return; }
+  const token = jwt.sign({ restaurantUserId: user.id, restaurantId: user.restaurantId, phone: user.phone }, secret, { expiresIn: "30d" });
   res.json({ token, restaurant, authMode: user.authMode });
 });
 
@@ -84,6 +95,7 @@ router.post("/restaurant-portal/auth/verify-otp", async (req, res) => {
 
   const [user] = await db.select().from(restaurantUsersTable).where(eq(restaurantUsersTable.phone, parsed.data.phone)).limit(1);
   if (!user || !user.isActive) { res.status(404).json({ error: "لا يوجد حساب بهذا الرقم" }); return; }
+  if (user.authMode !== "otp") { res.status(400).json({ error: "هذا الحساب يستخدم كلمة المرور للدخول" }); return; }
 
   const now = new Date();
   const [otp] = await db.select().from(otpCodesTable)
@@ -94,7 +106,9 @@ router.post("/restaurant-portal/auth/verify-otp", async (req, res) => {
   await db.update(otpCodesTable).set({ used: true }).where(eq(otpCodesTable.id, otp.id));
 
   const [restaurant] = await db.select({ id: restaurantsTable.id, nameAr: restaurantsTable.nameAr, name: restaurantsTable.name, image: restaurantsTable.image }).from(restaurantsTable).where(eq(restaurantsTable.id, user.restaurantId)).limit(1);
-  const token = issueToken({ restaurantUserId: user.id, restaurantId: user.restaurantId, phone: user.phone });
+  let secret: string;
+  try { secret = getJwtSecret(); } catch { res.status(503).json({ error: "Server configuration error" }); return; }
+  const token = jwt.sign({ restaurantUserId: user.id, restaurantId: user.restaurantId, phone: user.phone }, secret, { expiresIn: "30d" });
   res.json({ token, restaurant, authMode: user.authMode });
 });
 
@@ -214,12 +228,9 @@ router.put("/restaurant-portal/hours", requireRestaurantAuth, async (req, res) =
 
 router.get("/restaurant-portal/orders", requireRestaurantAuth, async (req, res) => {
   const { restaurantId } = getRestaurantAuth(req);
-  const [restaurant] = await db.select({ name: restaurantsTable.name, nameAr: restaurantsTable.nameAr }).from(restaurantsTable).where(eq(restaurantsTable.id, restaurantId)).limit(1);
-  if (!restaurant) { res.json([]); return; }
-
   const limit = Math.min(parseInt(String(req.query["limit"] ?? "50")), 100);
   const orders = await db.select().from(ordersTable)
-    .where(sql`${ordersTable.restaurantName} = ${restaurant.nameAr} OR ${ordersTable.restaurantName} = ${restaurant.name}`)
+    .where(eq(ordersTable.restaurantId, restaurantId))
     .orderBy(desc(ordersTable.createdAt))
     .limit(limit);
   res.json(orders);
@@ -227,15 +238,15 @@ router.get("/restaurant-portal/orders", requireRestaurantAuth, async (req, res) 
 
 router.get("/restaurant-portal/stats", requireRestaurantAuth, async (req, res) => {
   const { restaurantId } = getRestaurantAuth(req);
-  const [restaurant] = await db.select({ name: restaurantsTable.name, nameAr: restaurantsTable.nameAr, rating: restaurantsTable.rating, isOpen: restaurantsTable.isOpen }).from(restaurantsTable).where(eq(restaurantsTable.id, restaurantId)).limit(1);
+  const [restaurant] = await db.select({ rating: restaurantsTable.rating, isOpen: restaurantsTable.isOpen }).from(restaurantsTable).where(eq(restaurantsTable.id, restaurantId)).limit(1);
   if (!restaurant) { res.json({}); return; }
 
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
   const [allOrders, todayOrders, menuCount] = await Promise.all([
-    db.select({ count: count() }).from(ordersTable).where(sql`${ordersTable.restaurantName} = ${restaurant.nameAr} OR ${ordersTable.restaurantName} = ${restaurant.name}`),
-    db.select({ count: count(), deliveredCount: sql<number>`COUNT(*) FILTER (WHERE status = 'delivered')` }).from(ordersTable).where(and(sql`${ordersTable.restaurantName} = ${restaurant.nameAr} OR ${ordersTable.restaurantName} = ${restaurant.name}`, gte(ordersTable.createdAt, todayStart))),
+    db.select({ count: count() }).from(ordersTable).where(eq(ordersTable.restaurantId, restaurantId)),
+    db.select({ count: count(), deliveredCount: sql<number>`COUNT(*) FILTER (WHERE status = 'delivered')` }).from(ordersTable).where(and(eq(ordersTable.restaurantId, restaurantId), gte(ordersTable.createdAt, todayStart))),
     db.select({ count: count() }).from(menuItemsTable).where(eq(menuItemsTable.restaurantId, restaurantId)),
   ]);
 

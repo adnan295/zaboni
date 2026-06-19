@@ -4,6 +4,7 @@ import { startOrderExpiryJob } from "./lib/orderExpiry";
 import { logger } from "./lib/logger";
 import { backfillRestaurantPhones } from "@workspace/db/migrations/backfill-restaurant-phones";
 import { addMenuItemSubcategory } from "@workspace/db/migrations/add-menu-item-subcategory";
+import { addRestaurantPortal } from "@workspace/db/migrations/add-restaurant-portal";
 
 const rawPort = process.env["PORT"];
 
@@ -33,5 +34,8 @@ httpServer.listen(port, (err?: Error) => {
   );
   addMenuItemSubcategory().catch((e) =>
     logger.error({ err: e }, "Failed to add menu item subcategory columns"),
+  );
+  addRestaurantPortal().catch((e) =>
+    logger.error({ err: e }, "Failed to run restaurant portal migration"),
   );
 });

@@ -22,6 +22,7 @@ export const ordersTable = pgTable("orders", {
   orderText: text("order_text").notNull(),
   restaurantName: text("restaurant_name").notNull().default(""),
   restaurantPhone: text("restaurant_phone").notNull().default(""),
+  restaurantId: text("restaurant_id"),
   status: text("status", {
     enum: ORDER_STATUSES,
   })
