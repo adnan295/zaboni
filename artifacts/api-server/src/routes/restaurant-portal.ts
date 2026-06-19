@@ -379,21 +379,87 @@ function getOpenAIClient(): OpenAI {
   });
 }
 
-function buildPromoPrompt(restaurantName: string, oldPrice: string, newPrice: string, tagline?: string): string {
-  return `Create a professional, eye-catching promotional food banner advertisement for a restaurant named "${restaurantName}".
-
-Design requirements:
-- Style: Modern, vibrant food marketing poster like fast-food chain promotions (Burger King, KFC style)
-- Layout: Restaurant name prominently at the top in a colored badge/banner
-- Center: The food item displayed appetizingly and prominently
-- Bottom: Price section showing old price "${oldPrice}" with a strikethrough, and new discounted price "${newPrice}" highlighted in a bold colored badge or burst shape
-${tagline ? `- Tagline/slogan: "${tagline}" displayed clearly` : ""}
-- Colors: Rich, appetizing colors (reds, oranges, greens) with high contrast
-- Text must be clearly readable
-- Professional marketing quality, suitable for social media sharing
-- Square format (1:1 ratio)
-- The overall composition should look like a professional advertisement card`;
+interface PromoTemplate {
+  id: string;
+  nameAr: string;
+  description: string;
+  swatch: string;
+  buildPrompt: (restaurantName: string, oldPrice: string, newPrice: string, tagline?: string) => string;
 }
+
+const PROMO_TEMPLATES: PromoTemplate[] = [
+  {
+    id: "classic-red",
+    nameAr: "كلاسيكي أحمر",
+    description: "أسلوب المطاعم العالمية — أحمر وأبيض بخط عريض",
+    swatch: "🔴",
+    buildPrompt: (name, old, now, tagline) =>
+      `Create a professional promotional food advertisement banner in bold RED and WHITE color scheme, fast-food chain style (like KFC or Burger King). Square 1:1 format.
+Layout: Top section — deep red banner with the restaurant name "${name}" in large bold white Arabic text. Center — food item displayed large and appetizingly. Bottom — price burst shape: old price "${old}" in white with a diagonal strikethrough line, new discounted price "${now}" in a bright yellow starburst badge with large bold Arabic numerals.${tagline ? ` Slogan "${tagline}" in white Arabic text on red ribbon.` : ""}
+Typography: Bold condensed Arabic font throughout. High contrast white on red and red on white.
+Visual style: Glossy, vibrant, fast-food marketing quality. Rich red (#CC0000), white, and yellow (#FFD700) accents. All visible text must be in Arabic script. Professional social-media-ready advertisement.`,
+  },
+  {
+    id: "dark-luxury",
+    nameAr: "داكن فاخر",
+    description: "أسود وذهبي — مطاعم فاخرة وراقية",
+    swatch: "🖤",
+    buildPrompt: (name, old, now, tagline) =>
+      `Create a premium luxury food promotional banner in deep BLACK and GOLD color scheme. Square 1:1 format.
+Layout: Dark charcoal/black background. Top — ornate gold decorative border with restaurant name "${name}" in elegant gold Arabic calligraphy. Center — food item beautifully lit on dark surface, styled like a fine-dining photograph. Bottom — elegant price display: old price "${old}" in muted gray Arabic text with a thin gold strikethrough, new price "${now}" in large shimmering gold Arabic numerals inside a gold-bordered rectangle.${tagline ? ` Tagline "${tagline}" in small gold italic Arabic text.` : ""}
+Typography: Refined serif Arabic font. Restrained, luxurious spacing.
+Visual style: Moody, high-end restaurant photography aesthetic. Colors: #1A1A1A background, #C9A84C gold, #FFFFFF white accents. All visible text must be in Arabic script. Premium social-media advertisement quality.`,
+  },
+  {
+    id: "fresh-green",
+    nameAr: "أخضر طازج",
+    description: "أخضر وأبيض — أكل صحي وطازج",
+    swatch: "🟢",
+    buildPrompt: (name, old, now, tagline) =>
+      `Create a fresh, healthy food promotional banner in vibrant GREEN and WHITE color scheme. Square 1:1 format.
+Layout: Fresh white background with lush green accents. Top — leaf-green header band with restaurant name "${name}" in crisp white Arabic text. Center — food item surrounded by fresh herbs, vegetables or natural elements for a healthy feel. Bottom — price tag styled like a green label: old price "${old}" in gray Arabic text with strikethrough, new price "${now}" in bold white Arabic numerals on a green rounded badge.${tagline ? ` Tagline "${tagline}" in green Arabic text on white ribbon.` : ""}
+Typography: Clean modern Arabic font. Airy, natural spacing.
+Visual style: Organic, fresh, health-food market quality. Colors: #2E7D32 deep green, #81C784 light green, pure white, #F9FBF5 off-white background. All visible text must be in Arabic script. Natural and appetizing social-media advertisement.`,
+  },
+  {
+    id: "bold-orange",
+    nameAr: "برتقالي جريء",
+    description: "برتقالي وأصفر — أكل شعبي وسريع",
+    swatch: "🟠",
+    buildPrompt: (name, old, now, tagline) =>
+      `Create an energetic, eye-catching food promotional banner in warm ORANGE and YELLOW color scheme. Square 1:1 format.
+Layout: Vibrant orange-to-yellow gradient background. Top — bold white Arabic text of restaurant name "${name}" with a dark orange drop shadow on a curved banner ribbon. Center — food item displayed prominently with warm lighting and steam effects for street-food energy. Bottom — dynamic price section: old price "${old}" in white Arabic text with a bold strikethrough, new price "${now}" in large black Arabic numerals on a bright yellow starburst.${tagline ? ` Slogan "${tagline}" in bold Arabic on orange banner.` : ""}
+Typography: Heavy display Arabic font, punchy and bold.
+Visual style: Street food festival energy, warm and inviting. Colors: #E65100 deep orange, #FF9800 orange, #FFD600 yellow, white. All visible text must be in Arabic script. Bold and exciting social-media advertisement.`,
+  },
+  {
+    id: "clean-white",
+    nameAr: "أبيض أنيق",
+    description: "بسيط وعصري — كافيهات ومطاعم أنيقة",
+    swatch: "⬜",
+    buildPrompt: (name, old, now, tagline) =>
+      `Create a minimal, elegant food promotional banner in a clean WHITE and GRAY color scheme with a single accent color. Square 1:1 format.
+Layout: Pure white background with subtle light gray geometric borders. Top — thin gray separator line with restaurant name "${name}" in small refined dark Arabic text. Center — food item photographed in a clean, minimal style with plenty of white space. Bottom — typographic price display: old price "${old}" in small light gray Arabic text with a thin strikethrough, new price "${now}" in large dark Arabic numerals with a terracotta or dusty-rose accent badge.${tagline ? ` Tagline "${tagline}" in light gray Arabic text, centered below price.` : ""}
+Typography: Light-weight modern Arabic sans-serif. Generous whitespace.
+Visual style: Modern café, editorial minimalism. Colors: #FFFFFF white, #F5F5F5 light gray, #212121 near-black, #B85C38 terracotta accent. All visible text must be in Arabic script. Sophisticated and premium-feeling social-media advertisement.`,
+  },
+  {
+    id: "deep-blue",
+    nameAr: "أزرق غامق",
+    description: "كحلي وأبيض — مأكولات بحرية ومطاعم رسمية",
+    swatch: "🔵",
+    buildPrompt: (name, old, now, tagline) =>
+      `Create a formal, trustworthy food promotional banner in deep NAVY BLUE and WHITE color scheme. Square 1:1 format.
+Layout: Deep navy blue background (#0D2137) with subtle wave or geometric pattern overlay. Top — restaurant name "${name}" in large clean white Arabic text on a navy header band with a thin gold accent line. Center — food item elegantly presented, styled for a formal dining or seafood restaurant atmosphere. Bottom — price display in a clean white card-style panel: old price "${old}" in gray Arabic strikethrough text, new price "${now}" in bold navy Arabic numerals on a white rounded rectangle badge.${tagline ? ` Tagline "${tagline}" in white Arabic text on navy ribbon.` : ""}
+Typography: Structured, professional Arabic font. Formal and readable.
+Visual style: Fine-dining or seafood restaurant prestige. Colors: #0D2137 navy, #1565C0 medium blue, #FFFFFF white, #C9A84C gold trim. All visible text must be in Arabic script. Authoritative and elegant social-media advertisement.`,
+  },
+];
+
+router.get("/restaurant-portal/promo-templates", requireRestaurantAuth, (_req, res) => {
+  const templates = PROMO_TEMPLATES.map(({ id, nameAr, description, swatch }) => ({ id, nameAr, description, swatch }));
+  res.json(templates);
+});
 
 router.post("/restaurant-portal/promo-images/generate", requireRestaurantAuth, async (req, res) => {
   const parsed = z.object({
@@ -401,11 +467,15 @@ router.post("/restaurant-portal/promo-images/generate", requireRestaurantAuth, a
     oldPrice: z.string().min(1),
     newPrice: z.string().min(1),
     tagline: z.string().optional(),
+    templateId: z.string().min(1),
   }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صحيحة" }); return; }
 
   const { restaurantId } = getRestaurantAuth(req);
-  const { foodObjectPath, oldPrice, newPrice, tagline } = parsed.data;
+  const { foodObjectPath, oldPrice, newPrice, tagline, templateId } = parsed.data;
+
+  const template = PROMO_TEMPLATES.find(t => t.id === templateId);
+  if (!template) { res.status(400).json({ error: "القالب المختار غير موجود" }); return; }
 
   const [restaurant] = await db.select({ nameAr: restaurantsTable.nameAr }).from(restaurantsTable).where(eq(restaurantsTable.id, restaurantId)).limit(1);
   const restaurantName = restaurant?.nameAr ?? "مطعمنا";
@@ -413,7 +483,7 @@ router.post("/restaurant-portal/promo-images/generate", requireRestaurantAuth, a
   let openai: OpenAI;
   try { openai = getOpenAIClient(); } catch { res.status(503).json({ error: "خدمة توليد الصور غير متاحة حالياً" }); return; }
 
-  const prompt = buildPromoPrompt(restaurantName, oldPrice, newPrice, tagline);
+  const prompt = template.buildPrompt(restaurantName, oldPrice, newPrice, tagline);
 
   try {
     let base64Data: string;
@@ -448,11 +518,11 @@ router.post("/restaurant-portal/promo-images/generate", requireRestaurantAuth, a
     const id = `promo_${Date.now()}`;
     const foodPublicUrl = foodObjectPath ? `/api/storage/public-objects/${foodObjectPath}` : null;
     await db.execute(sql`
-      INSERT INTO promo_images (id, restaurant_id, restaurant_name, food_image_url, old_price, new_price, tagline, result_url)
-      VALUES (${id}, ${restaurantId}, ${restaurantName}, ${foodPublicUrl}, ${oldPrice}, ${newPrice}, ${tagline ?? null}, ${resultUrl})
+      INSERT INTO promo_images (id, restaurant_id, restaurant_name, food_image_url, old_price, new_price, tagline, result_url, template_id)
+      VALUES (${id}, ${restaurantId}, ${restaurantName}, ${foodPublicUrl}, ${oldPrice}, ${newPrice}, ${tagline ?? null}, ${resultUrl}, ${templateId})
     `);
 
-    res.json({ id, resultUrl, restaurantName, oldPrice, newPrice, tagline });
+    res.json({ id, resultUrl, restaurantName, oldPrice, newPrice, tagline, templateId, templateName: template.nameAr });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "خطأ غير معروف";
     res.status(500).json({ error: `فشل توليد الصورة: ${msg}` });
@@ -462,7 +532,7 @@ router.post("/restaurant-portal/promo-images/generate", requireRestaurantAuth, a
 router.get("/restaurant-portal/promo-images", requireRestaurantAuth, async (req, res) => {
   const { restaurantId } = getRestaurantAuth(req);
   const rows = await db.execute(sql`
-    SELECT id, restaurant_id, restaurant_name, food_image_url, old_price, new_price, tagline, result_url, created_at
+    SELECT id, restaurant_id, restaurant_name, food_image_url, old_price, new_price, tagline, result_url, template_id, created_at
     FROM promo_images
     WHERE restaurant_id = ${restaurantId}
     ORDER BY created_at DESC
@@ -477,6 +547,7 @@ router.get("/restaurant-portal/promo-images", requireRestaurantAuth, async (req,
     newPrice: r["new_price"] as string,
     tagline: r["tagline"] as string | null,
     resultUrl: r["result_url"] as string,
+    templateId: (r["template_id"] as string | null) ?? "classic-red",
     createdAt: r["created_at"] as string,
   }));
   res.json(items);

@@ -1,11 +1,12 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, type PromoImage } from "@/lib/api";
+import { api, type PromoImage, type PromoTemplate } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 const MAX_FILE_MB = 5;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -15,6 +16,7 @@ export default function PromoImages() {
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [foodObjectPath, setFoodObjectPath] = useState("");
   const [foodPreview, setFoodPreview] = useState("");
   const [oldPrice, setOldPrice] = useState("");
@@ -22,12 +24,23 @@ export default function PromoImages() {
   const [tagline, setTagline] = useState("");
   const [uploading, setUploading] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState("");
+  const [generatedTemplateName, setGeneratedTemplateName] = useState("");
+
+  const { data: templates = [] } = useQuery<PromoTemplate[]>({
+    queryKey: ["promo-templates"],
+    queryFn: api.getPromoTemplates,
+    staleTime: Infinity,
+  });
 
   const { data: history = [] } = useQuery<PromoImage[]>({
     queryKey: ["promo-images"],
     queryFn: api.getPromoImages,
     refetchInterval: 60_000,
   });
+
+  function getTemplateName(templateId: string): string {
+    return templates.find(t => t.id === templateId)?.nameAr ?? templateId;
+  }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -68,25 +81,67 @@ export default function PromoImages() {
       oldPrice,
       newPrice,
       tagline: tagline || undefined,
+      templateId: selectedTemplateId,
     }),
     onSuccess: (data) => {
       setGeneratedUrl(data.resultUrl);
+      setGeneratedTemplateName(data.templateName);
       qc.invalidateQueries({ queryKey: ["promo-images"] });
       toast({ title: "تم توليد البوستر بنجاح!" });
     },
     onError: (e) => toast({ variant: "destructive", title: "خطأ في التوليد", description: String(e instanceof Error ? e.message : e) }),
   });
 
-  const canGenerate = oldPrice.trim() && newPrice.trim() && !generateMutation.isPending && !uploading;
+  const canGenerate = selectedTemplateId && oldPrice.trim() && newPrice.trim() && !generateMutation.isPending && !uploading;
 
   return (
     <div className="space-y-6 max-w-2xl">
       <Card>
         <CardHeader>
           <CardTitle>إنشاء بوستر ترويجي</CardTitle>
-          <p className="text-sm text-muted-foreground">ارفع صورة الوجبة وأدخل تفاصيل العرض، وسيقوم الذكاء الاصطناعي بإنشاء بوستر احترافي</p>
+          <p className="text-sm text-muted-foreground">اختر قالباً، ارفع صورة الوجبة، وأدخل تفاصيل العرض</p>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5">
+
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold">
+              اختر القالب <span className="text-destructive">*</span>
+            </Label>
+            {templates.length === 0 ? (
+              <div className="grid grid-cols-3 gap-2">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {templates.map(t => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setSelectedTemplateId(t.id)}
+                    className={cn(
+                      "relative flex flex-col items-center gap-1 rounded-xl border-2 p-3 text-center transition-all hover:border-primary/50 hover:bg-accent/30",
+                      selectedTemplateId === t.id
+                        ? "border-primary bg-primary/5 shadow-sm"
+                        : "border-border bg-background",
+                    )}
+                  >
+                    {selectedTemplateId === t.id && (
+                      <span className="absolute top-1.5 left-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-white">✓</span>
+                    )}
+                    <span className="text-2xl">{t.swatch}</span>
+                    <span className="text-xs font-semibold leading-tight">{t.nameAr}</span>
+                    <span className="text-[10px] text-muted-foreground leading-tight">{t.description}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {!selectedTemplateId && templates.length > 0 && (
+              <p className="text-xs text-muted-foreground/70">يرجى اختيار قالب قبل التوليد</p>
+            )}
+          </div>
+
           <div className="space-y-2">
             <Label>صورة الوجبة (اختياري)</Label>
             <div
@@ -122,7 +177,7 @@ export default function PromoImages() {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>السعر الأصلي *</Label>
+              <Label>السعر الأصلي <span className="text-destructive">*</span></Label>
               <Input
                 placeholder="مثال: 25000 ل.س"
                 value={oldPrice}
@@ -130,7 +185,7 @@ export default function PromoImages() {
               />
             </div>
             <div className="space-y-1">
-              <Label>السعر بعد الخصم *</Label>
+              <Label>السعر بعد الخصم <span className="text-destructive">*</span></Label>
               <Input
                 placeholder="مثال: 18000 ل.س"
                 value={newPrice}
@@ -168,7 +223,12 @@ export default function PromoImages() {
       {generatedUrl && (
         <Card className="border-primary/30">
           <CardHeader>
-            <CardTitle className="text-base">البوستر المولّد</CardTitle>
+            <CardTitle className="text-base">
+              البوستر المولّد
+              {generatedTemplateName && (
+                <span className="mr-2 text-sm font-normal text-muted-foreground">— {generatedTemplateName}</span>
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <img
@@ -207,7 +267,10 @@ export default function PromoImages() {
                     </a>
                   </div>
                   {item.tagline && <p className="text-xs text-muted-foreground truncate mt-0.5">{item.tagline}</p>}
-                  <p className="text-xs text-muted-foreground/60 mt-0.5">{new Date(item.createdAt).toLocaleDateString("ar-SA")}</p>
+                  <div className="flex items-center justify-between mt-0.5">
+                    <p className="text-xs text-muted-foreground/60">{getTemplateName(item.templateId)}</p>
+                    <p className="text-xs text-muted-foreground/60">{new Date(item.createdAt).toLocaleDateString("ar-SA")}</p>
+                  </div>
                 </CardContent>
               </Card>
             ))}

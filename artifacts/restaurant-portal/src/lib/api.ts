@@ -71,7 +71,9 @@ export const api = {
 
   getStats: () => apiFetch<Stats>("/restaurant-portal/stats"),
 
-  generatePromoImage: (data: { foodObjectPath?: string; oldPrice: string; newPrice: string; tagline?: string }) =>
+  getPromoTemplates: () => apiFetch<PromoTemplate[]>("/restaurant-portal/promo-templates"),
+
+  generatePromoImage: (data: { foodObjectPath?: string; oldPrice: string; newPrice: string; tagline?: string; templateId: string }) =>
     apiFetch<GeneratePromoResult>("/restaurant-portal/promo-images/generate", { method: "POST", body: JSON.stringify(data) }),
 
   getPromoImages: () => apiFetch<PromoImage[]>("/restaurant-portal/promo-images"),
@@ -136,6 +138,13 @@ export type Order = {
   totalAmount: number | null;
 };
 
+export type PromoTemplate = {
+  id: string;
+  nameAr: string;
+  description: string;
+  swatch: string;
+};
+
 export type GeneratePromoResult = {
   id: string;
   resultUrl: string;
@@ -143,6 +152,8 @@ export type GeneratePromoResult = {
   oldPrice: string;
   newPrice: string;
   tagline?: string;
+  templateId: string;
+  templateName: string;
 };
 
 export type PromoImage = {
@@ -154,6 +165,7 @@ export type PromoImage = {
   newPrice: string;
   tagline: string | null;
   resultUrl: string;
+  templateId: string;
   createdAt: string;
 };
 
