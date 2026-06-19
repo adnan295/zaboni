@@ -65,8 +65,8 @@ export const api = {
   updateItemAvailability: (id: string, isAvailable: boolean) =>
     apiFetch<MenuItem>(`/restaurant-portal/menu/${id}/availability`, { method: "PATCH", body: JSON.stringify({ isAvailable }) }),
 
-  updateItemDeal: (id: string, isDeal: boolean, dealPrice?: number | null) =>
-    apiFetch<MenuItem>(`/restaurant-portal/menu/${id}/deal`, { method: "PATCH", body: JSON.stringify({ isDeal, dealPrice: isDeal ? dealPrice : null }) }),
+  updateItemDeal: (id: string, isDeal: boolean, dealPrice?: number | null, dealExpiresAt?: string | null) =>
+    apiFetch<MenuItem>(`/restaurant-portal/menu/${id}/deal`, { method: "PATCH", body: JSON.stringify({ isDeal, dealPrice: isDeal ? dealPrice : null, dealExpiresAt: isDeal ? (dealExpiresAt ?? null) : null }) }),
 
   getHours: () => apiFetch<RestaurantHour[]>("/restaurant-portal/hours"),
 
@@ -150,6 +150,7 @@ export type MenuItem = {
   isAvailable: boolean;
   isDeal: boolean;
   dealPrice: number | null;
+  dealExpiresAt: string | null;
 };
 
 export type RestaurantHour = {
