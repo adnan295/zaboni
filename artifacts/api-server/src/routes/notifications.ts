@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, usersTable, notificationLogsTable } from "@workspace/db";
-import { eq, desc, or, ilike } from "drizzle-orm";
+import { eq, desc, or, ilike, inArray } from "drizzle-orm";
 import { z } from "zod";
 import type { Request, Response, NextFunction } from "express";
 import { broadcastAppNotification } from "../orders/server";
@@ -166,6 +166,21 @@ router.post("/admin/notifications/send-to-user", async (req, res) => {
     userId: user.id,
     userName: user.name,
   });
+});
+
+router.get("/notifications", requireAuth, async (_req, res) => {
+  const rows = await db
+    .select({
+      id: notificationLogsTable.id,
+      title: notificationLogsTable.title,
+      body: notificationLogsTable.body,
+      createdAt: notificationLogsTable.createdAt,
+    })
+    .from(notificationLogsTable)
+    .where(inArray(notificationLogsTable.target, ["all", "customers"]))
+    .orderBy(desc(notificationLogsTable.createdAt))
+    .limit(30);
+  res.json(rows);
 });
 
 router.get("/admin/notifications/history", async (_req, res) => {
