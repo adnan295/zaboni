@@ -1,0 +1,1 @@
+- [Restaurant-portal port fix](restaurant-portal-port.md) — artifact.toml port must be registered in .replit [[ports]] for workflow health-check to succeed.

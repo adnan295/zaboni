@@ -10,6 +10,7 @@ import favoritesRouter from "./favorites";
 import notificationsRouter from "./notifications";
 import configRouter from "./config";
 import storageRouter from "./storage";
+import restaurantPortalRouter from "./restaurant-portal";
 import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
@@ -21,6 +22,7 @@ router.use(restaurantsRouter);
 router.use(adminRouter);
 router.use(notificationsRouter);
 router.use(storageRouter);
+router.use(restaurantPortalRouter);
 
 router.use(requireAuth);
 router.use(ordersRouter);
