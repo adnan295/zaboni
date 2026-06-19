@@ -15,7 +15,7 @@ export default function PromoImages() {
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [foodImageUrl, setFoodImageUrl] = useState("");
+  const [foodObjectPath, setFoodObjectPath] = useState("");
   const [foodPreview, setFoodPreview] = useState("");
   const [oldPrice, setOldPrice] = useState("");
   const [newPrice, setNewPrice] = useState("");
@@ -23,7 +23,7 @@ export default function PromoImages() {
   const [uploading, setUploading] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState("");
 
-  const { data: history = [] } = useQuery({
+  const { data: history = [] } = useQuery<PromoImage[]>({
     queryKey: ["promo-images"],
     queryFn: api.getPromoImages,
     refetchInterval: 60_000,
@@ -53,8 +53,7 @@ export default function PromoImages() {
       if (!res.ok) throw new Error("فشل الحصول على رابط الرفع");
       const { uploadURL, objectPath } = await res.json() as { uploadURL: string; objectPath: string };
       await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
-      const servedUrl = `/api/storage${objectPath}`;
-      setFoodImageUrl(servedUrl);
+      setFoodObjectPath(objectPath);
       setFoodPreview(URL.createObjectURL(file));
     } catch (err) {
       toast({ variant: "destructive", title: "فشل الرفع", description: String(err instanceof Error ? err.message : err) });
@@ -64,7 +63,12 @@ export default function PromoImages() {
   }
 
   const generateMutation = useMutation({
-    mutationFn: () => api.generatePromoImage({ foodImageUrl: foodImageUrl || undefined, oldPrice, newPrice, tagline }),
+    mutationFn: () => api.generatePromoImage({
+      foodObjectPath: foodObjectPath || undefined,
+      oldPrice,
+      newPrice,
+      tagline: tagline || undefined,
+    }),
     onSuccess: (data) => {
       setGeneratedUrl(data.resultUrl);
       qc.invalidateQueries({ queryKey: ["promo-images"] });
@@ -109,7 +113,7 @@ export default function PromoImages() {
             {foodPreview && (
               <button
                 className="text-xs text-muted-foreground underline"
-                onClick={() => { setFoodPreview(""); setFoodImageUrl(""); }}
+                onClick={() => { setFoodPreview(""); setFoodObjectPath(""); }}
               >
                 إزالة الصورة
               </button>

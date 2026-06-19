@@ -71,7 +71,7 @@ export const api = {
 
   getStats: () => apiFetch<Stats>("/restaurant-portal/stats"),
 
-  generatePromoImage: (data: { foodImageUrl?: string; oldPrice: string; newPrice: string; tagline?: string }) =>
+  generatePromoImage: (data: { foodObjectPath?: string; oldPrice: string; newPrice: string; tagline?: string }) =>
     apiFetch<PromoImage>("/restaurant-portal/promo-images/generate", { method: "POST", body: JSON.stringify(data) }),
 
   getPromoImages: () => apiFetch<PromoImage[]>("/restaurant-portal/promo-images"),
