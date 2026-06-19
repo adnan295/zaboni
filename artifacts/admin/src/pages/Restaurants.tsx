@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearch } from "wouter";
 import { api, type Restaurant, type MenuItem, type RestaurantHour } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -725,11 +726,21 @@ export default function Restaurants() {
   const [menuRestaurant, setMenuRestaurant] = useState<Restaurant | null>(null);
   const [hoursRestaurant, setHoursRestaurant] = useState<Restaurant | null>(null);
   const [search, setSearch] = useState("");
+  const searchString = useSearch();
 
   const { data: restaurants = [], isLoading } = useQuery({
     queryKey: ["admin", "restaurants"],
     queryFn: api.getRestaurants,
   });
+
+  useEffect(() => {
+    if (!restaurants.length) return;
+    const params = new URLSearchParams(searchString);
+    const editId = params.get("edit");
+    if (!editId) return;
+    const target = restaurants.find((r) => r.id === editId);
+    if (target) setEditRestaurant(target);
+  }, [restaurants, searchString]);
 
   const createMutation = useMutation({
     mutationFn: api.createRestaurant,
