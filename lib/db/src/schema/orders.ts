@@ -36,6 +36,7 @@ export const ordersTable = pgTable("orders", {
   destinationLat: doublePrecision("destination_lat").default(DAMASCUS_CENTER_LAT),
   destinationLon: doublePrecision("destination_lon").default(DAMASCUS_CENTER_LON),
   deliveryFee: integer("delivery_fee").notNull().default(0),
+  totalPrice: integer("total_price"),
   paymentMethod: text("payment_method").notNull().default("cash"),
   estimatedMinutes: integer("estimated_minutes").notNull().default(30),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -327,7 +327,8 @@ router.get("/restaurant-portal/analytics", requireRestaurantAuth, async (req, re
   const [todayStats, weekStats, dailyRows, peakRows, menuItems] = await Promise.all([
     db.select({
       orders: count(),
-      revenue: sql<number>`COALESCE(SUM(delivery_fee), 0)`,
+      revenue: sql<number>`COALESCE(SUM(total_price), 0)`,
+      deliveryRevenue: sql<number>`COALESCE(SUM(delivery_fee), 0)`,
     }).from(ordersTable).where(and(
       eq(ordersTable.restaurantId, restaurantId),
       eq(ordersTable.status, "delivered"),
@@ -335,7 +336,8 @@ router.get("/restaurant-portal/analytics", requireRestaurantAuth, async (req, re
     )),
     db.select({
       orders: count(),
-      revenue: sql<number>`COALESCE(SUM(delivery_fee), 0)`,
+      revenue: sql<number>`COALESCE(SUM(total_price), 0)`,
+      deliveryRevenue: sql<number>`COALESCE(SUM(delivery_fee), 0)`,
     }).from(ordersTable).where(and(
       eq(ordersTable.restaurantId, restaurantId),
       eq(ordersTable.status, "delivered"),
@@ -344,7 +346,7 @@ router.get("/restaurant-portal/analytics", requireRestaurantAuth, async (req, re
     db.select({
       date: sql<string>`TO_CHAR(created_at AT TIME ZONE 'Asia/Damascus', 'YYYY-MM-DD')`,
       orders: count(),
-      revenue: sql<number>`COALESCE(SUM(delivery_fee), 0)`,
+      revenue: sql<number>`COALESCE(SUM(total_price), 0)`,
     }).from(ordersTable).where(and(
       eq(ordersTable.restaurantId, restaurantId),
       eq(ordersTable.status, "delivered"),
@@ -394,8 +396,10 @@ router.get("/restaurant-portal/analytics", requireRestaurantAuth, async (req, re
   res.json({
     todayOrders: Number(todayStats[0]?.orders ?? 0),
     todayRevenue: Number(todayStats[0]?.revenue ?? 0),
+    todayDeliveryRevenue: Number(todayStats[0]?.deliveryRevenue ?? 0),
     weekOrders: Number(weekStats[0]?.orders ?? 0),
     weekRevenue: Number(weekStats[0]?.revenue ?? 0),
+    weekDeliveryRevenue: Number(weekStats[0]?.deliveryRevenue ?? 0),
     dailySeries,
     topItems: itemCounts,
     peakHours: peakRows.map(r => ({ hour: Number(r.hour), count: Number(r.count) })),

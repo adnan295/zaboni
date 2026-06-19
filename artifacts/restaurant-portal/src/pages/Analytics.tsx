@@ -65,6 +65,10 @@ function EmptyState({ label }: { label: string }) {
   );
 }
 
+function fmtSyp(v: number) {
+  return v > 0 ? `${v.toLocaleString()} ل.س` : "—";
+}
+
 export default function AnalyticsPage() {
   const { data, isLoading } = useQuery<Analytics>({
     queryKey: ["portal-analytics"],
@@ -77,8 +81,8 @@ export default function AnalyticsPage() {
   }
 
   const a = data ?? {
-    todayOrders: 0, todayRevenue: 0,
-    weekOrders: 0, weekRevenue: 0,
+    todayOrders: 0, todayRevenue: 0, todayDeliveryRevenue: 0,
+    weekOrders: 0, weekRevenue: 0, weekDeliveryRevenue: 0,
     dailySeries: [], topItems: [], peakHours: [],
   };
 
@@ -97,23 +101,33 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-6" dir="rtl">
+      {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="طلبات اليوم" value={a.todayOrders} icon="📦" sub="طلبات مكتملة" />
-        <StatCard
-          label="إيرادات التوصيل اليوم"
-          value={a.todayRevenue > 0 ? `${a.todayRevenue.toLocaleString()} ل.س` : "—"}
-          icon="💰"
-          sub="رسوم التوصيل"
-        />
+        <StatCard label="إيرادات الطلبات اليوم" value={fmtSyp(a.todayRevenue)} icon="💰" sub="مجموع قيمة الطلبات" />
         <StatCard label="طلبات الأسبوع" value={a.weekOrders} icon="📈" sub="آخر 7 أيام" />
-        <StatCard
-          label="إيرادات التوصيل أسبوعياً"
-          value={a.weekRevenue > 0 ? `${a.weekRevenue.toLocaleString()} ل.س` : "—"}
-          icon="💵"
-          sub="آخر 7 أيام"
-        />
+        <StatCard label="إيرادات الأسبوع" value={fmtSyp(a.weekRevenue)} icon="💵" sub="مجموع قيمة الطلبات" />
       </div>
 
+      {/* Delivery revenue secondary row */}
+      {(a.todayDeliveryRevenue > 0 || a.weekDeliveryRevenue > 0) && (
+        <div className="grid grid-cols-2 gap-4">
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <p className="text-xs text-muted-foreground">رسوم التوصيل اليوم</p>
+              <p className="text-xl font-semibold mt-1">{fmtSyp(a.todayDeliveryRevenue)}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <p className="text-xs text-muted-foreground">رسوم التوصيل الأسبوع</p>
+              <p className="text-xl font-semibold mt-1">{fmtSyp(a.weekDeliveryRevenue)}</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Daily chart */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">المبيعات اليومية — آخر 7 أيام</CardTitle>
@@ -146,15 +160,13 @@ export default function AnalyticsPage() {
                 <Tooltip
                   contentStyle={TOOLTIP_STYLE}
                   formatter={(value, name) => [
-                    name === "orders"
-                      ? `${value} طلب`
-                      : `${Number(value).toLocaleString()} ل.س`,
-                    name === "orders" ? "الطلبات" : "إيراد التوصيل",
+                    name === "orders" ? `${value} طلب` : fmtSyp(Number(value)),
+                    name === "orders" ? "الطلبات" : "إيرادات الطلبات",
                   ]}
                   labelFormatter={label => `يوم ${label}`}
                 />
                 <Legend
-                  formatter={name => name === "orders" ? "الطلبات" : "إيراد التوصيل"}
+                  formatter={name => name === "orders" ? "الطلبات" : "إيرادات الطلبات"}
                   wrapperStyle={{ fontSize: 12, direction: "rtl" }}
                 />
                 <Bar yAxisId="orders" dataKey="orders" name="orders"
@@ -167,6 +179,7 @@ export default function AnalyticsPage() {
         </CardContent>
       </Card>
 
+      {/* Bottom row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
