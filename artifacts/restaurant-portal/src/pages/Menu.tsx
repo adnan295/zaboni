@@ -13,7 +13,7 @@ import { ImageUpload } from "@/components/ImageUpload";
 const emptyItem: Omit<MenuItem, "id" | "restaurantId"> = {
   name: "", nameAr: "", price: 0, category: "", categoryAr: "",
   description: null, descriptionAr: null, image: "", isPopular: false,
-  subcategory: null, subcategoryAr: null,
+  subcategory: null, subcategoryAr: null, isAvailable: true,
 };
 
 export default function Menu() {
@@ -45,6 +45,24 @@ export default function Menu() {
       setDeleteId(null);
       toast({ title: "تم الحذف" });
     },
+  });
+
+  const availabilityMutation = useMutation({
+    mutationFn: ({ id, isAvailable }: { id: string; isAvailable: boolean }) =>
+      api.updateItemAvailability(id, isAvailable),
+    onMutate: async ({ id, isAvailable }) => {
+      await qc.cancelQueries({ queryKey: ["portal-menu"] });
+      const prev = qc.getQueryData<MenuItem[]>(["portal-menu"]);
+      qc.setQueryData<MenuItem[]>(["portal-menu"], old =>
+        old?.map(it => it.id === id ? { ...it, isAvailable } : it) ?? []
+      );
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["portal-menu"], ctx.prev);
+      toast({ variant: "destructive", title: "فشل تحديث التوفر" });
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["portal-menu"] }),
   });
 
   const filtered = items.filter(i =>
@@ -80,14 +98,21 @@ export default function Menu() {
             <h3 className="font-semibold text-base mb-2 text-muted-foreground">{cat}</h3>
             <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
               {catItems.map(item => (
-                <Card key={item.id} className="flex flex-col">
+                <Card key={item.id} className={`flex flex-col transition-opacity ${item.isAvailable ? "" : "opacity-60"}`}>
                   <CardContent className="pt-4 flex flex-col flex-1">
                     <div className="flex items-start gap-3">
                       {item.image && (
                         <img src={item.image} alt={item.nameAr} className="w-16 h-16 rounded-lg object-cover shrink-0 border" />
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm">{item.nameAr}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-sm">{item.nameAr}</p>
+                          {item.isAvailable ? (
+                            <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">متوفر</span>
+                          ) : (
+                            <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-medium">نفد</span>
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground">{item.name}</p>
                         {item.descriptionAr && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.descriptionAr}</p>}
                         <div className="flex items-center gap-2 mt-2">
@@ -97,7 +122,16 @@ export default function Menu() {
                       </div>
                     </div>
                     <div className="flex gap-2 mt-3">
-                      <Button size="sm" variant="outline" className="flex-1" onClick={() => setEditItem({ ...item })}>تعديل</Button>
+                      <Button
+                        size="sm"
+                        variant={item.isAvailable ? "outline" : "default"}
+                        className={`flex-1 ${item.isAvailable ? "border-red-200 text-red-600 hover:bg-red-50" : "bg-green-600 hover:bg-green-700 text-white"}`}
+                        disabled={availabilityMutation.isPending}
+                        onClick={() => availabilityMutation.mutate({ id: item.id, isAvailable: !item.isAvailable })}
+                      >
+                        {item.isAvailable ? "تعيين كـ نفد" : "تعيين كـ متوفر"}
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditItem({ ...item })}>تعديل</Button>
                       <Button size="sm" variant="destructive" onClick={() => setDeleteId(item.id)}>حذف</Button>
                     </div>
                   </CardContent>

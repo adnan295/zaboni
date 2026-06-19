@@ -367,15 +367,24 @@ export default function RestaurantScreen() {
           return (
             <View key={cat} onLayout={registerSection(cat)} style={styles.sectionWrap}>
               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{cat}</Text>
-              {catItems.map((item) => (
-                <MenuItemCard
-                  key={item.id}
-                  item={item}
-                  quantity={cart[item.id]?.qty ?? 0}
-                  onAdd={isOpen ? () => addToCart(item.id, item.nameAr, item.price) : undefined}
-                  onRemove={isOpen ? () => removeFromCart(item.id, item.nameAr, item.price) : undefined}
-                />
-              ))}
+              {catItems.map((item) => {
+                const available = (item as typeof item & { isAvailable?: boolean }).isAvailable !== false;
+                return (
+                  <View key={item.id} style={{ opacity: available ? 1 : 0.5 }}>
+                    {!available && (
+                      <View style={styles.unavailableBadge}>
+                        <Text style={styles.unavailableText}>غير متوفر</Text>
+                      </View>
+                    )}
+                    <MenuItemCard
+                      item={item}
+                      quantity={cart[item.id]?.qty ?? 0}
+                      onAdd={isOpen && available ? () => addToCart(item.id, item.nameAr, item.price) : undefined}
+                      onRemove={isOpen && available ? () => removeFromCart(item.id, item.nameAr, item.price) : undefined}
+                    />
+                  </View>
+                );
+              })}
             </View>
           );
         })}
@@ -610,4 +619,15 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   closedBannerText: { fontSize: 14, fontWeight: "700" },
+  unavailableBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    zIndex: 10,
+    backgroundColor: "rgba(239,68,68,0.9)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  unavailableText: { color: "#fff", fontSize: 11, fontWeight: "700" },
 });

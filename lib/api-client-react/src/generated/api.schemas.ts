@@ -43,10 +43,6 @@ export interface Restaurant {
   tags: string[];
   isOpen: boolean;
   discount?: string | null;
-  isLogo?: boolean | null;
-  lat?: number | null;
-  lon?: number | null;
-  phone?: string | null;
 }
 
 export interface MenuItem {
@@ -63,6 +59,7 @@ export interface MenuItem {
   subcategory?: string | null;
   subcategoryAr?: string | null;
   isPopular: boolean;
+  isAvailable?: boolean;
 }
 
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];

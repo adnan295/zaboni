@@ -479,6 +479,8 @@ components:
           nullable: true
         isPopular:
           type: boolean
+        isAvailable:
+          type: boolean
 
     Order:
       type: object
