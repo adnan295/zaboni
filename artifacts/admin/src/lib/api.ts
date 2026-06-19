@@ -801,7 +801,7 @@ export type CancellationStats = {
   byReason: {
     autoExpired: number;
     customerInitiated: number;
-    postAccept: number;
+    restaurantRejected: number;
   };
   byHour: { hour: number; count: number }[];
   byZone: { zone: string; count: number }[];

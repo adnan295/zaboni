@@ -8,7 +8,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 import { api } from "@/lib/api";
 
@@ -18,22 +17,33 @@ const DAY_OPTIONS = [
   { value: 90, label: "آخر ٩٠ يوماً" },
 ] as const;
 
-function Card({
+function ReasonCard({
   label,
   value,
-  sub,
+  total,
   color,
+  icon,
 }: {
   label: string;
   value: number;
-  sub?: string;
+  total: number;
   color: string;
+  icon: string;
 }) {
+  const pct = total > 0 ? Math.round((value / total) * 100) : 0;
   return (
     <div className="rounded-xl border bg-card p-5 flex flex-col gap-2">
-      <p className="text-sm text-muted-foreground">{label}</p>
+      <div className="flex items-center gap-2">
+        <span className="text-xl">{icon}</span>
+        <p className="text-sm text-muted-foreground">{label}</p>
+      </div>
       <p className={`text-3xl font-bold ${color}`}>{value.toLocaleString("ar-SY")}</p>
-      {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+      <div className="flex items-center gap-2">
+        <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+          <div className={`h-full rounded-full ${color.replace("text-", "bg-")}`} style={{ width: `${pct}%` }} />
+        </div>
+        <span className="text-xs text-muted-foreground tabular-nums">{pct}٪</span>
+      </div>
     </div>
   );
 }
@@ -57,11 +67,17 @@ export default function CancellationAnalysis() {
 
   return (
     <div className="space-y-6" dir="rtl">
+      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">تحليل الإلغاءات</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             أسباب الإلغاء وأنماطها بحسب الوقت والمنطقة والمطعم
+            {data && (
+              <span className="mr-2 text-xs font-medium text-foreground/60">
+                — إجمالي: {data.total.toLocaleString("ar-SY")} إلغاء
+              </span>
+            )}
           </p>
         </div>
         <div className="flex gap-2">
@@ -82,62 +98,45 @@ export default function CancellationAnalysis() {
       </div>
 
       {isLoading && (
-        <div className="text-center py-16 text-muted-foreground text-sm">
-          جارٍ التحميل…
-        </div>
+        <div className="text-center py-16 text-muted-foreground text-sm">جارٍ التحميل…</div>
       )}
       {isError && (
-        <div className="text-center py-16 text-destructive text-sm">
-          فشل تحميل البيانات
-        </div>
+        <div className="text-center py-16 text-destructive text-sm">فشل تحميل البيانات</div>
       )}
 
       {data && (
         <>
-          {/* Summary cards */}
+          {/* Three reason cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card
-              label="إجمالي الإلغاءات"
-              value={data.total}
-              sub={`خلال آخر ${days} يوماً`}
-              color="text-foreground"
-            />
-            <Card
+            <ReasonCard
               label="إلغاء العميل"
               value={data.byReason.customerInitiated}
-              sub={
-                data.total > 0
-                  ? `${Math.round((data.byReason.customerInitiated / data.total) * 100)}% من الإجمالي`
-                  : undefined
-              }
+              total={data.total}
               color="text-orange-500"
+              icon="👤"
             />
-            <Card
+            <ReasonCard
               label="انتهاء مهلة السائق"
               value={data.byReason.autoExpired}
-              sub={
-                data.total > 0
-                  ? `${Math.round((data.byReason.autoExpired / data.total) * 100)}% من الإجمالي`
-                  : undefined
-              }
+              total={data.total}
               color="text-red-500"
+              icon="⏱️"
+            />
+            <ReasonCard
+              label="رفض / إلغاء بعد القبول"
+              value={data.byReason.restaurantRejected}
+              total={data.total}
+              color="text-purple-500"
+              icon="🏪"
             />
           </div>
-
-          {data.byReason.postAccept > 0 && (
-            <div className="rounded-lg border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900 px-4 py-3 text-sm text-amber-800 dark:text-amber-300 flex items-center gap-2">
-              <span className="text-base">⚠️</span>
-              <span>
-                <strong>{data.byReason.postAccept}</strong> إلغاء حدث بعد قبول السائق — قد يشير إلى مشاكل في المطاعم أو تأخر في التحضير.
-              </span>
-            </div>
-          )}
 
           {/* Charts row */}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             {/* By hour */}
             <div className="rounded-xl border bg-card p-5">
-              <h2 className="font-semibold mb-4">الإلغاءات حسب ساعة اليوم (توقيت دمشق)</h2>
+              <h2 className="font-semibold mb-1">الإلغاءات حسب ساعة اليوم</h2>
+              <p className="text-xs text-muted-foreground mb-4">توقيت دمشق</p>
               {hourData.every((d) => d["الإلغاءات"] === 0) ? (
                 <p className="text-muted-foreground text-sm text-center py-8">لا توجد بيانات</p>
               ) : (
@@ -149,7 +148,10 @@ export default function CancellationAnalysis() {
                       tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                       interval={3}
                     />
-                    <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} allowDecimals={false} />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                      allowDecimals={false}
+                    />
                     <Tooltip
                       contentStyle={{
                         background: "var(--popover)",
@@ -166,7 +168,8 @@ export default function CancellationAnalysis() {
 
             {/* By zone */}
             <div className="rounded-xl border bg-card p-5">
-              <h2 className="font-semibold mb-4">الإلغاءات حسب نطاق التوصيل</h2>
+              <h2 className="font-semibold mb-1">الإلغاءات حسب نطاق التوصيل</h2>
+              <p className="text-xs text-muted-foreground mb-4">بناءً على إحداثيات الوجهة</p>
               {zoneData.length === 0 ? (
                 <p className="text-muted-foreground text-sm text-center py-8">لا توجد بيانات للنطاقات</p>
               ) : (
@@ -177,7 +180,11 @@ export default function CancellationAnalysis() {
                     margin={{ top: 4, right: 16, left: 8, bottom: 4 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
-                    <XAxis type="number" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} allowDecimals={false} />
+                    <XAxis
+                      type="number"
+                      tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                      allowDecimals={false}
+                    />
                     <YAxis
                       dataKey="zone"
                       type="category"
@@ -204,7 +211,7 @@ export default function CancellationAnalysis() {
             <div className="px-5 py-4 border-b">
               <h2 className="font-semibold">أعلى المطاعم في نسبة الإلغاء</h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                مرتبة تنازلياً — تشمل فقط المطاعم التي لديها طلبات ملغاة
+                مرتبة تنازلياً — تشمل فقط المطاعم التي لديها طلبات ملغاة خلال الفترة المختارة
               </p>
             </div>
             {data.byRestaurant.length === 0 ? (
@@ -223,14 +230,19 @@ export default function CancellationAnalysis() {
                   </thead>
                   <tbody>
                     {data.byRestaurant.map((r, i) => (
-                      <tr key={r.restaurantName} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                      <tr
+                        key={r.restaurantName}
+                        className="border-b last:border-0 hover:bg-muted/20 transition-colors"
+                      >
                         <td className="px-5 py-3 text-muted-foreground">{i + 1}</td>
                         <td className="px-5 py-3 font-medium">{r.restaurantName}</td>
                         <td className="px-5 py-3">{r.totalOrders.toLocaleString("ar-SY")}</td>
-                        <td className="px-5 py-3 text-red-500 font-medium">{r.cancelled.toLocaleString("ar-SY")}</td>
+                        <td className="px-5 py-3 text-red-500 font-medium">
+                          {r.cancelled.toLocaleString("ar-SY")}
+                        </td>
                         <td className="px-5 py-3">
                           <span
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
                               r.rate >= 50
                                 ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                                 : r.rate >= 25
