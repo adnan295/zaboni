@@ -481,6 +481,11 @@ components:
           type: boolean
         isAvailable:
           type: boolean
+        isDeal:
+          type: boolean
+        dealPrice:
+          type: number
+          nullable: true
 
     Order:
       type: object

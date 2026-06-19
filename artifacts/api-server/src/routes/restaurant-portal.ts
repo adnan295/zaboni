@@ -271,6 +271,26 @@ router.patch("/restaurant-portal/menu/:itemId/availability", requireRestaurantAu
   res.json(updated);
 });
 
+router.patch("/restaurant-portal/menu/:itemId/deal", requireRestaurantAuth, async (req, res) => {
+  const { restaurantId } = getRestaurantAuth(req);
+  const itemId = String(req.params["itemId"]);
+  const parsed = z.object({
+    isDeal: z.boolean(),
+    dealPrice: z.number().positive().nullable().optional(),
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "isDeal (boolean) مطلوب" }); return; }
+  if (parsed.data.isDeal && !parsed.data.dealPrice) {
+    res.status(400).json({ error: "يجب تحديد سعر العرض عند تفعيل العرض" }); return;
+  }
+  const [existing] = await db.select({ id: menuItemsTable.id }).from(menuItemsTable).where(and(eq(menuItemsTable.id, itemId), eq(menuItemsTable.restaurantId, restaurantId))).limit(1);
+  if (!existing) { res.status(404).json({ error: "الصنف غير موجود" }); return; }
+  const [updated] = await db.update(menuItemsTable).set({
+    isDeal: parsed.data.isDeal,
+    dealPrice: parsed.data.isDeal ? (parsed.data.dealPrice ?? null) : null,
+  }).where(eq(menuItemsTable.id, itemId)).returning();
+  res.json(updated);
+});
+
 router.delete("/restaurant-portal/menu/:itemId", requireRestaurantAuth, async (req, res) => {
   const { restaurantId } = getRestaurantAuth(req);
   const itemId = String(req.params["itemId"]);

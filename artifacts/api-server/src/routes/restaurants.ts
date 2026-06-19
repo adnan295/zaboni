@@ -261,25 +261,37 @@ router.get("/home-sections/:section", async (req, res) => {
     res.status(400).json({ error: "Invalid section" });
     return;
   }
-  const items = await db
+
+  const manualItems = await db
     .select({ restaurantId: homeSectionItemsTable.restaurantId })
     .from(homeSectionItemsTable)
     .where(eq(homeSectionItemsTable.section, section))
     .orderBy(asc(homeSectionItemsTable.sortOrder));
 
-  if (items.length === 0) {
+  let restaurantIds: string[] = manualItems.map((i) => i.restaurantId);
+
+  if (section === "deals") {
+    const dealItems = await db
+      .select({ restaurantId: menuItemsTable.restaurantId })
+      .from(menuItemsTable)
+      .where(eq(menuItemsTable.isDeal, true));
+    const dealRestaurantIds = [...new Set(dealItems.map((i) => i.restaurantId))];
+    const combined = [...new Set([...restaurantIds, ...dealRestaurantIds])];
+    restaurantIds = combined;
+  }
+
+  if (restaurantIds.length === 0) {
     res.json([]);
     return;
   }
 
-  const ids = items.map((i) => i.restaurantId);
   const restaurants = await db
     .select()
     .from(restaurantsTable)
-    .where(inArray(restaurantsTable.id, ids));
+    .where(inArray(restaurantsTable.id, restaurantIds));
 
   const map = new Map(restaurants.map((r) => [r.id, r]));
-  const ordered = ids.map((id) => map.get(id)).filter(Boolean);
+  const ordered = restaurantIds.map((id) => map.get(id)).filter(Boolean);
   res.json(ordered);
 });
 

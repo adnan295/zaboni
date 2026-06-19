@@ -82,6 +82,8 @@ export const GetRestaurantMenuResponseItem = zod.object({
   subcategoryAr: zod.string().nullish(),
   isPopular: zod.boolean(),
   isAvailable: zod.boolean().optional(),
+  isDeal: zod.boolean().optional(),
+  dealPrice: zod.number().nullish(),
 });
 export const GetRestaurantMenuResponse = zod.array(
   GetRestaurantMenuResponseItem,

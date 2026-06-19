@@ -10,6 +10,7 @@ import { addPromoImages } from "@workspace/db/migrations/add-promo-images";
 import { addPromoImagesTemplate } from "@workspace/db/migrations/add-promo-images-template";
 import { addMenuItemAvailability } from "@workspace/db/migrations/add-menu-item-availability";
 import { addPromoRestaurant } from "@workspace/db/migrations/add-promo-restaurant";
+import { addMenuItemDeals } from "@workspace/db/migrations/add-menu-item-deals";
 
 const rawPort = process.env["PORT"];
 
@@ -58,5 +59,8 @@ httpServer.listen(port, (err?: Error) => {
   );
   addPromoRestaurant().catch((e: unknown) =>
     logger.error({ err: e }, "Failed to run promo restaurant migration"),
+  );
+  addMenuItemDeals().catch((e: unknown) =>
+    logger.error({ err: e }, "Failed to run menu item deals migration"),
   );
 });

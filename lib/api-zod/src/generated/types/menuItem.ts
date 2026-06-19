@@ -21,4 +21,6 @@ export interface MenuItem {
   subcategoryAr?: string | null;
   isPopular: boolean;
   isAvailable?: boolean;
+  isDeal?: boolean;
+  dealPrice?: number | null;
 }

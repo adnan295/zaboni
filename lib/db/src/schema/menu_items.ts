@@ -20,6 +20,8 @@ export const menuItemsTable = pgTable("menu_items", {
   subcategoryAr: text("subcategory_ar"),
   isPopular: boolean("is_popular").notNull().default(false),
   isAvailable: boolean("is_available").notNull().default(true),
+  isDeal: boolean("is_deal").notNull().default(false),
+  dealPrice: real("deal_price"),
 });
 
 export const insertMenuItemSchema = createInsertSchema(menuItemsTable);

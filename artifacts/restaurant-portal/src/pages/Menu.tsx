@@ -14,6 +14,7 @@ const emptyItem: Omit<MenuItem, "id" | "restaurantId"> = {
   name: "", nameAr: "", price: 0, category: "", categoryAr: "",
   description: null, descriptionAr: null, image: "", isPopular: false,
   subcategory: null, subcategoryAr: null, isAvailable: true,
+  isDeal: false, dealPrice: null,
 };
 
 export default function Menu() {
@@ -22,6 +23,7 @@ export default function Menu() {
   const [editItem, setEditItem] = useState<Partial<MenuItem> | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [dealPriceInput, setDealPriceInput] = useState<Record<string, string>>({});
 
   const { data: items = [], isLoading } = useQuery({ queryKey: ["portal-menu"], queryFn: api.getMenu });
 
@@ -65,10 +67,32 @@ export default function Menu() {
     onSettled: () => qc.invalidateQueries({ queryKey: ["portal-menu"] }),
   });
 
+  const dealMutation = useMutation({
+    mutationFn: ({ id, isDeal, dealPrice }: { id: string; isDeal: boolean; dealPrice?: number | null }) =>
+      api.updateItemDeal(id, isDeal, dealPrice),
+    onMutate: async ({ id, isDeal, dealPrice }) => {
+      await qc.cancelQueries({ queryKey: ["portal-menu"] });
+      const prev = qc.getQueryData<MenuItem[]>(["portal-menu"]);
+      qc.setQueryData<MenuItem[]>(["portal-menu"], old =>
+        old?.map(it => it.id === id ? { ...it, isDeal, dealPrice: isDeal ? (dealPrice ?? null) : null } : it) ?? []
+      );
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["portal-menu"], ctx.prev);
+      toast({ variant: "destructive", title: "فشل تحديث العرض" });
+    },
+    onSuccess: (_data, { id }) => {
+      setDealPriceInput(prev => { const next = { ...prev }; delete next[id]; return next; });
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["portal-menu"] }),
+  });
+
   const filtered = items.filter(i =>
     i.nameAr.includes(search) || i.name.toLowerCase().includes(search.toLowerCase()) || i.category.includes(search)
   );
 
+  const activeDeals = filtered.filter(i => i.isDeal);
   const grouped = filtered.reduce<Record<string, MenuItem[]>>((acc, item) => {
     const key = item.categoryAr || item.category || "أخرى";
     if (!acc[key]) acc[key] = [];
@@ -90,6 +114,43 @@ export default function Menu() {
         <Button onClick={() => setEditItem({ ...emptyItem })}>+ إضافة صنف</Button>
       </div>
 
+      {activeDeals.length > 0 && (
+        <div>
+          <h3 className="font-semibold text-base mb-2 text-orange-600">🔥 العروض النشطة ({activeDeals.length})</h3>
+          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            {activeDeals.map(item => (
+              <Card key={item.id} className="flex flex-col border-orange-200 bg-orange-50/50">
+                <CardContent className="pt-4 flex flex-col flex-1">
+                  <div className="flex items-start gap-3">
+                    {item.image && (
+                      <img src={item.image} alt={item.nameAr} className="w-16 h-16 rounded-lg object-cover shrink-0 border" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm">{item.nameAr}</p>
+                      <p className="text-xs text-muted-foreground">{item.name}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-sm line-through text-muted-foreground">{item.price} ل.س</span>
+                        <span className="font-bold text-orange-600">{item.dealPrice} ل.س</span>
+                        <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-medium">عرض 🔥</span>
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-3 border-red-200 text-red-600 hover:bg-red-50"
+                    disabled={dealMutation.isPending}
+                    onClick={() => dealMutation.mutate({ id: item.id, isDeal: false })}
+                  >
+                    إلغاء العرض
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
       {Object.entries(grouped).length === 0 ? (
         <div className="text-center py-20 text-muted-foreground">لا توجد أصناف. ابدأ بإضافة الأول!</div>
       ) : (
@@ -98,7 +159,7 @@ export default function Menu() {
             <h3 className="font-semibold text-base mb-2 text-muted-foreground">{cat}</h3>
             <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
               {catItems.map(item => (
-                <Card key={item.id} className={`flex flex-col transition-opacity ${item.isAvailable ? "" : "opacity-60"}`}>
+                <Card key={item.id} className={`flex flex-col transition-opacity ${item.isAvailable ? "" : "opacity-60"} ${item.isDeal ? "border-orange-200" : ""}`}>
                   <CardContent className="pt-4 flex flex-col flex-1">
                     <div className="flex items-start gap-3">
                       {item.image && (
@@ -112,16 +173,65 @@ export default function Menu() {
                           ) : (
                             <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-medium">نفد</span>
                           )}
+                          {item.isDeal && (
+                            <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-medium">🔥 عرض</span>
+                          )}
                         </div>
                         <p className="text-xs text-muted-foreground">{item.name}</p>
                         {item.descriptionAr && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.descriptionAr}</p>}
                         <div className="flex items-center gap-2 mt-2">
-                          <span className="font-bold text-primary">{item.price} ل.س</span>
+                          {item.isDeal ? (
+                            <>
+                              <span className="text-sm line-through text-muted-foreground">{item.price} ل.س</span>
+                              <span className="font-bold text-orange-600">{item.dealPrice} ل.س</span>
+                            </>
+                          ) : (
+                            <span className="font-bold text-primary">{item.price} ل.س</span>
+                          )}
                           {item.isPopular && <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">🔥 شائع</span>}
                         </div>
                       </div>
                     </div>
-                    <div className="flex gap-2 mt-3">
+
+                    {!item.isDeal && (
+                      <div className="mt-3 flex gap-2 items-center">
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder="سعر العرض"
+                          className="h-8 text-sm"
+                          value={dealPriceInput[item.id] ?? ""}
+                          onChange={e => setDealPriceInput(prev => ({ ...prev, [item.id]: e.target.value }))}
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-orange-300 text-orange-600 hover:bg-orange-50 shrink-0"
+                          disabled={dealMutation.isPending || !dealPriceInput[item.id]}
+                          onClick={() => {
+                            const price = parseFloat(dealPriceInput[item.id] ?? "");
+                            if (!price || price <= 0) return;
+                            dealMutation.mutate({ id: item.id, isDeal: true, dealPrice: price });
+                          }}
+                        >
+                          تفعيل عرض 🔥
+                        </Button>
+                      </div>
+                    )}
+
+                    {item.isDeal && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="mt-3 border-red-200 text-red-600 hover:bg-red-50"
+                        disabled={dealMutation.isPending}
+                        onClick={() => dealMutation.mutate({ id: item.id, isDeal: false })}
+                      >
+                        إلغاء العرض
+                      </Button>
+                    )}
+
+                    <div className="flex gap-2 mt-2">
                       <Button
                         size="sm"
                         variant={item.isAvailable ? "outline" : "default"}

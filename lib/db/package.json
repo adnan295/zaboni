@@ -12,7 +12,8 @@
     "./migrations/add-promo-images": "./src/migrations/add-promo-images.ts",
     "./migrations/add-promo-images-template": "./src/migrations/add-promo-images-template.ts",
     "./migrations/add-menu-item-availability": "./src/migrations/add-menu-item-availability.ts",
-    "./migrations/add-promo-restaurant": "./src/migrations/add-promo-restaurant.ts"
+    "./migrations/add-promo-restaurant": "./src/migrations/add-promo-restaurant.ts",
+    "./migrations/add-menu-item-deals": "./src/migrations/add-menu-item-deals.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",
