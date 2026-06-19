@@ -37,6 +37,7 @@ minimumReleaseAgeExclude:
 
 onlyBuiltDependencies:
   - '@swc/core'
+  - canvas
   - esbuild
   - msw
   - unrs-resolver
