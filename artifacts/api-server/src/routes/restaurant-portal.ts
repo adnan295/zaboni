@@ -333,11 +333,11 @@ router.get("/restaurant-portal/stats", requireRestaurantAuth, async (req, res) =
   });
 });
 
-function parseGcsPath(gcsPath: string): { bucketName: string; objectName: string } {
-  const withoutScheme = gcsPath.replace(/^gs:\/\//, "");
-  const slashIndex = withoutScheme.indexOf("/");
-  if (slashIndex === -1) return { bucketName: withoutScheme, objectName: "" };
-  return { bucketName: withoutScheme.slice(0, slashIndex), objectName: withoutScheme.slice(slashIndex + 1) };
+function parseStoragePath(path: string): { bucketName: string; objectName: string } {
+  if (!path.startsWith("/")) path = `/${path}`;
+  const parts = path.split("/");
+  if (parts.length < 3) throw new Error("Invalid storage path: must contain at least a bucket name");
+  return { bucketName: parts[1]!, objectName: parts.slice(2).join("/") };
 }
 
 function getPublicStorageBase(): string {
@@ -349,7 +349,7 @@ function getPublicStorageBase(): string {
 async function readFoodImageFromStorage(foodObjectPath: string): Promise<{ buffer: Buffer; contentType: string }> {
   const base = getPublicStorageBase();
   const fullPath = `${base}/${foodObjectPath}`;
-  const { bucketName, objectName } = parseGcsPath(fullPath);
+  const { bucketName, objectName } = parseStoragePath(fullPath);
   const file = objectStorageClient.bucket(bucketName).file(objectName);
   const [exists] = await file.exists();
   if (!exists) throw new Error("صورة الوجبة غير موجودة في المستودع");
@@ -363,7 +363,7 @@ async function uploadBannerToPublicStorage(buffer: Buffer, restaurantId: string,
   const base = getPublicStorageBase();
   const relPath = `promo-banners/${restaurantId}/${filename}`;
   const fullPath = `${base}/${relPath}`;
-  const { bucketName, objectName } = parseGcsPath(fullPath);
+  const { bucketName, objectName } = parseStoragePath(fullPath);
   const file = objectStorageClient.bucket(bucketName).file(objectName);
   await file.save(buffer, { contentType: "image/png", resumable: false });
   return `/api/storage/public-objects/${relPath}`;
