@@ -750,6 +750,19 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ items }),
     }),
+  getSlaAlerts: (minAge = 5) =>
+    apiFetch<SlaAlert[]>(`/admin/sla-alerts?minAge=${minAge}`),
+};
+
+export type SlaAlert = {
+  id: string;
+  orderText: string;
+  restaurantName: string | null;
+  address: string | null;
+  createdAt: string;
+  ageMinutes: number;
+  customerName: string | null;
+  customerPhone: string | null;
 };
 
 export type ChurnUser = {

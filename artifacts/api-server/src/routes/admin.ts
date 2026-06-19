@@ -780,6 +780,36 @@ router.get("/admin/orders/active", async (_req, res) => {
   res.json(rows);
 });
 
+router.get("/admin/sla-alerts", async (req, res) => {
+  const minAgeMinutesRaw = parseInt(String(req.query["minAge"] ?? "5"));
+  const minAgeMinutes = Number.isFinite(minAgeMinutesRaw) && minAgeMinutesRaw >= 1 ? minAgeMinutesRaw : 5;
+  const cutoff = new Date(Date.now() - minAgeMinutes * 60_000);
+
+  const rows = await db.execute(sql`
+    SELECT
+      o.id,
+      o.order_text AS "orderText",
+      o.restaurant_name AS "restaurantName",
+      o.address,
+      o.created_at AS "createdAt",
+      EXTRACT(EPOCH FROM (NOW() - o.created_at)) / 60.0 AS "ageMinutes",
+      u.name AS "customerName",
+      u.phone AS "customerPhone"
+    FROM orders o
+    LEFT JOIN users u ON u.id = o.user_id
+    WHERE o.status = 'searching'
+      AND o.created_at < ${cutoff}
+    ORDER BY o.created_at ASC
+  `);
+
+  res.json(
+    rows.rows.map((r: Record<string, unknown>) => ({
+      ...r,
+      ageMinutes: Math.round(Number(r["ageMinutes"] ?? 0)),
+    })),
+  );
+});
+
 const STATUS_PUSH_MESSAGES: Record<string, string> = {
   accepted: "قبل مندوب طلبك وهو في الطريق لاستلامه!",
   picked_up: "المندوب استلم طلبك من المطعم 📦",

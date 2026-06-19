@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { api, type Order, type WaVerifyHealth, type WaVerifyHealthLogEntry } from "@/lib/api";
+import { api, type Order, type WaVerifyHealth, type WaVerifyHealthLogEntry, type SlaAlert } from "@/lib/api";
 import {
   Card,
   CardContent,
@@ -212,6 +213,104 @@ function StatCard({
   );
 }
 
+function SlaAlertsWidget({ alerts, isLoading }: { alerts: SlaAlert[]; isLoading: boolean }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const critical = alerts.filter((a) => a.ageMinutes > 20).length;
+  const warning = alerts.filter((a) => a.ageMinutes > 10 && a.ageMinutes <= 20).length;
+
+  if (isLoading) return null;
+  if (alerts.length === 0) return null;
+
+  return (
+    <Card className="shadow-sm border-red-200 dark:border-red-900/40 bg-red-50/40 dark:bg-red-950/20">
+      <CardHeader className="pb-2 cursor-pointer select-none" onClick={() => setCollapsed((v) => !v)}>
+        <CardTitle className="text-base font-semibold text-red-700 dark:text-red-400 flex items-center gap-2">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+          </span>
+          تنبيهات التأخير ⏰
+          <span className="flex gap-1.5 mr-1">
+            {critical > 0 && (
+              <span className="text-xs font-bold bg-red-600 text-white rounded-full px-2 py-0.5 leading-none">
+                🔴 {critical} فوق 20 د
+              </span>
+            )}
+            {warning > 0 && (
+              <span className="text-xs font-bold bg-amber-500 text-white rounded-full px-2 py-0.5 leading-none">
+                🟡 {warning} فوق 10 د
+              </span>
+            )}
+          </span>
+          <span className="text-xs font-normal text-red-600/60 mr-auto">
+            {collapsed ? "▼ عرض" : "▲ إخفاء"}
+          </span>
+        </CardTitle>
+      </CardHeader>
+      {!collapsed && (
+        <CardContent>
+          <div className="space-y-2 max-h-72 overflow-y-auto">
+            {alerts.map((alert) => {
+              const isRed = alert.ageMinutes > 20;
+              const isAmber = alert.ageMinutes > 10 && alert.ageMinutes <= 20;
+              return (
+                <Link key={alert.id} href="/orders">
+                  <div
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm border shadow-sm cursor-pointer transition-colors hover:opacity-80 ${
+                      isRed
+                        ? "bg-red-100 dark:bg-red-950/40 border-red-300 dark:border-red-800"
+                        : isAmber
+                          ? "bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800"
+                          : "bg-white dark:bg-card border-border"
+                    }`}
+                  >
+                    <span
+                      className={`text-lg flex-shrink-0 ${
+                        isRed ? "text-red-600" : isAmber ? "text-amber-600" : "text-muted-foreground"
+                      }`}
+                    >
+                      {isRed ? "🔴" : isAmber ? "🟡" : "⏳"}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs text-muted-foreground flex-shrink-0">
+                          #{alert.id.slice(0, 8)}
+                        </span>
+                        {alert.restaurantName && (
+                          <span className="text-xs font-medium text-foreground/80 flex-shrink-0">
+                            {alert.restaurantName}
+                          </span>
+                        )}
+                        {alert.customerName && (
+                          <span className="text-xs text-muted-foreground truncate">
+                            · {alert.customerName}
+                          </span>
+                        )}
+                      </div>
+                      {alert.address && (
+                        <p className="text-xs text-muted-foreground truncate mt-0.5" dir="rtl">
+                          {alert.address}
+                        </p>
+                      )}
+                    </div>
+                    <span
+                      className={`flex-shrink-0 text-sm font-bold tabular-nums ${
+                        isRed ? "text-red-700 dark:text-red-400" : isAmber ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"
+                      }`}
+                    >
+                      {alert.ageMinutes} د
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
 export default function Dashboard() {
   const [range, setRange] = useState<Range>(30);
   const [waVerifyLastUpdated, setWaVerifyLastUpdated] = useState<Date | null>(null);
@@ -253,6 +352,12 @@ export default function Dashboard() {
     queryKey: ["admin", "orders", "active"],
     queryFn: api.getActiveOrders,
     refetchInterval: 10_000,
+  });
+
+  const { data: slaAlerts = [], isLoading: slaLoading } = useQuery({
+    queryKey: ["admin", "sla-alerts"],
+    queryFn: () => api.getSlaAlerts(5),
+    refetchInterval: 30_000,
   });
 
   const { data: dailyData = [] } = useQuery({
@@ -411,6 +516,8 @@ export default function Dashboard() {
         history={waVerifyHistory}
         historyLoading={waVerifyHistoryLoading}
       />
+
+      <SlaAlertsWidget alerts={slaAlerts} isLoading={slaLoading} />
 
       {totalActive > 0 && (
         <Card className="shadow-sm border-orange-200 dark:border-orange-900/40 bg-orange-50/50 dark:bg-orange-950/20">
