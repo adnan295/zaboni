@@ -12,7 +12,7 @@ version = "1.0.0"
 [[services]]
 name = "web"
 paths = [ "/zaboni-web/" ]
-localPort = 23744
+localPort = 23746
 
 [services.development]
 run = "pnpm --filter @workspace/zaboni-web run dev"
@@ -27,5 +27,5 @@ from = "/*"
 to = "/index.html"
 
 [services.env]
-PORT = "23744"
+PORT = "23746"
 BASE_PATH = "/zaboni-web/"
