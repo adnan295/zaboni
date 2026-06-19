@@ -333,6 +333,42 @@ router.get("/restaurant-portal/stats", requireRestaurantAuth, async (req, res) =
   });
 });
 
+function parseGcsPath(gcsPath: string): { bucketName: string; objectName: string } {
+  const withoutScheme = gcsPath.replace(/^gs:\/\//, "");
+  const slashIndex = withoutScheme.indexOf("/");
+  if (slashIndex === -1) return { bucketName: withoutScheme, objectName: "" };
+  return { bucketName: withoutScheme.slice(0, slashIndex), objectName: withoutScheme.slice(slashIndex + 1) };
+}
+
+function getPublicStorageBase(): string {
+  const paths = (process.env["PUBLIC_OBJECT_SEARCH_PATHS"] ?? "").split(",").map(p => p.trim()).filter(Boolean);
+  if (!paths[0]) throw new Error("PUBLIC_OBJECT_SEARCH_PATHS not configured");
+  return paths[0];
+}
+
+async function readFoodImageFromStorage(foodObjectPath: string): Promise<{ buffer: Buffer; contentType: string }> {
+  const base = getPublicStorageBase();
+  const fullPath = `${base}/${foodObjectPath}`;
+  const { bucketName, objectName } = parseGcsPath(fullPath);
+  const file = objectStorageClient.bucket(bucketName).file(objectName);
+  const [exists] = await file.exists();
+  if (!exists) throw new Error("صورة الوجبة غير موجودة في المستودع");
+  const [buffer] = await file.download();
+  const [meta] = await file.getMetadata();
+  const contentType = (meta.contentType as string | undefined) ?? "image/jpeg";
+  return { buffer, contentType };
+}
+
+async function uploadBannerToPublicStorage(buffer: Buffer, restaurantId: string, filename: string): Promise<string> {
+  const base = getPublicStorageBase();
+  const relPath = `promo-banners/${restaurantId}/${filename}`;
+  const fullPath = `${base}/${relPath}`;
+  const { bucketName, objectName } = parseGcsPath(fullPath);
+  const file = objectStorageClient.bucket(bucketName).file(objectName);
+  await file.save(buffer, { contentType: "image/png", resumable: false });
+  return `/api/storage/public-objects/${relPath}`;
+}
+
 function getOpenAIClient(): OpenAI {
   if (!process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"] || !process.env["AI_INTEGRATIONS_OPENAI_API_KEY"]) {
     throw new Error("OpenAI integration not configured");
@@ -359,25 +395,9 @@ ${tagline ? `- Tagline/slogan: "${tagline}" displayed clearly` : ""}
 - The overall composition should look like a professional advertisement card`;
 }
 
-async function uploadBufferToStorage(buffer: Buffer, filename: string, contentType: string, restaurantId: string): Promise<string> {
-  const bucketEnv = process.env["DEFAULT_OBJECT_STORAGE_BUCKET_ID"];
-  const privateDir = process.env["PRIVATE_OBJECT_DIR"];
-  if (!bucketEnv || !privateDir) throw new Error("Object storage not configured");
-
-  const dirParts = privateDir.replace(/^gs:\/\/[^/]+\//, "").replace(/\/$/, "");
-  const bucketName = privateDir.replace(/^gs:\/\//, "").split("/")[0];
-  const objectName = `${dirParts}/promo-images/${restaurantId}/${filename}`;
-
-  const bucket = objectStorageClient.bucket(bucketName);
-  const file = bucket.file(objectName);
-  await file.save(buffer, { contentType, resumable: false });
-
-  return `/api/storage/objects/promo-images/${restaurantId}/${filename}`;
-}
-
 router.post("/restaurant-portal/promo-images/generate", requireRestaurantAuth, async (req, res) => {
   const parsed = z.object({
-    foodImageUrl: z.string().url().optional(),
+    foodObjectPath: z.string().optional(),
     oldPrice: z.string().min(1),
     newPrice: z.string().min(1),
     tagline: z.string().optional(),
@@ -385,7 +405,7 @@ router.post("/restaurant-portal/promo-images/generate", requireRestaurantAuth, a
   if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صحيحة" }); return; }
 
   const { restaurantId } = getRestaurantAuth(req);
-  const { foodImageUrl, oldPrice, newPrice, tagline } = parsed.data;
+  const { foodObjectPath, oldPrice, newPrice, tagline } = parsed.data;
 
   const [restaurant] = await db.select({ nameAr: restaurantsTable.nameAr }).from(restaurantsTable).where(eq(restaurantsTable.id, restaurantId)).limit(1);
   const restaurantName = restaurant?.nameAr ?? "مطعمنا";
@@ -398,11 +418,8 @@ router.post("/restaurant-portal/promo-images/generate", requireRestaurantAuth, a
   try {
     let base64Data: string;
 
-    if (foodImageUrl) {
-      const imgRes = await fetch(foodImageUrl, { signal: AbortSignal.timeout(15000) });
-      if (!imgRes.ok) throw new Error("فشل تحميل صورة الوجبة");
-      const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
-      const contentType = imgRes.headers.get("content-type") ?? "image/jpeg";
+    if (foodObjectPath) {
+      const { buffer: imgBuffer, contentType } = await readFoodImageFromStorage(foodObjectPath);
       const ext = contentType.includes("png") ? "png" : "jpeg";
       const imgFile = await toFile(imgBuffer, `food.${ext}`, { type: contentType });
 
@@ -424,14 +441,15 @@ router.post("/restaurant-portal/promo-images/generate", requireRestaurantAuth, a
 
     if (!base64Data) throw new Error("لم يتم إنشاء الصورة");
 
-    const imgBuffer = Buffer.from(base64Data, "base64");
+    const bannerBuffer = Buffer.from(base64Data, "base64");
     const filename = `${Date.now()}-${randomUUID().slice(0, 8)}.png`;
-    const resultUrl = await uploadBufferToStorage(imgBuffer, filename, "image/png", restaurantId);
+    const resultUrl = await uploadBannerToPublicStorage(bannerBuffer, restaurantId, filename);
 
     const id = `promo_${Date.now()}`;
+    const foodPublicUrl = foodObjectPath ? `/api/storage/public-objects/${foodObjectPath}` : null;
     await db.execute(sql`
       INSERT INTO promo_images (id, restaurant_id, restaurant_name, food_image_url, old_price, new_price, tagline, result_url)
-      VALUES (${id}, ${restaurantId}, ${restaurantName}, ${foodImageUrl ?? null}, ${oldPrice}, ${newPrice}, ${tagline ?? null}, ${resultUrl})
+      VALUES (${id}, ${restaurantId}, ${restaurantName}, ${foodPublicUrl}, ${oldPrice}, ${newPrice}, ${tagline ?? null}, ${resultUrl})
     `);
 
     res.json({ id, resultUrl, restaurantName, oldPrice, newPrice, tagline });
@@ -448,7 +466,7 @@ router.get("/restaurant-portal/promo-images", requireRestaurantAuth, async (req,
     FROM promo_images
     WHERE restaurant_id = ${restaurantId}
     ORDER BY created_at DESC
-    LIMIT 20
+    LIMIT 10
   `);
   const items = rows.rows.map((r: Record<string, unknown>) => ({
     id: r["id"] as string,
