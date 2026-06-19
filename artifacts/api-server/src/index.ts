@@ -2,6 +2,7 @@ import { createServer } from "http";
 import app from "./app";
 import { startOrderExpiryJob } from "./lib/orderExpiry";
 import { logger } from "./lib/logger";
+import { ensurePreviewsExist } from "./lib/promoBannerComposer";
 import { backfillRestaurantPhones } from "@workspace/db/migrations/backfill-restaurant-phones";
 import { addMenuItemSubcategory } from "@workspace/db/migrations/add-menu-item-subcategory";
 import { addRestaurantPortal } from "@workspace/db/migrations/add-restaurant-portal";
@@ -33,6 +34,10 @@ httpServer.listen(port, (err?: Error) => {
   }
   logger.info({ port }, "Server listening");
   startOrderExpiryJob();
+  // Generate banner template preview PNGs at startup so <img> tags work immediately
+  ensurePreviewsExist().catch((e) =>
+    logger.error({ err: e }, "Failed to generate banner previews"),
+  );
   backfillRestaurantPhones().catch((e) =>
     logger.error({ err: e }, "Failed to backfill restaurant phones"),
   );

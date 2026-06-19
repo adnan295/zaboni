@@ -72,7 +72,7 @@ const TEMPLATES: TemplateSpec[] = [
 ];
 
 function previewUrl(id: string) {
-  return `/api/restaurant-portal/promo-templates/preview/${id}.jpg`;
+  return `/api/restaurant-portal/promo-templates/preview/${id}.png`;
 }
 
 export function listPublicTemplates(): PublicTemplate[] {
@@ -112,9 +112,9 @@ const SAMPLE_INPUT: Omit<BannerInput, "appLogoBuffer"> = {
   couponCode: "SAVE30",
 };
 
-async function buildPreviewJpeg(templateId: string): Promise<Buffer> {
+async function buildPreviewPng(templateId: string): Promise<Buffer> {
   const full = await composeBannerByTemplate(templateId, SAMPLE_INPUT);
-  return sharp(full).resize(400, 400).jpeg({ quality: 82 }).toBuffer();
+  return sharp(full).resize(400, 400).png({ compressionLevel: 8 }).toBuffer();
 }
 
 let _previewsPromise: Promise<void> | null = null;
@@ -128,9 +128,9 @@ export async function ensurePreviewsExist(): Promise<void> {
     await mkdir(dir, { recursive: true });
     await Promise.all(
       TEMPLATES.map(async t => {
-        const filePath = path.join(dir, `${t.id}.jpg`);
+        const filePath = path.join(dir, `${t.id}.png`);
         if (!existsSync(filePath)) {
-          const buf = await buildPreviewJpeg(t.id);
+          const buf = await buildPreviewPng(t.id);
           await writeFile(filePath, buf);
         }
       }),
@@ -140,12 +140,12 @@ export async function ensurePreviewsExist(): Promise<void> {
   return _previewsPromise;
 }
 
-/** Serve a cached preview JPEG for a given template id. */
+/** Serve a pre-generated preview PNG for a given template id. */
 export async function getPreviewBuffer(templateId: string): Promise<Buffer | null> {
   const spec = TEMPLATES.find(t => t.id === templateId);
   if (!spec) return null;
   await ensurePreviewsExist();
-  const filePath = path.join(ASSETS_DIR, "previews", `${templateId}.jpg`);
+  const filePath = path.join(ASSETS_DIR, "previews", `${templateId}.png`);
   if (!existsSync(filePath)) return null;
   const { readFile } = await import("fs/promises");
   return readFile(filePath);

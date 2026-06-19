@@ -621,19 +621,19 @@ router.get("/restaurant-portal/promo-templates", requireRestaurantAuth, (_req, r
   res.json(listPublicTemplates());
 });
 
-// Serve pre-generated static preview JPEGs (filename = template-{a|b|c|d}.jpg)
-router.get("/restaurant-portal/promo-templates/preview/:filename", requireRestaurantAuth, async (req, res) => {
+// Serve pre-generated static preview PNGs — public route (no auth) so <img> tags work in browser
+router.get("/restaurant-portal/promo-templates/preview/:filename", async (req, res) => {
   try {
     const filename = req.params["filename"] as string;
     // Only allow expected filenames
-    if (!/^template-[a-d]\.jpg$/.test(filename)) {
+    if (!/^template-[a-d]\.png$/.test(filename)) {
       res.status(404).end();
       return;
     }
-    const templateId = filename.replace(".jpg", "");
+    const templateId = filename.replace(".png", "");
     const buf = await getPreviewBuffer(templateId);
-    if (!buf) { res.status(404).end(); return; }
-    res.setHeader("Content-Type", "image/jpeg");
+    if (!buf) { res.status(503).json({ error: "preview not ready yet" }); return; }
+    res.setHeader("Content-Type", "image/png");
     res.setHeader("Cache-Control", "public, max-age=604800");
     res.end(buf);
   } catch {
