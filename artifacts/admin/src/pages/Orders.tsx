@@ -76,9 +76,13 @@ function exportCSV(orders: Order[]) {
 }
 
 export default function Orders() {
+  const [urlOrderId] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("orderId") ?? "";
+  });
   const [search, setSearch] = useState(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get("search") ?? "";
+    return params.get("orderId") ?? params.get("search") ?? "";
   });
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
@@ -87,10 +91,12 @@ export default function Orders() {
 
   const apiDateFrom = dateFrom || undefined;
   const apiDateTo = dateTo || undefined;
+  // When navigated from an SLA alert, use server-side orderId filter to bypass pagination
+  const apiOrderId = urlOrderId || undefined;
 
   const { data, isLoading } = useQuery({
-    queryKey: ["admin", "orders", page, apiDateFrom, apiDateTo],
-    queryFn: () => api.getOrders(page, PAGE_SIZE, apiDateFrom, apiDateTo),
+    queryKey: ["admin", "orders", page, apiDateFrom, apiDateTo, apiOrderId],
+    queryFn: () => api.getOrders(page, PAGE_SIZE, apiDateFrom, apiDateTo, apiOrderId),
     refetchInterval: 15_000,
   });
 

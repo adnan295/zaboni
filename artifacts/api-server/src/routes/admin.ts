@@ -713,6 +713,7 @@ const ordersQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(200).default(50),
   dateFrom: isoDateSchema,
   dateTo: isoDateSchema,
+  orderId: z.string().optional(),
 });
 
 router.get("/admin/orders", async (req, res) => {
@@ -721,12 +722,15 @@ router.get("/admin/orders", async (req, res) => {
     res.status(400).json({ error: "Invalid query params" });
     return;
   }
-  const { page, limit, dateFrom, dateTo } = parsed.data;
+  const { page, limit, dateFrom, dateTo, orderId } = parsed.data;
   const offset = (page - 1) * limit;
 
   // Damascus is UTC+3; convert YYYY-MM-DD boundaries to UTC
   const DAMASCUS_OFFSET_MS = 3 * 60 * 60 * 1000;
   const conditions = [];
+  if (orderId) {
+    conditions.push(eq(ordersTable.id, orderId));
+  }
   if (dateFrom) {
     // Start of day in Damascus = dateFrom 00:00:00 local → subtract offset for UTC
     const from = new Date(Date.parse(dateFrom + "T00:00:00.000Z") - DAMASCUS_OFFSET_MS);
