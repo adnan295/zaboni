@@ -186,6 +186,6 @@ export type Analytics = {
   weekOrders: number;
   weekRevenue: number;
   dailySeries: { date: string; orders: number; revenue: number }[];
-  topItems: { name: string }[];
+  topItems: { name: string; count: number }[];
   peakHours: { hour: number; count: number }[];
 };

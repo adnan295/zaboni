@@ -312,21 +312,26 @@ router.get("/restaurant-portal/orders", requireRestaurantAuth, async (req, res) 
 router.get("/restaurant-portal/analytics", requireRestaurantAuth, async (req, res) => {
   const { restaurantId } = getRestaurantAuth(req);
 
-  const now = new Date();
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
-  const weekStart = new Date(now);
-  weekStart.setDate(weekStart.getDate() - 6);
-  weekStart.setHours(0, 0, 0, 0);
+  // Damascus is UTC+3 — compute consistent period boundaries in Damascus timezone
+  const DAMASCUS_OFFSET_MS = 3 * 60 * 60 * 1000;
+  const nowUtc = new Date();
+  // Shift to Damascus "local" for date math
+  const nowLocal = new Date(nowUtc.getTime() + DAMASCUS_OFFSET_MS);
+  const todayLocalMidnight = new Date(Date.UTC(nowLocal.getUTCFullYear(), nowLocal.getUTCMonth(), nowLocal.getUTCDate()));
+  const weekLocalMidnight = new Date(todayLocalMidnight);
+  weekLocalMidnight.setUTCDate(weekLocalMidnight.getUTCDate() - 6);
+  // Convert back to UTC for DB comparisons
+  const todayStartUtc = new Date(todayLocalMidnight.getTime() - DAMASCUS_OFFSET_MS);
+  const weekStartUtc = new Date(weekLocalMidnight.getTime() - DAMASCUS_OFFSET_MS);
 
-  const [todayStats, weekStats, dailyRows, peakRows, popularItems] = await Promise.all([
+  const [todayStats, weekStats, dailyRows, peakRows, menuItems] = await Promise.all([
     db.select({
       orders: count(),
       revenue: sql<number>`COALESCE(SUM(delivery_fee), 0)`,
     }).from(ordersTable).where(and(
       eq(ordersTable.restaurantId, restaurantId),
       eq(ordersTable.status, "delivered"),
-      gte(ordersTable.createdAt, todayStart),
+      gte(ordersTable.createdAt, todayStartUtc),
     )),
     db.select({
       orders: count(),
@@ -334,7 +339,7 @@ router.get("/restaurant-portal/analytics", requireRestaurantAuth, async (req, re
     }).from(ordersTable).where(and(
       eq(ordersTable.restaurantId, restaurantId),
       eq(ordersTable.status, "delivered"),
-      gte(ordersTable.createdAt, weekStart),
+      gte(ordersTable.createdAt, weekStartUtc),
     )),
     db.select({
       date: sql<string>`TO_CHAR(created_at AT TIME ZONE 'Asia/Damascus', 'YYYY-MM-DD')`,
@@ -343,7 +348,7 @@ router.get("/restaurant-portal/analytics", requireRestaurantAuth, async (req, re
     }).from(ordersTable).where(and(
       eq(ordersTable.restaurantId, restaurantId),
       eq(ordersTable.status, "delivered"),
-      gte(ordersTable.createdAt, weekStart),
+      gte(ordersTable.createdAt, weekStartUtc),
     )).groupBy(sql`TO_CHAR(created_at AT TIME ZONE 'Asia/Damascus', 'YYYY-MM-DD')`)
       .orderBy(sql`TO_CHAR(created_at AT TIME ZONE 'Asia/Damascus', 'YYYY-MM-DD')`),
     db.select({
@@ -351,23 +356,40 @@ router.get("/restaurant-portal/analytics", requireRestaurantAuth, async (req, re
       count: count(),
     }).from(ordersTable).where(and(
       eq(ordersTable.restaurantId, restaurantId),
-      gte(ordersTable.createdAt, weekStart),
+      gte(ordersTable.createdAt, weekStartUtc),
     )).groupBy(sql`EXTRACT(HOUR FROM created_at AT TIME ZONE 'Asia/Damascus')::int`)
       .orderBy(sql`EXTRACT(HOUR FROM created_at AT TIME ZONE 'Asia/Damascus')::int`),
     db.select({ nameAr: menuItemsTable.nameAr, name: menuItemsTable.name })
       .from(menuItemsTable)
-      .where(and(eq(menuItemsTable.restaurantId, restaurantId), eq(menuItemsTable.isPopular, true)))
-      .limit(5),
+      .where(eq(menuItemsTable.restaurantId, restaurantId)),
   ]);
 
+  // Build daily series using Damascus-local dates (consistent with SQL grouping)
   const dailyMap = new Map(dailyRows.map(r => [r.date, r]));
   const dailySeries = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(now);
-    d.setDate(d.getDate() - (6 - i));
-    const dateStr = d.toISOString().slice(0, 10);
+    const d = new Date(todayLocalMidnight);
+    d.setUTCDate(d.getUTCDate() - (6 - i));
+    const dateStr = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
     const row = dailyMap.get(dateStr);
     return { date: dateStr, orders: Number(row?.orders ?? 0), revenue: Number(row?.revenue ?? 0) };
   });
+
+  // Count how many delivered orders mention each menu item (text match)
+  const deliveredOrders = await db.select({ orderText: ordersTable.orderText })
+    .from(ordersTable)
+    .where(and(eq(ordersTable.restaurantId, restaurantId), eq(ordersTable.status, "delivered")));
+
+  const itemCounts = menuItems
+    .map(item => {
+      const terms = [item.nameAr, item.name].filter(Boolean).map(n => n.toLowerCase());
+      const matchCount = deliveredOrders.filter(o =>
+        terms.some(t => o.orderText.toLowerCase().includes(t)),
+      ).length;
+      return { name: item.nameAr || item.name, count: matchCount };
+    })
+    .filter(i => i.count > 0)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
 
   res.json({
     todayOrders: Number(todayStats[0]?.orders ?? 0),
@@ -375,7 +397,7 @@ router.get("/restaurant-portal/analytics", requireRestaurantAuth, async (req, re
     weekOrders: Number(weekStats[0]?.orders ?? 0),
     weekRevenue: Number(weekStats[0]?.revenue ?? 0),
     dailySeries,
-    topItems: popularItems.map(i => ({ name: i.nameAr || i.name })),
+    topItems: itemCounts,
     peakHours: peakRows.map(r => ({ hour: Number(r.hour), count: Number(r.count) })),
   });
 });
