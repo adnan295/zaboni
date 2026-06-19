@@ -1808,7 +1808,7 @@ const categoryBody = z.object({
   nameAr: z.string().min(1),
   nameEn: z.string().default(""),
   iconName: z.string().default("restaurant"),
-  imageUrl: z.string().url().nullish(),
+  imageUrl: z.string().nullish(),
   sortOrder: z.number().int().default(0),
   isActive: z.boolean().default(true),
 });
