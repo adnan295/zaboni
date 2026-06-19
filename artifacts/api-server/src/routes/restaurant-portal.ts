@@ -7,7 +7,7 @@ import { z } from "zod";
 import { sendSmsViaGateway } from "../lib/sms";
 import { whatsappManager } from "../lib/whatsapp";
 import { objectStorageClient } from "../lib/objectStorage";
-import { composeBannerByTemplate, listPublicTemplates, generateTemplatePreview } from "../lib/promoBannerComposer";
+import { composeBannerByTemplate, listPublicTemplates, getPreviewBuffer, ensurePreviewsExist } from "../lib/promoBannerComposer";
 import { randomUUID } from "crypto";
 
 const router = Router();
@@ -616,18 +616,28 @@ router.delete("/restaurant-portal/promos/:id", requireRestaurantAuth, async (req
 });
 
 router.get("/restaurant-portal/promo-templates", requireRestaurantAuth, (_req, res) => {
+  // Fire-and-forget: generate preview PNGs in the background for first-time load
+  void ensurePreviewsExist().catch(() => {});
   res.json(listPublicTemplates());
 });
 
-router.get("/restaurant-portal/promo-templates/:id/preview", requireRestaurantAuth, async (req, res) => {
+// Serve pre-generated static preview JPEGs (filename = template-{a|b|c|d}.jpg)
+router.get("/restaurant-portal/promo-templates/preview/:filename", requireRestaurantAuth, async (req, res) => {
   try {
-    const { id } = req.params;
-    const jpeg = await generateTemplatePreview(id as string);
+    const filename = req.params["filename"] as string;
+    // Only allow expected filenames
+    if (!/^template-[a-d]\.jpg$/.test(filename)) {
+      res.status(404).end();
+      return;
+    }
+    const templateId = filename.replace(".jpg", "");
+    const buf = await getPreviewBuffer(templateId);
+    if (!buf) { res.status(404).end(); return; }
     res.setHeader("Content-Type", "image/jpeg");
     res.setHeader("Cache-Control", "public, max-age=604800");
-    res.end(jpeg);
-  } catch (err) {
-    res.status(400).json({ error: "preview unavailable" });
+    res.end(buf);
+  } catch {
+    res.status(500).end();
   }
 });
 
