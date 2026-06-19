@@ -1,5 +1,4 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { buildImageUrl } from "@/lib/apiConfig";
 import {
   View,
   StyleSheet,
