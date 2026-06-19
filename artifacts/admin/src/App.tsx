@@ -30,6 +30,7 @@ import WhatsApp from "@/pages/WhatsApp";
 import HomeSections from "@/pages/HomeSections";
 import RestaurantAccounts from "@/pages/RestaurantAccounts";
 import RestaurantPerformance from "@/pages/RestaurantPerformance";
+import ChurnAnalysis from "@/pages/ChurnAnalysis";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -68,6 +69,7 @@ function Router({ onLogout }: { onLogout: () => void }) {
         <Route path="/home-sections" component={HomeSections} />
         <Route path="/restaurant-accounts" component={RestaurantAccounts} />
         <Route path="/restaurant-performance" component={RestaurantPerformance} />
+        <Route path="/churn" component={ChurnAnalysis} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
