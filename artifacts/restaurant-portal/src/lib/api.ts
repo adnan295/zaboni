@@ -73,6 +73,8 @@ export const api = {
 
   getAnalytics: () => apiFetch<Analytics>("/restaurant-portal/analytics"),
 
+  getRatings: () => apiFetch<RatingsData>("/restaurant-portal/ratings"),
+
   getPromoTemplates: () => apiFetch<PromoTemplate[]>("/restaurant-portal/promo-templates"),
 
   generatePromoImage: (data: { foodObjectPath?: string; oldPrice: string; newPrice: string; tagline?: string; templateId: string }) =>
@@ -178,6 +180,13 @@ export type Stats = {
   menuItemCount: number;
   rating: number;
   isOpen: boolean;
+};
+
+export type RatingsData = {
+  avgStars: number;
+  totalCount: number;
+  distribution: { stars: number; count: number; pct: number }[];
+  ratings: { id: string; restaurantStars: number; comment: string; createdAt: string }[];
 };
 
 export type Analytics = {

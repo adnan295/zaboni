@@ -1,5 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
-import { db, restaurantUsersTable, restaurantsTable, menuItemsTable, restaurantHoursTable, ordersTable, otpCodesTable } from "@workspace/db";
+import { db, restaurantUsersTable, restaurantsTable, menuItemsTable, restaurantHoursTable, ordersTable, otpCodesTable, orderRatingsTable } from "@workspace/db";
 import { eq, desc, and, gte, count, sql } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
@@ -403,6 +403,50 @@ router.get("/restaurant-portal/analytics", requireRestaurantAuth, async (req, re
     dailySeries,
     topItems: itemCounts,
     peakHours: peakRows.map(r => ({ hour: Number(r.hour), count: Number(r.count) })),
+  });
+});
+
+router.get("/restaurant-portal/ratings", requireRestaurantAuth, async (req, res) => {
+  const { restaurantId } = getRestaurantAuth(req);
+
+  const [ratings, statsRows] = await Promise.all([
+    db.select({
+      id: orderRatingsTable.id,
+      restaurantStars: orderRatingsTable.restaurantStars,
+      comment: orderRatingsTable.comment,
+      createdAt: orderRatingsTable.createdAt,
+    }).from(orderRatingsTable)
+      .where(eq(orderRatingsTable.restaurantId, restaurantId))
+      .orderBy(desc(orderRatingsTable.createdAt))
+      .limit(100),
+    db.select({
+      stars: orderRatingsTable.restaurantStars,
+      count: count(),
+    }).from(orderRatingsTable)
+      .where(eq(orderRatingsTable.restaurantId, restaurantId))
+      .groupBy(orderRatingsTable.restaurantStars),
+  ]);
+
+  const totalCount = statsRows.reduce((s, r) => s + Number(r.count), 0);
+  const weightedSum = statsRows.reduce((s, r) => s + r.stars * Number(r.count), 0);
+  const avgStars = totalCount > 0 ? Math.round((weightedSum / totalCount) * 10) / 10 : 0;
+
+  const distribution = [1, 2, 3, 4, 5].map(s => {
+    const row = statsRows.find(r => r.stars === s);
+    const cnt = Number(row?.count ?? 0);
+    return { stars: s, count: cnt, pct: totalCount > 0 ? (cnt / totalCount) * 100 : 0 };
+  });
+
+  res.json({
+    avgStars,
+    totalCount,
+    distribution,
+    ratings: ratings.map(r => ({
+      id: r.id,
+      restaurantStars: r.restaurantStars,
+      comment: r.comment,
+      createdAt: r.createdAt,
+    })),
   });
 });
 
