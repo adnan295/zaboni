@@ -819,18 +819,23 @@ router.get("/admin/cancellation-stats", async (req, res) => {
   const days = [7, 30, 90].includes(daysRaw) ? daysRaw : 30;
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-  // 1. Reason breakdown
+  // 1. Reason breakdown — LATERAL LIMIT 1 ensures exactly one history row per order (no inflation)
   const reasonRows = await db.execute(sql`
     SELECT
       CASE
         WHEN osh.note = 'auto_expired' THEN 'auto_expired'
         WHEN o.courier_id = '' OR o.courier_id IS NULL THEN 'customer'
-        ELSE 'post_accept'
+        ELSE 'restaurant_rejected'
       END AS reason,
       COUNT(*)::int AS count
     FROM orders o
-    LEFT JOIN order_status_history osh
-      ON osh.order_id = o.id AND osh.status = 'cancelled'
+    LEFT JOIN LATERAL (
+      SELECT note
+      FROM order_status_history
+      WHERE order_id = o.id AND status = 'cancelled'
+      ORDER BY created_at DESC
+      LIMIT 1
+    ) osh ON true
     WHERE o.status = 'cancelled'
       AND o.created_at >= ${since}
     GROUP BY reason

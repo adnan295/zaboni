@@ -123,7 +123,7 @@ export default function CancellationAnalysis() {
               icon="⏱️"
             />
             <ReasonCard
-              label="رفض / إلغاء بعد القبول"
+              label="رفض المطعم"
               value={data.byReason.restaurantRejected}
               total={data.total}
               color="text-purple-500"
