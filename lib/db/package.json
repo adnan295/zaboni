@@ -8,7 +8,8 @@
     "./schema": "./src/schema/index.ts",
     "./migrations/backfill-restaurant-phones": "./src/migrations/backfill-restaurant-phones.ts",
     "./migrations/add-menu-item-subcategory": "./src/migrations/add-menu-item-subcategory.ts",
-    "./migrations/add-restaurant-portal": "./src/migrations/add-restaurant-portal.ts"
+    "./migrations/add-restaurant-portal": "./src/migrations/add-restaurant-portal.ts",
+    "./migrations/add-promo-images": "./src/migrations/add-promo-images.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",

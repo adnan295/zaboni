@@ -11,6 +11,7 @@ import Menu from "@/pages/Menu";
 import Orders from "@/pages/Orders";
 import Hours from "@/pages/Hours";
 import Settings from "@/pages/Settings";
+import PromoImages from "@/pages/PromoImages";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -25,6 +26,7 @@ function Router({ restaurantName, onLogout }: { restaurantName: string; onLogout
         <Route path="/menu" component={Menu} />
         <Route path="/orders" component={Orders} />
         <Route path="/hours" component={Hours} />
+        <Route path="/promo" component={PromoImages} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>
