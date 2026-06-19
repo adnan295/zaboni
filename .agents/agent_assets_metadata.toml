@@ -53,3 +53,9 @@ id = "DoNWpeOY64lJ3efljNFMx"
 uri = "file://ZABONI_OVERVIEW.md"
 type = "text"
 title = "Zaboni — Complete Platform Overview"
+
+[[outputs]]
+id = "pQPJb8agn_hMCEA_VlwdD"
+uri = "file://promo-result.png"
+type = "image"
+title = "البوستر الترويجي — أرز بالدجاج الشهي 🩷"
