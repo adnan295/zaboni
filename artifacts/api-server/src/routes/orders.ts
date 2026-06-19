@@ -2,7 +2,7 @@ import { Router, type IRouter, type Request } from "express";
 import { db, ordersTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable, promoCodesTable, promoUsesTable, usersTable } from "@workspace/db";
 import { and, count, desc, eq, or } from "drizzle-orm";
 import { z } from "zod";
-import { notifyOrderUpdate, notifyNearbyCouriers } from "../orders/server";
+import { notifyOrderUpdate, notifyNearbyCouriers, notifyRestaurantNewOrder } from "../orders/server";
 import { haversineKm, getFeeForDistance, DEFAULT_DELIVERY_FEE_SYP, DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON } from "../lib/deliveryZones";
 
 const router: IRouter = Router();
@@ -260,6 +260,10 @@ router.post("/orders", async (req, res) => {
   });
 
   void notifyNearbyCouriers(destLat, destLon, body.data.restaurantName, zoneFee);
+
+  if (body.data.restaurantId) {
+    notifyRestaurantNewOrder(body.data.restaurantId, rows[0]);
+  }
 
   res.status(201).json({ ...rows[0], appliedPromo: promoUseData ? true : false });
 });
