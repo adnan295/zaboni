@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { ImageUpload } from "@/components/ImageUpload";
 
 const emptyItem: Omit<MenuItem, "id" | "restaurantId"> = {
   name: "", nameAr: "", price: 0, category: "", categoryAr: "",
@@ -134,9 +135,12 @@ export default function Menu() {
                 <Label>السعر (ل.س) *</Label>
                 <Input type="number" min="0" value={editItem.price ?? 0} onChange={e => setEditItem(p => ({ ...p!, price: parseFloat(e.target.value) || 0 }))} />
               </div>
-              <div className="space-y-1">
-                <Label>رابط الصورة</Label>
-                <Input dir="ltr" placeholder="https://..." value={editItem.image ?? ""} onChange={e => setEditItem(p => ({ ...p!, image: e.target.value }))} />
+              <div className="col-span-2">
+                <ImageUpload
+                  label="الصورة"
+                  value={editItem.image ?? ""}
+                  onChange={url => setEditItem(p => ({ ...p!, image: url }))}
+                />
               </div>
               <div className="col-span-2 space-y-1">
                 <Label>الوصف بالعربية</Label>
