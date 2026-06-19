@@ -917,7 +917,7 @@ router.get("/admin/cancellation-stats", async (req, res) => {
     byReason: {
       autoExpired: reasonMap["auto_expired"] ?? 0,
       customerInitiated: reasonMap["customer"] ?? 0,
-      restaurantRejected: reasonMap["post_accept"] ?? 0,
+      restaurantRejected: reasonMap["restaurant_rejected"] ?? 0,
     },
     byHour: (hourRows.rows as { hour: number; count: number }[]).map((r) => ({
       hour: Number(r.hour),
