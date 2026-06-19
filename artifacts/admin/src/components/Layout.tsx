@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { clearAdminToken } from "@/lib/api";
+import { clearAdminToken, api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -50,10 +49,18 @@ export default function Layout({ children, onLogout }: LayoutProps) {
     refetchInterval: 10_000,
   });
 
+  const { data: slaAlerts = [] } = useQuery({
+    queryKey: ["admin", "sla-alerts"],
+    queryFn: () => api.getSlaAlerts(10),
+    refetchInterval: 30_000,
+  });
+
   const activeOrders =
     stats?.ordersByStatus
       .filter((s) => s.status !== "delivered" && s.status !== "cancelled")
       .reduce((sum, s) => sum + Number(s.count), 0) ?? 0;
+
+  const slaAlertCount = slaAlerts.length;
 
   const handleLogout = () => {
     clearAdminToken();
@@ -140,7 +147,8 @@ export default function Layout({ children, onLogout }: LayoutProps) {
               item.href === "/"
                 ? location === "/" || location === ""
                 : location.startsWith(item.href);
-            const showBadge = item.href === "/orders" && activeOrders > 0;
+            const showOrdersBadge = item.href === "/orders" && activeOrders > 0;
+            const showSlaBadge = item.href === "/" && slaAlertCount > 0;
             return (
               <Link
                 key={item.href}
@@ -157,20 +165,32 @@ export default function Layout({ children, onLogout }: LayoutProps) {
               >
                 <span className="text-base flex-shrink-0 relative">
                   {item.icon}
-                  {showBadge && collapsed && (
+                  {showOrdersBadge && collapsed && (
                     <span className="absolute -top-1 -left-1 w-2 h-2 bg-primary rounded-full" />
+                  )}
+                  {showSlaBadge && collapsed && (
+                    <span className="absolute -top-1 -left-1 w-2 h-2 bg-red-500 rounded-full" />
                   )}
                 </span>
                 {!collapsed && (
                   <>
                     <span className="flex-1 lg:block">{item.label}</span>
-                    {showBadge && (
+                    {showOrdersBadge && (
                       <span className="flex items-center gap-1 text-xs font-bold bg-primary text-white rounded-full px-1.5 py-0.5 leading-none">
                         <span className="relative flex h-1.5 w-1.5">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
                           <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
                         </span>
                         {activeOrders}
+                      </span>
+                    )}
+                    {showSlaBadge && (
+                      <span className="flex items-center gap-1 text-xs font-bold bg-red-600 text-white rounded-full px-1.5 py-0.5 leading-none">
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
+                        </span>
+                        🔴 {slaAlertCount}
                       </span>
                     )}
                   </>
