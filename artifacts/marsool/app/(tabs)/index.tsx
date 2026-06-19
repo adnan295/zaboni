@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { buildImageUrl } from "@/lib/apiConfig";
 import {
   View,
   StyleSheet,
@@ -469,7 +470,7 @@ export default function HomeScreen() {
                   ]}
                 >
                   <Image
-                    source={{ uri: (cat as any).imageUrl || CATEGORY_IMAGES[cat.code ?? cat.id] || CATEGORY_IMAGES.all }}
+                    source={{ uri: buildImageUrl((cat as any).imageUrl) || CATEGORY_IMAGES[cat.code ?? cat.id] || CATEGORY_IMAGES.all }}
                     style={styles.categoryTileImg}
                   />
                 </View>
