@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   BarChart,
   Bar,
@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { api, type CourierPerformanceRow, type CourierPerformanceDetail } from "@/lib/api";
+import { api, type CourierPerformanceRow, type CourierPerformanceDetail, type AdminNote } from "@/lib/api";
 
 const DAY_OPTIONS = [
   { value: 7, label: "٧ أيام" },
@@ -68,6 +68,97 @@ function StarRow({ stars }: { stars: number }) {
 }
 
 // ── Detail Modal ─────────────────────────────────────────────────────────────
+
+function NotesSection({ courierId }: { courierId: string }) {
+  const qc = useQueryClient();
+  const [text, setText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const { data: notes = [], isLoading } = useQuery<AdminNote[]>({
+    queryKey: ["admin", "courier-notes", courierId],
+    queryFn: () => api.getCourierNotes(courierId),
+    staleTime: 30_000,
+  });
+
+  const mutation = useMutation({
+    mutationFn: (t: string) => api.addCourierNote(courierId, t),
+    onSuccess: () => {
+      setText("");
+      setError(null);
+      void qc.invalidateQueries({ queryKey: ["admin", "courier-notes", courierId] });
+    },
+    onError: (e: Error) => setError(e.message),
+  });
+
+  function handleSubmit(ev: React.FormEvent) {
+    ev.preventDefault();
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    mutation.mutate(trimmed);
+  }
+
+  function formatNoteDate(iso: string) {
+    return new Date(iso).toLocaleString("ar-SY", {
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  return (
+    <div>
+      <h3 className="font-medium mb-3">ملاحظات إدارية</h3>
+
+      {/* Add note form */}
+      <form onSubmit={handleSubmit} className="mb-3 space-y-2">
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="اكتب ملاحظة داخلية (تحذير، تقدير، إجراء…)"
+          rows={2}
+          maxLength={1000}
+          className="w-full rounded-lg border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+          dir="rtl"
+        />
+        {error && <p className="text-xs text-destructive">{error}</p>}
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs text-muted-foreground">{text.length}/1000</span>
+          <button
+            type="submit"
+            disabled={!text.trim() || mutation.isPending}
+            className="px-3 py-1.5 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+          >
+            {mutation.isPending ? "جارٍ الحفظ…" : "إضافة ملاحظة"}
+          </button>
+        </div>
+      </form>
+
+      {/* Notes list */}
+      {isLoading ? (
+        <p className="text-xs text-muted-foreground">جارٍ التحميل…</p>
+      ) : notes.length === 0 ? (
+        <p className="text-sm text-muted-foreground">لا توجد ملاحظات بعد</p>
+      ) : (
+        <div className="space-y-2">
+          {notes.map((note) => (
+            <div
+              key={note.id}
+              className="rounded-lg border bg-muted/30 px-3 py-2 text-sm"
+              dir="rtl"
+            >
+              <p className="whitespace-pre-wrap break-words">{note.text}</p>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                {formatNoteDate(note.createdAt)}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function DetailModal({
   courier,
@@ -297,6 +388,11 @@ function DetailModal({
                     </table>
                   </div>
                 )}
+              </div>
+
+              {/* Admin notes */}
+              <div className="border-t pt-4">
+                <NotesSection courierId={courier.id} />
               </div>
             </>
           )}
