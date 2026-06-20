@@ -308,6 +308,10 @@ function MenuDialog({
   const [editItem, setEditItem] = useState<MenuItem | null>(null);
   const [form, setForm] = useState<MenuItemForm>(emptyMenuItem);
   const [itemToDelete, setItemToDelete] = useState<MenuItem | null>(null);
+  const [dealMode, setDealMode] = useState<"price" | "percent">("price");
+  const [dealPercent, setDealPercent] = useState<string>("");
+  const [dealPriceStr, setDealPriceStr] = useState<string>("");
+  const [isDealEnabled, setIsDealEnabled] = useState(false);
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["admin", "menu", restaurant.id],
@@ -382,6 +386,24 @@ function MenuDialog({
         isPopular: editItem.isPopular,
       }
     : form;
+
+  // Initialize deal state when opening an existing item for edit
+  const initDealState = (item: MenuItem) => {
+    setIsDealEnabled(!!item.isDeal);
+    if (item.isDeal && item.dealDiscountPercent != null) {
+      setDealMode("percent");
+      setDealPercent(String(Math.round(item.dealDiscountPercent)));
+      setDealPriceStr(item.dealPrice != null ? String(item.dealPrice) : "");
+    } else if (item.isDeal && item.dealPrice != null) {
+      setDealMode("price");
+      setDealPriceStr(String(item.dealPrice));
+      setDealPercent("");
+    } else {
+      setDealMode("price");
+      setDealPriceStr("");
+      setDealPercent("");
+    }
+  };
 
   const setActiveForm = (updater: (f: MenuItemForm) => MenuItemForm) => {
     if (editItem) setEditItem((i) => i && { ...i, ...updater(i) });
@@ -514,17 +536,93 @@ function MenuDialog({
                 />
                 <Label htmlFor="isPopular">صنف شائع</Label>
               </div>
+              {/* Deal section */}
+              <div className="col-span-2 border rounded-lg p-3 space-y-3 border-orange-200 bg-orange-50/40">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="isDeal"
+                    checked={isDealEnabled}
+                    onChange={(e) => setIsDealEnabled(e.target.checked)}
+                    className="w-4 h-4 accent-orange-500"
+                  />
+                  <Label htmlFor="isDeal" className="text-orange-700 font-semibold">تفعيل عرض 🔥</Label>
+                </div>
+                {isDealEnabled && (
+                  <div className="space-y-2">
+                    <div className="flex gap-1 rounded-lg overflow-hidden border border-orange-200 self-start w-fit">
+                      <button
+                        type="button"
+                        className={`px-3 py-1 text-xs font-semibold transition-colors ${dealMode === "price" ? "bg-orange-500 text-white" : "bg-transparent text-orange-600 hover:bg-orange-50"}`}
+                        onClick={() => setDealMode("price")}
+                      >
+                        سعر ثابت
+                      </button>
+                      <button
+                        type="button"
+                        className={`px-3 py-1 text-xs font-semibold transition-colors ${dealMode === "percent" ? "bg-orange-500 text-white" : "bg-transparent text-orange-600 hover:bg-orange-50"}`}
+                        onClick={() => setDealMode("percent")}
+                      >
+                        نسبة خصم %
+                      </button>
+                    </div>
+                    {dealMode === "price" ? (
+                      <div className="flex gap-2 items-center">
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder="سعر العرض (ل.س)"
+                          className="h-8 text-sm"
+                          value={dealPriceStr}
+                          onChange={(e) => setDealPriceStr(e.target.value)}
+                        />
+                        {dealPriceStr && activeForm.price > 0 && parseFloat(dealPriceStr) < activeForm.price && (
+                          <span className="text-xs text-orange-600 font-semibold shrink-0">
+                            خصم {Math.round((1 - parseFloat(dealPriceStr) / activeForm.price) * 100)}%
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex gap-2 items-center">
+                        <div className="relative flex-1">
+                          <Input
+                            type="number"
+                            min="1"
+                            max="99"
+                            placeholder="نسبة الخصم"
+                            className="h-8 text-sm pl-8"
+                            value={dealPercent}
+                            onChange={(e) => setDealPercent(e.target.value)}
+                          />
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-bold">%</span>
+                        </div>
+                        {dealPercent && parseFloat(dealPercent) > 0 && parseFloat(dealPercent) < 100 && activeForm.price > 0 && (
+                          <span className="text-xs text-orange-600 font-semibold shrink-0">
+                            → {Math.round(activeForm.price * (1 - parseFloat(dealPercent) / 100))} ل.س
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex gap-2">
               <Button
                 size="sm"
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
                 onClick={() => {
-                  const data: MenuItemForm = {
+                  const dealFields: Pick<MenuItem, "isDeal" | "dealPrice" | "dealDiscountPercent"> = {
+                    isDeal: isDealEnabled,
+                    dealPrice: isDealEnabled && dealMode === "price" && dealPriceStr ? parseFloat(dealPriceStr) : null,
+                    dealDiscountPercent: isDealEnabled && dealMode === "percent" && dealPercent ? parseFloat(dealPercent) : null,
+                  };
+                  const data: MenuItemForm & Pick<MenuItem, "isDeal" | "dealPrice" | "dealDiscountPercent"> = {
                     ...activeForm,
                     name: activeForm.nameAr,
                     category: activeForm.categoryAr,
                     description: activeForm.descriptionAr,
+                    ...dealFields,
                   };
                   if (editItem) {
                     updateMutation.mutate({ item: editItem, data });
@@ -547,6 +645,10 @@ function MenuDialog({
                   setShowForm(false);
                   setEditItem(null);
                   setForm(emptyMenuItem);
+                  setIsDealEnabled(false);
+                  setDealPercent("");
+                  setDealPriceStr("");
+                  setDealMode("price");
                 }}
               >
                 إلغاء
@@ -596,6 +698,7 @@ function MenuDialog({
                     className="h-7 px-2 text-xs"
                     onClick={() => {
                       setEditItem(item);
+                      initDealState(item);
                       setShowForm(false);
                     }}
                   >

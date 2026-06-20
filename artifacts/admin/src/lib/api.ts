@@ -86,6 +86,10 @@ export type MenuItem = {
   subcategory?: string | null;
   subcategoryAr?: string | null;
   isPopular: boolean;
+  isDeal?: boolean;
+  dealPrice?: number | null;
+  dealDiscountPercent?: number | null;
+  dealExpiresAt?: string | null;
 };
 
 export type Order = {

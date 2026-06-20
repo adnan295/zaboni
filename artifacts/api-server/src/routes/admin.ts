@@ -680,6 +680,31 @@ router.put("/admin/restaurants/:restaurantId/menu/:itemId", async (req, res) => 
     return;
   }
   try {
+    // Derive dealPrice ↔ dealDiscountPercent when a deal is being activated
+    if (updates.isDeal === true && (updates.dealDiscountPercent != null || updates.dealPrice != null)) {
+      const [existing] = await db
+        .select({ price: menuItemsTable.price })
+        .from(menuItemsTable)
+        .where(and(eq(menuItemsTable.id, itemId), eq(menuItemsTable.restaurantId, restaurantId)))
+        .limit(1);
+      if (existing) {
+        const basePrice = (updates.price ?? existing.price);
+        if (updates.dealDiscountPercent != null && updates.dealPrice == null) {
+          updates.dealPrice = Math.round(basePrice * (1 - updates.dealDiscountPercent / 100));
+        } else if (updates.dealPrice != null && updates.dealDiscountPercent == null) {
+          updates.dealDiscountPercent = Math.round((1 - updates.dealPrice / basePrice) * 100);
+        }
+        if (updates.dealPrice != null && updates.dealPrice >= basePrice) {
+          res.status(400).json({ error: "سعر العرض يجب أن يكون أقل من السعر الأصلي" });
+          return;
+        }
+      }
+    }
+    if (updates.isDeal === false) {
+      updates.dealPrice = null;
+      updates.dealDiscountPercent = null;
+      updates.dealExpiresAt = null;
+    }
     const [row] = await db
       .update(menuItemsTable)
       .set(updates)

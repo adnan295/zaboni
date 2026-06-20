@@ -147,7 +147,11 @@ router.get("/restaurants", async (req, res) => {
   const now = new Date();
   const activeFlashDealRows = rows.length > 0
     ? await db
-        .select({ restaurantId: flashDealsTable.restaurantId })
+        .select({
+          restaurantId: flashDealsTable.restaurantId,
+          discountType: flashDealsTable.discountType,
+          discountValue: flashDealsTable.discountValue,
+        })
         .from(flashDealsTable)
         .where(
           and(
@@ -160,6 +164,14 @@ router.get("/restaurants", async (req, res) => {
         )
     : [];
   const flashDealRestaurantIds = new Set(activeFlashDealRows.map((f) => f.restaurantId));
+  // Build max flash-deal percent per restaurant (percent-type flash deals only)
+  const flashMaxPercentMap = new Map<string, number>();
+  for (const f of activeFlashDealRows) {
+    if (f.discountType === "percent" && f.discountValue > 0) {
+      const existing = flashMaxPercentMap.get(f.restaurantId) ?? 0;
+      if (f.discountValue > existing) flashMaxPercentMap.set(f.restaurantId, f.discountValue);
+    }
+  }
 
   const dealItemRows = rows.length > 0
     ? await db
@@ -202,7 +214,7 @@ router.get("/restaurants", async (req, res) => {
       distanceKm,
       categorySortOrder: hasCategoryId ? (categorySortMap.get(r.id) ?? null) : null,
       hasFlashDeal: flashDealRestaurantIds.has(r.id),
-      maxDealPercent: maxDealPercentMap.get(r.id) ?? null,
+      maxDealPercent: Math.max(maxDealPercentMap.get(r.id) ?? 0, flashMaxPercentMap.get(r.id) ?? 0) || null,
     };
   });
 
