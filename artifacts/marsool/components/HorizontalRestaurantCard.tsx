@@ -35,14 +35,15 @@ interface Props {
 }
 
 function getCountdown(endsAt: string): string | null {
-  const diff = Math.floor((new Date(endsAt).getTime() - Date.now()) / 1000);
-  if (diff <= 0) return null;
-  const h = Math.floor(diff / 3600);
-  const m = Math.floor((diff % 3600) / 60);
+  const ms = new Date(endsAt).getTime() - Date.now();
+  if (ms <= 0 || Number.isNaN(ms)) return null;
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
-function FlashCountdown({ endsAt }: { endsAt: string }) {
+function FlashDealBadge({ endsAt }: { endsAt: string }) {
   const [countdown, setCountdown] = useState<string | null>(() => getCountdown(endsAt));
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -51,17 +52,27 @@ function FlashCountdown({ endsAt }: { endsAt: string }) {
     timerRef.current = setInterval(() => {
       const next = getCountdown(endsAt);
       setCountdown(next);
-      if (next === null && timerRef.current) clearInterval(timerRef.current);
+      if (next === null && timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     }, 60_000);
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, [endsAt]);
 
-  if (!countdown) return null;
+  if (countdown === null) return null;
 
   return (
-    <View style={styles.countdownWrap}>
-      <MaterialIcons name="timer" size={9} color="#fff" />
-      <Text style={styles.countdownText}>ينتهي خلال {countdown}</Text>
+    <View style={styles.flashBadgeWrap}>
+      <View style={styles.flashBadge}>
+        <Text style={styles.flashBadgeText}>⚡ عرض محدود</Text>
+      </View>
+      <View style={styles.countdownWrap}>
+        <MaterialIcons name="timer" size={9} color="#fff" />
+        <Text style={styles.countdownText}>ينتهي خلال {countdown}</Text>
+      </View>
     </View>
   );
 }
@@ -86,8 +97,6 @@ export default function HorizontalRestaurantCard({ restaurant, onPress, variant 
   const isDeal = variant === "deal";
   const hasFlashDeal = restaurant.hasFlashDeal ?? !!(restaurant as unknown as Record<string, unknown>)["hasFlashDeal"];
   const flashDealEndsAt = restaurant.flashDealEndsAt ?? (restaurant as unknown as Record<string, unknown>)["flashDealEndsAt"] as string | null | undefined;
-
-  const isFlashActive = hasFlashDeal && !!flashDealEndsAt && new Date(flashDealEndsAt).getTime() > Date.now();
 
   return (
     <TouchableOpacity
@@ -114,19 +123,15 @@ export default function HorizontalRestaurantCard({ restaurant, onPress, variant 
             <Text style={styles.closedText}>{t("restaurant.closed")}</Text>
           </View>
         )}
-        {isFlashActive && (
-          <View style={styles.flashBadgeWrap}>
+        {hasFlashDeal && flashDealEndsAt ? (
+          <FlashDealBadge endsAt={flashDealEndsAt} />
+        ) : hasFlashDeal ? (
+          <View style={styles.flashBadgeStandalone}>
             <View style={styles.flashBadge}>
               <Text style={styles.flashBadgeText}>⚡ عرض محدود</Text>
             </View>
-            <FlashCountdown endsAt={flashDealEndsAt!} />
           </View>
-        )}
-        {hasFlashDeal && !isFlashActive && !flashDealEndsAt && (
-          <View style={styles.flashBadge}>
-            <Text style={styles.flashBadgeText}>⚡ عرض محدود</Text>
-          </View>
-        )}
+        ) : null}
         {!!restaurant.discount && !hasFlashDeal && (
           <View style={[styles.badge, { backgroundColor: isDeal ? "#fff" : colors.primary }]}>
             <Text style={[styles.badgeText, { color: isDeal ? colors.primary : "#fff" }]}>
@@ -212,6 +217,11 @@ const styles = StyleSheet.create({
     top: 8,
     left: 8,
     gap: 4,
+  },
+  flashBadgeStandalone: {
+    position: "absolute",
+    top: 8,
+    left: 8,
   },
   flashBadge: {
     backgroundColor: "#f97316",
