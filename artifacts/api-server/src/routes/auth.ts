@@ -358,12 +358,17 @@ router.patch("/auth/me", async (req, res) => {
         .where(eq(referralCodesTable.code, code))
         .limit(1);
       if (codeRow && codeRow.userId !== userId) {
-        const [existingReferral] = await db
-          .select({ id: referralsTable.id })
-          .from(referralsTable)
-          .where(eq(referralsTable.referredUserId, userId))
-          .limit(1);
-        if (!existingReferral) {
+        // Reject self-referral (already handled above) and ensure:
+        // 1. No existing referral record for this user (UNIQUE constraint, prevents double-claim).
+        // 2. The user is genuinely new — they must have no delivered orders yet.
+        //    This prevents an established user from retroactively linking a referral code.
+        const [[existingReferral], [deliveredOrder]] = await Promise.all([
+          db.select({ id: referralsTable.id }).from(referralsTable)
+            .where(eq(referralsTable.referredUserId, userId)).limit(1),
+          db.select({ id: ordersTable.id }).from(ordersTable)
+            .where(and(eq(ordersTable.userId, userId), eq(ordersTable.status, "delivered"))).limit(1),
+        ]);
+        if (!existingReferral && !deliveredOrder) {
           await db.insert(referralsTable).values({
             id: `ref_${Date.now()}${Math.random().toString(36).slice(2, 7)}`,
             referrerId: codeRow.userId,

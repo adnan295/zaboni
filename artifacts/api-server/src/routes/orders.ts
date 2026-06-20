@@ -477,6 +477,34 @@ router.post("/orders", async (req, res) => {
       }
     }
 
+    // Wallet deduction MUST happen before the order insert so the persisted
+    // delivery fee already reflects the discount. Atomicity is preserved by the
+    // WHERE walletBalance >= deductAmount guard; if it fails we clear walletDeductData
+    // and insert the order at full fee.
+    if (walletDeductData) {
+      try {
+        const deducted = await tx
+          .update(usersTable)
+          .set({ walletBalance: sql`${usersTable.walletBalance} - ${walletDeductData.deductAmount}` })
+          .where(
+            and(
+              eq(usersTable.id, userId),
+              sql`${usersTable.walletBalance} >= ${walletDeductData.deductAmount}`
+            )
+          )
+          .returning({ walletBalance: usersTable.walletBalance });
+        if (deducted.length === 0) {
+          // Insufficient balance at commit time — disable wallet discount
+          walletDeductData = null;
+        } else {
+          // Apply the discount to the order object BEFORE inserting into the DB
+          newOrder.deliveryFee = Math.max(0, newOrder.deliveryFee - walletDeductData.deductAmount);
+        }
+      } catch {
+        walletDeductData = null;
+      }
+    }
+
     const inserted = await tx.insert(ordersTable).values(newOrder).returning();
     if (computedOrderItems.length > 0) {
       await tx.insert(orderItemsTable).values(computedOrderItems);
@@ -495,35 +523,17 @@ router.post("/orders", async (req, res) => {
         discountAmount: promoUseData.discountAmount,
       });
     }
+    // Insert wallet transaction record (deduction already applied above)
     if (walletDeductData) {
-      try {
-        const deducted = await tx
-          .update(usersTable)
-          .set({ walletBalance: sql`${usersTable.walletBalance} - ${walletDeductData.deductAmount}` })
-          .where(
-            and(
-              eq(usersTable.id, userId),
-              sql`${usersTable.walletBalance} >= ${walletDeductData.deductAmount}`
-            )
-          )
-          .returning({ walletBalance: usersTable.walletBalance });
-        if (deducted.length === 0) {
-          walletDeductData = null;
-        } else {
-          const wTxId = `cwt_pay_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
-          await tx.insert(customerWalletTransactionsTable).values({
-            id: wTxId,
-            userId,
-            amount: -walletDeductData.deductAmount,
-            type: "order_payment",
-            description: `خصم محفظة على طلب #${id.slice(-6)}`,
-            orderId: id,
-          });
-          newOrder.deliveryFee = Math.max(0, newOrder.deliveryFee - walletDeductData.deductAmount);
-        }
-      } catch {
-        walletDeductData = null;
-      }
+      const wTxId = `cwt_pay_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+      await tx.insert(customerWalletTransactionsTable).values({
+        id: wTxId,
+        userId,
+        amount: -walletDeductData.deductAmount,
+        type: "order_payment",
+        description: `خصم محفظة على طلب #${id.slice(-6)}`,
+        orderId: id,
+      });
     }
     if (loyaltyRedeemData) {
       const settings = await getLoyaltySettings();

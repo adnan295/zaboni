@@ -176,12 +176,9 @@ export default function ProfileScreen() {
   const fetchWallet = useCallback(async () => {
     if (!user || isCourier) return;
     try {
-      const [balData, txData] = await Promise.all([
-        customFetch("/api/wallet/balance") as Promise<{ balance: number }>,
-        customFetch("/api/wallet/transactions") as Promise<{ transactions: WalletTransaction[] }>,
-      ]);
-      setWalletBalance(balData.balance);
-      setWalletTransactions(txData.transactions ?? []);
+      const data = await customFetch("/api/wallet/transactions") as { balance: number; transactions: WalletTransaction[] };
+      setWalletBalance(data.balance);
+      setWalletTransactions(data.transactions ?? []);
     } catch {
       setWalletBalance(null);
     }

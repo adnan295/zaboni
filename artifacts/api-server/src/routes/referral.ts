@@ -44,14 +44,17 @@ router.get("/wallet/balance", async (req, res) => {
 
 router.get("/wallet/transactions", async (req, res) => {
   const userId = resolveUserId(req);
-  const txs = await db
-    .select()
-    .from(customerWalletTransactionsTable)
-    .where(eq(customerWalletTransactionsTable.userId, userId))
-    .orderBy(desc(customerWalletTransactionsTable.createdAt))
-    .limit(50);
+  const [userRow, txs] = await Promise.all([
+    db.select({ walletBalance: usersTable.walletBalance }).from(usersTable).where(eq(usersTable.id, userId)).limit(1),
+    db
+      .select()
+      .from(customerWalletTransactionsTable)
+      .where(eq(customerWalletTransactionsTable.userId, userId))
+      .orderBy(desc(customerWalletTransactionsTable.createdAt))
+      .limit(50),
+  ]);
 
-  res.json(txs);
+  res.json({ balance: userRow[0]?.walletBalance ?? 0, transactions: txs });
 });
 
 export default router;
