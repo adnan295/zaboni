@@ -26,6 +26,7 @@ const createOrderSchema = z
     restaurantId: z.string().optional(),
     usePoints: z.boolean().optional(),
     items: z.array(orderItemInputSchema).max(100).optional(),
+    flashDealId: z.string().optional(),
   })
   .refine(
     (d) =>
@@ -443,17 +444,22 @@ router.post("/orders", async (req, res) => {
         )
         .returning({ id: flashDealsTable.id });
       if (updated.length > 0) {
-        const base = itemsTotal ?? zoneFee;
-        const discountAmount =
-          flashDealSnapshot.discountType === "percent"
-            ? Math.min(Math.round((base * flashDealSnapshot.discountValue) / 100), base)
-            : Math.min(Math.round(flashDealSnapshot.discountValue), base);
-        appliedFlashDeal = { id: flashDealSnapshot.id, discountAmount };
+        const applyDiscount = (base: number) =>
+          flashDealSnapshot!.discountType === "percent"
+            ? Math.max(0, Math.min(Math.round((base * flashDealSnapshot!.discountValue) / 100), base))
+            : Math.max(0, Math.min(Math.round(flashDealSnapshot!.discountValue), base));
+
+        const discountOnItems = itemsTotal !== null ? applyDiscount(itemsTotal) : 0;
+        const discountOnFee = applyDiscount(newOrder.deliveryFee);
+        const totalDiscount = discountOnItems + discountOnFee;
+
+        appliedFlashDeal = { id: flashDealSnapshot.id, discountAmount: totalDiscount };
         newOrder.flashDealId = flashDealSnapshot.id;
-        newOrder.flashDealDiscount = discountAmount;
+        newOrder.flashDealDiscount = totalDiscount;
         if (itemsTotal !== null) {
-          newOrder.totalPrice = Math.max(0, itemsTotal - discountAmount);
+          newOrder.totalPrice = Math.max(0, itemsTotal - discountOnItems);
         }
+        newOrder.deliveryFee = Math.max(0, newOrder.deliveryFee - discountOnFee);
       }
     }
 

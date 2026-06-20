@@ -29,6 +29,7 @@ export interface PlaceOrderInput {
   lon?: number;
   restaurantId?: string;
   usePoints?: boolean;
+  flashDealId?: string;
 }
 
 export interface Order {
@@ -168,7 +169,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
 
   const placeOrder = useCallback(
     async (input: PlaceOrderInput): Promise<Order> => {
-      const { items, orderText, restaurantName, address, promoCode, lat, lon, restaurantId, usePoints } = input;
+      const { items, orderText, restaurantName, address, promoCode, lat, lon, restaurantId, usePoints, flashDealId } = input;
       const result = await customFetch("/api/orders", {
         method: "POST",
         body: JSON.stringify({
@@ -181,6 +182,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
           ...(lon != null ? { lon } : {}),
           ...(restaurantId ? { restaurantId } : {}),
           ...(usePoints ? { usePoints: true } : {}),
+          ...(flashDealId ? { flashDealId } : {}),
         }),
       });
       const newOrder = apiOrderToLocal(result as Parameters<typeof apiOrderToLocal>[0]);
