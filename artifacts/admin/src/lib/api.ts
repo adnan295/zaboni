@@ -755,6 +755,10 @@ export const api = {
     apiFetch<SlaAlert[]>(`/admin/sla-alerts?minAge=${minAge}`),
   getCancellationStats: (days: number) =>
     apiFetch<CancellationStats>(`/admin/cancellation-stats?days=${days}`),
+  getCourierPerformance: (days: number) =>
+    apiFetch<CourierPerformanceRow[]>(`/admin/courier-performance?days=${days}`),
+  getCourierPerformanceDetail: (courierId: string, days: number) =>
+    apiFetch<CourierPerformanceDetail>(`/admin/courier-performance/${courierId}?days=${days}`),
 };
 
 export type SlaAlert = {
@@ -793,6 +797,36 @@ export type WAAccount = {
   qrDataUrl?: string;
   phone?: string;
   createdAt: string;
+};
+
+export type CourierPerformanceRow = {
+  id: string;
+  name: string;
+  phone: string;
+  avatarUrl: string | null;
+  isOnline: boolean;
+  lastSeen: string | null;
+  deliveries: number;
+  cancelledAfterAssign: number;
+  acceptanceRate: number | null;
+  avgRating: number | null;
+  avgDeliveryMinutes: number | null;
+};
+
+export type CourierPerformanceDetail = {
+  courierId: string;
+  days: number;
+  dailyDeliveries: { date: string; count: number }[];
+  recentOrders: {
+    id: string;
+    status: string;
+    restaurantName: string;
+    address: string;
+    orderText: string;
+    deliveryFee: number;
+    createdAt: string;
+    customerName: string | null;
+  }[];
 };
 
 export type CancellationStats = {

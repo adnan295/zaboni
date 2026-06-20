@@ -18,6 +18,7 @@ const navItems = [
   { href: "/categories", label: "التصنيفات", icon: "🏷️" },
   { href: "/orders", label: "الطلبات", icon: "📦" },
   { href: "/couriers", label: "المندوبون", icon: "🚴" },
+  { href: "/courier-performance", label: "أداء السائقين", icon: "🏆" },
   { href: "/live-map", label: "الخريطة الحية", icon: "🗺️" },
   { href: "/chats", label: "المحادثات", icon: "💬" },
   { href: "/content", label: "المحتوى", icon: "🖼️" },
