@@ -636,6 +636,12 @@
       "title": "Could not open link",
       "body": "The app was unable to open this link. You can copy the contact info and reach out manually.",
       "copy": "Copy"
+    },
+    "chat": {
+      "agentLabel": "Support Team",
+      "emptyTitle": "Message us directly",
+      "emptySub": "Type your message and our support team will reply as soon as possible",
+      "inputPlaceholder": "Type your message..."
     }
   },
   "about": {

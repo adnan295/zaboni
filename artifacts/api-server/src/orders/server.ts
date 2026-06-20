@@ -50,6 +50,18 @@ export function notifyRestaurantNewOrder(restaurantId: string, order: unknown): 
   logger.debug({ restaurantId }, "Emitted new_restaurant_order to restaurant room");
 }
 
+export function notifySupportMessage(userId: string, message: unknown): void {
+  if (!_ordersNs) return;
+  _ordersNs.to(`user:${userId}`).emit("support_message", message);
+  logger.debug({ userId }, "Emitted support_message to customer");
+}
+
+export function notifyAdminSupportMessage(userId: string, message: unknown): void {
+  if (!_ordersNs) return;
+  _ordersNs.to("role:admins").emit("support_message_new", { userId, message });
+  logger.debug({ userId }, "Emitted support_message_new to admins");
+}
+
 export function broadcastAppNotification(
   title: string,
   body: string,
