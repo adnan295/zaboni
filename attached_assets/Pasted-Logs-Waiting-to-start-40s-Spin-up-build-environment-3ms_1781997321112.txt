@@ -1,0 +1,159 @@
+Logs
+
+
+Waiting to start
+
+40s
+
+
+Spin up build environment
+
+3ms
+
+
+🏗️ Prepare project
+
+1ms
+
+
+Checking out project directory
+Changing default working directory to /Users/expo/workingdir/build/artifacts/marsool (was /Users/expo/workingdir/build)
+🏗️ Prepare Launch
+
+2s
+
+
+bun add v1.2.22 (6bafe260)
+Resolving dependencies
+Resolved, downloaded and extracted [1720]
+Saved lockfile
+installed eas-cli@20.3.0 with binaries:
+ - eas
+installed @expo/launching@0.0.0-20260605-11b5738f with binaries:
+ - launching
+installed pod-install@1.0.19 with binaries:
+ - pod-install
+467 packages installed [2.93s]
+📦 Install dependencies
+
+22s
+
+
+We detected that 'artifacts/marsool' is a pnpm workspace
+Running "pnpm install --frozen-lockfile" in /Users/expo/workingdir/build directory
+Scope: all 16 workspace projects
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +1426
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Packages are cloned from the content-addressable store to the virtual store.
+  Content-addressable store is at: /Users/expo/Library/pnpm/store/v10
+  Virtual store is at:             node_modules/.pnpm
+Progress: resolved 1426, reused 0, downloaded 245, added 226
+Progress: resolved 1426, reused 0, downloaded 351, added 313
+Progress: resolved 1426, reused 0, downloaded 474, added 391
+Progress: resolved 1426, reused 0, downloaded 549, added 456
+Progress: resolved 1426, reused 0, downloaded 555, added 459
+Progress: resolved 1426, reused 0, downloaded 568, added 463
+Progress: resolved 1426, reused 0, downloaded 702, added 535
+Progress: resolved 1426, reused 0, downloaded 799, added 585
+Progress: resolved 1426, reused 0, downloaded 844, added 601
+Progress: resolved 1426, reused 0, downloaded 927, added 633
+Progress: resolved 1426, reused 0, downloaded 957, added 647
+Progress: resolved 1426, reused 0, downloaded 1044, added 699
+Progress: resolved 1426, reused 0, downloaded 1159, added 756
+Progress: resolved 1426, reused 0, downloaded 1219, added 780
+Progress: resolved 1426, reused 0, downloaded 1339, added 841
+Progress: resolved 1426, reused 0, downloaded 1399, added 876
+Progress: resolved 1426, reused 0, downloaded 1399, added 1028
+Progress: resolved 1426, reused 0, downloaded 1399, added 1157
+Progress: resolved 1426, reused 0, downloaded 1399, added 1419
+Progress: resolved 1426, reused 0, downloaded 1399, added 1426, done
+.../esbuild@0.18.20/node_modules/esbuild postinstall$ node install.js
+.../esbuild@0.27.3/node_modules/esbuild postinstall$ node install.js
+.../esbuild@0.25.12/node_modules/esbuild postinstall$ node install.js
+.../canvas@3.2.3/node_modules/canvas install$ prebuild-install -r napi || node-gyp rebuild
+.../esbuild@0.18.20/node_modules/esbuild postinstall: Done
+.../esbuild@0.25.12/node_modules/esbuild postinstall: Done
+.../esbuild@0.27.3/node_modules/esbuild postinstall: Done
+.../canvas@3.2.3/node_modules/canvas install: Done
+devDependencies:
++ prettier 3.8.1
++ tsx 4.21.0
++ typescript 5.9.3
+. preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+. preinstall: Done
+╭ Warning ─────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│   Ignored build scripts: @firebase/util@1.15.0, @google/genai@1.52.0,        │
+│   @whiskeysockets/baileys@7.0.0-rc.9, protobufjs@7.5.6, sharp@0.34.5.        │
+│   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+│   to run scripts.                                                            │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+Done in 21.3s using pnpm v10.26.1
+⚙️ Configure project
+
+206ms
+
+
+⚙️ Prebuild Expo project
+
+2s
+
+
+> pnpm expo prebuild --no-install --platform ios
+env: load .env
+env: export EXPO_PUBLIC_API_HOST EXPO_PUBLIC_DOMAIN
+- Creating native directory (./ios)
+✔ Created native directory
+- Updating package.json
+✔ Updated package.json
+- Running prebuild
+» ios: name: "ios.infoPlist.CFBundleDisplayName" is set in the config. Ignoring abstract property "name": زبوني
+- Running prebuild
+✔ Finished prebuild
+✅ Prebuilt ios files
+⚙️ Configure Xcode project
+
+89ms
+
+
+✅ Modified ios/zbwny.xcodeproj/project.pbxproj with settings from app.json
+⚙️ Synchronize Xcode native targets
+
+59ms
+
+
+The App Store allows apps to integrate into different parts of the Apple ecosystem. 
+Launch will read the information from your project, and makes sure all targets are configured. 
+Learn more: https://developer.apple.com/documentation/xcode/configuring-a-multiplatform-app-target
+✅ No additional targets defined for com.zaboni.delivery
+⚙️ Synchronize Xcode entitlements
+
+1s
+
+
+The App Store may require capabilities to be enabled for certain features within your app. 
+Launch will read the information from your project, and synchronize these capabilities for you. 
+Learn more: https://developer.apple.com/documentation/bundleresources/entitlements
+✅ Bundle entitlements are up-to-date for com.zaboni.delivery 
+Bundle identifier: https://developer.apple.com/account/resources/identifiers/bundleId/edit/7KT58J4TX3
+- aps-environment is up-to-date (Push Notifications)
+⚙️ Resolve build config
+
+3s
+
+
+Resolving build config...
+Using EAS CLI without version control system is not recommended, use this mode only if you know what you are doing.
+/Users/expo/workingdir/build/node_modules/.pnpm/expo@54.0.33_@babel+core@7.29.0_@expo+metro-runtime@6.1.2_expo-router@6.0.23_react-nati_cd582a109972425b0682098045f519d3/node_modules/expo/bin/cli config --json exited with non-zero code: 1
+Error: build:internal command failed.
+Failed to run eas build:internal
+
+⚙️ Configure build for updates
+
+0ms
+
+
+Skipped build step "⚙️  Configure build for updates"
