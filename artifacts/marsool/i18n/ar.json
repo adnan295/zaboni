@@ -428,7 +428,8 @@
     "promoDiscount": "خصم {{amount}} ل.س",
     "estimatedTotal": "المجموع التقديري للأصناف",
     "estimatedNote": "(تقديري، الفاتورة الحقيقية من السائق)",
-    "deliveryFee": "رسوم التوصيل"
+    "deliveryFee": "رسوم التوصيل",
+    "totalAfterDiscount": "المجموع بعد الخصم"
   },
   "payment": {
     "cashOnDelivery": "الدفع عند الاستلام 💵",
@@ -710,6 +711,63 @@
     "terms": {
       "title": "شروط الاستخدام"
     }
+  },
+  "subscription": {
+    "menuLabel": "باقة التوصيل المجاني",
+    "title": "باقة التوصيل المجاني",
+    "heroTitle": "وفّر على توصيلك كل شهر",
+    "heroSub": "ادفع مرة واحدة واستمتع بتوصيل مجاني أو مخفض لجميع طلباتك",
+    "currency": "ل.س",
+    "perMonth": "شهرياً",
+    "benefitsTitle": "مزايا الباقة",
+    "benefit1Free": "توصيل مجاني 100٪ لجميع طلباتك",
+    "benefit1Discounted": "رسوم توصيل ثابتة {{fee}} ل.س فقط",
+    "benefit2": "لا قيود على عدد الطلبات",
+    "benefit3": "شارة ⭐ مشترك في ملفك الشخصي",
+    "benefit4": "توفير فوري من أول طلب",
+    "walletInfo": "تُخصم قيمة الباقة من رصيد محفظتك عند الاشتراك",
+    "subscribeBtn": "اشترك الآن",
+    "confirmTitle": "تأكيد الاشتراك",
+    "confirmBody": "سيُخصم {{price}} ل.س من رصيد محفظتك. الاشتراك صالح لمدة 30 يوماً.",
+    "cancel": "إلغاء",
+    "confirmBtn": "اشترك",
+    "successTitle": "تم الاشتراك",
+    "successBody": "أصبح لديك توصيل مجاني لجميع طلباتك هذا الشهر!",
+    "errorTitle": "خطأ",
+    "errorBody": "تعذّر إتمام الاشتراك، يرجى المحاولة مجدداً",
+    "insufficientBalance": "رصيد محفظتك غير كافٍ لإتمام الاشتراك",
+    "alreadySubscribed": "لديك اشتراك نشط بالفعل",
+    "activeTitle": "أنت مشترك ⭐",
+    "activeUntil": "الاشتراك ساري حتى {{date}}",
+    "freeDeliveryActive": "توصيل مجاني لجميع طلباتك",
+    "discountedDelivery": "رسوم توصيل مخفضة: {{fee}} ل.س فقط",
+    "subscriberBadge": "مشترك - توصيل مجاني"
+  },
+  "loyalty": {
+    "title": "نقاط الولاء",
+    "balance": "رصيد نقاطك",
+    "points": "نقطة",
+    "redeemValue": "تساوي خصماً بقيمة {{amount}} ل.س",
+    "earnInfo": "تكسب {{rate}} نقطة لكل 1000 ل.س",
+    "usePoints": "استخدم نقاطي كخصم",
+    "usePointsDesc": "{{points}} نقطة = خصم {{discount}} ل.س",
+    "noPoints": "ليس لديك نقاط بعد",
+    "noPointsHint": "أكمل طلبات لتكسب نقاطاً",
+    "historyTitle": "تاريخ النقاط",
+    "noHistory": "لا توجد معاملات بعد",
+    "earn": "كسب",
+    "redeem": "استخدام",
+    "viewHistory": "سجل النقاط",
+    "appliedDiscount": "خصم النقاط: {{amount}} ل.س"
+  },
+  "achievements": {
+    "sectionTitle": "إنجازاتي",
+    "earned": "تم الفتح",
+    "locked": "مقفل",
+    "progress": "{{current}} / {{total}}",
+    "celebrationTitle": "🎉 أحسنت!",
+    "celebrationBody": "حصلت على شارة جديدة",
+    "close": "رائع!"
   },
   "onboarding": {
     "skip": "تخطّي",

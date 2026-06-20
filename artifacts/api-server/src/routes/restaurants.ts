@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request } from "express";
-import { db, restaurantsTable, menuItemsTable, restaurantHoursTable, promoBannersTable, restaurantCategoriesTable, restaurantCategorySortOrdersTable, homeSectionItemsTable, categoryRestaurantExclusionsTable } from "@workspace/db";
-import { and, asc, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
+import { db, restaurantsTable, menuItemsTable, restaurantHoursTable, promoBannersTable, restaurantCategoriesTable, restaurantCategorySortOrdersTable, homeSectionItemsTable, categoryRestaurantExclusionsTable, flashDealsTable } from "@workspace/db";
+import { and, asc, desc, eq, gt, inArray, isNull, lt, lte, notInArray, or, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -144,6 +144,23 @@ router.get("/restaurants", async (req, res) => {
   const { dayOfWeek, prevDayOfWeek, nowMinutes } = getDamascusNow();
   const hoursMap = await getHoursForRestaurants(rows.map((r) => r.id), [dayOfWeek, prevDayOfWeek]);
 
+  const now = new Date();
+  const activeFlashDealRows = rows.length > 0
+    ? await db
+        .select({ restaurantId: flashDealsTable.restaurantId })
+        .from(flashDealsTable)
+        .where(
+          and(
+            eq(flashDealsTable.isActive, true),
+            lte(flashDealsTable.startsAt, now),
+            gt(flashDealsTable.endsAt, now),
+            inArray(flashDealsTable.restaurantId, rows.map((r) => r.id)),
+            or(isNull(flashDealsTable.maxUses), lt(flashDealsTable.usedCount, flashDealsTable.maxUses))
+          )
+        )
+    : [];
+  const flashDealRestaurantIds = new Set(activeFlashDealRows.map((f) => f.restaurantId));
+
   const result = rows.map((r) => {
     const byDay = hoursMap.get(r.id);
     const distanceKm =
@@ -155,6 +172,7 @@ router.get("/restaurants", async (req, res) => {
       isOpen: computeIsOpenFromHours(byDay?.get(dayOfWeek), byDay?.get(prevDayOfWeek), nowMinutes, r.isOpen),
       distanceKm,
       categorySortOrder: hasCategoryId ? (categorySortMap.get(r.id) ?? null) : null,
+      hasFlashDeal: flashDealRestaurantIds.has(r.id),
     };
   });
 
@@ -225,6 +243,25 @@ router.get("/restaurants/:id", async (req, res) => {
   const isOpen = computeIsOpenFromHours(byDay?.get(dayOfWeek), byDay?.get(prevDayOfWeek), nowMinutes, restaurant.isOpen);
 
   res.json({ ...restaurant, isOpen });
+});
+
+router.get("/restaurants/:id/flash-deal", async (req, res) => {
+  const { id } = req.params;
+  const now = new Date();
+  const [deal] = await db
+    .select()
+    .from(flashDealsTable)
+    .where(
+      and(
+        eq(flashDealsTable.restaurantId, id),
+        eq(flashDealsTable.isActive, true),
+        lte(flashDealsTable.startsAt, now),
+        gt(flashDealsTable.endsAt, now),
+        or(isNull(flashDealsTable.maxUses), lt(flashDealsTable.usedCount, flashDealsTable.maxUses))
+      )
+    )
+    .limit(1);
+  res.json(deal ?? null);
 });
 
 router.get("/restaurants/:id/menu", async (req, res) => {

@@ -23,9 +23,11 @@ import {
   orderStatusHistoryTable,
   homeSectionItemsTable,
   restaurantUsersTable,
+  adminNotesTable,
+  flashDealsTable,
 } from "@workspace/db";
 import bcrypt from "bcryptjs";
-import { eq, count, desc, gte, lte, getTableColumns, and, sql, avg, asc, lt } from "drizzle-orm";
+import { eq, count, sum, desc, gte, lte, getTableColumns, and, sql, avg, asc, lt } from "drizzle-orm";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
 import { sendSmsViaGateway, isSmsGatewayConfigured } from "../lib/sms";
 import { sendAdminAlertWebhook } from "../lib/waverifyMonitor";
@@ -1340,6 +1342,95 @@ router.delete("/admin/promos/:id", async (req, res) => {
   res.status(204).end();
 });
 
+// Flash Deals CRUD
+const flashDealBodySchema = z.object({
+  restaurantId: z.string().min(1),
+  title: z.string().min(1).max(200),
+  discountType: z.enum(["percent", "fixed"]),
+  discountValue: z.number().positive(),
+  startsAt: z.string().datetime(),
+  endsAt: z.string().datetime(),
+  maxUses: z.number().int().positive().nullable().optional(),
+  isActive: z.boolean().default(true),
+});
+
+router.get("/admin/flash-deals", async (_req, res) => {
+  const rows = await db
+    .select({
+      id: flashDealsTable.id,
+      restaurantId: flashDealsTable.restaurantId,
+      restaurantName: restaurantsTable.nameAr,
+      title: flashDealsTable.title,
+      discountType: flashDealsTable.discountType,
+      discountValue: flashDealsTable.discountValue,
+      startsAt: flashDealsTable.startsAt,
+      endsAt: flashDealsTable.endsAt,
+      maxUses: flashDealsTable.maxUses,
+      usedCount: flashDealsTable.usedCount,
+      isActive: flashDealsTable.isActive,
+      createdAt: flashDealsTable.createdAt,
+    })
+    .from(flashDealsTable)
+    .leftJoin(restaurantsTable, eq(restaurantsTable.id, flashDealsTable.restaurantId))
+    .orderBy(desc(flashDealsTable.createdAt));
+  res.json(rows);
+});
+
+router.post("/admin/flash-deals", async (req, res) => {
+  const parsed = flashDealBodySchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صحيحة" }); return; }
+  const id = `fd_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+  const [deal] = await db.insert(flashDealsTable).values({
+    id,
+    restaurantId: parsed.data.restaurantId,
+    title: parsed.data.title,
+    discountType: parsed.data.discountType,
+    discountValue: parsed.data.discountValue,
+    startsAt: new Date(parsed.data.startsAt),
+    endsAt: new Date(parsed.data.endsAt),
+    maxUses: parsed.data.maxUses ?? null,
+    isActive: parsed.data.isActive,
+  }).returning();
+  res.status(201).json(deal);
+});
+
+router.put("/admin/flash-deals/:id", async (req, res) => {
+  const id = String(req.params["id"]);
+  const parsed = flashDealBodySchema.partial().safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صحيحة" }); return; }
+  const updateData: Record<string, unknown> = { ...parsed.data };
+  if (parsed.data.startsAt !== undefined) updateData["startsAt"] = new Date(parsed.data.startsAt);
+  if (parsed.data.endsAt !== undefined) updateData["endsAt"] = new Date(parsed.data.endsAt);
+  const [updated] = await db.update(flashDealsTable).set(updateData).where(eq(flashDealsTable.id, id)).returning();
+  if (!updated) { res.status(404).json({ error: "العرض غير موجود" }); return; }
+  res.json(updated);
+});
+
+router.delete("/admin/flash-deals/:id", async (req, res) => {
+  const id = String(req.params["id"]);
+  await db.delete(flashDealsTable).where(eq(flashDealsTable.id, id));
+  res.status(204).end();
+});
+
+router.get("/admin/flash-deals/:id/stats", async (req, res) => {
+  const id = String(req.params["id"]);
+  const [deal] = await db.select({ id: flashDealsTable.id, maxUses: flashDealsTable.maxUses, usedCount: flashDealsTable.usedCount })
+    .from(flashDealsTable).where(eq(flashDealsTable.id, id)).limit(1);
+  if (!deal) { res.status(404).json({ error: "العرض غير موجود" }); return; }
+
+  const [stats] = await db.select({
+    ordersCount: count(),
+    totalDiscount: sum(ordersTable.flashDealDiscount),
+    totalRevenue: sum(ordersTable.totalPrice),
+  }).from(ordersTable).where(eq(ordersTable.flashDealId, id));
+
+  const ordersCount = Number(stats?.ordersCount ?? 0);
+  const totalDiscount = Number(stats?.totalDiscount ?? 0);
+  const totalRevenue = Number(stats?.totalRevenue ?? 0);
+  const conversionRate = deal.maxUses ? Math.round((ordersCount / deal.maxUses) * 100) : null;
+  res.json({ ordersCount, totalDiscount, totalRevenue, conversionRate });
+});
+
 const DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
 function buildDefaultHours(restaurantId: string) {
@@ -2457,6 +2548,256 @@ router.delete("/admin/restaurant-accounts/:id", async (req, res) => {
 });
 
 // ─── WhatsApp ─────────────────────────────────────────────────────────────────
+
+// ── Courier Notes ─────────────────────────────────────────────────────────────
+
+router.get("/admin/couriers/:courierId/notes", async (req, res) => {
+  const courierId = String(req.params["courierId"]);
+
+  const [courier] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(and(eq(usersTable.id, courierId), eq(usersTable.role, "courier")))
+    .limit(1);
+
+  if (!courier) {
+    res.status(404).json({ error: "Courier not found" });
+    return;
+  }
+
+  const notes = await db
+    .select()
+    .from(adminNotesTable)
+    .where(eq(adminNotesTable.courierId, courierId))
+    .orderBy(desc(adminNotesTable.createdAt))
+    .limit(3);
+
+  res.json(notes);
+});
+
+router.post("/admin/couriers/:courierId/notes", async (req, res) => {
+  const courierId = String(req.params["courierId"]);
+  const body = z.object({ text: z.string().min(1).max(1000) }).safeParse(req.body);
+
+  if (!body.success) {
+    res.status(400).json({ error: "النص مطلوب (1–1000 حرف)" });
+    return;
+  }
+
+  const [courier] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(and(eq(usersTable.id, courierId), eq(usersTable.role, "courier")))
+    .limit(1);
+
+  if (!courier) {
+    res.status(404).json({ error: "Courier not found" });
+    return;
+  }
+
+  const id = crypto.randomUUID();
+  const [note] = await db
+    .insert(adminNotesTable)
+    .values({ id, courierId, text: body.data.text, adminId: "admin" })
+    .returning();
+
+  res.status(201).json(note);
+});
+
+router.get("/admin/loyalty-settings", async (_req, res) => {
+  const { getLoyaltySettings } = await import("../lib/loyalty");
+  const settings = await getLoyaltySettings();
+  res.json(settings);
+});
+
+router.put("/admin/loyalty-settings", async (req, res) => {
+  const body = z.object({
+    earnRate: z.number().min(0).max(1000),
+    pointValue: z.number().min(0).max(100),
+  }).safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "earnRate and pointValue required" });
+    return;
+  }
+  const { saveLoyaltySettings } = await import("../lib/loyalty");
+  await saveLoyaltySettings(body.data);
+  res.json(body.data);
+});
+
+router.get("/admin/loyalty-users", async (_req, res) => {
+  const rows = await db
+    .select({
+      id: usersTable.id,
+      name: usersTable.name,
+      phone: usersTable.phone,
+      role: usersTable.role,
+      loyaltyPoints: usersTable.loyaltyPoints,
+    })
+    .from(usersTable)
+    .where(eq(usersTable.role, "customer"))
+    .orderBy(desc(usersTable.loyaltyPoints))
+    .limit(200);
+  res.json(rows);
+});
+
+router.get("/admin/achievements-stats", requireAdmin, async (_req, res) => {
+  const { ACHIEVEMENTS } = await import("../lib/achievements");
+  const { userAchievementsTable } = await import("@workspace/db");
+  const { count: drizzleCount } = await import("drizzle-orm");
+
+  const rows = await db
+    .select({
+      achievementKey: userAchievementsTable.achievementKey,
+      c: drizzleCount(),
+    })
+    .from(userAchievementsTable)
+    .groupBy(userAchievementsTable.achievementKey);
+
+  const stats = ACHIEVEMENTS.map((def) => {
+    const row = rows.find((r) => r.achievementKey === def.key);
+    return {
+      key: def.key,
+      icon: def.icon,
+      titleAr: def.titleAr,
+      titleEn: def.titleEn,
+      earnedCount: Number(row?.c ?? 0),
+    };
+  });
+
+  res.json({ stats });
+});
+
+router.get("/admin/subscription-settings", async (_req, res) => {
+  const { getSubscriptionSettings } = await import("../lib/customerSubscription");
+  const settings = await getSubscriptionSettings();
+  res.json(settings);
+});
+
+router.put("/admin/subscription-settings", async (req, res) => {
+  const body = z.object({
+    monthlyPrice: z.number().int().min(0),
+    subscriberDeliveryFee: z.number().int().min(0),
+  }).safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+  const { saveSubscriptionSettings } = await import("../lib/customerSubscription");
+  await saveSubscriptionSettings(body.data);
+  res.json(body.data);
+});
+
+router.get("/admin/customer-subscriptions", async (_req, res) => {
+  const { customerSubscriptionsTable } = await import("@workspace/db");
+  const { asc: _asc } = await import("drizzle-orm");
+  const rows = await db.execute(sql`
+    SELECT
+      cs.id,
+      cs.user_id AS "userId",
+      cs.starts_at AS "startsAt",
+      cs.ends_at AS "endsAt",
+      cs.plan_type AS "planType",
+      cs.price_paid AS "pricePaid",
+      cs.is_active AS "isActive",
+      cs.created_by_admin AS "createdByAdmin",
+      cs.created_at AS "createdAt",
+      u.name AS "userName",
+      u.phone AS "userPhone",
+      u.wallet_balance AS "walletBalance"
+    FROM customer_subscriptions cs
+    JOIN users u ON u.id = cs.user_id
+    ORDER BY cs.created_at DESC
+    LIMIT 500
+  `);
+  res.json(rows.rows);
+});
+
+router.post("/admin/customer-subscriptions", async (req, res) => {
+  const body = z.object({
+    userId: z.string().min(1),
+    durationDays: z.number().int().min(1).default(30),
+    pricePaid: z.number().int().min(0).default(0),
+  }).safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+
+  const userRows = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.id, body.data.userId))
+    .limit(1);
+  if (!userRows[0]) {
+    res.status(404).json({ error: "user_not_found" });
+    return;
+  }
+
+  const { customerSubscriptionsTable } = await import("@workspace/db");
+  const { and: _and, eq: _eq, lte: _lte } = await import("drizzle-orm");
+
+  const now = new Date();
+  const endsAt = new Date(now);
+  endsAt.setDate(endsAt.getDate() + body.data.durationDays);
+
+  const id = `csub_${Date.now()}${Math.random().toString(36).slice(2, 9)}`;
+
+  const [sub] = await db.transaction(async (tx) => {
+    // Deactivate any expired-but-still-active rows so the unique index doesn't block the insert.
+    await tx
+      .update(customerSubscriptionsTable)
+      .set({ isActive: false })
+      .where(
+        _and(
+          _eq(customerSubscriptionsTable.userId, body.data.userId),
+          _eq(customerSubscriptionsTable.isActive, true),
+          _lte(customerSubscriptionsTable.endsAt, now),
+        ),
+      );
+
+    return tx
+      .insert(customerSubscriptionsTable)
+      .values({
+        id,
+        userId: body.data.userId,
+        startsAt: now,
+        endsAt,
+        planType: "monthly",
+        pricePaid: body.data.pricePaid,
+        isActive: true,
+        createdByAdmin: true,
+      })
+      .returning();
+  });
+
+  res.status(201).json(sub);
+});
+
+router.patch("/admin/customer-subscriptions/:id", async (req, res) => {
+  const subId = String(req.params["id"]);
+  const body = z.object({
+    isActive: z.boolean(),
+  }).safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+
+  const { customerSubscriptionsTable } = await import("@workspace/db");
+
+  const [updated] = await db
+    .update(customerSubscriptionsTable)
+    .set({ isActive: body.data.isActive })
+    .where(eq(customerSubscriptionsTable.id, subId))
+    .returning();
+
+  if (!updated) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+
+  res.json(updated);
+});
 
 router.get("/admin/whatsapp/accounts", (_req, res) => {
   res.json(whatsappManager.getStatus());

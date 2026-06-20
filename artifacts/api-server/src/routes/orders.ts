@@ -1,9 +1,12 @@
 import { Router, type IRouter, type Request } from "express";
-import { db, ordersTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable, promoCodesTable, promoUsesTable, usersTable } from "@workspace/db";
-import { and, count, desc, eq, or } from "drizzle-orm";
+import { db, ordersTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable, promoCodesTable, promoUsesTable, usersTable, flashDealsTable } from "@workspace/db";
+import { and, count, desc, eq, gt, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { notifyOrderUpdate, notifyNearbyCouriers, notifyRestaurantNewOrder } from "../orders/server";
 import { haversineKm, getFeeForDistance, DEFAULT_DELIVERY_FEE_SYP, DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON } from "../lib/deliveryZones";
+import { getLoyaltySettings, calculateRedeemDiscount, redeemLoyaltyPoints } from "../lib/loyalty";
+import { checkAndAwardAchievements } from "../lib/achievements";
+import { isUserSubscribed, getSubscriptionSettings } from "../lib/customerSubscription";
 
 const router: IRouter = Router();
 
@@ -16,6 +19,7 @@ const createOrderSchema = z.object({
   lon: z.number().min(-180).max(180).optional(),
   restaurantId: z.string().optional(),
   totalPrice: z.number().int().positive().optional(),
+  usePoints: z.boolean().optional(),
 });
 
 async function validatePromoForUser(code: string, userId: string, deliveryFee?: number, restaurantId?: string): Promise<{
@@ -215,6 +219,12 @@ router.post("/orders", async (req, res) => {
   const distanceKm = haversineKm(originLat, originLon, destLat, destLon);
   const { fee: zoneFee } = await getFeeForDistance(distanceKm);
 
+  const [subscribed, subSettings] = await Promise.all([
+    isUserSubscribed(userId),
+    getSubscriptionSettings(),
+  ]);
+  const effectiveDeliveryFee = subscribed ? subSettings.subscriberDeliveryFee : zoneFee;
+
   let promoUseData: { promoId: string; discountAmount: number } | null = null;
   if (body.data.promoCode) {
     const promoResult = await validatePromoForUser(body.data.promoCode, userId, zoneFee, body.data.restaurantId);
@@ -223,6 +233,31 @@ router.post("/orders", async (req, res) => {
       return;
     }
     promoUseData = { promoId: promoResult.promo.id, discountAmount: promoResult.discountAmount };
+  }
+
+  let flashDealSnapshot: { id: string; discountType: string; discountValue: number } | null = null;
+  if (body.data.restaurantId) {
+    const now = new Date();
+    const [activeDeal] = await db
+      .select({
+        id: flashDealsTable.id,
+        discountType: flashDealsTable.discountType,
+        discountValue: flashDealsTable.discountValue,
+      })
+      .from(flashDealsTable)
+      .where(
+        and(
+          eq(flashDealsTable.restaurantId, body.data.restaurantId),
+          eq(flashDealsTable.isActive, true),
+          lte(flashDealsTable.startsAt, now),
+          gt(flashDealsTable.endsAt, now),
+          or(isNull(flashDealsTable.maxUses), lt(flashDealsTable.usedCount, flashDealsTable.maxUses))
+        )
+      )
+      .limit(1);
+    if (activeDeal) {
+      flashDealSnapshot = activeDeal;
+    }
   }
 
   const newOrder = {
@@ -240,12 +275,61 @@ router.post("/orders", async (req, res) => {
     address: body.data.address,
     destinationLat: destLat,
     destinationLon: destLon,
-    deliveryFee: zoneFee,
+    deliveryFee: effectiveDeliveryFee,
     totalPrice: body.data.totalPrice ?? null,
+    flashDealId: null as string | null,
+    flashDealDiscount: null as number | null,
     estimatedMinutes,
   };
 
+  let loyaltyRedeemData: { points: number; discountAmount: number } | null = null;
+  if (body.data.usePoints) {
+    const [loyaltySettings, userRow] = await Promise.all([
+      getLoyaltySettings(),
+      db.select({ loyaltyPoints: usersTable.loyaltyPoints }).from(usersTable).where(eq(usersTable.id, userId)).limit(1),
+    ]);
+    const userPoints = userRow[0]?.loyaltyPoints ?? 0;
+    if (userPoints > 0 && loyaltySettings.pointValue > 0) {
+      const fullDiscountAmount = calculateRedeemDiscount(userPoints, loyaltySettings.pointValue);
+      // Cap discount at the actual payable delivery fee so we never over-redeem points.
+      // A user with 5000 pts worth 5000 SYP on a 500 SYP delivery should only burn 500 pts.
+      const cappedDiscountAmount = Math.min(fullDiscountAmount, effectiveDeliveryFee);
+      if (cappedDiscountAmount > 0) {
+        // Compute the minimum points that produce exactly the capped discount.
+        const pointsToRedeem = Math.min(
+          Math.ceil(cappedDiscountAmount / loyaltySettings.pointValue),
+          userPoints
+        );
+        loyaltyRedeemData = { points: pointsToRedeem, discountAmount: cappedDiscountAmount };
+      }
+    }
+  }
+
   const rows = await db.transaction(async (tx) => {
+    let appliedFlashDeal: { id: string; discountAmount: number } | null = null;
+    if (flashDealSnapshot) {
+      const updated = await tx
+        .update(flashDealsTable)
+        .set({ usedCount: sql`used_count + 1` })
+        .where(
+          and(
+            eq(flashDealsTable.id, flashDealSnapshot.id),
+            or(isNull(flashDealsTable.maxUses), lt(flashDealsTable.usedCount, flashDealsTable.maxUses))
+          )
+        )
+        .returning({ id: flashDealsTable.id });
+      if (updated.length > 0) {
+        const base = body.data.totalPrice ?? zoneFee;
+        const discountAmount =
+          flashDealSnapshot.discountType === "percent"
+            ? Math.min(Math.round((base * flashDealSnapshot.discountValue) / 100), base)
+            : Math.min(Math.round(flashDealSnapshot.discountValue), base);
+        appliedFlashDeal = { id: flashDealSnapshot.id, discountAmount };
+        newOrder.flashDealId = flashDealSnapshot.id;
+        newOrder.flashDealDiscount = discountAmount;
+      }
+    }
+
     const inserted = await tx.insert(ordersTable).values(newOrder).returning();
     await tx.insert(orderStatusHistoryTable).values({
       id: `${id}_searching`,
@@ -261,16 +345,34 @@ router.post("/orders", async (req, res) => {
         discountAmount: promoUseData.discountAmount,
       });
     }
-    return inserted;
+    if (loyaltyRedeemData) {
+      const settings = await getLoyaltySettings();
+      const { redeemPointsInTx } = await import("../lib/loyalty");
+      try {
+        await redeemPointsInTx(tx, userId, id, loyaltyRedeemData.points, settings);
+      } catch {
+        loyaltyRedeemData = null;
+      }
+    }
+    return { inserted, appliedFlashDeal };
   });
 
-  void notifyNearbyCouriers(destLat, destLon, body.data.restaurantName, zoneFee);
+  const flashDealData = rows.appliedFlashDeal;
+
+  void notifyNearbyCouriers(destLat, destLon, body.data.restaurantName, effectiveDeliveryFee);
 
   if (body.data.restaurantId) {
-    notifyRestaurantNewOrder(body.data.restaurantId, rows[0]);
+    notifyRestaurantNewOrder(body.data.restaurantId, rows.inserted[0]);
   }
 
-  res.status(201).json({ ...rows[0], appliedPromo: promoUseData ? true : false });
+  res.status(201).json({
+    ...rows.inserted[0],
+    appliedPromo: promoUseData ? true : false,
+    appliedFlashDeal: flashDealData ? true : false,
+    pointsDiscount: loyaltyRedeemData?.discountAmount ?? 0,
+    pointsRedeemed: loyaltyRedeemData?.points ?? 0,
+    subscriberDiscount: subscribed,
+  });
 });
 
 router.get("/orders/ratings", async (req, res) => {
@@ -460,6 +562,8 @@ router.post("/orders/:id/rate", async (req, res) => {
       restaurantName,
     })
     .returning();
+
+  void checkAndAwardAchievements(userId);
 
   res.status(201).json(rows[0]);
 });

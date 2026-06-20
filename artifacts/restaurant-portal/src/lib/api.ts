@@ -111,6 +111,23 @@ export const api = {
   }>) => apiFetch<RestaurantPromo>(`/restaurant-portal/promos/${id}`, { method: "PUT", body: JSON.stringify(data) }),
 
   deletePromo: (id: string) => apiFetch<void>(`/restaurant-portal/promos/${id}`, { method: "DELETE" }),
+
+  getFlashDeals: () => apiFetch<FlashDeal[]>("/restaurant-portal/flash-deals"),
+  createFlashDeal: (data: Omit<FlashDeal, "id" | "usedCount" | "createdAt" | "restaurantId">) =>
+    apiFetch<FlashDeal>("/restaurant-portal/flash-deals", { method: "POST", body: JSON.stringify(data) }),
+  updateFlashDeal: (id: string, data: Partial<Omit<FlashDeal, "id" | "usedCount" | "createdAt" | "restaurantId">>) =>
+    apiFetch<FlashDeal>(`/restaurant-portal/flash-deals/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteFlashDeal: (id: string) =>
+    apiFetch<void>(`/restaurant-portal/flash-deals/${id}`, { method: "DELETE" }),
+  getFlashDealStats: (id: string) =>
+    apiFetch<FlashDealStats>(`/restaurant-portal/flash-deals/${id}/stats`),
+};
+
+export type FlashDealStats = {
+  ordersCount: number;
+  totalDiscount: number;
+  totalRevenue: number;
+  conversionRate: number | null;
 };
 
 export type Restaurant = {
@@ -223,6 +240,20 @@ export type RatingsData = {
   totalCount: number;
   distribution: { stars: number; count: number; pct: number }[];
   ratings: { id: string; restaurantStars: number; comment: string; createdAt: string }[];
+};
+
+export type FlashDeal = {
+  id: string;
+  restaurantId: string;
+  title: string;
+  discountType: "percent" | "fixed";
+  discountValue: number;
+  startsAt: string;
+  endsAt: string;
+  maxUses: number | null;
+  usedCount: number;
+  isActive: boolean;
+  createdAt: string;
 };
 
 export type RestaurantPromo = {

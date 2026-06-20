@@ -6,10 +6,7 @@ import React, {
   useRef,
   useEffect,
 } from "react";
-import {
-  createOrder as apiCreateOrder,
-  customFetch,
-} from "@workspace/api-client-react";
+import { customFetch } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
 
 export type OrderStatus = "searching" | "accepted" | "picked_up" | "on_way" | "delivered" | "cancelled";
@@ -33,7 +30,7 @@ export interface Order {
 interface OrderContextValue {
   orders: Order[];
   activeOrder: Order | null;
-  placeOrder: (orderText: string, restaurantName: string, address: string, promoCode?: string, lat?: number, lon?: number, restaurantId?: string) => Promise<Order>;
+  placeOrder: (orderText: string, restaurantName: string, address: string, promoCode?: string, lat?: number, lon?: number, restaurantId?: string, usePoints?: boolean) => Promise<Order>;
   getOrder: (id: string) => Order | undefined;
   refreshOrder: (id: string) => Promise<void>;
   setStatusChangeHandler: (handler: (order: Order, newStatus: OrderStatus) => void) => void;
@@ -135,8 +132,10 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   );
 
   const placeOrder = useCallback(
-    async (orderText: string, restaurantName: string, address: string, promoCode?: string, lat?: number, lon?: number, restaurantId?: string): Promise<Order> => {
-      const result = await apiCreateOrder({
+    async (orderText: string, restaurantName: string, address: string, promoCode?: string, lat?: number, lon?: number, restaurantId?: string, usePoints?: boolean): Promise<Order> => {
+      const result = await customFetch("/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
           orderText,
           restaurantName,
           address,
@@ -144,7 +143,9 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
           ...(lat != null ? { lat } : {}),
           ...(lon != null ? { lon } : {}),
           ...(restaurantId ? { restaurantId } : {}),
-        });
+          ...(usePoints ? { usePoints: true } : {}),
+        }),
+      });
       const newOrder = apiOrderToLocal(result);
       setOrders((prev) => {
         if (prev.some((o) => o.id === newOrder.id)) return prev;

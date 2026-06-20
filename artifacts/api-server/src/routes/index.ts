@@ -11,6 +11,9 @@ import notificationsRouter from "./notifications";
 import configRouter from "./config";
 import storageRouter from "./storage";
 import restaurantPortalRouter from "./restaurant-portal";
+import loyaltyRouter from "./loyalty";
+import achievementsRouter from "./achievements";
+import subscriptionsRouter from "./subscriptions";
 import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
@@ -29,5 +32,8 @@ router.use(ordersRouter);
 router.use(addressesRouter);
 router.use(courierRouter);
 router.use(favoritesRouter);
+router.use(loyaltyRouter);
+router.use(achievementsRouter);
+router.use(subscriptionsRouter);
 
 export default router;

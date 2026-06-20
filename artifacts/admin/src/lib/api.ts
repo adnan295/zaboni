@@ -759,6 +759,52 @@ export const api = {
     apiFetch<CourierPerformanceRow[]>(`/admin/courier-performance?days=${days}`),
   getCourierPerformanceDetail: (courierId: string, days: number) =>
     apiFetch<CourierPerformanceDetail>(`/admin/courier-performance/${courierId}?days=${days}`),
+
+  getCourierNotes: (courierId: string) =>
+    apiFetch<AdminNote[]>(`/admin/couriers/${courierId}/notes`),
+  addCourierNote: (courierId: string, text: string) =>
+    apiFetch<AdminNote>(`/admin/couriers/${courierId}/notes`, {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    }),
+
+  getFlashDeals: () => apiFetch<FlashDeal[]>("/admin/flash-deals"),
+  createFlashDeal: (data: Omit<FlashDeal, "id" | "usedCount" | "createdAt" | "restaurantName">) =>
+    apiFetch<FlashDeal>("/admin/flash-deals", { method: "POST", body: JSON.stringify(data) }),
+  updateFlashDeal: (id: string, data: Partial<Omit<FlashDeal, "id" | "usedCount" | "createdAt" | "restaurantName">>) =>
+    apiFetch<FlashDeal>(`/admin/flash-deals/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteFlashDeal: (id: string) =>
+    apiFetch<void>(`/admin/flash-deals/${id}`, { method: "DELETE" }),
+  getFlashDealStats: (id: string) =>
+    apiFetch<FlashDealStats>(`/admin/flash-deals/${id}/stats`),
+
+  getLoyaltySettings: () => apiFetch<LoyaltySettings>("/admin/loyalty-settings"),
+  saveLoyaltySettings: (data: LoyaltySettings) =>
+    apiFetch<LoyaltySettings>("/admin/loyalty-settings", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  getLoyaltyUsers: () => apiFetch<LoyaltyUser[]>("/admin/loyalty-users"),
+
+  getCustomerSubscriptions: () =>
+    apiFetch<CustomerSubscriptionRow[]>("/admin/customer-subscriptions"),
+  createCustomerSubscription: (data: { userId: string; durationDays: number }) =>
+    apiFetch<CustomerSubscriptionRow>("/admin/customer-subscriptions", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  toggleCustomerSubscription: (id: string, isActive: boolean) =>
+    apiFetch<CustomerSubscriptionRow>(`/admin/customer-subscriptions/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ isActive }),
+    }),
+  getCustomerSubscriptionSettings: () =>
+    apiFetch<CustomerSubscriptionSettings>("/admin/subscription-settings"),
+  updateCustomerSubscriptionSettings: (data: CustomerSubscriptionSettings) =>
+    apiFetch<CustomerSubscriptionSettings>("/admin/subscription-settings", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
 };
 
 export type SlaAlert = {
@@ -796,6 +842,14 @@ export type WAAccount = {
   status: "connecting" | "qr" | "connected" | "disconnected";
   qrDataUrl?: string;
   phone?: string;
+  createdAt: string;
+};
+
+export type AdminNote = {
+  id: string;
+  courierId: string;
+  text: string;
+  adminId: string;
   createdAt: string;
 };
 
@@ -855,6 +909,41 @@ export type CancellationStats = {
   }[];
 };
 
+export type FlashDeal = {
+  id: string;
+  restaurantId: string;
+  restaurantName?: string | null;
+  title: string;
+  discountType: "percent" | "fixed";
+  discountValue: number;
+  startsAt: string;
+  endsAt: string;
+  maxUses: number | null;
+  usedCount: number;
+  isActive: boolean;
+  createdAt: string;
+};
+
+export type FlashDealStats = {
+  ordersCount: number;
+  totalDiscount: number;
+  totalRevenue: number;
+  conversionRate: number | null;
+};
+
+export type LoyaltySettings = {
+  earnRate: number;
+  pointValue: number;
+};
+
+export type LoyaltyUser = {
+  id: string;
+  name: string;
+  phone: string;
+  role: string;
+  loyaltyPoints: number;
+};
+
 export type WaVerifyHealth = {
   ok: boolean;
   configured?: boolean;
@@ -862,10 +951,31 @@ export type WaVerifyHealth = {
   error?: string;
 };
 
+
 export type WaVerifyHealthLogEntry = {
   id: number;
   ok: boolean;
   httpStatus: number | null;
   message: string | null;
   checkedAt: string;
+};
+
+export type CustomerSubscriptionSettings = {
+  monthlyPrice: number;
+  subscriberDeliveryFee: number;
+};
+
+export type CustomerSubscriptionRow = {
+  id: string;
+  userId: string;
+  startsAt: string;
+  endsAt: string;
+  planType: string;
+  pricePaid: number;
+  isActive: boolean;
+  createdByAdmin: boolean;
+  createdAt: string;
+  userName: string | null;
+  userPhone: string;
+  walletBalance: number;
 };

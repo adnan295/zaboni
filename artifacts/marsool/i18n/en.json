@@ -428,7 +428,8 @@
     "promoDiscount": "Discount: {{amount}} SYP",
     "estimatedTotal": "Estimated Items Total",
     "estimatedNote": "(approx. — final bill from courier)",
-    "deliveryFee": "Delivery Fee"
+    "deliveryFee": "Delivery Fee",
+    "totalAfterDiscount": "Total after discount"
   },
   "payment": {
     "cashOnDelivery": "Cash on Delivery 💵",
@@ -710,6 +711,63 @@
     "terms": {
       "title": "Terms of Service"
     }
+  },
+  "subscription": {
+    "menuLabel": "Free Delivery Plan",
+    "title": "Free Delivery Plan",
+    "heroTitle": "Save on delivery every month",
+    "heroSub": "Pay once and enjoy free or discounted delivery on all your orders",
+    "currency": "SYP",
+    "perMonth": "month",
+    "benefitsTitle": "Plan Benefits",
+    "benefit1Free": "100% free delivery on all your orders",
+    "benefit1Discounted": "Fixed delivery fee of {{fee}} SYP only",
+    "benefit2": "No limit on the number of orders",
+    "benefit3": "⭐ Subscriber badge on your profile",
+    "benefit4": "Instant savings from your very first order",
+    "walletInfo": "The plan price is deducted from your wallet balance upon subscribing",
+    "subscribeBtn": "Subscribe Now",
+    "confirmTitle": "Confirm Subscription",
+    "confirmBody": "{{price}} SYP will be deducted from your wallet. Subscription is valid for 30 days.",
+    "cancel": "Cancel",
+    "confirmBtn": "Subscribe",
+    "successTitle": "Subscribed!",
+    "successBody": "You now have free delivery on all your orders this month!",
+    "errorTitle": "Error",
+    "errorBody": "Could not complete subscription, please try again",
+    "insufficientBalance": "Insufficient wallet balance to subscribe",
+    "alreadySubscribed": "You already have an active subscription",
+    "activeTitle": "You're Subscribed ⭐",
+    "activeUntil": "Subscription active until {{date}}",
+    "freeDeliveryActive": "Free delivery on all your orders",
+    "discountedDelivery": "Discounted delivery: {{fee}} SYP only",
+    "subscriberBadge": "Subscriber - Free Delivery"
+  },
+  "loyalty": {
+    "title": "Loyalty Points",
+    "balance": "Your Points Balance",
+    "points": "pts",
+    "redeemValue": "= {{amount}} SYP discount",
+    "earnInfo": "Earn {{rate}} pts per 1,000 SYP",
+    "usePoints": "Use my points as a discount",
+    "usePointsDesc": "{{points}} pts = {{discount}} SYP off",
+    "noPoints": "No points yet",
+    "noPointsHint": "Complete orders to earn points",
+    "historyTitle": "Points History",
+    "noHistory": "No transactions yet",
+    "earn": "Earned",
+    "redeem": "Used",
+    "viewHistory": "Points history",
+    "appliedDiscount": "Points discount: {{amount}} SYP"
+  },
+  "achievements": {
+    "sectionTitle": "My Achievements",
+    "earned": "Unlocked",
+    "locked": "Locked",
+    "progress": "{{current}} / {{total}}",
+    "celebrationTitle": "🎉 Well done!",
+    "celebrationBody": "You earned a new badge",
+    "close": "Awesome!"
   },
   "onboarding": {
     "skip": "Skip",

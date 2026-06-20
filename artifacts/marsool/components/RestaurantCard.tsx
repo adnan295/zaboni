@@ -48,6 +48,7 @@ export default function RestaurantCard({ restaurant, onPress }: Props) {
   const { isFavorite, toggleFavorite } = useFavorites();
   const fav = isFavorite(restaurant.id);
   const scale = React.useRef(new Animated.Value(1)).current;
+  const hasFlashDeal = !!(restaurant as unknown as Record<string, unknown>)["hasFlashDeal"];
 
   const handleFav = (e: GestureResponderEvent) => {
     e.stopPropagation();
@@ -65,18 +66,23 @@ export default function RestaurantCard({ restaurant, onPress }: Props) {
       onPress={onPress}
       activeOpacity={0.92}
     >
-      <View style={[styles.imageContainer, restaurant.isLogo && styles.logoContainer]}>
+      <View style={[styles.imageContainer, (restaurant as any).isLogo && styles.logoContainer]}>
         <Image
           source={{ uri: buildImageUrl(restaurant.image) }}
-          style={restaurant.isLogo ? [styles.image, styles.logoImage] : styles.image}
-          resizeMode={restaurant.isLogo ? "contain" : "cover"}
+          style={(restaurant as any).isLogo ? [styles.image, styles.logoImage] : styles.image}
+          resizeMode={(restaurant as any).isLogo ? "contain" : "cover"}
         />
         {!restaurant.isOpen && (
           <View style={styles.closedOverlay}>
             <Text style={styles.closedText}>{t("restaurant.closed")}</Text>
           </View>
         )}
-        {restaurant.discount && (
+        {hasFlashDeal && (
+          <View style={styles.flashBadge}>
+            <Text style={styles.flashBadgeText}>⚡ عرض محدود</Text>
+          </View>
+        )}
+        {restaurant.discount && !hasFlashDeal && (
           <View style={[styles.discountBadge, { backgroundColor: colors.primary }]}>
             <Text style={[styles.discountText, { color: colors.primaryForeground }]}>
               {restaurant.discount}
@@ -161,6 +167,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   closedText: { color: "#fff", fontSize: 18, fontWeight: "700" },
+  flashBadge: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    backgroundColor: "#DC2626",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  flashBadgeText: { fontSize: 11, fontWeight: "700", color: "#fff" },
   discountBadge: {
     position: "absolute",
     top: 12,

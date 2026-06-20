@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -21,6 +21,31 @@ import { useBackIcon } from "@/hooks/useTypography";
 import { useOrders } from "@/context/OrderContext";
 import { useAddresses } from "@/context/AddressContext";
 import { customFetch } from "@workspace/api-client-react";
+
+type FlashDealInfo = {
+  id: string;
+  title: string;
+  discountType: "percent" | "fixed";
+  discountValue: number;
+  endsAt: string;
+};
+
+function formatCountdown(endsAt: string): string {
+  const diff = new Date(endsAt).getTime() - Date.now();
+  if (diff <= 0) return "";
+  const h = Math.floor(diff / 3_600_000);
+  const m = Math.floor((diff % 3_600_000) / 60_000);
+  const s = Math.floor((diff % 60_000) / 1_000);
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+interface LoyaltyInfo {
+  balance: number;
+  redeemDiscount: number;
+  earnRate: number;
+  pointValue: number;
+}
 
 type PromoStatus = "idle" | "checking" | "valid" | "invalid" | "expired" | "exhausted" | "already_used";
 
@@ -69,6 +94,36 @@ export default function OrderRequestScreen() {
 
   const addrLat = defaultAddress?.latitude;
   const addrLon = defaultAddress?.longitude;
+
+  const [flashDeal, setFlashDeal] = useState<FlashDealInfo | null>(null);
+  const [flashCountdown, setFlashCountdown] = useState<string>("");
+  const [loyaltyInfo, setLoyaltyInfo] = useState<LoyaltyInfo | null>(null);
+  const [usePoints, setUsePoints] = useState(false);
+
+  useEffect(() => {
+    customFetch("/api/users/me/loyalty")
+      .then((data) => setLoyaltyInfo(data as LoyaltyInfo))
+      .catch(() => setLoyaltyInfo(null));
+  }, []);
+
+  useEffect(() => {
+    if (!restaurantId) return;
+    customFetch(`/api/restaurants/${restaurantId}/flash-deal`)
+      .then((data) => {
+        const deal = data as FlashDealInfo | null;
+        setFlashDeal(deal);
+        if (deal) setFlashCountdown(formatCountdown(deal.endsAt));
+      })
+      .catch(() => setFlashDeal(null));
+  }, [restaurantId]);
+
+  useEffect(() => {
+    if (!flashDeal) return;
+    const timer = setInterval(() => {
+      setFlashCountdown(formatCountdown(flashDeal.endsAt));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [flashDeal]);
 
   useEffect(() => {
     if (addrLat == null || addrLon == null) {
@@ -172,7 +227,7 @@ export default function OrderRequestScreen() {
     const lat = defaultAddress.latitude ?? undefined;
     const lon = defaultAddress.longitude ?? undefined;
     try {
-      const order = await placeOrder(orderText.trim(), restaurantName ?? t("orderRequest.title"), address, appliedPromo, lat, lon, restaurantId);
+      const order = await placeOrder(orderText.trim(), restaurantName ?? t("orderRequest.title"), address, appliedPromo, lat, lon, restaurantId, usePoints);
       router.replace({
         pathname: "/order-tracking/[id]",
         params: { id: order.id },
@@ -205,6 +260,27 @@ export default function OrderRequestScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {flashDeal && (
+          <View style={styles.flashDealBanner}>
+            <View style={styles.flashDealLeft}>
+              <Text style={styles.flashDealTitle}>⚡ {flashDeal.title}</Text>
+              <Text style={styles.flashDealDesc}>
+                سيُطبَّق خصم{" "}
+                {flashDeal.discountType === "percent"
+                  ? `${flashDeal.discountValue}%`
+                  : `${flashDeal.discountValue.toLocaleString()} ل.س`}{" "}
+                تلقائياً على طلبك
+              </Text>
+            </View>
+            {flashCountdown ? (
+              <View style={styles.flashDealTimer}>
+                <Text style={styles.flashDealTimerLabel}>ينتهي خلال</Text>
+                <Text style={styles.flashDealTimerValue}>{flashCountdown}</Text>
+              </View>
+            ) : null}
+          </View>
+        )}
+
         {restaurantName ? (
           <View style={[styles.restaurantBadge, { backgroundColor: colors.secondary }]}>
             <MaterialIcons name="restaurant" size={16} color={colors.primary} />
@@ -304,6 +380,55 @@ export default function OrderRequestScreen() {
           </View>
         ) : null}
 
+        {loyaltyInfo !== null && loyaltyInfo.balance > 0 && (
+          <>
+            <TouchableOpacity
+              style={[styles.loyaltyToggleCard, {
+                backgroundColor: usePoints ? "#fdf4ff" : colors.card,
+                borderColor: usePoints ? "#a855f7" : colors.border,
+              }]}
+              onPress={() => setUsePoints((v) => !v)}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons name="stars" size={20} color={usePoints ? "#a855f7" : colors.primary} />
+              <View style={styles.addrInfo}>
+                <Text style={[styles.addrLabel, { color: colors.mutedForeground }]}>{t("loyalty.usePoints")}</Text>
+                <Text style={[styles.addrText, { color: usePoints ? "#7e22ce" : colors.foreground, fontWeight: "700" }]}>
+                  {t("loyalty.usePointsDesc", {
+                    points: loyaltyInfo.balance.toLocaleString(),
+                    discount: loyaltyInfo.redeemDiscount.toLocaleString(),
+                  })}
+                </Text>
+              </View>
+              <View style={[styles.toggleDot, { backgroundColor: usePoints ? "#a855f7" : colors.border }]}>
+                <View style={[styles.toggleInner, { backgroundColor: usePoints ? "#fff" : colors.mutedForeground }]} />
+              </View>
+            </TouchableOpacity>
+
+            {usePoints && feePreview != null && (
+              <View style={[styles.pointsSummaryCard, { backgroundColor: "#f5f3ff", borderColor: "#a855f7" }]}>
+                <MaterialIcons name="receipt-long" size={18} color="#7e22ce" />
+                <View style={styles.addrInfo}>
+                  <View style={styles.summaryRow}>
+                    <Text style={[styles.summaryLabel, { color: "#6b21a8" }]}>{t("orderRequest.deliveryFee")}</Text>
+                    <Text style={[styles.summaryValue, { color: "#6b21a8" }]}>{feePreview.fee.toLocaleString()} ل.س</Text>
+                  </View>
+                  <View style={styles.summaryRow}>
+                    <Text style={[styles.summaryLabel, { color: "#a855f7" }]}>{t("loyalty.appliedDiscount", { amount: Math.min(loyaltyInfo.redeemDiscount, feePreview.fee).toLocaleString() })}</Text>
+                    <Text style={[styles.summaryValue, { color: "#a855f7" }]}>- {Math.min(loyaltyInfo.redeemDiscount, feePreview.fee).toLocaleString()} ل.س</Text>
+                  </View>
+                  <View style={[styles.summaryRow, { marginTop: 4 }]}>
+                    <Text style={[styles.summaryLabel, { color: "#581c87", fontWeight: "800", fontSize: 14 }]}>{t("orderRequest.totalAfterDiscount")}</Text>
+                    <Text style={[styles.summaryValue, { color: "#581c87", fontWeight: "900", fontSize: 15 }]}>
+                      {Math.max(0, feePreview.fee - loyaltyInfo.redeemDiscount).toLocaleString()} ل.س
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
+          </>
+        )}
+
         <View style={[styles.promoCard, {
           backgroundColor: colors.card,
           borderColor: promoStatus === "valid" ? "#22c55e" : promoStatus !== "idle" && promoStatus !== "checking" ? "#ef4444" : colors.border,
@@ -364,6 +489,21 @@ export default function OrderRequestScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  flashDealBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#DC2626",
+    borderRadius: 14,
+    padding: 14,
+    gap: 10,
+  },
+  flashDealLeft: { flex: 1, gap: 4 },
+  flashDealTitle: { fontSize: 15, fontWeight: "800", color: "#fff" },
+  flashDealDesc: { fontSize: 12, color: "rgba(255,255,255,0.9)", lineHeight: 17 },
+  flashDealTimer: { alignItems: "center", minWidth: 64 },
+  flashDealTimerLabel: { fontSize: 10, color: "rgba(255,255,255,0.8)", fontWeight: "600" },
+  flashDealTimerValue: { fontSize: 18, fontWeight: "900", color: "#fff", fontVariant: ["tabular-nums"] as any },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -425,6 +565,42 @@ const styles = StyleSheet.create({
   addrLabel: { fontSize: 11, fontWeight: "600", marginBottom: 2 },
   addrText: { fontSize: 14, fontWeight: "600" },
   changeAddr: { fontSize: 13, fontWeight: "700" },
+  loyaltyToggleCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 14,
+  },
+  toggleDot: {
+    width: 38,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  toggleInner: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+  },
+  pointsSummaryCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 14,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 8,
+  },
+  summaryLabel: { fontSize: 13, fontWeight: "600", flex: 1 },
+  summaryValue: { fontSize: 13, fontWeight: "700" },
   promoCard: {
     flexDirection: "row",
     alignItems: "center",
