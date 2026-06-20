@@ -414,7 +414,9 @@ router.post("/orders", async (req, res) => {
     const [userRow] = await db.select({ walletBalance: usersTable.walletBalance }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
     const balance = userRow?.walletBalance ?? 0;
     if (balance > 0) {
-      const cappedDeduct = Math.min(balance, effectiveDeliveryFee);
+      // Cap by total payable amount (delivery fee + items), not just delivery fee.
+      const maxDeduct = effectiveDeliveryFee + (itemsTotal ?? 0);
+      const cappedDeduct = Math.min(balance, maxDeduct);
       if (cappedDeduct > 0) {
         walletDeductData = { deductAmount: cappedDeduct };
       }
@@ -497,8 +499,14 @@ router.post("/orders", async (req, res) => {
           // Insufficient balance at commit time — disable wallet discount
           walletDeductData = null;
         } else {
-          // Apply the discount to the order object BEFORE inserting into the DB
-          newOrder.deliveryFee = Math.max(0, newOrder.deliveryFee - walletDeductData.deductAmount);
+          // Apply the discount to deliveryFee first; if wallet balance exceeds the fee,
+          // apply the remainder to itemsTotal so the full balance is used.
+          const feeDiscount = Math.min(walletDeductData.deductAmount, newOrder.deliveryFee);
+          const remainingDiscount = walletDeductData.deductAmount - feeDiscount;
+          newOrder.deliveryFee = Math.max(0, newOrder.deliveryFee - feeDiscount);
+          if (remainingDiscount > 0 && newOrder.totalPrice != null) {
+            newOrder.totalPrice = Math.max(0, newOrder.totalPrice - remainingDiscount);
+          }
         }
       } catch {
         walletDeductData = null;
