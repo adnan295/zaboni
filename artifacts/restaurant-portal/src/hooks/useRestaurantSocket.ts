@@ -44,7 +44,7 @@ export function useRestaurantSocket(enabled: boolean): RestaurantSocketResult {
     if (!token) return;
 
     const socket = io("/orders", {
-      path: "/socket.io",
+      path: "/api/socket.io",
       auth: { token },
       transports: ["websocket", "polling"],
       reconnectionDelay: 2000,
