@@ -211,20 +211,42 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
   const courierLon = courierUser[0]?.lon ?? DAMASCUS_LON;
 
   const rows = await db
-    .select()
+    .select({
+      id: ordersTable.id,
+      status: ordersTable.status,
+      restaurantName: ordersTable.restaurantName,
+      restaurantId: ordersTable.restaurantId,
+      deliveryFee: ordersTable.deliveryFee,
+      totalPrice: ordersTable.totalPrice,
+      orderText: ordersTable.orderText,
+      estimatedMinutes: ordersTable.estimatedMinutes,
+      createdAt: ordersTable.createdAt,
+      updatedAt: ordersTable.updatedAt,
+      destinationLat: ordersTable.destinationLat,
+      destinationLon: ordersTable.destinationLon,
+    })
     .from(ordersTable)
     .where(and(eq(ordersTable.status, "searching"), eq(ordersTable.courierId, "")))
     .orderBy(ordersTable.createdAt);
 
   const isDev = process.env["NODE_ENV"] !== "production";
   const withDistance = rows
-    .filter((o) => o.userId !== courierId)
     .map((o) => {
       const destLat = o.destinationLat ?? DAMASCUS_LAT;
       const destLon = o.destinationLon ?? DAMASCUS_LON;
+      const distanceKm = Number(haversineKm(courierLat, courierLon, destLat, destLon).toFixed(1));
       return {
-        ...o,
-        distanceKm: Number(haversineKm(courierLat, courierLon, destLat, destLon).toFixed(1)),
+        id: o.id,
+        status: o.status,
+        restaurantName: o.restaurantName,
+        restaurantId: o.restaurantId,
+        deliveryFee: o.deliveryFee,
+        totalPrice: o.totalPrice,
+        orderText: o.orderText,
+        estimatedMinutes: o.estimatedMinutes,
+        createdAt: o.createdAt,
+        updatedAt: o.updatedAt,
+        distanceKm,
       };
     })
     .filter((o) => isDev || o.distanceKm <= NEARBY_RADIUS_KM)
@@ -288,7 +310,7 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   }
 
   const courierUsers = await db
-    .select({ name: usersTable.name, phone: usersTable.phone, isOnline: usersTable.isOnline })
+    .select({ name: usersTable.name, phone: usersTable.phone, isOnline: usersTable.isOnline, courierLat: usersTable.courierLat, courierLon: usersTable.courierLon })
     .from(usersTable)
     .where(eq(usersTable.id, courierId))
     .limit(1);
@@ -296,6 +318,23 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   if (!courierUsers[0]?.isOnline) {
     res.status(409).json({ error: "You must be online to accept orders" });
     return;
+  }
+
+  const isProduction = process.env["NODE_ENV"] === "production";
+  if (isProduction) {
+    const cLat = courierUsers[0]?.courierLat ?? null;
+    const cLon = courierUsers[0]?.courierLon ?? null;
+    if (cLat === null || cLon === null) {
+      res.status(409).json({ error: "Location not available. Please enable location and try again." });
+      return;
+    }
+    const destLat = order!.destinationLat ?? DAMASCUS_LAT;
+    const destLon = order!.destinationLon ?? DAMASCUS_LON;
+    const distKm = haversineKm(cLat, cLon, destLat, destLon);
+    if (distKm > NEARBY_RADIUS_KM) {
+      res.status(409).json({ error: "Order is outside your delivery area" });
+      return;
+    }
   }
 
   const courierName = courierUsers[0]?.name || "مندوب";
