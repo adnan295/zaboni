@@ -173,6 +173,11 @@ const locationSchema = z.object({
   lon: z.number().min(-180).max(180),
 });
 
+const MAX_SPEED_KMH = 150;
+const MAX_SINGLE_JUMP_KM = 50;
+const LOCATION_FRESHNESS_MINUTES = 5;
+const SERVICE_AREA_MAX_KM = 100;
+
 router.patch("/courier/location", requireCourier, async (req, res) => {
   const body = locationSchema.safeParse(req.body);
   if (!body.success) {
@@ -181,6 +186,38 @@ router.patch("/courier/location", requireCourier, async (req, res) => {
   }
 
   const courierId = resolveUserId(req);
+
+  const current = await db
+    .select({ courierLat: usersTable.courierLat, courierLon: usersTable.courierLon, courierLocationUpdatedAt: usersTable.courierLocationUpdatedAt })
+    .from(usersTable)
+    .where(eq(usersTable.id, courierId))
+    .limit(1);
+
+  const prev = current[0];
+  const hasPriorLocation = prev?.courierLat !== null && prev?.courierLon !== null &&
+    prev?.courierLocationUpdatedAt !== null &&
+    prev?.courierLat !== undefined && prev?.courierLon !== undefined &&
+    prev?.courierLocationUpdatedAt !== undefined;
+
+  if (hasPriorLocation) {
+    const elapsedHours = (Date.now() - prev!.courierLocationUpdatedAt!.getTime()) / 3_600_000;
+    const distKm = haversineKm(prev!.courierLat!, prev!.courierLon!, body.data.lat, body.data.lon);
+    if (distKm > MAX_SINGLE_JUMP_KM) {
+      res.status(429).json({ error: "Location update rejected: distance jump too large" });
+      return;
+    }
+    if (elapsedHours > 0 && distKm / elapsedHours > MAX_SPEED_KMH) {
+      res.status(429).json({ error: "Location update rejected: movement speed exceeds physical limit" });
+      return;
+    }
+  } else {
+    const distFromCenter = haversineKm(DAMASCUS_LAT, DAMASCUS_LON, body.data.lat, body.data.lon);
+    if (distFromCenter > SERVICE_AREA_MAX_KM) {
+      res.status(400).json({ error: "Location is outside the service area" });
+      return;
+    }
+  }
+
   await db
     .update(usersTable)
     .set({ courierLat: body.data.lat, courierLon: body.data.lon, courierLocationUpdatedAt: new Date() })
@@ -197,7 +234,7 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
 
   const courierUser = await db
-    .select({ lat: usersTable.courierLat, lon: usersTable.courierLon, isOnline: usersTable.isOnline })
+    .select({ lat: usersTable.courierLat, lon: usersTable.courierLon, isOnline: usersTable.isOnline, locationUpdatedAt: usersTable.courierLocationUpdatedAt })
     .from(usersTable)
     .where(eq(usersTable.id, courierId))
     .limit(1);
@@ -207,31 +244,70 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
     return;
   }
 
+  const isProduction = process.env["NODE_ENV"] === "production";
+  const locUpdatedAt = courierUser[0]?.locationUpdatedAt;
+  if (isProduction) {
+    if (!locUpdatedAt || !courierUser[0]?.lat || !courierUser[0]?.lon) {
+      res.json([]);
+      return;
+    }
+    const ageMinutes = (Date.now() - locUpdatedAt.getTime()) / 60_000;
+    if (ageMinutes > LOCATION_FRESHNESS_MINUTES) {
+      res.json([]);
+      return;
+    }
+  }
+
   const courierLat = courierUser[0]?.lat ?? DAMASCUS_LAT;
   const courierLon = courierUser[0]?.lon ?? DAMASCUS_LON;
 
   const rows = await db
-    .select()
+    .select({
+      id: ordersTable.id,
+      userId: ordersTable.userId,
+      status: ordersTable.status,
+      restaurantName: ordersTable.restaurantName,
+      restaurantId: ordersTable.restaurantId,
+      deliveryFee: ordersTable.deliveryFee,
+      totalPrice: ordersTable.totalPrice,
+      orderText: ordersTable.orderText,
+      estimatedMinutes: ordersTable.estimatedMinutes,
+      createdAt: ordersTable.createdAt,
+      updatedAt: ordersTable.updatedAt,
+      destinationLat: ordersTable.destinationLat,
+      destinationLon: ordersTable.destinationLon,
+    })
     .from(ordersTable)
     .where(and(eq(ordersTable.status, "searching"), eq(ordersTable.courierId, "")))
     .orderBy(ordersTable.createdAt);
 
-  const isDev = process.env["NODE_ENV"] !== "production";
   const withDistance = rows
     .filter((o) => o.userId !== courierId)
     .map((o) => {
       const destLat = o.destinationLat ?? DAMASCUS_LAT;
       const destLon = o.destinationLon ?? DAMASCUS_LON;
+      const distanceKm = Number(haversineKm(courierLat, courierLon, destLat, destLon).toFixed(1));
       return {
-        ...o,
-        distanceKm: Number(haversineKm(courierLat, courierLon, destLat, destLon).toFixed(1)),
+        id: o.id,
+        status: o.status,
+        restaurantName: o.restaurantName,
+        restaurantId: o.restaurantId,
+        deliveryFee: o.deliveryFee,
+        totalPrice: o.totalPrice,
+        orderText: o.orderText,
+        estimatedMinutes: o.estimatedMinutes,
+        createdAt: o.createdAt,
+        updatedAt: o.updatedAt,
+        distanceKm,
       };
     })
-    .filter((o) => isDev || o.distanceKm <= NEARBY_RADIUS_KM)
+    .filter((o) => !isProduction || o.distanceKm <= NEARBY_RADIUS_KM)
     .sort((a, b) => a.distanceKm - b.distanceKm);
 
   res.json(withDistance);
 });
+
+const CUSTOMER_CONTACT_STATUSES: string[] = ["on_way", "delivered"];
 
 router.get("/courier/orders/active", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
@@ -246,7 +322,18 @@ router.get("/courier/orders/active", requireCourier, async (req, res) => {
     .where(eq(ordersTable.courierId, courierId))
     .orderBy(ordersTable.updatedAt);
 
-  res.json(rows.filter((o) => o.status !== "delivered" && o.status !== "searching"));
+  const active = rows.filter((o) => o.status !== "delivered" && o.status !== "searching");
+
+  const masked = active.map((o) => {
+    const contactRevealed = CUSTOMER_CONTACT_STATUSES.includes(o.status);
+    return {
+      ...o,
+      customerName: contactRevealed ? o.customerName : null,
+      customerPhone: contactRevealed ? o.customerPhone : null,
+    };
+  });
+
+  res.json(masked);
 });
 
 router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) => {
@@ -288,7 +375,7 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   }
 
   const courierUsers = await db
-    .select({ name: usersTable.name, phone: usersTable.phone, isOnline: usersTable.isOnline })
+    .select({ name: usersTable.name, phone: usersTable.phone, isOnline: usersTable.isOnline, courierLat: usersTable.courierLat, courierLon: usersTable.courierLon, locationUpdatedAt: usersTable.courierLocationUpdatedAt })
     .from(usersTable)
     .where(eq(usersTable.id, courierId))
     .limit(1);
@@ -296,6 +383,29 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   if (!courierUsers[0]?.isOnline) {
     res.status(409).json({ error: "You must be online to accept orders" });
     return;
+  }
+
+  const isProduction = process.env["NODE_ENV"] === "production";
+  if (isProduction) {
+    const cLat = courierUsers[0]?.courierLat ?? null;
+    const cLon = courierUsers[0]?.courierLon ?? null;
+    const locUpdatedAt = courierUsers[0]?.locationUpdatedAt ?? null;
+    if (cLat === null || cLon === null || locUpdatedAt === null) {
+      res.status(409).json({ error: "Location not available. Please enable location and try again." });
+      return;
+    }
+    const ageMinutes = (Date.now() - locUpdatedAt.getTime()) / 60_000;
+    if (ageMinutes > LOCATION_FRESHNESS_MINUTES) {
+      res.status(409).json({ error: "Location is stale. Please allow the app to update your location and try again." });
+      return;
+    }
+    const destLat = order!.destinationLat ?? DAMASCUS_LAT;
+    const destLon = order!.destinationLon ?? DAMASCUS_LON;
+    const distKm = haversineKm(cLat, cLon, destLat, destLon);
+    if (distKm > NEARBY_RADIUS_KM) {
+      res.status(409).json({ error: "Order is outside your delivery area" });
+      return;
+    }
   }
 
   const courierName = courierUsers[0]?.name || "مندوب";
@@ -426,9 +536,30 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
   res.json(updated[0]);
 });
 
+const CANCEL_COOLDOWN_WINDOW_MINUTES = 60;
+const CANCEL_COOLDOWN_MAX_CANCELS = 3;
+
 router.post("/courier/orders/:orderId/cancel", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
   const orderId = String(req.params["orderId"]);
+
+  const windowStart = new Date(Date.now() - CANCEL_COOLDOWN_WINDOW_MINUTES * 60_000);
+  const cancelNotePrefix = `courier_cancelled:${courierId}`;
+  const recentCancels = await db
+    .select({ id: orderStatusHistoryTable.id })
+    .from(orderStatusHistoryTable)
+    .where(
+      and(
+        sql`${orderStatusHistoryTable.note} LIKE ${cancelNotePrefix + "%"}`,
+        sql`${orderStatusHistoryTable.createdAt} >= ${windowStart.toISOString()}`
+      )
+    )
+    .limit(CANCEL_COOLDOWN_MAX_CANCELS);
+
+  if (recentCancels.length >= CANCEL_COOLDOWN_MAX_CANCELS) {
+    res.status(429).json({ error: "Too many cancellations. Please wait before cancelling again." });
+    return;
+  }
 
   const orders = await db
     .select()
@@ -443,8 +574,8 @@ router.post("/courier/orders/:orderId/cancel", requireCourier, async (req, res) 
 
   const order = orders[0];
 
-  if (order.status === "delivered") {
-    res.status(409).json({ error: "Cannot cancel a delivered order" });
+  if (order.status === "delivered" || order.status === "picked_up" || order.status === "on_way") {
+    res.status(409).json({ error: "Cannot cancel after pickup has occurred" });
     return;
   }
 
@@ -470,7 +601,7 @@ router.post("/courier/orders/:orderId/cancel", requireCourier, async (req, res) 
     id: `${orderId}_cancelled_courier_${Date.now()}`,
     orderId,
     status: "searching",
-    note: "courier_cancelled",
+    note: `courier_cancelled:${courierId}`,
   });
 
   notifyOrderUpdate(order.userId, { ...updated[0], cancelNote: "courier_cancelled" });
