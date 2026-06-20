@@ -25,6 +25,7 @@ import { addUserNotifications } from "@workspace/db/migrations/add-user-notifica
 import { addOrderItems } from "@workspace/db/migrations/add-order-items";
 import { migrate as addMenuDealDiscountPercent } from "@workspace/db/migrations/add-menu-deal-discount-percent";
 import { addSupportMessages } from "@workspace/db/migrations/add-support-messages";
+import { addSupportTickets } from "@workspace/db/migrations/add-support-tickets";
 
 const rawPort = process.env["PORT"];
 
@@ -116,5 +117,8 @@ httpServer.listen(port, (err?: Error) => {
   );
   addSupportMessages().catch((e: unknown) =>
     logger.error({ err: e }, "Failed to run support messages migration"),
+  );
+  addSupportTickets().catch((e: unknown) =>
+    logger.error({ err: e }, "Failed to run support tickets migration"),
   );
 });

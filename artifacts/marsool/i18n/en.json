@@ -642,6 +642,55 @@
       "emptyTitle": "Message us directly",
       "emptySub": "Type your message and our support team will reply as soon as possible",
       "inputPlaceholder": "Type your message..."
+    },
+    "landing": {
+      "heroTitle": "How can we help you?",
+      "heroSub": "Select the order you need help with, or contact us directly",
+      "recentOrders": "My Recent Orders",
+      "noOrders": "No recent orders",
+      "generalTopic": "Topic not related to an order",
+      "myTickets": "My Previous Support Requests"
+    },
+    "issuePicker": {
+      "headerTitle": "Select Issue",
+      "title": "What problem are you facing?",
+      "orderRef": "Order from {{restaurant}}"
+    },
+    "categories": {
+      "order_delayed": "My order is late or hasn't arrived",
+      "wrong_items": "Missing or wrong items",
+      "damaged": "Order arrived damaged",
+      "payment": "Payment issue",
+      "other": "Something else"
+    },
+    "resolution": {
+      "orderStatus": "Order Status",
+      "estimatedTime": "Estimated Delivery Time",
+      "minutes": "min",
+      "orderTotal": "Order Total",
+      "paymentMethod": "Payment Method",
+      "cashOnDelivery": "Cash on Delivery",
+      "stillNeedHelp": "Still need help?",
+      "contactSupport": "Contact Support",
+      "order_delayed": {
+        "note": "If your order is taking longer than expected, contact our support team and we'll help you out."
+      },
+      "wrong_items": {
+        "note": "We're sorry about that. Our support team will reach out to review your order and make it right."
+      },
+      "damaged": {
+        "note": "We're sorry you received a damaged order. Our support team will contact you to resolve this."
+      },
+      "payment": {
+        "note": "If you notice any discrepancy in the amount charged, contact our support team and we'll review it together."
+      },
+      "other": {
+        "note": "Describe your issue to our support team and they'll get back to you as soon as possible."
+      }
+    },
+    "tickets": {
+      "open": "Open",
+      "resolved": "Resolved"
     }
   },
   "about": {
