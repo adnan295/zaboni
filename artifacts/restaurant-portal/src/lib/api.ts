@@ -119,6 +119,15 @@ export const api = {
     apiFetch<FlashDeal>(`/restaurant-portal/flash-deals/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteFlashDeal: (id: string) =>
     apiFetch<void>(`/restaurant-portal/flash-deals/${id}`, { method: "DELETE" }),
+  getFlashDealStats: (id: string) =>
+    apiFetch<FlashDealStats>(`/restaurant-portal/flash-deals/${id}/stats`),
+};
+
+export type FlashDealStats = {
+  ordersCount: number;
+  totalDiscount: number;
+  totalRevenue: number;
+  conversionRate: number | null;
 };
 
 export type Restaurant = {

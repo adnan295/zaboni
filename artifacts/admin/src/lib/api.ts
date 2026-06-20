@@ -775,6 +775,8 @@ export const api = {
     apiFetch<FlashDeal>(`/admin/flash-deals/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteFlashDeal: (id: string) =>
     apiFetch<void>(`/admin/flash-deals/${id}`, { method: "DELETE" }),
+  getFlashDealStats: (id: string) =>
+    apiFetch<FlashDealStats>(`/admin/flash-deals/${id}/stats`),
 
   getLoyaltySettings: () => apiFetch<LoyaltySettings>("/admin/loyalty-settings"),
   saveLoyaltySettings: (data: LoyaltySettings) =>
@@ -920,6 +922,13 @@ export type FlashDeal = {
   usedCount: number;
   isActive: boolean;
   createdAt: string;
+};
+
+export type FlashDealStats = {
+  ordersCount: number;
+  totalDiscount: number;
+  totalRevenue: number;
+  conversionRate: number | null;
 };
 
 export type LoyaltySettings = {
