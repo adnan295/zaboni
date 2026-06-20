@@ -566,7 +566,25 @@ export default function OrderTrackingScreen() {
           <Text style={[styles.cardTitle, { color: colors.foreground }]}>{t("orderTracking.summary.title")}</Text>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Text style={[styles.restaurantLabel, { color: colors.mutedForeground }]}>{order.restaurantName}</Text>
-          <Text style={[styles.orderText, { color: colors.foreground }]}>{order.orderText}</Text>
+          {order.items && order.items.length > 0 ? (
+            <View style={{ gap: 6, marginTop: 4 }}>
+              {order.items.map((it, idx) => (
+                <View
+                  key={idx}
+                  style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
+                >
+                  <Text style={[styles.orderText, { color: colors.foreground, flex: 1 }]}>
+                    {it.qty} × {it.nameAr}
+                  </Text>
+                  <Text style={[styles.orderText, { color: colors.foreground, fontWeight: "700" }]}>
+                    {it.lineTotal.toLocaleString()} ل.س
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={[styles.orderText, { color: colors.foreground }]}>{order.orderText}</Text>
+          )}
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <View style={styles.addrRow}>
             <MaterialIcons name="location-on" size={16} color={colors.primary} />

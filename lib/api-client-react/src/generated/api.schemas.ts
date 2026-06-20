@@ -73,6 +73,16 @@ export const OrderStatus = {
   delivered: "delivered",
 } as const;
 
+export interface OrderItem {
+  id: string;
+  orderId: string;
+  menuItemId?: string | null;
+  nameAr: string;
+  unitPrice: number;
+  qty: number;
+  lineTotal: number;
+}
+
 export interface Order {
   id: string;
   userId: string;
@@ -87,10 +97,16 @@ export interface Order {
   estimatedMinutes: number;
   createdAt: string;
   updatedAt: string;
+  items?: OrderItem[];
+}
+
+export interface CreateOrderItem {
+  menuItemId: string;
+  qty: number;
 }
 
 export interface CreateOrderRequest {
-  orderText: string;
+  orderText?: string;
   restaurantName?: string;
   address?: string;
   userId?: string;
@@ -98,6 +114,9 @@ export interface CreateOrderRequest {
   lat?: number;
   lon?: number;
   restaurantId?: string;
+  totalPrice?: number;
+  usePoints?: boolean;
+  items?: CreateOrderItem[];
 }
 
 export type UpdateOrderStatusRequestStatus =

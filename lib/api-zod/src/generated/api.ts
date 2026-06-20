@@ -110,6 +110,19 @@ export const GetOrdersResponseItem = zod.object({
   estimatedMinutes: zod.number(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
+  items: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        orderId: zod.string(),
+        menuItemId: zod.string().nullish(),
+        nameAr: zod.string(),
+        unitPrice: zod.number(),
+        qty: zod.number(),
+        lineTotal: zod.number(),
+      }),
+    )
+    .optional(),
 });
 export const GetOrdersResponse = zod.array(GetOrdersResponseItem);
 
@@ -117,7 +130,7 @@ export const GetOrdersResponse = zod.array(GetOrdersResponseItem);
  * @summary Create a new order
  */
 export const CreateOrderBody = zod.object({
-  orderText: zod.string(),
+  orderText: zod.string().optional(),
   restaurantName: zod.string().optional(),
   address: zod.string().optional(),
   userId: zod.string().optional(),
@@ -125,6 +138,16 @@ export const CreateOrderBody = zod.object({
   lat: zod.number().optional(),
   lon: zod.number().optional(),
   restaurantId: zod.string().optional(),
+  totalPrice: zod.number().optional(),
+  usePoints: zod.boolean().optional(),
+  items: zod
+    .array(
+      zod.object({
+        menuItemId: zod.string(),
+        qty: zod.number(),
+      }),
+    )
+    .optional(),
 });
 
 /**
@@ -148,6 +171,19 @@ export const GetOrderResponse = zod.object({
   estimatedMinutes: zod.number(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
+  items: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        orderId: zod.string(),
+        menuItemId: zod.string().nullish(),
+        nameAr: zod.string(),
+        unitPrice: zod.number(),
+        qty: zod.number(),
+        lineTotal: zod.number(),
+      }),
+    )
+    .optional(),
 });
 
 /**
@@ -175,6 +211,19 @@ export const UpdateOrderStatusResponse = zod.object({
   estimatedMinutes: zod.number(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
+  items: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        orderId: zod.string(),
+        menuItemId: zod.string().nullish(),
+        nameAr: zod.string(),
+        unitPrice: zod.number(),
+        qty: zod.number(),
+        lineTotal: zod.number(),
+      }),
+    )
+    .optional(),
 });
 
 /**

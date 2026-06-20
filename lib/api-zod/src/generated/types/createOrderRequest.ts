@@ -5,9 +5,10 @@
  * Marsool delivery app API
  * OpenAPI spec version: 0.1.0
  */
+import type { CreateOrderItem } from "./createOrderItem";
 
 export interface CreateOrderRequest {
-  orderText: string;
+  orderText?: string;
   restaurantName?: string;
   address?: string;
   userId?: string;
@@ -15,4 +16,7 @@ export interface CreateOrderRequest {
   lat?: number;
   lon?: number;
   restaurantId?: string;
+  totalPrice?: number;
+  usePoints?: boolean;
+  items?: CreateOrderItem[];
 }

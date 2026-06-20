@@ -395,7 +395,8 @@
     "closed": "Closed",
     "freeDelivery": "Free Delivery",
     "currency": "SYP",
-    "popular": "Most Ordered"
+    "popular": "Most Ordered",
+    "selectItems": "Select items"
   },
   "orderRequest": {
     "title": "Write Your Order",
@@ -429,7 +430,13 @@
     "estimatedTotal": "Estimated Items Total",
     "estimatedNote": "(approx. — final bill from courier)",
     "deliveryFee": "Delivery Fee",
-    "totalAfterDiscount": "Total after discount"
+    "totalAfterDiscount": "Total after discount",
+    "browseMenu": "Browse menu",
+    "emptyCart": "Your cart is empty",
+    "itemsTitle": "Items",
+    "serverPricedNote": "Final price is calculated by the server",
+    "subtotal": "Subtotal",
+    "total": "Total"
   },
   "payment": {
     "cashOnDelivery": "Cash on Delivery 💵",
@@ -790,5 +797,10 @@
         "body": "100% cash — no credit cards, no subscriptions. Just hand the money to the courier."
       }
     ]
+  },
+  "cart": {
+    "switchTitle": "Start a new cart?",
+    "switchBody": "Your cart has items from {{restaurant}}. Empty it and start over?",
+    "switchConfirm": "New cart"
   }
 }

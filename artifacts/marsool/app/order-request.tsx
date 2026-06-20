@@ -20,6 +20,7 @@ import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import { useOrders } from "@/context/OrderContext";
 import { useAddresses } from "@/context/AddressContext";
+import { useCart } from "@/context/CartContext";
 import { customFetch } from "@workspace/api-client-react";
 
 type FlashDealInfo = {
@@ -70,12 +71,15 @@ export default function OrderRequestScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const backIcon = useBackIcon();
-  const { restaurantName, restaurantId, reorderText, estimatedTotal } = useLocalSearchParams<{ restaurantName?: string; restaurantId?: string; reorderText?: string; estimatedTotal?: string }>();
+  const { restaurantName: paramRestaurantName, restaurantId: paramRestaurantId } = useLocalSearchParams<{ restaurantName?: string; restaurantId?: string }>();
   const { placeOrder } = useOrders();
   const { defaultAddress } = useAddresses();
+  const cart = useCart();
 
-  const prefix = restaurantName ? `${t("orderRequest.from")} ${restaurantName}: ` : "";
-  const [orderText, setOrderText] = useState(reorderText ?? prefix);
+  const restaurantId = paramRestaurantId ?? cart.restaurantId ?? undefined;
+  const restaurantName = paramRestaurantName ?? cart.restaurantName ?? undefined;
+  const cartEntries = cart.entries;
+  const subtotal = cart.subtotal;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [promoCode, setPromoCode] = useState("");
   const [promoStatus, setPromoStatus] = useState<PromoStatus>("idle");
@@ -84,13 +88,10 @@ export default function OrderRequestScreen() {
   const [feeLoading, setFeeLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const isValid = orderText.trim().length >= 5 && orderText.trim() !== prefix.trim();
-  const canSubmit = isValid && !!defaultAddress;
+  const hasItems = cartEntries.length > 0;
+  const canSubmit = hasItems && !!defaultAddress;
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
-
-  const steps = t("orderRequest.steps", { returnObjects: true }) as string[];
-  const stepIcons: Array<keyof typeof MaterialIcons.glyphMap> = ["send", "check-circle", "chat"];
 
   const addrLat = defaultAddress?.latitude;
   const addrLon = defaultAddress?.longitude;
@@ -208,7 +209,7 @@ export default function OrderRequestScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!isValid || isSubmitting) return;
+    if (!hasItems || isSubmitting) return;
     if (!defaultAddress) {
       Alert.alert(
         t("orderRequest.noAddressTitle"),
@@ -226,8 +227,19 @@ export default function OrderRequestScreen() {
     const appliedPromo = promoStatus === "valid" && promoCode.trim() ? promoCode.trim() : undefined;
     const lat = defaultAddress.latitude ?? undefined;
     const lon = defaultAddress.longitude ?? undefined;
+    const items = cartEntries.map((e) => ({ menuItemId: e.menuItemId, qty: e.qty }));
     try {
-      const order = await placeOrder(orderText.trim(), restaurantName ?? t("orderRequest.title"), address, appliedPromo, lat, lon, restaurantId, usePoints);
+      const order = await placeOrder({
+        items,
+        restaurantName: restaurantName ?? t("orderRequest.title"),
+        address,
+        promoCode: appliedPromo,
+        lat,
+        lon,
+        restaurantId,
+        usePoints,
+      });
+      cart.clear();
       router.replace({
         pathname: "/order-tracking/[id]",
         params: { id: order.id },
@@ -290,29 +302,70 @@ export default function OrderRequestScreen() {
           </View>
         ) : null}
 
-        <Text style={[styles.label, { color: colors.foreground }]}>{t("orderRequest.label")}</Text>
-        <Text style={[styles.hint, { color: colors.mutedForeground }]}>
-          {t("orderRequest.hint")}
-        </Text>
+        <Text style={[styles.label, { color: colors.foreground }]}>{t("orderRequest.itemsTitle")}</Text>
 
-        <View style={[styles.inputCard, { backgroundColor: colors.card, borderColor: isValid ? colors.primary : colors.border }]}>
-          <TextInput
-            style={[styles.textArea, { color: colors.foreground }]}
-            placeholder={t("orderRequest.placeholder")}
-            placeholderTextColor={colors.mutedForeground}
-            value={orderText}
-            onChangeText={setOrderText}
-            multiline
-            numberOfLines={5}
-            textAlignVertical="top"
-            textAlign="left"
-            autoFocus
-            maxLength={500}
-          />
-          <Text style={[styles.charCount, { color: colors.mutedForeground }]}>
-            {orderText.length}/500
-          </Text>
-        </View>
+        {hasItems ? (
+          <View style={[styles.itemsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            {cartEntries.map((item, idx) => (
+              <View
+                key={item.menuItemId}
+                style={[
+                  styles.itemRow,
+                  idx < cartEntries.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
+                ]}
+              >
+                <View style={styles.itemInfo}>
+                  <Text style={[styles.itemName, { color: colors.foreground }]} numberOfLines={2}>
+                    {item.nameAr}
+                  </Text>
+                  <Text style={[styles.itemUnit, { color: colors.mutedForeground }]}>
+                    {item.price.toLocaleString()} ل.س
+                  </Text>
+                </View>
+                <View style={styles.stepper}>
+                  <TouchableOpacity
+                    style={[styles.stepBtn, { backgroundColor: colors.secondary }]}
+                    onPress={() => cart.decItem(item.menuItemId)}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialIcons
+                      name={item.qty <= 1 ? "delete-outline" : "remove"}
+                      size={18}
+                      color={item.qty <= 1 ? "#ef4444" : colors.primary}
+                    />
+                  </TouchableOpacity>
+                  <Text style={[styles.stepQty, { color: colors.foreground }]}>{item.qty}</Text>
+                  <TouchableOpacity
+                    style={[styles.stepBtn, { backgroundColor: colors.primary }]}
+                    onPress={() => cart.incItem(item.menuItemId)}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialIcons name="add" size={18} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+                <Text style={[styles.lineTotal, { color: colors.foreground }]}>
+                  {(item.price * item.qty).toLocaleString()}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={[styles.emptyCart, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <MaterialIcons name="remove-shopping-cart" size={32} color={colors.mutedForeground} />
+            <Text style={[styles.emptyCartText, { color: colors.mutedForeground }]}>
+              {t("orderRequest.emptyCart")}
+            </Text>
+            {restaurantId ? (
+              <TouchableOpacity
+                style={[styles.emptyCartBtn, { backgroundColor: colors.primary }]}
+                onPress={() => router.replace({ pathname: "/restaurant/[id]", params: { id: restaurantId } })}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.emptyCartBtnText}>{t("orderRequest.browseMenu")}</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        )}
 
         <TouchableOpacity
           style={[styles.addressRow, {
@@ -341,23 +394,6 @@ export default function OrderRequestScreen() {
             <Text style={[styles.addrText, { color: colors.foreground }]}>{t("payment.cashOnDelivery")}</Text>
           </View>
         </View>
-
-        {estimatedTotal && Number(estimatedTotal) > 0 ? (
-          <View style={[styles.estimatedCard, { backgroundColor: "#fff7ed", borderColor: "#fed7aa" }]}>
-            <MaterialIcons name="receipt-long" size={20} color="#ea580c" />
-            <View style={styles.addrInfo}>
-              <Text style={[styles.addrLabel, { color: "#9a3412" }]}>{t("orderRequest.estimatedTotal")}</Text>
-              <View style={styles.feeRow}>
-                <Text style={[styles.feeAmount, { color: "#ea580c" }]}>
-                  ~{Number(estimatedTotal).toLocaleString()} ل.س
-                </Text>
-                <Text style={[styles.feeDistance, { color: "#c2410c" }]}>
-                  {t("orderRequest.estimatedNote")}
-                </Text>
-              </View>
-            </View>
-          </View>
-        ) : null}
 
         {(feeLoading || feePreview != null) ? (
           <View style={[styles.feeCard, { backgroundColor: colors.card, borderColor: flashDeal ? "#f97316" : colors.border }]}>
@@ -483,15 +519,30 @@ export default function OrderRequestScreen() {
           ) : null}
         </View>
 
-        <View style={[styles.howCard, { backgroundColor: colors.secondary }]}>
-          <Text style={[styles.howTitle, { color: colors.foreground }]}>{t("orderRequest.howItWorks")}</Text>
-          {steps.map((step, i) => (
-            <View key={i} style={styles.howRow}>
-              <MaterialIcons name={stepIcons[i]} size={16} color={colors.primary} />
-              <Text style={[styles.howText, { color: colors.mutedForeground }]}>{step}</Text>
+        {hasItems ? (
+          <View style={[styles.totalsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.totalRow}>
+              <Text style={[styles.totalLabel, { color: colors.mutedForeground }]}>{t("orderRequest.subtotal")}</Text>
+              <Text style={[styles.totalValue, { color: colors.foreground }]}>{subtotal.toLocaleString()} ل.س</Text>
             </View>
-          ))}
-        </View>
+            {deliveryFee != null ? (
+              <View style={styles.totalRow}>
+                <Text style={[styles.totalLabel, { color: colors.mutedForeground }]}>{t("orderRequest.deliveryFee")}</Text>
+                <Text style={[styles.totalValue, { color: colors.foreground }]}>{deliveryFee.toLocaleString()} ل.س</Text>
+              </View>
+            ) : null}
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <View style={styles.grandRow}>
+              <Text style={[styles.grandLabel, { color: colors.foreground }]}>{t("orderRequest.total")}</Text>
+              <Text style={[styles.grandValue, { color: colors.primary }]}>
+                {(subtotal + (deliveryFee ?? 0)).toLocaleString()} ل.س
+              </Text>
+            </View>
+            <Text style={[styles.totalNote, { color: colors.mutedForeground }]}>
+              {t("orderRequest.serverPricedNote")}
+            </Text>
+          </View>
+        ) : null}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: bottomPadding + 16, backgroundColor: colors.background, borderTopColor: colors.border }]}>
@@ -644,6 +695,28 @@ const styles = StyleSheet.create({
   howTitle: { fontSize: 14, fontWeight: "800", marginBottom: 4 },
   howRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   howText: { flex: 1, fontSize: 13, lineHeight: 18 },
+  itemsCard: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14 },
+  itemRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 12 },
+  itemInfo: { flex: 1, gap: 2 },
+  itemName: { fontSize: 14, fontWeight: "700" },
+  itemUnit: { fontSize: 12 },
+  stepper: { flexDirection: "row", alignItems: "center", gap: 8 },
+  stepBtn: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
+  stepQty: { fontSize: 15, fontWeight: "800", minWidth: 22, textAlign: "center" },
+  lineTotal: { fontSize: 14, fontWeight: "800", minWidth: 56, textAlign: "left" },
+  emptyCart: { borderWidth: 1, borderRadius: 14, padding: 24, alignItems: "center", gap: 12 },
+  emptyCartText: { fontSize: 14, fontWeight: "600", textAlign: "center" },
+  emptyCartBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
+  emptyCartBtnText: { color: "#fff", fontSize: 14, fontWeight: "800" },
+  totalsCard: { borderWidth: 1, borderRadius: 14, padding: 16, gap: 10 },
+  totalRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  totalLabel: { fontSize: 14 },
+  totalValue: { fontSize: 14, fontWeight: "700" },
+  divider: { height: 1, marginVertical: 2 },
+  grandRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  grandLabel: { fontSize: 16, fontWeight: "800" },
+  grandValue: { fontSize: 18, fontWeight: "900" },
+  totalNote: { fontSize: 11, lineHeight: 16 },
   footer: {
     padding: 16,
     borderTopWidth: 1,

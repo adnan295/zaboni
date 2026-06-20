@@ -1,1 +1,2 @@
 - [Restaurant-portal port fix](restaurant-portal-port.md) — artifact.toml port must be registered in .replit [[ports]] for workflow health-check to succeed.
+- [Structured cart pricing](structured-cart-pricing.md) — POST /api/orders recomputes all prices from DB and derives restaurant from items; never trust client totalPrice/restaurantId.

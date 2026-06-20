@@ -395,7 +395,8 @@
     "closed": "مغلق",
     "freeDelivery": "توصيل مجاني",
     "currency": "ل.س",
-    "popular": "الأكثر طلباً"
+    "popular": "الأكثر طلباً",
+    "selectItems": "اختر الأصناف"
   },
   "orderRequest": {
     "title": "اكتب طلبك",
@@ -429,7 +430,13 @@
     "estimatedTotal": "المجموع التقديري للأصناف",
     "estimatedNote": "(تقديري، الفاتورة الحقيقية من السائق)",
     "deliveryFee": "رسوم التوصيل",
-    "totalAfterDiscount": "المجموع بعد الخصم"
+    "totalAfterDiscount": "المجموع بعد الخصم",
+    "browseMenu": "تصفح القائمة",
+    "emptyCart": "سلتك فارغة",
+    "itemsTitle": "الأصناف",
+    "serverPricedNote": "يتم احتساب السعر النهائي من الخادم",
+    "subtotal": "المجموع الفرعي",
+    "total": "الإجمالي"
   },
   "payment": {
     "cashOnDelivery": "الدفع عند الاستلام 💵",
@@ -790,5 +797,10 @@
         "body": "الدفع نقداً ٪100 — لا بطاقات بنكية، لا اشتراكات. فقط سلّم المبلغ للمندوب."
       }
     ]
+  },
+  "cart": {
+    "switchTitle": "بدء سلة جديدة؟",
+    "switchBody": "سلتك تحتوي على أصناف من {{restaurant}}. هل تريد إفراغها والبدء من جديد؟",
+    "switchConfirm": "سلة جديدة"
   }
 }

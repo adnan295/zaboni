@@ -24,6 +24,7 @@ import { useBackIcon } from "@/hooks/useTypography";
 import MenuItemCard from "@/components/MenuItemCard";
 import { useFavorites } from "@/context/FavoritesContext";
 import { useAddresses } from "@/context/AddressContext";
+import { useCart } from "@/context/CartContext";
 import { useGetRestaurant, useGetRestaurantMenu, customFetch } from "@workspace/api-client-react";
 import { haversineDistance } from "@/utils/geo";
 import { buildImageUrl } from "@/lib/apiConfig";
@@ -100,7 +101,11 @@ export default function RestaurantScreen() {
     ...categories,
   ];
 
-  const [cart, setCart] = useState<Record<string, CartEntry>>({});
+  const cartCtx = useCart();
+  const cart: Record<string, CartEntry> =
+    restaurant && cartCtx.restaurantId === restaurant.id
+      ? (cartCtx.items as Record<string, CartEntry>)
+      : {};
   const [activeCategory, setActiveCategory] = useState<string | null>(allTabs[0] ?? null);
   const [flashDeal, setFlashDeal] = useState<FlashDeal | null>(null);
   const [flashCountdown, setFlashCountdown] = useState<string>("");
@@ -133,34 +138,40 @@ export default function RestaurantScreen() {
   allTabsRef.current = allTabs;
 
   const addToCart = (itemId: string, nameAr: string, price: number) => {
-    setCart((prev) => ({
-      ...prev,
-      [itemId]: { nameAr, price, qty: (prev[itemId]?.qty ?? 0) + 1 },
-    }));
+    if (!restaurant) return;
+    if (
+      cartCtx.restaurantId &&
+      cartCtx.restaurantId !== restaurant.id &&
+      cartCtx.totalItems > 0
+    ) {
+      Alert.alert(
+        t("cart.switchTitle"),
+        t("cart.switchBody", { restaurant: cartCtx.restaurantName ?? "" }),
+        [
+          { text: t("common.cancel"), style: "cancel" },
+          {
+            text: t("cart.switchConfirm"),
+            style: "destructive",
+            onPress: () =>
+              cartCtx.replaceCart(restaurant.id, restaurant.nameAr, [
+                { menuItemId: itemId, nameAr, price, qty: 1 },
+              ]),
+          },
+        ]
+      );
+      return;
+    }
+    cartCtx.addItem(restaurant.id, restaurant.nameAr, { menuItemId: itemId, nameAr, price });
   };
 
-  const removeFromCart = (itemId: string, nameAr: string, price: number) => {
-    setCart((prev) => {
-      const current = prev[itemId]?.qty ?? 0;
-      if (current <= 1) {
-        const next = { ...prev };
-        delete next[itemId];
-        return next;
-      }
-      return { ...prev, [itemId]: { nameAr, price, qty: current - 1 } };
-    });
+  const removeFromCart = (itemId: string, _nameAr?: string, _price?: number) => {
+    cartCtx.decItem(itemId);
   };
 
   const cartEntries = Object.values(cart);
   const totalItems = cartEntries.reduce((s, e) => s + e.qty, 0);
   const estimatedTotal = cartEntries.reduce((s, e) => s + (e.price || 0) * e.qty, 0);
   const hasCart = totalItems > 0;
-
-  const buildCartText = (): string => {
-    const prefix = restaurant ? `${t("orderRequest.from")} ${restaurant.nameAr}: ` : "";
-    const items = cartEntries.map((e) => (e.qty > 1 ? `${e.nameAr} × ${e.qty}` : e.nameAr)).join("، ");
-    return prefix + items;
-  };
 
   const favScale = React.useRef(new Animated.Value(1)).current;
   const fav = restaurant ? isFavorite(restaurant.id) : false;
@@ -218,13 +229,12 @@ export default function RestaurantScreen() {
       );
       return;
     }
+    if (!hasCart) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const params: Record<string, string> = { restaurantName: restaurant.nameAr, restaurantId: restaurant.id };
-    if (hasCart) {
-      params.reorderText = buildCartText();
-      params.estimatedTotal = String(estimatedTotal);
-    }
-    router.push({ pathname: "/order-request", params });
+    router.push({
+      pathname: "/order-request",
+      params: { restaurantName: restaurant.nameAr, restaurantId: restaurant.id },
+    });
   };
 
   if (restaurantLoading) {
@@ -587,22 +597,22 @@ export default function RestaurantScreen() {
           </View>
         )}
         <TouchableOpacity
-          style={[styles.orderBtn, { backgroundColor: isOpen ? colors.primary : colors.muted }]}
+          style={[styles.orderBtn, { backgroundColor: isOpen && hasCart ? colors.primary : colors.muted }]}
           onPress={handleOrder}
-          activeOpacity={isOpen ? 0.85 : 1}
-          disabled={!isOpen}
+          activeOpacity={isOpen && hasCart ? 0.85 : 1}
+          disabled={!isOpen || !hasCart}
         >
           <MaterialIcons
-            name={hasCart ? "shopping-bag" : "edit-note"}
+            name={hasCart ? "shopping-bag" : "restaurant-menu"}
             size={22}
-            color={isOpen ? "#fff" : colors.mutedForeground}
+            color={isOpen && hasCart ? "#fff" : colors.mutedForeground}
           />
-          <Text style={[styles.orderBtnText, { color: isOpen ? "#fff" : colors.mutedForeground }]}>
+          <Text style={[styles.orderBtnText, { color: isOpen && hasCart ? "#fff" : colors.mutedForeground }]}>
             {!isOpen
               ? t("restaurant.closed")
               : hasCart
               ? t("restaurant.reviewOrder")
-              : t("restaurant.orderNow")}
+              : t("restaurant.selectItems")}
           </Text>
         </TouchableOpacity>
       </View>

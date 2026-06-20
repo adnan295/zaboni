@@ -26,6 +26,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OrderProvider } from "@/context/OrderContext";
+import { CartProvider } from "@/context/CartContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { FavoritesProvider } from "@/context/FavoritesContext";
 import { AddressProvider } from "@/context/AddressContext";
@@ -170,6 +171,7 @@ export default function RootLayout() {
                   <RatingsProvider>
                     <FavoritesProvider>
                       <AddressProvider>
+                        <CartProvider>
                         <OrderProvider>
                           <CourierProvider>
                             <GestureHandlerRootView style={{ flex: 1, direction: "rtl" }}>
@@ -181,6 +183,7 @@ export default function RootLayout() {
                             </GestureHandlerRootView>
                           </CourierProvider>
                         </OrderProvider>
+                        </CartProvider>
                       </AddressProvider>
                     </FavoritesProvider>
                   </RatingsProvider>
