@@ -175,6 +175,7 @@ const locationSchema = z.object({
 
 const MAX_SPEED_KMH = 150;
 const LOCATION_FRESHNESS_MINUTES = 5;
+const SERVICE_AREA_MAX_KM = 300;
 
 router.patch("/courier/location", requireCourier, async (req, res) => {
   const body = locationSchema.safeParse(req.body);
@@ -192,12 +193,22 @@ router.patch("/courier/location", requireCourier, async (req, res) => {
     .limit(1);
 
   const prev = current[0];
-  if (prev?.courierLat !== null && prev?.courierLon !== null && prev?.courierLocationUpdatedAt !== null &&
-      prev?.courierLat !== undefined && prev?.courierLon !== undefined && prev?.courierLocationUpdatedAt !== undefined) {
-    const elapsedHours = (Date.now() - prev.courierLocationUpdatedAt.getTime()) / 3_600_000;
-    const distKm = haversineKm(prev.courierLat, prev.courierLon, body.data.lat, body.data.lon);
+  const hasPriorLocation = prev?.courierLat !== null && prev?.courierLon !== null &&
+    prev?.courierLocationUpdatedAt !== null &&
+    prev?.courierLat !== undefined && prev?.courierLon !== undefined &&
+    prev?.courierLocationUpdatedAt !== undefined;
+
+  if (hasPriorLocation) {
+    const elapsedHours = (Date.now() - prev!.courierLocationUpdatedAt!.getTime()) / 3_600_000;
+    const distKm = haversineKm(prev!.courierLat!, prev!.courierLon!, body.data.lat, body.data.lon);
     if (elapsedHours > 0 && distKm / elapsedHours > MAX_SPEED_KMH) {
       res.status(429).json({ error: "Location update rejected: movement speed exceeds physical limit" });
+      return;
+    }
+  } else {
+    const distFromCenter = haversineKm(DAMASCUS_LAT, DAMASCUS_LON, body.data.lat, body.data.lon);
+    if (distFromCenter > SERVICE_AREA_MAX_KM) {
+      res.status(400).json({ error: "Location is outside the service area" });
       return;
     }
   }
@@ -291,6 +302,8 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
   res.json(withDistance);
 });
 
+const CUSTOMER_CONTACT_STATUSES: string[] = ["picked_up", "on_way", "delivered"];
+
 router.get("/courier/orders/active", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
   const rows = await db
@@ -304,7 +317,18 @@ router.get("/courier/orders/active", requireCourier, async (req, res) => {
     .where(eq(ordersTable.courierId, courierId))
     .orderBy(ordersTable.updatedAt);
 
-  res.json(rows.filter((o) => o.status !== "delivered" && o.status !== "searching"));
+  const active = rows.filter((o) => o.status !== "delivered" && o.status !== "searching");
+
+  const masked = active.map((o) => {
+    const contactRevealed = CUSTOMER_CONTACT_STATUSES.includes(o.status);
+    return {
+      ...o,
+      customerName: contactRevealed ? o.customerName : null,
+      customerPhone: contactRevealed ? o.customerPhone : null,
+    };
+  });
+
+  res.json(masked);
 });
 
 router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) => {
@@ -507,9 +531,32 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
   res.json(updated[0]);
 });
 
+const CANCEL_COOLDOWN_WINDOW_MINUTES = 60;
+const CANCEL_COOLDOWN_MAX_CANCELS = 3;
+
 router.post("/courier/orders/:orderId/cancel", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
   const orderId = String(req.params["orderId"]);
+
+  const windowStart = new Date(Date.now() - CANCEL_COOLDOWN_WINDOW_MINUTES * 60_000);
+  const recentCancels = await db
+    .select({ id: orderStatusHistoryTable.id })
+    .from(orderStatusHistoryTable)
+    .where(
+      and(
+        sql`${orderStatusHistoryTable.orderId} IN (
+          SELECT id FROM orders WHERE courier_id = ${courierId}
+        )`,
+        eq(orderStatusHistoryTable.note, "courier_cancelled"),
+        sql`${orderStatusHistoryTable.createdAt} >= ${windowStart.toISOString()}`
+      )
+    )
+    .limit(CANCEL_COOLDOWN_MAX_CANCELS);
+
+  if (recentCancels.length >= CANCEL_COOLDOWN_MAX_CANCELS) {
+    res.status(429).json({ error: "Too many cancellations. Please wait before cancelling again." });
+    return;
+  }
 
   const orders = await db
     .select()
