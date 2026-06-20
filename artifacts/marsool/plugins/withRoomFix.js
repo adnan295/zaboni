@@ -4,6 +4,10 @@ module.exports = function withRoomFix(config) {
   return withAppBuildGradle(config, (config) => {
     const contents = config.modResults.contents;
 
+    if (!contents) {
+      return config;
+    }
+
     const resolutionBlock = `
 configurations.all {
     resolutionStrategy {
