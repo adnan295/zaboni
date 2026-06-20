@@ -4,6 +4,7 @@ import { and, eq, ne, notInArray, avg, count, sql, desc, getTableColumns } from 
 import { haversineKm as _haversineKm } from "../lib/deliveryZones";
 import { z } from "zod";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
+import { getLoyaltySettings, awardPointsInTx } from "../lib/loyalty";
 
 const router: IRouter = Router();
 
@@ -368,22 +369,49 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
     return;
   }
 
-  const updated = await db
-    .update(ordersTable)
-    .set({ status: body.data.status, updatedAt: new Date() })
-    .where(and(eq(ordersTable.id, orderId), eq(ordersTable.courierId, courierId)))
-    .returning();
+  const updated = await db.transaction(async (tx) => {
+    // Guard on current status inside the transaction so concurrent requests both
+    // matching the pre-check cannot both win — only the first UPDATE succeeds.
+    const rows = await tx
+      .update(ordersTable)
+      .set({ status: body.data.status, updatedAt: new Date() })
+      .where(
+        and(
+          eq(ordersTable.id, orderId),
+          eq(ordersTable.courierId, courierId),
+          eq(ordersTable.status, currentOrder.status)
+        )
+      )
+      .returning();
+
+    if (rows.length === 0) return [];
+
+    await tx.insert(orderStatusHistoryTable).values({
+      id: `${orderId}_${body.data.status}_${Date.now()}`,
+      orderId,
+      status: body.data.status,
+    });
+
+    if (body.data.status === "delivered") {
+      const order = rows[0]!;
+      const totalForPoints = order.totalPrice ?? order.deliveryFee;
+      if (totalForPoints > 0) {
+        try {
+          const settings = await getLoyaltySettings();
+          await awardPointsInTx(tx, currentOrder.userId, orderId, totalForPoints, settings);
+        } catch {
+          // points award failure must not block order completion
+        }
+      }
+    }
+
+    return rows;
+  });
 
   if (updated.length === 0) {
     res.status(404).json({ error: "Order not found" });
     return;
   }
-
-  await db.insert(orderStatusHistoryTable).values({
-    id: `${orderId}_${body.data.status}_${Date.now()}`,
-    orderId,
-    status: body.data.status,
-  });
 
   notifyOrderUpdate(currentOrder.userId, updated[0]);
 

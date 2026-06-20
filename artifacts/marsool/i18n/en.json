@@ -428,7 +428,8 @@
     "promoDiscount": "Discount: {{amount}} SYP",
     "estimatedTotal": "Estimated Items Total",
     "estimatedNote": "(approx. — final bill from courier)",
-    "deliveryFee": "Delivery Fee"
+    "deliveryFee": "Delivery Fee",
+    "totalAfterDiscount": "Total after discount"
   },
   "payment": {
     "cashOnDelivery": "Cash on Delivery 💵",
@@ -710,6 +711,23 @@
     "terms": {
       "title": "Terms of Service"
     }
+  },
+  "loyalty": {
+    "title": "Loyalty Points",
+    "balance": "Your Points Balance",
+    "points": "pts",
+    "redeemValue": "= {{amount}} SYP discount",
+    "earnInfo": "Earn {{rate}} pts per 1,000 SYP",
+    "usePoints": "Use my points as a discount",
+    "usePointsDesc": "{{points}} pts = {{discount}} SYP off",
+    "noPoints": "No points yet",
+    "noPointsHint": "Complete orders to earn points",
+    "historyTitle": "Points History",
+    "noHistory": "No transactions yet",
+    "earn": "Earned",
+    "redeem": "Used",
+    "viewHistory": "Points history",
+    "appliedDiscount": "Points discount: {{amount}} SYP"
   },
   "onboarding": {
     "skip": "Skip",

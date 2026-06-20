@@ -15,6 +15,7 @@ import { addMenuItemDeals } from "@workspace/db/migrations/add-menu-item-deals";
 import { addDealExpiresAt } from "@workspace/db/migrations/add-deal-expires-at";
 import { addAdminNotes } from "@workspace/db/migrations/add-admin-notes";
 import { addFlashDeals } from "@workspace/db/migrations/add-flash-deals";
+import { addLoyalty } from "@workspace/db/migrations/add-loyalty";
 
 const rawPort = process.env["PORT"];
 
@@ -76,5 +77,8 @@ httpServer.listen(port, (err?: Error) => {
   );
   addFlashDeals().catch((e: unknown) =>
     logger.error({ err: e }, "Failed to run flash deals migration"),
+  );
+  addLoyalty().catch((e: unknown) =>
+    logger.error({ err: e }, "Failed to run loyalty migration"),
   );
 });

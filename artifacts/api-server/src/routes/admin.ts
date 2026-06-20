@@ -2585,6 +2585,42 @@ router.post("/admin/couriers/:courierId/notes", async (req, res) => {
   res.status(201).json(note);
 });
 
+router.get("/admin/loyalty-settings", async (_req, res) => {
+  const { getLoyaltySettings } = await import("../lib/loyalty");
+  const settings = await getLoyaltySettings();
+  res.json(settings);
+});
+
+router.put("/admin/loyalty-settings", async (req, res) => {
+  const body = z.object({
+    earnRate: z.number().min(0).max(1000),
+    pointValue: z.number().min(0).max(100),
+  }).safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "earnRate and pointValue required" });
+    return;
+  }
+  const { saveLoyaltySettings } = await import("../lib/loyalty");
+  await saveLoyaltySettings(body.data);
+  res.json(body.data);
+});
+
+router.get("/admin/loyalty-users", async (_req, res) => {
+  const rows = await db
+    .select({
+      id: usersTable.id,
+      name: usersTable.name,
+      phone: usersTable.phone,
+      role: usersTable.role,
+      loyaltyPoints: usersTable.loyaltyPoints,
+    })
+    .from(usersTable)
+    .where(eq(usersTable.role, "customer"))
+    .orderBy(desc(usersTable.loyaltyPoints))
+    .limit(200);
+  res.json(rows);
+});
+
 router.get("/admin/whatsapp/accounts", (_req, res) => {
   res.json(whatsappManager.getStatus());
 });
