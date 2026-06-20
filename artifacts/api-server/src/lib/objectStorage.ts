@@ -11,6 +11,8 @@ import {
 
 const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
 
+export const MAX_PUBLIC_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+
 export const objectStorageClient = new Storage({
   credentials: {
     audience: "replit",
@@ -176,6 +178,64 @@ export class ObjectStorageService {
     return `/objects/${entityId}`;
   }
 
+  /**
+   * Validate a user-uploaded public object by checking its actual stored size
+   * and magic bytes. If validation fails the object is deleted (best-effort) and
+   * false is returned so the serving handler can return 404 without leaking why.
+   *
+   * Only call this for objects that came through the presigned-URL upload flow
+   * (i.e. paths starting with "uploads/"). Admin-managed assets skip this check.
+   */
+  async validatePublicUpload(
+    file: File,
+    maxSizeBytes: number,
+  ): Promise<boolean> {
+    try {
+      const [metadata] = await file.getMetadata();
+      const actualSize = Number(metadata.size ?? 0);
+      if (actualSize > maxSizeBytes) {
+        await file.delete().catch(() => {});
+        return false;
+      }
+
+      const MAGIC_LENGTH = 12;
+      const firstBytes = await readFirstBytes(file, MAGIC_LENGTH);
+      if (!isAllowedImageMagicBytes(firstBytes)) {
+        await file.delete().catch(() => {});
+        return false;
+      }
+    } catch {
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Scan the public uploads directory and delete any objects that fail size or
+   * magic-byte validation. Returns counts for observability logging.
+   */
+  async scanAndCleanPublicUploads(): Promise<{ scanned: number; deleted: number }> {
+    let scanned = 0;
+    let deleted = 0;
+
+    const publicPaths = this.getPublicObjectSearchPaths();
+    const baseDir = publicPaths[0];
+    const { bucketName, objectName: baseObjectName } = parseObjectPath(baseDir);
+    const bucket = objectStorageClient.bucket(bucketName);
+    const uploadsPrefix = `${baseObjectName}/uploads/`.replace(/^\//, "");
+
+    const [files] = await bucket.getFiles({ prefix: uploadsPrefix });
+    for (const file of files) {
+      scanned++;
+      const valid = await this.validatePublicUpload(file, MAX_PUBLIC_UPLOAD_SIZE_BYTES);
+      if (!valid) {
+        deleted++;
+      }
+    }
+
+    return { scanned, deleted };
+  }
+
   async getPublicObjectUploadURL(contentType?: string): Promise<{ uploadURL: string; objectPath: string }> {
     const publicPaths = this.getPublicObjectSearchPaths();
     const baseDir = publicPaths[0];
@@ -289,4 +349,33 @@ async function signObjectURL({
 
   const { signed_url: signedURL } = await response.json();
   return signedURL;
+}
+
+function readFirstBytes(file: File, length: number): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    const stream = file.createReadStream({ start: 0, end: length - 1 });
+    stream.on("data", (chunk: Buffer) => chunks.push(chunk));
+    stream.on("end", () => resolve(Buffer.concat(chunks)));
+    stream.on("error", reject);
+  });
+}
+
+function isAllowedImageMagicBytes(buf: Buffer): boolean {
+  if (buf.length < 3) return false;
+  // JPEG: FF D8 FF
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return true;
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (
+    buf.length >= 8 &&
+    buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47 &&
+    buf[4] === 0x0d && buf[5] === 0x0a && buf[6] === 0x1a && buf[7] === 0x0a
+  ) return true;
+  // WebP: RIFF????WEBP
+  if (
+    buf.length >= 12 &&
+    buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
+    buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50
+  ) return true;
+  return false;
 }

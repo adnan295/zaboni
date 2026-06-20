@@ -1,6 +1,7 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
+import rateLimit from "express-rate-limit";
 import router from "./routes";
 import legalRouter from "./routes/legal";
 import { logger } from "./lib/logger";
@@ -29,6 +30,17 @@ app.use(
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+const adminRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please try again later." },
+  skipSuccessfulRequests: true,
+});
+
+app.use("/api/admin", adminRateLimit);
 
 app.use(legalRouter);
 app.use("/api", router);

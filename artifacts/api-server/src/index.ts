@@ -4,6 +4,7 @@ import app from "./app";
 import { setupOrdersNamespace } from "./orders/server";
 import { startOrderExpiryJob } from "./lib/orderExpiry";
 import { startDealExpiryJob } from "./lib/dealExpiry";
+import { startUploadCleanupJob } from "./lib/uploadCleanup";
 import { logger } from "./lib/logger";
 import { ensurePreviewsExist } from "./lib/promoBannerComposer";
 import { backfillRestaurantPhones } from "@workspace/db/migrations/backfill-restaurant-phones";
@@ -57,6 +58,7 @@ httpServer.listen(port, (err?: Error) => {
   logger.info({ port }, "Server listening");
   startOrderExpiryJob();
   startDealExpiryJob();
+  startUploadCleanupJob();
   // Generate banner template preview PNGs at startup so <img> tags work immediately
   ensurePreviewsExist().catch((e) =>
     logger.error({ err: e }, "Failed to generate banner previews"),
