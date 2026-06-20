@@ -174,8 +174,9 @@ const locationSchema = z.object({
 });
 
 const MAX_SPEED_KMH = 150;
+const MAX_SINGLE_JUMP_KM = 50;
 const LOCATION_FRESHNESS_MINUTES = 5;
-const SERVICE_AREA_MAX_KM = 300;
+const SERVICE_AREA_MAX_KM = 100;
 
 router.patch("/courier/location", requireCourier, async (req, res) => {
   const body = locationSchema.safeParse(req.body);
@@ -201,6 +202,10 @@ router.patch("/courier/location", requireCourier, async (req, res) => {
   if (hasPriorLocation) {
     const elapsedHours = (Date.now() - prev!.courierLocationUpdatedAt!.getTime()) / 3_600_000;
     const distKm = haversineKm(prev!.courierLat!, prev!.courierLon!, body.data.lat, body.data.lon);
+    if (distKm > MAX_SINGLE_JUMP_KM) {
+      res.status(429).json({ error: "Location update rejected: distance jump too large" });
+      return;
+    }
     if (elapsedHours > 0 && distKm / elapsedHours > MAX_SPEED_KMH) {
       res.status(429).json({ error: "Location update rejected: movement speed exceeds physical limit" });
       return;
@@ -302,7 +307,7 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
   res.json(withDistance);
 });
 
-const CUSTOMER_CONTACT_STATUSES: string[] = ["picked_up", "on_way", "delivered"];
+const CUSTOMER_CONTACT_STATUSES: string[] = ["on_way", "delivered"];
 
 router.get("/courier/orders/active", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
@@ -539,15 +544,13 @@ router.post("/courier/orders/:orderId/cancel", requireCourier, async (req, res) 
   const orderId = String(req.params["orderId"]);
 
   const windowStart = new Date(Date.now() - CANCEL_COOLDOWN_WINDOW_MINUTES * 60_000);
+  const cancelNotePrefix = `courier_cancelled:${courierId}`;
   const recentCancels = await db
     .select({ id: orderStatusHistoryTable.id })
     .from(orderStatusHistoryTable)
     .where(
       and(
-        sql`${orderStatusHistoryTable.orderId} IN (
-          SELECT id FROM orders WHERE courier_id = ${courierId}
-        )`,
-        eq(orderStatusHistoryTable.note, "courier_cancelled"),
+        sql`${orderStatusHistoryTable.note} LIKE ${cancelNotePrefix + "%"}`,
         sql`${orderStatusHistoryTable.createdAt} >= ${windowStart.toISOString()}`
       )
     )
@@ -571,8 +574,8 @@ router.post("/courier/orders/:orderId/cancel", requireCourier, async (req, res) 
 
   const order = orders[0];
 
-  if (order.status === "delivered") {
-    res.status(409).json({ error: "Cannot cancel a delivered order" });
+  if (order.status === "delivered" || order.status === "picked_up" || order.status === "on_way") {
+    res.status(409).json({ error: "Cannot cancel after pickup has occurred" });
     return;
   }
 
@@ -598,7 +601,7 @@ router.post("/courier/orders/:orderId/cancel", requireCourier, async (req, res) 
     id: `${orderId}_cancelled_courier_${Date.now()}`,
     orderId,
     status: "searching",
-    note: "courier_cancelled",
+    note: `courier_cancelled:${courierId}`,
   });
 
   notifyOrderUpdate(order.userId, { ...updated[0], cancelNote: "courier_cancelled" });
