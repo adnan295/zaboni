@@ -33,7 +33,7 @@ import {
 import bcrypt from "bcryptjs";
 import { eq, count, sum, desc, gte, lte, getTableColumns, and, sql, avg, asc, lt } from "drizzle-orm";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
-import { sendPushToAllCustomers } from "../lib/push";
+import { sendPushToAllCustomers, isFlashDealImminent } from "../lib/push";
 import { sendSmsViaGateway, isSmsGatewayConfigured } from "../lib/sms";
 import { sendAdminAlertWebhook } from "../lib/waverifyMonitor";
 import { z } from "zod";
@@ -1559,7 +1559,7 @@ router.post("/admin/flash-deals", async (req, res) => {
   }).returning();
   res.status(201).json(deal);
 
-  if (parsed.data.isActive) {
+  if (isFlashDealImminent(parsed.data.isActive, new Date(parsed.data.startsAt))) {
     void (async () => {
       try {
         const [restaurant] = await db

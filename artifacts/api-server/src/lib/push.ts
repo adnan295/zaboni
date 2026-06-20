@@ -158,6 +158,7 @@ async function persistUserNotifications(
   const type = (() => {
     const t = data?.type;
     if (t === "order_update" || t === "new_order") return "order_status" as const;
+    if (t === "flash_deal") return "promo" as const;
     if (t === "chat_message") return "system" as const;
     return "system" as const;
   })();
@@ -227,6 +228,19 @@ export async function sendPushToRole(
   }
 
   return sendToTokens(tokens, title, body, data);
+}
+
+/**
+ * Returns true when a flash deal warrants an immediate customer push notification:
+ * - isActive=true (deal is live right now), OR
+ * - startsAt is within the next SOON_HOURS hours (deal starts very soon, even if not yet active)
+ */
+const SOON_HOURS = 2;
+export function isFlashDealImminent(isActive: boolean, startsAt: Date): boolean {
+  if (isActive) return true;
+  const now = Date.now();
+  const starts = startsAt.getTime();
+  return starts > now && starts - now <= SOON_HOURS * 60 * 60 * 1000;
 }
 
 /**

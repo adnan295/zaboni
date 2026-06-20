@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { sendSmsViaGateway } from "../lib/sms";
-import { sendPushToAllCustomers } from "../lib/push";
+import { sendPushToAllCustomers, isFlashDealImminent } from "../lib/push";
 import { whatsappManager } from "../lib/whatsapp";
 import { objectStorageClient } from "../lib/objectStorage";
 import { composeBannerByTemplate, listPublicTemplates, getPreviewBuffer, ensurePreviewsExist } from "../lib/promoBannerComposer";
@@ -682,7 +682,7 @@ router.post("/restaurant-portal/flash-deals", requireRestaurantAuth, async (req,
   }).returning();
   res.status(201).json(deal);
 
-  if (parsed.data.isActive) {
+  if (isFlashDealImminent(parsed.data.isActive, new Date(parsed.data.startsAt))) {
     void (async () => {
       try {
         const [restaurant] = await db
