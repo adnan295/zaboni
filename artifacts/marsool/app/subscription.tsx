@@ -176,21 +176,20 @@ export default function SubscriptionScreen() {
             )}
 
             {!isActive && (
-              <TouchableOpacity
-                style={[styles.subscribeBtn, { backgroundColor: colors.primary, opacity: subscribing ? 0.7 : 1 }]}
-                onPress={handleSubscribe}
-                disabled={subscribing}
-                activeOpacity={0.85}
-              >
-                {subscribing ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <>
-                    <MaterialIcons name="star" size={20} color="#fff" />
-                    <Text style={styles.subscribeBtnText}>{t("subscription.subscribeBtn")}</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+              <View>
+                <View style={styles.comingSoonBadge}>
+                  <MaterialIcons name="access-time" size={14} color="#fff" />
+                  <Text style={styles.comingSoonText}>قريباً</Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.subscribeBtn, { backgroundColor: colors.primary, opacity: 0.45 }]}
+                  disabled
+                  activeOpacity={1}
+                >
+                  <MaterialIcons name="star" size={20} color="#fff" />
+                  <Text style={styles.subscribeBtnText}>{t("subscription.subscribeBtn")}</Text>
+                </TouchableOpacity>
+              </View>
             )}
           </>
         )}
@@ -272,7 +271,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    marginTop: 4,
+    marginTop: 0,
   },
   subscribeBtnText: { color: "#fff", fontSize: 17, fontWeight: "700" },
+  comingSoonBadge: {
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#FF9800",
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    marginBottom: 10,
+  },
+  comingSoonText: { color: "#fff", fontSize: 13, fontWeight: "700" },
 });
