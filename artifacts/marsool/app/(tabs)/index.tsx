@@ -85,6 +85,8 @@ type RestaurantItem = {
   isOpen: boolean;
   isLogo: boolean;
   discount: string | null;
+  hasFlashDeal?: boolean;
+  flashDealEndsAt?: string | null;
   lat?: number | null;
   lon?: number | null;
   phone?: string | null;

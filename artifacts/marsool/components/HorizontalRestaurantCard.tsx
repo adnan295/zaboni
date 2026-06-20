@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -24,6 +24,7 @@ interface HRestaurant {
   isLogo: boolean;
   discount: string | null;
   hasFlashDeal?: boolean;
+  flashDealEndsAt?: string | null;
 }
 
 interface Props {
@@ -31,6 +32,49 @@ interface Props {
   onPress: () => void;
   variant?: "default" | "deal";
   badge?: string;
+}
+
+function getCountdown(endsAt: string): string | null {
+  const ms = new Date(endsAt).getTime() - Date.now();
+  if (ms <= 0 || Number.isNaN(ms)) return null;
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+function FlashDealBadge({ endsAt }: { endsAt: string }) {
+  const [countdown, setCountdown] = useState<string | null>(() => getCountdown(endsAt));
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    setCountdown(getCountdown(endsAt));
+    timerRef.current = setInterval(() => {
+      const next = getCountdown(endsAt);
+      setCountdown(next);
+      if (next === null && timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    }, 60_000);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [endsAt]);
+
+  if (countdown === null) return null;
+
+  return (
+    <View style={styles.flashBadgeWrap}>
+      <View style={styles.flashBadge}>
+        <Text style={styles.flashBadgeText}>⚡ عرض محدود</Text>
+      </View>
+      <View style={styles.countdownWrap}>
+        <MaterialIcons name="timer" size={9} color="#fff" />
+        <Text style={styles.countdownText}>ينتهي خلال {countdown}</Text>
+      </View>
+    </View>
+  );
 }
 
 export function HorizontalRestaurantCardSkeleton() {
@@ -52,6 +96,7 @@ export default function HorizontalRestaurantCard({ restaurant, onPress, variant 
   const isAr = i18n.language === "ar";
   const isDeal = variant === "deal";
   const hasFlashDeal = restaurant.hasFlashDeal ?? !!(restaurant as unknown as Record<string, unknown>)["hasFlashDeal"];
+  const flashDealEndsAt = restaurant.flashDealEndsAt ?? (restaurant as unknown as Record<string, unknown>)["flashDealEndsAt"] as string | null | undefined;
 
   return (
     <TouchableOpacity
@@ -78,11 +123,15 @@ export default function HorizontalRestaurantCard({ restaurant, onPress, variant 
             <Text style={styles.closedText}>{t("restaurant.closed")}</Text>
           </View>
         )}
-        {hasFlashDeal && (
-          <View style={styles.flashBadge}>
-            <Text style={styles.flashBadgeText}>⚡ عرض محدود</Text>
+        {hasFlashDeal && flashDealEndsAt ? (
+          <FlashDealBadge endsAt={flashDealEndsAt} />
+        ) : hasFlashDeal ? (
+          <View style={styles.flashBadgeStandalone}>
+            <View style={styles.flashBadge}>
+              <Text style={styles.flashBadgeText}>⚡ عرض محدود</Text>
+            </View>
           </View>
-        )}
+        ) : null}
         {!!restaurant.discount && !hasFlashDeal && (
           <View style={[styles.badge, { backgroundColor: isDeal ? "#fff" : colors.primary }]}>
             <Text style={[styles.badgeText, { color: isDeal ? colors.primary : "#fff" }]}>
@@ -163,16 +212,34 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   badgeText: { fontSize: 10, fontWeight: "700", color: "#fff" },
-  flashBadge: {
+  flashBadgeWrap: {
     position: "absolute",
     top: 8,
     left: 8,
+    gap: 4,
+  },
+  flashBadgeStandalone: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+  },
+  flashBadge: {
     backgroundColor: "#f97316",
     paddingHorizontal: 7,
     paddingVertical: 3,
     borderRadius: 6,
   },
   flashBadgeText: { fontSize: 10, fontWeight: "700", color: "#fff" },
+  countdownWrap: {
+    backgroundColor: "rgba(0,0,0,0.55)",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  countdownText: { fontSize: 9, fontWeight: "700", color: "#fff" },
   info: { padding: 10, gap: 5 },
   name: { fontSize: 13, fontWeight: "700" },
   meta: { flexDirection: "row", alignItems: "center", gap: 3 },
