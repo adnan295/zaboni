@@ -126,6 +126,19 @@ router.post("/support/tickets", requireAuth, async (req, res) => {
     return;
   }
 
+  // IDOR guard: if orderId is provided, verify it belongs to this user
+  if (parsed.data.orderId) {
+    const orderRows = await db
+      .select({ id: ordersTable.id })
+      .from(ordersTable)
+      .where(and(eq(ordersTable.id, parsed.data.orderId), eq(ordersTable.userId, userId)))
+      .limit(1);
+    if (!orderRows[0]) {
+      res.status(404).json({ error: "order_not_found" });
+      return;
+    }
+  }
+
   const ticket = {
     id: crypto.randomUUID(),
     userId,
@@ -516,6 +529,12 @@ router.post("/admin/support/tickets/:id/messages", requireAdmin, async (req, res
 
   if (!ticketRows[0]) {
     res.status(404).json({ error: "ticket_not_found" });
+    return;
+  }
+
+  // Block replies to resolved tickets — admin must reopen explicitly if policy changes
+  if (ticketRows[0].status === "resolved") {
+    res.status(400).json({ error: "ticket_resolved" });
     return;
   }
 
