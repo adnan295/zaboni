@@ -17,7 +17,8 @@
     "./migrations/add-deal-expires-at": "./src/migrations/add-deal-expires-at.ts",
     "./migrations/add-admin-notes": "./src/migrations/add-admin-notes.ts",
     "./migrations/add-flash-deals": "./src/migrations/add-flash-deals.ts",
-    "./migrations/add-loyalty": "./src/migrations/add-loyalty.ts"
+    "./migrations/add-loyalty": "./src/migrations/add-loyalty.ts",
+    "./migrations/add-user-achievements": "./src/migrations/add-user-achievements.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",

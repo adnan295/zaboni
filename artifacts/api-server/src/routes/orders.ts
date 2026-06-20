@@ -5,6 +5,7 @@ import { z } from "zod";
 import { notifyOrderUpdate, notifyNearbyCouriers, notifyRestaurantNewOrder } from "../orders/server";
 import { haversineKm, getFeeForDistance, DEFAULT_DELIVERY_FEE_SYP, DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON } from "../lib/deliveryZones";
 import { getLoyaltySettings, calculateRedeemDiscount, redeemLoyaltyPoints } from "../lib/loyalty";
+import { checkAndAwardAchievements } from "../lib/achievements";
 
 const router: IRouter = Router();
 
@@ -553,6 +554,8 @@ router.post("/orders/:id/rate", async (req, res) => {
       restaurantName,
     })
     .returning();
+
+  void checkAndAwardAchievements(userId);
 
   res.status(201).json(rows[0]);
 });

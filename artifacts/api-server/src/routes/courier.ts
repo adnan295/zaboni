@@ -5,6 +5,7 @@ import { haversineKm as _haversineKm } from "../lib/deliveryZones";
 import { z } from "zod";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
 import { getLoyaltySettings, awardPointsInTx } from "../lib/loyalty";
+import { checkAndAwardAchievements } from "../lib/achievements";
 
 const router: IRouter = Router();
 
@@ -417,6 +418,10 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
 
   const pushMsg = STATUS_PUSH_MESSAGES[body.data.status] ?? "تم تحديث طلبك";
   await sendOrderPush(currentOrder.userId, pushMsg, orderId);
+
+  if (body.data.status === "delivered") {
+    void checkAndAwardAchievements(currentOrder.userId);
+  }
 
   res.json(updated[0]);
 });
