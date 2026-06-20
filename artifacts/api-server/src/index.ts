@@ -17,6 +17,7 @@ import { addAdminNotes } from "@workspace/db/migrations/add-admin-notes";
 import { addFlashDeals } from "@workspace/db/migrations/add-flash-deals";
 import { addLoyalty } from "@workspace/db/migrations/add-loyalty";
 import { addUserAchievements } from "@workspace/db/migrations/add-user-achievements";
+import { addCustomerSubscriptions } from "@workspace/db/migrations/add-customer-subscriptions";
 
 const rawPort = process.env["PORT"];
 
@@ -84,5 +85,8 @@ httpServer.listen(port, (err?: Error) => {
   );
   addUserAchievements().catch((e: unknown) =>
     logger.error({ err: e }, "Failed to run user achievements migration"),
+  );
+  addCustomerSubscriptions().catch((e: unknown) =>
+    logger.error({ err: e }, "Failed to run customer subscriptions migration"),
   );
 });

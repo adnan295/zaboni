@@ -95,6 +95,7 @@ export default function ProfileScreen() {
   const [editNameValue, setEditNameValue] = useState("");
   const [savingName, setSavingName] = useState(false);
 
+  const [isSubscribed, setIsSubscribed] = useState(false);
   const [loyaltyData, setLoyaltyData] = useState<LoyaltyBalance | null>(null);
   const [achievementsData, setAchievementsData] = useState<AchievementsData | null>(null);
   const [celebrationAchievement, setCelebrationAchievement] = useState<Achievement | null>(null);
@@ -156,6 +157,16 @@ export default function ProfileScreen() {
     }
   }, [user?.id, isCourier]);
 
+  const fetchSubscriptionStatus = useCallback(async () => {
+    if (!user || isCourier) return;
+    try {
+      const data = await customFetch("/api/subscriptions/status") as { isSubscribed: boolean };
+      setIsSubscribed(data.isSubscribed);
+    } catch {
+      setIsSubscribed(false);
+    }
+  }, [user?.id, isCourier]);
+
   const fetchAchievements = useCallback(async () => {
     if (!user || isCourier) return;
     try {
@@ -190,7 +201,8 @@ export default function ProfileScreen() {
       fetchCustomerStats();
       fetchLoyalty();
       fetchAchievements();
-    }, [fetchApplication, fetchCustomerStats, fetchLoyalty, fetchAchievements])
+      fetchSubscriptionStatus();
+    }, [fetchApplication, fetchCustomerStats, fetchLoyalty, fetchAchievements, fetchSubscriptionStatus])
   );
 
   const handleSignOut = () => {
@@ -264,6 +276,7 @@ export default function ProfileScreen() {
     { icon: "favorite", label: t("profile.menu.favorites"), onPress: () => router.push("/favorites"), badge: favorites.length > 0 ? favorites.length : undefined },
     { icon: "location-on", label: t("profile.menu.addresses"), onPress: () => router.push("/addresses") },
     { icon: "stars", label: t("loyalty.viewHistory"), onPress: () => router.push("/loyalty-history") },
+    { icon: "local-shipping", label: t("subscription.menuLabel"), onPress: () => router.push("/subscription") },
     { icon: "notifications", label: t("profile.menu.notifications"), onPress: () => router.push("/notifications"), badge: unreadCount > 0 ? unreadCount : undefined },
     { icon: "payment", label: t("profile.menu.payments"), onPress: () => router.push("/payment-info") },
     { icon: "help-outline", label: t("profile.menu.support"), onPress: () => router.push("/support") },
@@ -307,6 +320,11 @@ export default function ProfileScreen() {
             {isCourierMode && (
               <View style={[styles.modeDot, { backgroundColor: "#4CAF50" }]} />
             )}
+          </View>
+        )}
+        {isSubscribed && (
+          <View style={styles.subscriberBadge}>
+            <Text style={styles.subscriberBadgeText}>⭐ {t("subscription.subscriberBadge")}</Text>
           </View>
         )}
       </View>
@@ -733,6 +751,16 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   courierBadgeText: { fontSize: 12, fontWeight: "700", color: "#DC2626" },
+  subscriberBadge: {
+    marginTop: 6,
+    backgroundColor: "#FFF8E1",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#F9A825",
+  },
+  subscriberBadgeText: { fontSize: 12, fontWeight: "700", color: "#E65100" },
   modeDot: {
     width: 8,
     height: 8,

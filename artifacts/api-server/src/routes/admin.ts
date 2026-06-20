@@ -2648,6 +2648,138 @@ router.get("/admin/achievements-stats", requireAdmin, async (_req, res) => {
   res.json({ stats });
 });
 
+router.get("/admin/subscription-settings", async (_req, res) => {
+  const { getSubscriptionSettings } = await import("../lib/customerSubscription");
+  const settings = await getSubscriptionSettings();
+  res.json(settings);
+});
+
+router.put("/admin/subscription-settings", async (req, res) => {
+  const body = z.object({
+    monthlyPrice: z.number().int().min(0),
+    subscriberDeliveryFee: z.number().int().min(0),
+  }).safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+  const { saveSubscriptionSettings } = await import("../lib/customerSubscription");
+  await saveSubscriptionSettings(body.data);
+  res.json(body.data);
+});
+
+router.get("/admin/customer-subscriptions", async (_req, res) => {
+  const { customerSubscriptionsTable } = await import("@workspace/db");
+  const { asc: _asc } = await import("drizzle-orm");
+  const rows = await db.execute(sql`
+    SELECT
+      cs.id,
+      cs.user_id AS "userId",
+      cs.starts_at AS "startsAt",
+      cs.ends_at AS "endsAt",
+      cs.plan_type AS "planType",
+      cs.price_paid AS "pricePaid",
+      cs.is_active AS "isActive",
+      cs.created_by_admin AS "createdByAdmin",
+      cs.created_at AS "createdAt",
+      u.name AS "userName",
+      u.phone AS "userPhone",
+      u.wallet_balance AS "walletBalance"
+    FROM customer_subscriptions cs
+    JOIN users u ON u.id = cs.user_id
+    ORDER BY cs.created_at DESC
+    LIMIT 500
+  `);
+  res.json(rows.rows);
+});
+
+router.post("/admin/customer-subscriptions", async (req, res) => {
+  const body = z.object({
+    userId: z.string().min(1),
+    durationDays: z.number().int().min(1).default(30),
+    pricePaid: z.number().int().min(0).default(0),
+  }).safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+
+  const userRows = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.id, body.data.userId))
+    .limit(1);
+  if (!userRows[0]) {
+    res.status(404).json({ error: "user_not_found" });
+    return;
+  }
+
+  const { customerSubscriptionsTable } = await import("@workspace/db");
+  const { and: _and, eq: _eq, lte: _lte } = await import("drizzle-orm");
+
+  const now = new Date();
+  const endsAt = new Date(now);
+  endsAt.setDate(endsAt.getDate() + body.data.durationDays);
+
+  const id = `csub_${Date.now()}${Math.random().toString(36).slice(2, 9)}`;
+
+  const [sub] = await db.transaction(async (tx) => {
+    // Deactivate any expired-but-still-active rows so the unique index doesn't block the insert.
+    await tx
+      .update(customerSubscriptionsTable)
+      .set({ isActive: false })
+      .where(
+        _and(
+          _eq(customerSubscriptionsTable.userId, body.data.userId),
+          _eq(customerSubscriptionsTable.isActive, true),
+          _lte(customerSubscriptionsTable.endsAt, now),
+        ),
+      );
+
+    return tx
+      .insert(customerSubscriptionsTable)
+      .values({
+        id,
+        userId: body.data.userId,
+        startsAt: now,
+        endsAt,
+        planType: "monthly",
+        pricePaid: body.data.pricePaid,
+        isActive: true,
+        createdByAdmin: true,
+      })
+      .returning();
+  });
+
+  res.status(201).json(sub);
+});
+
+router.patch("/admin/customer-subscriptions/:id", async (req, res) => {
+  const subId = String(req.params["id"]);
+  const body = z.object({
+    isActive: z.boolean(),
+  }).safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+
+  const { customerSubscriptionsTable } = await import("@workspace/db");
+
+  const [updated] = await db
+    .update(customerSubscriptionsTable)
+    .set({ isActive: body.data.isActive })
+    .where(eq(customerSubscriptionsTable.id, subId))
+    .returning();
+
+  if (!updated) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+
+  res.json(updated);
+});
+
 router.get("/admin/whatsapp/accounts", (_req, res) => {
   res.json(whatsappManager.getStatus());
 });
