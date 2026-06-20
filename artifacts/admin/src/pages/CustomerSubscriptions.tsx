@@ -192,7 +192,18 @@ export default function CustomerSubscriptions() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {!expired && (
+                      {expired ? (
+                        sub.isActive && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => toggleMut.mutate({ id: sub.id, isActive: false })}
+                            disabled={toggleMut.isPending}
+                          >
+                            أرشفة
+                          </Button>
+                        )
+                      ) : (
                         <Button
                           size="sm"
                           variant={active ? "outline" : "default"}

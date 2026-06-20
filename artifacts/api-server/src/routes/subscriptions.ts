@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, customerSubscriptionsTable, usersTable } from "@workspace/db";
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, eq, gt, lte, sql } from "drizzle-orm";
 import { getSubscriptionSettings, getActiveSubscription } from "../lib/customerSubscription";
 
 const router: IRouter = Router();
@@ -35,8 +35,21 @@ router.post("/subscriptions/subscribe", async (req, res) => {
 
   try {
     await db.transaction(async (tx) => {
-      // 1. Check for an existing active subscription inside the transaction so
-      //    concurrent requests can't both slip through the app-level guard.
+      // 0. Archive any expired-but-still-active rows so the partial unique index
+      //    (user_id WHERE is_active=true) doesn't block a re-subscribe after expiry.
+      await tx
+        .update(customerSubscriptionsTable)
+        .set({ isActive: false })
+        .where(
+          and(
+            eq(customerSubscriptionsTable.userId, userId),
+            eq(customerSubscriptionsTable.isActive, true),
+            lte(customerSubscriptionsTable.endsAt, now),
+          ),
+        );
+
+      // 1. Check for a truly active (non-expired) subscription inside the transaction
+      //    so concurrent requests can't both slip through the app-level guard.
       const [existing] = await tx
         .select({ id: customerSubscriptionsTable.id })
         .from(customerSubscriptionsTable)

@@ -2715,6 +2715,7 @@ router.post("/admin/customer-subscriptions", async (req, res) => {
   }
 
   const { customerSubscriptionsTable } = await import("@workspace/db");
+  const { and: _and, eq: _eq, lte: _lte } = await import("drizzle-orm");
 
   const now = new Date();
   const endsAt = new Date(now);
@@ -2722,19 +2723,33 @@ router.post("/admin/customer-subscriptions", async (req, res) => {
 
   const id = `csub_${Date.now()}${Math.random().toString(36).slice(2, 9)}`;
 
-  const [sub] = await db
-    .insert(customerSubscriptionsTable)
-    .values({
-      id,
-      userId: body.data.userId,
-      startsAt: now,
-      endsAt,
-      planType: "monthly",
-      pricePaid: body.data.pricePaid,
-      isActive: true,
-      createdByAdmin: true,
-    })
-    .returning();
+  const [sub] = await db.transaction(async (tx) => {
+    // Deactivate any expired-but-still-active rows so the unique index doesn't block the insert.
+    await tx
+      .update(customerSubscriptionsTable)
+      .set({ isActive: false })
+      .where(
+        _and(
+          _eq(customerSubscriptionsTable.userId, body.data.userId),
+          _eq(customerSubscriptionsTable.isActive, true),
+          _lte(customerSubscriptionsTable.endsAt, now),
+        ),
+      );
+
+    return tx
+      .insert(customerSubscriptionsTable)
+      .values({
+        id,
+        userId: body.data.userId,
+        startsAt: now,
+        endsAt,
+        planType: "monthly",
+        pricePaid: body.data.pricePaid,
+        isActive: true,
+        createdByAdmin: true,
+      })
+      .returning();
+  });
 
   res.status(201).json(sub);
 });
