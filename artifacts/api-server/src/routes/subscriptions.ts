@@ -33,65 +33,78 @@ router.post("/subscriptions/subscribe", async (req, res) => {
   let newBalance = 0;
   let sub: (typeof customerSubscriptionsTable.$inferSelect) | null = null;
 
-  await db.transaction(async (tx) => {
-    // 1. Check for an existing active subscription inside the transaction so
-    //    concurrent requests can't both slip through the guard.
-    const [existing] = await tx
-      .select({ id: customerSubscriptionsTable.id, endsAt: customerSubscriptionsTable.endsAt })
-      .from(customerSubscriptionsTable)
-      .where(
-        and(
-          eq(customerSubscriptionsTable.userId, userId),
-          eq(customerSubscriptionsTable.isActive, true),
-          gt(customerSubscriptionsTable.endsAt, now),
-        ),
-      )
-      .limit(1);
-
-    if (existing) {
-      outcome = "already_subscribed";
-      return;
-    }
-
-    // 2. Conditionally deduct balance — only succeeds when wallet_balance >= price.
-    //    The WHERE guard makes this race-safe: if two requests arrive simultaneously,
-    //    only one wins; the other gets 0 rows updated.
-    const updated = await tx
-      .update(usersTable)
-      .set({ walletBalance: sql`${usersTable.walletBalance} - ${price}` })
-      .where(and(eq(usersTable.id, userId), sql`${usersTable.walletBalance} >= ${price}`))
-      .returning({ newBalance: usersTable.walletBalance });
-
-    if (updated.length === 0) {
-      // Either user doesn't exist or balance was insufficient.
-      const [userRow] = await tx
-        .select({ walletBalance: usersTable.walletBalance })
-        .from(usersTable)
-        .where(eq(usersTable.id, userId))
+  try {
+    await db.transaction(async (tx) => {
+      // 1. Check for an existing active subscription inside the transaction so
+      //    concurrent requests can't both slip through the app-level guard.
+      const [existing] = await tx
+        .select({ id: customerSubscriptionsTable.id })
+        .from(customerSubscriptionsTable)
+        .where(
+          and(
+            eq(customerSubscriptionsTable.userId, userId),
+            eq(customerSubscriptionsTable.isActive, true),
+            gt(customerSubscriptionsTable.endsAt, now),
+          ),
+        )
         .limit(1);
-      outcome = userRow ? "insufficient_balance" : "not_found";
+
+      if (existing) {
+        outcome = "already_subscribed";
+        return;
+      }
+
+      // 2. Conditionally deduct balance — only succeeds when wallet_balance >= price.
+      //    The WHERE guard makes this race-safe: only one concurrent request wins.
+      const updated = await tx
+        .update(usersTable)
+        .set({ walletBalance: sql`${usersTable.walletBalance} - ${price}` })
+        .where(and(eq(usersTable.id, userId), sql`${usersTable.walletBalance} >= ${price}`))
+        .returning({ newBalance: usersTable.walletBalance });
+
+      if (updated.length === 0) {
+        const [userRow] = await tx
+          .select({ walletBalance: usersTable.walletBalance })
+          .from(usersTable)
+          .where(eq(usersTable.id, userId))
+          .limit(1);
+        outcome = userRow ? "insufficient_balance" : "not_found";
+        return;
+      }
+
+      newBalance = updated[0]!.newBalance;
+
+      // 3. Insert the subscription.
+      // The partial unique index (user_id WHERE is_active=true) provides the
+      // final DB-level guarantee: even if two transactions both reach this point,
+      // only one INSERT will succeed. The loser gets a unique-violation error.
+      const [inserted] = await tx
+        .insert(customerSubscriptionsTable)
+        .values({
+          id,
+          userId,
+          startsAt: now,
+          endsAt,
+          planType: "monthly",
+          pricePaid: price,
+          isActive: true,
+          createdByAdmin: false,
+        })
+        .returning();
+
+      sub = inserted ?? null;
+    });
+  } catch (err: unknown) {
+    // PostgreSQL unique_violation (23505) from the partial unique index means
+    // a concurrent request already created an active subscription. Roll back the
+    // wallet deduction automatically (transaction aborted) and return 409.
+    const pg = err as { code?: string };
+    if (pg.code === "23505") {
+      res.status(409).json({ error: "already_subscribed" });
       return;
     }
-
-    newBalance = updated[0]!.newBalance;
-
-    // 3. Insert the subscription record.
-    const [inserted] = await tx
-      .insert(customerSubscriptionsTable)
-      .values({
-        id,
-        userId,
-        startsAt: now,
-        endsAt,
-        planType: "monthly",
-        pricePaid: price,
-        isActive: true,
-        createdByAdmin: false,
-      })
-      .returning();
-
-    sub = inserted ?? null;
-  });
+    throw err;
+  }
 
   if (outcome === "already_subscribed") {
     res.status(409).json({ error: "already_subscribed" });

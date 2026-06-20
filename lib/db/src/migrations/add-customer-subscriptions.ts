@@ -23,5 +23,13 @@ export async function addCustomerSubscriptions(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_customer_subscriptions_active_ends
     ON customer_subscriptions (is_active, ends_at)
   `);
+  // Enforce one active subscription per user at the DB level.
+  // A partial unique index rejects concurrent duplicate inserts regardless of
+  // transaction isolation level, making double-charge impossible.
+  await db.execute(sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_subscriptions_one_active_per_user
+    ON customer_subscriptions (user_id)
+    WHERE is_active = true
+  `);
   console.log("[migration] customer_subscriptions table and indexes ensured.");
 }
