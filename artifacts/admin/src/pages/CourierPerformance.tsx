@@ -16,10 +16,15 @@ const DAY_OPTIONS = [
   { value: 30, label: "٣٠ يوماً" },
 ] as const;
 
-type SortKey = keyof Pick<
-  CourierPerformanceRow,
-  "deliveries" | "acceptanceRate" | "avgDeliveryMinutes" | "avgRating" | "lastSeen"
->;
+type SortKey =
+  | "name"
+  | "phone"
+  | "deliveries"
+  | "cancelledAfterAssign"
+  | "acceptanceRate"
+  | "avgDeliveryMinutes"
+  | "avgRating"
+  | "lastSeen";
 
 const ORDER_STATUS_LABELS: Record<string, { label: string; color: string }> = {
   delivered:  { label: "موصَّل",     color: "text-green-600" },
@@ -42,7 +47,7 @@ function timeAgo(iso: string | null): string {
   return `${d} يوم`;
 }
 
-function RowHighlight({ row }: { row: CourierPerformanceRow }) {
+function rowHighlightClass(row: CourierPerformanceRow): string {
   if (row.avgRating !== null && row.avgRating < 3)
     return "bg-red-50 dark:bg-red-950/20 border-r-2 border-r-red-500";
   if (row.acceptanceRate !== null && row.acceptanceRate < 50)
@@ -50,7 +55,19 @@ function RowHighlight({ row }: { row: CourierPerformanceRow }) {
   return "";
 }
 
-// ── Detail Modal ────────────────────────────────────────────────────────────
+function StarRow({ stars }: { stars: number }) {
+  return (
+    <span className="inline-flex gap-0.5">
+      {[1, 2, 3, 4, 5].map((s) => (
+        <span key={s} className={s <= stars ? "text-amber-400" : "text-muted-foreground/30"}>
+          ★
+        </span>
+      ))}
+    </span>
+  );
+}
+
+// ── Detail Modal ─────────────────────────────────────────────────────────────
 
 function DetailModal({
   courier,
@@ -106,6 +123,46 @@ function DetailModal({
         </div>
 
         <div className="px-6 py-5 space-y-6">
+          {/* Summary KPI strip */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-lg border bg-card px-3 py-2 text-center">
+              <p className="text-xs text-muted-foreground mb-1">توصيلات</p>
+              <p className="text-lg font-bold text-green-600">{courier.deliveries}</p>
+            </div>
+            <div className="rounded-lg border bg-card px-3 py-2 text-center">
+              <p className="text-xs text-muted-foreground mb-1">معدل القبول</p>
+              <p className={`text-lg font-bold ${
+                courier.acceptanceRate === null
+                  ? "text-muted-foreground"
+                  : courier.acceptanceRate < 50
+                  ? "text-amber-600"
+                  : "text-blue-600"
+              }`}>
+                {courier.acceptanceRate !== null ? `${courier.acceptanceRate}٪` : "—"}
+              </p>
+              {courier.totalAssigned > 0 && (
+                <p className="text-[10px] text-muted-foreground">
+                  {courier.deliveries}/{courier.totalAssigned} مكتمل/مُسنَد
+                </p>
+              )}
+            </div>
+            <div className="rounded-lg border bg-card px-3 py-2 text-center">
+              <p className="text-xs text-muted-foreground mb-1">متوسط التقييم</p>
+              <p className={`text-lg font-bold ${
+                courier.avgRating === null
+                  ? "text-muted-foreground"
+                  : courier.avgRating < 3
+                  ? "text-red-500"
+                  : "text-foreground"
+              }`}>
+                {courier.avgRating !== null ? `★ ${courier.avgRating.toFixed(1)}` : "—"}
+              </p>
+              {courier.ratingCount > 0 && (
+                <p className="text-[10px] text-muted-foreground">{courier.ratingCount} تقييم</p>
+              )}
+            </div>
+          </div>
+
           {isLoading ? (
             <div className="text-center py-8 text-muted-foreground text-sm">جارٍ التحميل…</div>
           ) : !data ? (
@@ -119,7 +176,10 @@ function DetailModal({
                   <p className="text-sm text-muted-foreground">لا توجد توصيلات في هذه الفترة</p>
                 ) : (
                   <ResponsiveContainer width="100%" height={160}>
-                    <BarChart data={data.dailyDeliveries} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
+                    <BarChart
+                      data={data.dailyDeliveries}
+                      margin={{ top: 4, right: 8, left: -24, bottom: 0 }}
+                    >
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                       <XAxis
                         dataKey="date"
@@ -149,6 +209,52 @@ function DetailModal({
                 )}
               </div>
 
+              {/* Rating history */}
+              <div>
+                <h3 className="font-medium mb-3">
+                  سجل التقييمات
+                  {data.ratingHistory.length > 0 && (
+                    <span className="mr-2 text-xs font-normal text-muted-foreground">
+                      ({data.ratingHistory.length} تقييم)
+                    </span>
+                  )}
+                </h3>
+                {data.ratingHistory.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">لا توجد تقييمات في هذه الفترة</p>
+                ) : (
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted/40 border-b">
+                        <tr>
+                          <th className="text-right px-3 py-2 font-medium">التقييم</th>
+                          <th className="text-right px-3 py-2 font-medium">العميل</th>
+                          <th className="text-right px-3 py-2 font-medium">المطعم</th>
+                          <th className="text-right px-3 py-2 font-medium">التاريخ</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {data.ratingHistory.map((r, i) => (
+                          <tr key={i} className="hover:bg-muted/20">
+                            <td className="px-3 py-2">
+                              <StarRow stars={r.stars} />
+                            </td>
+                            <td className="px-3 py-2 text-muted-foreground">
+                              {r.customerName || "—"}
+                            </td>
+                            <td className="px-3 py-2 max-w-[110px] truncate">
+                              {r.restaurantName || "—"}
+                            </td>
+                            <td className="px-3 py-2 text-muted-foreground">
+                              {new Date(r.ratedAt).toLocaleDateString("ar-SY")}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
               {/* Recent orders */}
               <div>
                 <h3 className="font-medium mb-3">آخر الطلبات</h3>
@@ -171,9 +277,15 @@ function DetailModal({
                           const st = ORDER_STATUS_LABELS[o.status] ?? { label: o.status, color: "" };
                           return (
                             <tr key={o.id} className="hover:bg-muted/20">
-                              <td className="px-3 py-2 font-medium max-w-[120px] truncate">{o.restaurantName || "—"}</td>
-                              <td className="px-3 py-2 text-muted-foreground">{o.customerName || "—"}</td>
-                              <td className="px-3 py-2">{o.deliveryFee ? `${o.deliveryFee.toLocaleString("ar-SY")} ل.س` : "—"}</td>
+                              <td className="px-3 py-2 font-medium max-w-[120px] truncate">
+                                {o.restaurantName || "—"}
+                              </td>
+                              <td className="px-3 py-2 text-muted-foreground">
+                                {o.customerName || "—"}
+                              </td>
+                              <td className="px-3 py-2">
+                                {o.deliveryFee ? `${o.deliveryFee.toLocaleString("ar-SY")} ل.س` : "—"}
+                              </td>
                               <td className={`px-3 py-2 font-medium ${st.color}`}>{st.label}</td>
                               <td className="px-3 py-2 text-muted-foreground">
                                 {new Date(o.createdAt).toLocaleDateString("ar-SY")}
@@ -194,7 +306,7 @@ function DetailModal({
   );
 }
 
-// ── Main page ────────────────────────────────────────────────────────────────
+// ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function CourierPerformance() {
   const [days, setDays] = useState<7 | 30>(7);
@@ -210,10 +322,16 @@ export default function CourierPerformance() {
 
   const sorted = useMemo(() => {
     return [...data].sort((a, b) => {
-      const av = a[sortKey] ?? (sortAsc ? Infinity : -Infinity);
-      const bv = b[sortKey] ?? (sortAsc ? Infinity : -Infinity);
+      const av = a[sortKey] as string | number | null | undefined;
+      const bv = b[sortKey] as string | number | null | undefined;
+
+      // Nulls always last
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+
       if (typeof av === "string" && typeof bv === "string") {
-        return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+        return sortAsc ? av.localeCompare(bv, "ar") : bv.localeCompare(av, "ar");
       }
       return sortAsc ? (av as number) - (bv as number) : (bv as number) - (av as number);
     });
@@ -224,14 +342,14 @@ export default function CourierPerformance() {
     else { setSortKey(key); setSortAsc(false); }
   }
 
-  function SortHeader({ col, label }: { col: SortKey; label: string }) {
+  function SortTh({ col, label, className = "" }: { col: SortKey; label: string; className?: string }) {
     const active = sortKey === col;
     return (
       <th
-        className="text-right px-4 py-3 font-medium text-muted-foreground cursor-pointer hover:text-foreground select-none"
+        className={`text-right px-4 py-3 font-medium text-muted-foreground cursor-pointer hover:text-foreground select-none whitespace-nowrap ${className}`}
         onClick={() => toggleSort(col)}
       >
-        <span className="flex items-center gap-1">
+        <span className="inline-flex items-center gap-1">
           {label}
           <span className="text-[10px]">{active ? (sortAsc ? "▲" : "▼") : "⇅"}</span>
         </span>
@@ -302,20 +420,21 @@ export default function CourierPerformance() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/40">
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">السائق</th>
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">الهاتف</th>
-                  <SortHeader col="deliveries" label={`التوصيلات (${days}د)`} />
-                  <SortHeader col="acceptanceRate" label="معدل القبول" />
-                  <SortHeader col="avgDeliveryMinutes" label="متوسط وقت التوصيل" />
-                  <SortHeader col="avgRating" label="متوسط التقييم" />
-                  <SortHeader col="lastSeen" label="آخر نشاط" />
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground" />
+                  <SortTh col="name"                 label="السائق"                       />
+                  <SortTh col="phone"                label="الهاتف"                       />
+                  <SortTh col="deliveries"           label={`التوصيلات (${days}د)`}       />
+                  <SortTh col="cancelledAfterAssign" label="ملغى بعد الإسناد"             />
+                  <SortTh col="acceptanceRate"       label="معدل القبول"                  />
+                  <SortTh col="avgDeliveryMinutes"   label="متوسط وقت التوصيل"           />
+                  <SortTh col="avgRating"            label="متوسط التقييم"                />
+                  <SortTh col="lastSeen"             label="آخر نشاط"                     />
+                  <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {sorted.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <td colSpan={9} className="text-center py-8 text-muted-foreground">
                       لا يوجد سائقون
                     </td>
                   </tr>
@@ -323,7 +442,7 @@ export default function CourierPerformance() {
                   sorted.map((row) => (
                     <tr
                       key={row.id}
-                      className={`transition-colors hover:brightness-95 ${RowHighlight({ row })}`}
+                      className={`transition-colors hover:brightness-95 ${rowHighlightClass(row)}`}
                     >
                       {/* Name */}
                       <td className="px-4 py-3">
@@ -339,19 +458,31 @@ export default function CourierPerformance() {
                               {row.name ? row.name.charAt(0) : "?"}
                             </div>
                           )}
-                          <div>
-                            <span className="font-medium">{row.name || <span className="text-muted-foreground italic">بدون اسم</span>}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-medium">
+                              {row.name || <span className="text-muted-foreground italic">بدون اسم</span>}
+                            </span>
                             {row.isOnline && (
-                              <span className="mr-1.5 inline-block w-1.5 h-1.5 rounded-full bg-green-500" title="متصل" />
+                              <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500" title="متصل" />
                             )}
                           </div>
                         </div>
                       </td>
                       {/* Phone */}
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{row.phone}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                        {row.phone}
+                      </td>
                       {/* Deliveries */}
                       <td className="px-4 py-3 font-bold text-green-600">
                         {row.deliveries.toLocaleString("ar-SY")}
+                      </td>
+                      {/* Cancelled after assign */}
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {row.cancelledAfterAssign > 0 ? (
+                          <span className="text-red-500 font-medium">{row.cancelledAfterAssign}</span>
+                        ) : (
+                          <span>٠</span>
+                        )}
                       </td>
                       {/* Acceptance rate */}
                       <td className="px-4 py-3">
@@ -366,6 +497,7 @@ export default function CourierPerformance() {
                                 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                                 : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
                             }`}
+                            title={`${row.deliveries} مكتمل من أصل ${row.totalAssigned} مُسنَد`}
                           >
                             {row.acceptanceRate}٪
                           </span>
@@ -382,10 +514,20 @@ export default function CourierPerformance() {
                         ) : (
                           <span
                             className={`font-semibold ${
-                              row.avgRating < 3 ? "text-red-500" : row.avgRating >= 4 ? "text-green-600" : "text-foreground"
+                              row.avgRating < 3
+                                ? "text-red-500"
+                                : row.avgRating >= 4
+                                ? "text-green-600"
+                                : "text-foreground"
                             }`}
+                            title={`${row.ratingCount} تقييم`}
                           >
                             ★ {row.avgRating.toFixed(1)}
+                            {row.ratingCount > 0 && (
+                              <span className="text-xs font-normal text-muted-foreground mr-1">
+                                ({row.ratingCount})
+                              </span>
+                            )}
                           </span>
                         )}
                       </td>
@@ -408,10 +550,18 @@ export default function CourierPerformance() {
               </tbody>
             </table>
           </div>
-          <div className="px-4 py-2 border-t bg-muted/20 text-xs text-muted-foreground">
-            <span className="inline-block w-3 h-3 rounded-sm bg-red-100 border-r-2 border-red-500 ml-1" />تقييم &lt; ٣
-            <span className="mx-3" />
-            <span className="inline-block w-3 h-3 rounded-sm bg-amber-100 border-r-2 border-amber-400 ml-1" />معدل قبول &lt; ٥٠٪
+          <div className="px-4 py-2 border-t bg-muted/20 text-xs text-muted-foreground flex items-center gap-4">
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded-sm bg-red-100 border-r-2 border-red-500" />
+              تقييم &lt; ٣
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded-sm bg-amber-100 border-r-2 border-amber-400" />
+              معدل قبول &lt; ٥٠٪
+            </span>
+            <span className="mr-auto text-muted-foreground/70">
+              * معدل القبول = التوصيلات ÷ (التوصيلات + الملغى بعد الإسناد)
+            </span>
           </div>
         </div>
       )}

@@ -943,61 +943,76 @@ router.get("/admin/courier-performance", async (req, res) => {
   const days = [7, 30].includes(daysRaw) ? daysRaw : 7;
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
+  // Use separate CTEs for order stats and rating stats to avoid cross-join row inflation
   const rows = await db.execute(sql`
+    WITH order_stats AS (
+      SELECT
+        courier_id,
+        COUNT(*) FILTER (
+          WHERE status = 'delivered' AND created_at >= ${since}
+        )::int                                             AS deliveries,
+        COUNT(*) FILTER (
+          WHERE status = 'cancelled'
+            AND courier_id IS NOT NULL
+            AND courier_id <> ''
+            AND created_at >= ${since}
+        )::int                                             AS cancelled_after_assign,
+        ROUND(
+          CAST(AVG(
+            CASE WHEN status = 'delivered' AND created_at >= ${since}
+              THEN EXTRACT(EPOCH FROM (
+                (SELECT h2.created_at FROM order_status_history h2
+                 WHERE h2.order_id = o.id AND h2.status = 'delivered'
+                 ORDER BY h2.created_at DESC LIMIT 1)
+                -
+                (SELECT h1.created_at FROM order_status_history h1
+                 WHERE h1.order_id = o.id AND h1.status = 'accepted'
+                 ORDER BY h1.created_at ASC LIMIT 1)
+              )) / 60.0
+            END
+          ) AS numeric), 0
+        )                                                  AS avg_delivery_minutes,
+        MAX(updated_at)                                    AS last_order_at
+      FROM orders o
+      WHERE courier_id IS NOT NULL AND courier_id <> ''
+      GROUP BY courier_id
+    ),
+    rating_stats AS (
+      SELECT
+        courier_id,
+        ROUND(
+          CAST(AVG(courier_stars) FILTER (WHERE courier_stars > 0) AS numeric), 1
+        )                                                  AS avg_rating,
+        COUNT(*) FILTER (WHERE courier_stars > 0)::int    AS rating_count
+      FROM order_ratings
+      GROUP BY courier_id
+    )
     SELECT
       u.id,
       u.name,
       u.phone,
-      u.avatar_url                                    AS "avatarUrl",
-      u.is_online                                     AS "isOnline",
-      GREATEST(
-        u.courier_location_updated_at,
-        MAX(o.updated_at)
-      )                                               AS "lastSeen",
-      COUNT(o.id) FILTER (
-        WHERE o.status = 'delivered'
-          AND o.created_at >= ${since}
-      )::int                                          AS deliveries,
-      COUNT(o.id) FILTER (
-        WHERE o.status = 'cancelled'
-          AND o.courier_id = u.id
-          AND o.courier_id <> ''
-          AND o.created_at >= ${since}
-      )::int                                          AS "cancelledAfterAssign",
-      ROUND(
-        CAST(AVG(
-          CASE WHEN or2.courier_stars > 0 THEN or2.courier_stars END
-        ) AS numeric), 1
-      )                                               AS "avgRating",
-      ROUND(
-        CAST(AVG(
-          CASE WHEN o.status = 'delivered'
-                AND o.created_at >= ${since}
-            THEN EXTRACT(EPOCH FROM (
-              (SELECT h2.created_at FROM order_status_history h2
-               WHERE h2.order_id = o.id AND h2.status = 'delivered'
-               ORDER BY h2.created_at DESC LIMIT 1)
-              -
-              (SELECT h1.created_at FROM order_status_history h1
-               WHERE h1.order_id = o.id AND h1.status = 'accepted'
-               ORDER BY h1.created_at ASC LIMIT 1)
-            )) / 60.0
-          END
-        ) AS numeric), 0
-      )                                               AS "avgDeliveryMinutes"
+      u.avatar_url                                         AS "avatarUrl",
+      u.is_online                                          AS "isOnline",
+      GREATEST(u.courier_location_updated_at, os.last_order_at) AS "lastSeen",
+      COALESCE(os.deliveries, 0)                           AS deliveries,
+      COALESCE(os.cancelled_after_assign, 0)               AS "cancelledAfterAssign",
+      rs.avg_rating                                        AS "avgRating",
+      rs.rating_count                                      AS "ratingCount",
+      os.avg_delivery_minutes                              AS "avgDeliveryMinutes"
     FROM users u
-    LEFT JOIN orders o ON o.courier_id = u.id
-    LEFT JOIN order_ratings or2 ON or2.courier_id = u.id
+    LEFT JOIN order_stats  os ON os.courier_id = u.id
+    LEFT JOIN rating_stats rs ON rs.courier_id = u.id
     WHERE u.role = 'courier'
-    GROUP BY u.id, u.name, u.phone, u.avatar_url, u.is_online, u.courier_location_updated_at
     ORDER BY deliveries DESC
   `);
 
   res.json(
     rows.rows.map((r: Record<string, unknown>) => {
       const deliveries = Number(r["deliveries"] ?? 0);
-      const cancelled = Number(r["cancelledAfterAssign"] ?? 0);
-      const total = deliveries + cancelled;
+      const cancelledAfterAssign = Number(r["cancelledAfterAssign"] ?? 0);
+      // Acceptance rate: orders completed vs. (completed + cancelled after courier was assigned).
+      // No explicit "rejected" action exists in schema; cancelled-after-assign is the best proxy.
+      const totalAssigned = deliveries + cancelledAfterAssign;
       return {
         id: r["id"],
         name: r["name"],
@@ -1006,9 +1021,11 @@ router.get("/admin/courier-performance", async (req, res) => {
         isOnline: r["isOnline"],
         lastSeen: r["lastSeen"],
         deliveries,
-        cancelledAfterAssign: cancelled,
-        acceptanceRate: total > 0 ? Math.round((deliveries / total) * 100) : null,
+        cancelledAfterAssign,
+        totalAssigned,
+        acceptanceRate: totalAssigned > 0 ? Math.round((deliveries / totalAssigned) * 100) : null,
         avgRating: r["avgRating"] != null ? Number(r["avgRating"]) : null,
+        ratingCount: r["ratingCount"] != null ? Number(r["ratingCount"]) : 0,
         avgDeliveryMinutes: r["avgDeliveryMinutes"] != null ? Number(r["avgDeliveryMinutes"]) : null,
       };
     }),
@@ -1033,7 +1050,7 @@ router.get("/admin/courier-performance/:courierId", async (req, res) => {
     return;
   }
 
-  const [dailyRows, recentOrders] = await Promise.all([
+  const [dailyRows, recentOrders, ratingHistory] = await Promise.all([
     db.execute(sql`
       WITH date_series AS (
         SELECT TO_CHAR(
@@ -1077,6 +1094,21 @@ router.get("/admin/courier-performance/:courierId", async (req, res) => {
       ORDER BY o.created_at DESC
       LIMIT 20
     `),
+    db.execute(sql`
+      SELECT
+        r.courier_stars   AS "stars",
+        r.created_at      AS "ratedAt",
+        u.name            AS "customerName",
+        o.restaurant_name AS "restaurantName"
+      FROM order_ratings r
+      JOIN orders o ON o.id = r.order_id
+      LEFT JOIN users u ON u.id = r.user_id
+      WHERE r.courier_id = ${courierId}
+        AND r.courier_stars > 0
+        AND r.created_at >= ${since}
+      ORDER BY r.created_at DESC
+      LIMIT 20
+    `),
   ]);
 
   res.json({
@@ -1089,6 +1121,12 @@ router.get("/admin/courier-performance/:courierId", async (req, res) => {
     recentOrders: (recentOrders.rows as Record<string, unknown>[]).map((r) => ({
       ...r,
       deliveryFee: Number(r["deliveryFee"] ?? 0),
+    })),
+    ratingHistory: (ratingHistory.rows as Record<string, unknown>[]).map((r) => ({
+      stars: Number(r["stars"]),
+      ratedAt: r["ratedAt"],
+      customerName: r["customerName"] ?? null,
+      restaurantName: r["restaurantName"] ?? null,
     })),
   });
 });
