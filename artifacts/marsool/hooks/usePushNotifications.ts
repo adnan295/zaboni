@@ -87,6 +87,10 @@ function getNotificationTargetRoute(
     return "/(tabs)";
   }
 
+  if (type === "referral") {
+    return "/(tabs)/profile";
+  }
+
   return "/notifications";
 }
 
