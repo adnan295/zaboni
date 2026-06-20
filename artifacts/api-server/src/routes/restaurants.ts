@@ -308,6 +308,7 @@ router.get("/home-sections/:section", async (req, res) => {
   let restaurantIds: string[] = manualItems.map((i) => i.restaurantId);
 
   const flashRestaurantIds = new Set<string>();
+  const flashDealEndsAtMap = new Map<string, Date>();
 
   if (section === "deals") {
     const now = new Date();
@@ -317,7 +318,7 @@ router.get("/home-sections/:section", async (req, res) => {
         .from(menuItemsTable)
         .where(eq(menuItemsTable.isDeal, true)),
       db
-        .select({ restaurantId: flashDealsTable.restaurantId })
+        .select({ restaurantId: flashDealsTable.restaurantId, endsAt: flashDealsTable.endsAt })
         .from(flashDealsTable)
         .where(
           and(
@@ -332,6 +333,10 @@ router.get("/home-sections/:section", async (req, res) => {
     for (const f of flashItems) flashRestaurantIds.add(f.restaurantId);
     const combined = [...new Set([...restaurantIds, ...dealRestaurantIds, ...flashRestaurantIds])];
     restaurantIds = combined;
+    for (const f of flashItems) {
+      const existing = flashDealEndsAtMap.get(f.restaurantId);
+      if (!existing || f.endsAt > existing) flashDealEndsAtMap.set(f.restaurantId, f.endsAt);
+    }
   }
 
   if (restaurantIds.length === 0) {
@@ -349,7 +354,12 @@ router.get("/home-sections/:section", async (req, res) => {
     .map((id) => {
       const r = map.get(id);
       if (!r) return null;
-      return { ...r, hasFlashDeal: flashRestaurantIds.has(id) };
+      const endsAt = flashDealEndsAtMap.get(id);
+      return {
+        ...r,
+        hasFlashDeal: flashRestaurantIds.has(id),
+        flashDealEndsAt: endsAt ? endsAt.toISOString() : null,
+      };
     })
     .filter(Boolean);
   res.json(ordered);
