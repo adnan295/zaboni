@@ -541,7 +541,8 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
                 void sendPushToUsers(
                   [referrerId],
                   `💰 حصلت على ${commissionAmt.toLocaleString()} ل.س عمولة إحالة!`,
-                  "تهانينا! صديقك أكمل أول طلب بنجاح 🎉"
+                  "تهانينا! صديقك أكمل أول طلب بنجاح 🎉",
+                  { type: "referral" }
                 );
               });
             }

@@ -7,6 +7,7 @@ import jwt from "jsonwebtoken";
 import { parsePhoneNumber, isValidPhoneNumber } from "libphonenumber-js";
 import { sendSmsViaGateway } from "../lib/sms";
 import { whatsappManager } from "../lib/whatsapp";
+import { sendPushToUsers } from "../lib/push";
 
 const router: IRouter = Router();
 
@@ -389,6 +390,16 @@ router.patch("/auth/me", async (req, res) => {
             referrerId: codeRow.userId,
             referredUserId: userId,
             status: "pending",
+          });
+          // Notify the referrer that their friend joined (non-blocking)
+          const referrerId = codeRow.userId;
+          setImmediate(() => {
+            void sendPushToUsers(
+              [referrerId],
+              "🎉 صديقك انضم إلى مرسول!",
+              "انضم صديقك باستخدام كودك — ستحصل على عمولة عند أول طلب يكمله",
+              { type: "referral" }
+            );
           });
         }
       }
