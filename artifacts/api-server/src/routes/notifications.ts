@@ -2,31 +2,13 @@ import { Router } from "express";
 import { db, usersTable, notificationLogsTable, userNotificationsTable } from "@workspace/db";
 import { eq, desc, or, ilike, inArray, sql, and } from "drizzle-orm";
 import { z } from "zod";
-import type { Request, Response, NextFunction } from "express";
+import type { Request, Response } from "express";
 import { broadcastAppNotification } from "../orders/server";
 import { requireAuth } from "../middleware/auth";
+import { requireAdmin } from "../middleware/adminAuth";
 import { sendPushToRole, sendPushToUsers, totalsSentCount, totalsFailedCount } from "../lib/push";
 
 const router = Router();
-
-const ADMIN_SECRET = process.env["ADMIN_SECRET"];
-
-function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  if (!ADMIN_SECRET) {
-    res.status(503).json({ error: "Admin panel is not configured." });
-    return;
-  }
-  const authHeader = req.headers["authorization"];
-  const token =
-    typeof authHeader === "string" && authHeader.startsWith("Bearer ")
-      ? authHeader.slice(7)
-      : null;
-  if (!token || token !== ADMIN_SECRET) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-  next();
-}
 
 router.use("/admin/notifications", requireAdmin);
 router.use("/admin/churn", requireAdmin);
