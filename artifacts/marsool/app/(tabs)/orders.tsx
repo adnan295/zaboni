@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useOrders, OrderStatus, Order } from "@/context/OrderContext";
+import { useCart } from "@/context/CartContext";
 import { useRatings } from "@/context/RatingsContext";
 import { customFetch } from "@workspace/api-client-react";
 
@@ -117,6 +118,7 @@ function ActiveOrderBanner({ order }: { order: Order }) {
 }
 
 function OrderCard({ order }: { order: Order }) {
+  const cart = useCart();
   const colors = useColors();
   const router = useRouter();
   const { t } = useTranslation();
@@ -228,15 +230,27 @@ function OrderCard({ order }: { order: Order }) {
         {(order.status === "delivered" || order.status === "cancelled") && (
           <TouchableOpacity
             style={[styles.reorderBtn, { backgroundColor: colors.secondary }]}
-            onPress={() =>
-              router.push({
-                pathname: "/order-request",
-                params: {
-                  restaurantName: order.restaurantName,
-                  reorderText: order.orderText,
-                },
-              })
-            }
+            onPress={() => {
+              const items = (order.items ?? []).filter((i) => i.menuItemId);
+              if (items.length > 0 && order.restaurantId) {
+                cart.replaceCart(
+                  order.restaurantId,
+                  order.restaurantName,
+                  items.map((i) => ({
+                    menuItemId: i.menuItemId as string,
+                    nameAr: i.nameAr,
+                    price: i.unitPrice,
+                    qty: i.qty,
+                  }))
+                );
+                router.push({
+                  pathname: "/order-request",
+                  params: { restaurantName: order.restaurantName, restaurantId: order.restaurantId },
+                });
+              } else if (order.restaurantId) {
+                router.push({ pathname: "/restaurant/[id]", params: { id: order.restaurantId } });
+              }
+            }}
           >
             <MaterialIcons name="replay" size={16} color={colors.primary} />
             <Text style={[styles.reorderBtnText, { color: colors.primary }]}>{t("orders.reorder")}</Text>
@@ -260,6 +274,8 @@ type PaginatedOrdersResponse = {
     createdAt: string;
     address: string;
     estimatedMinutes: number;
+    restaurantId?: string | null;
+    items?: { menuItemId: string | null; nameAr: string; unitPrice: number; qty: number; lineTotal: number }[];
   }[];
   total: number;
   hasMore: boolean;
@@ -271,6 +287,8 @@ function toLocalOrder(o: PaginatedOrdersResponse["orders"][number]): Order {
     id: o.id,
     userId: (o as { userId?: string }).userId ?? "",
     orderText: o.orderText,
+    restaurantId: o.restaurantId ?? null,
+    items: o.items ?? [],
     restaurantName: o.restaurantName,
     status: o.status as OrderStatus,
     courierName: o.courierName,

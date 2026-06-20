@@ -21,7 +21,8 @@
     "./migrations/add-user-achievements": "./src/migrations/add-user-achievements.ts",
     "./migrations/add-customer-subscriptions": "./src/migrations/add-customer-subscriptions.ts",
     "./migrations/add-user-blocked": "./src/migrations/add-user-blocked.ts",
-    "./migrations/add-user-notifications": "./src/migrations/add-user-notifications.ts"
+    "./migrations/add-user-notifications": "./src/migrations/add-user-notifications.ts",
+    "./migrations/add-order-items": "./src/migrations/add-order-items.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",

@@ -66,7 +66,7 @@ Server: `artifacts/api-server/src/lib/objectStorage.ts` — `ObjectStorageServic
 - `GET /api/restaurants/:id` — restaurant details
 - `GET /api/restaurants/:id/menu` — restaurant menu items
 - `GET /api/orders?userId=guest` — list user orders
-- `POST /api/orders` — create order (auto-assigns mock courier)
+- `POST /api/orders` — create order from a structured cart (`items: [{menuItemId, qty}]`). Server recomputes every line price from the DB (client `totalPrice` is ignored/removed), derives the restaurant from the cart items, enforces a single-restaurant cart (400 `items_cross_restaurant`), auto-generates `orderText`, and returns `items[]` in the response. Legacy free-text `orderText`-only orders are still accepted (no priced items)
 - `GET /api/orders/:id` — order details
 - `PATCH /api/orders/:id/status` — update order status
 - `GET /api/addresses?userId=guest` — list addresses

@@ -5,6 +5,7 @@
  * Marsool delivery app API
  * OpenAPI spec version: 0.1.0
  */
+import type { OrderItem } from "./orderItem";
 import type { OrderStatus } from "./orderStatus";
 
 export interface Order {
@@ -21,4 +22,5 @@ export interface Order {
   estimatedMinutes: number;
   createdAt: Date;
   updatedAt: Date;
+  items?: OrderItem[];
 }

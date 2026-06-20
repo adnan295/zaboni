@@ -11,10 +11,32 @@ import { useAuth } from "@/context/AuthContext";
 
 export type OrderStatus = "searching" | "accepted" | "picked_up" | "on_way" | "delivered" | "cancelled";
 
+export interface OrderItem {
+  menuItemId: string | null;
+  nameAr: string;
+  unitPrice: number;
+  qty: number;
+  lineTotal: number;
+}
+
+export interface PlaceOrderInput {
+  items?: { menuItemId: string; qty: number }[];
+  orderText?: string;
+  restaurantName: string;
+  address: string;
+  promoCode?: string;
+  lat?: number;
+  lon?: number;
+  restaurantId?: string;
+  usePoints?: boolean;
+}
+
 export interface Order {
   id: string;
   userId: string;
   orderText: string;
+  restaurantId?: string | null;
+  items?: OrderItem[];
   restaurantName: string;
   status: OrderStatus;
   courierName: string;
@@ -33,7 +55,7 @@ export interface Order {
 interface OrderContextValue {
   orders: Order[];
   activeOrder: Order | null;
-  placeOrder: (orderText: string, restaurantName: string, address: string, promoCode?: string, lat?: number, lon?: number, restaurantId?: string, usePoints?: boolean) => Promise<Order>;
+  placeOrder: (input: PlaceOrderInput) => Promise<Order>;
   getOrder: (id: string) => Order | undefined;
   refreshOrder: (id: string) => Promise<void>;
   setStatusChangeHandler: (handler: (order: Order, newStatus: OrderStatus) => void) => void;
@@ -45,6 +67,8 @@ function apiOrderToLocal(apiOrder: {
   id: string;
   userId?: string;
   orderText: string;
+  restaurantId?: string | null;
+  items?: OrderItem[] | null;
   restaurantName: string;
   status: string;
   courierName: string;
@@ -63,6 +87,8 @@ function apiOrderToLocal(apiOrder: {
     id: apiOrder.id,
     userId: apiOrder.userId ?? "",
     orderText: apiOrder.orderText,
+    restaurantId: apiOrder.restaurantId ?? null,
+    items: apiOrder.items ?? [],
     restaurantName: apiOrder.restaurantName,
     status: apiOrder.status as OrderStatus,
     courierName: apiOrder.courierName,
@@ -141,11 +167,13 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   );
 
   const placeOrder = useCallback(
-    async (orderText: string, restaurantName: string, address: string, promoCode?: string, lat?: number, lon?: number, restaurantId?: string, usePoints?: boolean): Promise<Order> => {
+    async (input: PlaceOrderInput): Promise<Order> => {
+      const { items, orderText, restaurantName, address, promoCode, lat, lon, restaurantId, usePoints } = input;
       const result = await customFetch("/api/orders", {
         method: "POST",
         body: JSON.stringify({
-          orderText,
+          ...(items && items.length > 0 ? { items } : {}),
+          ...(orderText ? { orderText } : {}),
           restaurantName,
           address,
           ...(promoCode ? { promoCode } : {}),

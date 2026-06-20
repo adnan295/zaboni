@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { db, ordersTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable, promoCodesTable, promoUsesTable, usersTable, flashDealsTable, loyaltyTransactionsTable } from "@workspace/db";
+import { db, ordersTable, orderItemsTable, menuItemsTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable, promoCodesTable, promoUsesTable, usersTable, flashDealsTable, loyaltyTransactionsTable } from "@workspace/db";
 import { and, count, desc, eq, gt, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { notifyOrderUpdate, notifyNearbyCouriers, notifyRestaurantNewOrder } from "../orders/server";
@@ -10,17 +10,29 @@ import { isUserSubscribed, getSubscriptionSettings } from "../lib/customerSubscr
 
 const router: IRouter = Router();
 
-const createOrderSchema = z.object({
-  orderText: z.string().min(1),
-  restaurantName: z.string().default(""),
-  address: z.string().default(""),
-  promoCode: z.string().optional(),
-  lat: z.number().min(-90).max(90).optional(),
-  lon: z.number().min(-180).max(180).optional(),
-  restaurantId: z.string().optional(),
-  totalPrice: z.number().int().positive().optional(),
-  usePoints: z.boolean().optional(),
+const orderItemInputSchema = z.object({
+  menuItemId: z.string().min(1),
+  qty: z.number().int().positive().max(99),
 });
+
+const createOrderSchema = z
+  .object({
+    orderText: z.string().min(1).optional(),
+    restaurantName: z.string().default(""),
+    address: z.string().default(""),
+    promoCode: z.string().optional(),
+    lat: z.number().min(-90).max(90).optional(),
+    lon: z.number().min(-180).max(180).optional(),
+    restaurantId: z.string().optional(),
+    usePoints: z.boolean().optional(),
+    items: z.array(orderItemInputSchema).max(100).optional(),
+  })
+  .refine(
+    (d) =>
+      (d.items != null && d.items.length > 0) ||
+      (d.orderText != null && d.orderText.trim().length > 0),
+    { message: "items_or_orderText_required" },
+  );
 
 async function validatePromoForUser(code: string, userId: string, deliveryFee?: number, restaurantId?: string): Promise<{
   valid: false; error: string;
@@ -152,10 +164,19 @@ router.get("/orders", async (req, res) => {
     pointsMap[tx.orderId] = entry;
   }
 
+  const itemRows = orderIds.length > 0
+    ? await db.select().from(orderItemsTable).where(inArray(orderItemsTable.orderId, orderIds))
+    : [];
+  const itemsMap: Record<string, typeof itemRows> = {};
+  for (const it of itemRows) {
+    (itemsMap[it.orderId] ??= []).push(it);
+  }
+
   const orders = allRows.map((o) => ({
     ...o,
     pointsEarned: pointsMap[o.id]?.pointsEarned ?? 0,
     pointsRedeemed: pointsMap[o.id]?.pointsRedeemed ?? 0,
+    items: itemsMap[o.id] ?? [],
   }));
 
   res.json({ orders, total, hasMore, page, limit });
@@ -218,17 +239,96 @@ router.post("/orders", async (req, res) => {
   const id = `${Date.now()}${Math.random().toString(36).slice(2, 9)}`;
   const estimatedMinutes = Math.floor(Math.random() * 15) + 30;
 
+  // Structured cart: the server recomputes every line price from the DB.
+  // Client-supplied prices are never trusted.
+  const computedOrderItems: {
+    id: string;
+    orderId: string;
+    menuItemId: string;
+    nameAr: string;
+    unitPrice: number;
+    qty: number;
+    lineTotal: number;
+  }[] = [];
+  let itemsTotal: number | null = null;
+  let itemsRestaurantId: string | null = null;
+  let resolvedOrderText = body.data.orderText?.trim() ?? "";
+
+  if (body.data.items && body.data.items.length > 0) {
+    const menuIds = body.data.items.map((i) => i.menuItemId);
+    const menuRows = await db
+      .select()
+      .from(menuItemsTable)
+      .where(inArray(menuItemsTable.id, menuIds));
+    const byId = new Map(menuRows.map((m) => [m.id, m]));
+
+    let total = 0;
+    for (const it of body.data.items) {
+      const menuItem = byId.get(it.menuItemId);
+      if (!menuItem) {
+        res.status(400).json({ error: "invalid_item", menuItemId: it.menuItemId });
+        return;
+      }
+      if (body.data.restaurantId && menuItem.restaurantId !== body.data.restaurantId) {
+        res.status(400).json({ error: "item_wrong_restaurant", menuItemId: it.menuItemId });
+        return;
+      }
+      // Enforce a single-restaurant cart server-side, independent of any
+      // client-supplied restaurantId, so mixed-restaurant carts are rejected.
+      if (itemsRestaurantId === null) {
+        itemsRestaurantId = menuItem.restaurantId;
+      } else if (menuItem.restaurantId !== itemsRestaurantId) {
+        res.status(400).json({ error: "items_cross_restaurant", menuItemId: it.menuItemId });
+        return;
+      }
+      if (!menuItem.isAvailable) {
+        res.status(409).json({ error: "item_unavailable", menuItemId: it.menuItemId });
+        return;
+      }
+      const unitPrice = Math.round(
+        menuItem.isDeal && menuItem.dealPrice != null ? menuItem.dealPrice : menuItem.price,
+      );
+      const lineTotal = unitPrice * it.qty;
+      total += lineTotal;
+      computedOrderItems.push({
+        id: `oi_${id}_${computedOrderItems.length}`,
+        orderId: id,
+        menuItemId: menuItem.id,
+        nameAr: menuItem.nameAr,
+        unitPrice,
+        qty: it.qty,
+        lineTotal,
+      });
+    }
+    itemsTotal = total;
+    const summary = computedOrderItems
+      .map((ci) => (ci.qty > 1 ? `${ci.nameAr} × ${ci.qty}` : ci.nameAr))
+      .join("، ");
+    resolvedOrderText = body.data.restaurantName
+      ? `${body.data.restaurantName}: ${summary}`
+      : summary;
+  }
+
+  if (!resolvedOrderText) {
+    res.status(400).json({ error: "empty_order" });
+    return;
+  }
+
+  // Prefer the restaurant derived from the validated cart items; fall back to
+  // the client-supplied id only for legacy free-text orders.
+  const effectiveRestaurantId = itemsRestaurantId ?? body.data.restaurantId ?? null;
+
   const destLat = body.data.lat ?? DAMASCUS_CENTER_LAT;
   const destLon = body.data.lon ?? DAMASCUS_CENTER_LON;
 
   let originLat = DAMASCUS_CENTER_LAT;
   let originLon = DAMASCUS_CENTER_LON;
   let restaurantPhone = "";
-  if (body.data.restaurantId) {
+  if (effectiveRestaurantId) {
     const restaurant = await db
       .select({ lat: restaurantsTable.lat, lon: restaurantsTable.lon, phone: restaurantsTable.phone })
       .from(restaurantsTable)
-      .where(eq(restaurantsTable.id, body.data.restaurantId))
+      .where(eq(restaurantsTable.id, effectiveRestaurantId))
       .limit(1);
     const r = restaurant[0];
     if (r?.lat != null && r?.lon != null) {
@@ -251,7 +351,7 @@ router.post("/orders", async (req, res) => {
 
   let promoUseData: { promoId: string; discountAmount: number } | null = null;
   if (body.data.promoCode) {
-    const promoResult = await validatePromoForUser(body.data.promoCode, userId, zoneFee, body.data.restaurantId);
+    const promoResult = await validatePromoForUser(body.data.promoCode, userId, zoneFee, effectiveRestaurantId ?? undefined);
     if (!promoResult.valid) {
       res.status(422).json({ error: "invalid_promo", reason: promoResult.error });
       return;
@@ -260,7 +360,7 @@ router.post("/orders", async (req, res) => {
   }
 
   let flashDealSnapshot: { id: string; discountType: string; discountValue: number } | null = null;
-  if (body.data.restaurantId) {
+  if (effectiveRestaurantId) {
     const now = new Date();
     const [activeDeal] = await db
       .select({
@@ -271,7 +371,7 @@ router.post("/orders", async (req, res) => {
       .from(flashDealsTable)
       .where(
         and(
-          eq(flashDealsTable.restaurantId, body.data.restaurantId),
+          eq(flashDealsTable.restaurantId, effectiveRestaurantId),
           eq(flashDealsTable.isActive, true),
           lte(flashDealsTable.startsAt, now),
           gt(flashDealsTable.endsAt, now),
@@ -287,10 +387,10 @@ router.post("/orders", async (req, res) => {
   const newOrder = {
     id,
     userId,
-    orderText: body.data.orderText,
+    orderText: resolvedOrderText,
     restaurantName: body.data.restaurantName,
     restaurantPhone,
-    restaurantId: body.data.restaurantId ?? null,
+    restaurantId: effectiveRestaurantId,
     status: "searching" as const,
     courierName: "",
     courierPhone: "",
@@ -300,7 +400,7 @@ router.post("/orders", async (req, res) => {
     destinationLat: destLat,
     destinationLon: destLon,
     deliveryFee: effectiveDeliveryFee,
-    totalPrice: body.data.totalPrice ?? null,
+    totalPrice: itemsTotal ?? null,
     flashDealId: null as string | null,
     flashDealDiscount: null as number | null,
     estimatedMinutes,
@@ -343,7 +443,7 @@ router.post("/orders", async (req, res) => {
         )
         .returning({ id: flashDealsTable.id });
       if (updated.length > 0) {
-        const base = body.data.totalPrice ?? zoneFee;
+        const base = itemsTotal ?? zoneFee;
         const discountAmount =
           flashDealSnapshot.discountType === "percent"
             ? Math.min(Math.round((base * flashDealSnapshot.discountValue) / 100), base)
@@ -355,6 +455,9 @@ router.post("/orders", async (req, res) => {
     }
 
     const inserted = await tx.insert(ordersTable).values(newOrder).returning();
+    if (computedOrderItems.length > 0) {
+      await tx.insert(orderItemsTable).values(computedOrderItems);
+    }
     await tx.insert(orderStatusHistoryTable).values({
       id: `${id}_searching`,
       orderId: id,
@@ -385,12 +488,19 @@ router.post("/orders", async (req, res) => {
 
   void notifyNearbyCouriers(destLat, destLon, body.data.restaurantName, effectiveDeliveryFee);
 
-  if (body.data.restaurantId) {
-    notifyRestaurantNewOrder(body.data.restaurantId, rows.inserted[0]);
+  if (effectiveRestaurantId) {
+    notifyRestaurantNewOrder(effectiveRestaurantId, rows.inserted[0]);
   }
 
   res.status(201).json({
     ...rows.inserted[0],
+    items: computedOrderItems.map((ci) => ({
+      menuItemId: ci.menuItemId,
+      nameAr: ci.nameAr,
+      unitPrice: ci.unitPrice,
+      qty: ci.qty,
+      lineTotal: ci.lineTotal,
+    })),
     appliedPromo: promoUseData ? true : false,
     appliedFlashDeal: flashDealData ? true : false,
     pointsDiscount: loyaltyRedeemData?.discountAmount ?? 0,
@@ -422,6 +532,11 @@ router.get("/orders/:id", async (req, res) => {
   }
   const order = rows[0]!;
 
+  const items = await db
+    .select()
+    .from(orderItemsTable)
+    .where(eq(orderItemsTable.orderId, id));
+
   const loyaltyTxs = await db
     .select({ type: loyaltyTransactionsTable.type, points: loyaltyTransactionsTable.points })
     .from(loyaltyTransactionsTable)
@@ -443,10 +558,10 @@ router.get("/orders/:id", async (req, res) => {
       .orderBy(desc(orderStatusHistoryTable.createdAt))
       .limit(1);
     const note = history[0]?.note ?? null;
-    res.json({ ...order, cancelNote: note, pointsEarned, pointsRedeemed });
+    res.json({ ...order, cancelNote: note, pointsEarned, pointsRedeemed, items });
     return;
   }
-  res.json({ ...order, pointsEarned, pointsRedeemed });
+  res.json({ ...order, pointsEarned, pointsRedeemed, items });
 });
 
 router.get("/orders/:id/courier-location", async (req, res) => {

@@ -533,10 +533,42 @@ components:
         updatedAt:
           type: string
           format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+
+    OrderItem:
+      type: object
+      required: [id, orderId, nameAr, unitPrice, qty, lineTotal]
+      properties:
+        id:
+          type: string
+        orderId:
+          type: string
+        menuItemId:
+          type: string
+          nullable: true
+        nameAr:
+          type: string
+        unitPrice:
+          type: integer
+        qty:
+          type: integer
+        lineTotal:
+          type: integer
+
+    CreateOrderItem:
+      type: object
+      required: [menuItemId, qty]
+      properties:
+        menuItemId:
+          type: string
+        qty:
+          type: integer
 
     CreateOrderRequest:
       type: object
-      required: [orderText]
       properties:
         orderText:
           type: string
@@ -554,6 +586,14 @@ components:
           type: number
         restaurantId:
           type: string
+        totalPrice:
+          type: integer
+        usePoints:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateOrderItem'
 
     UpdateOrderStatusRequest:
       type: object

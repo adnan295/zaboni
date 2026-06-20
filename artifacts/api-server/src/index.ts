@@ -20,6 +20,7 @@ import { addUserAchievements } from "@workspace/db/migrations/add-user-achieveme
 import { addCustomerSubscriptions } from "@workspace/db/migrations/add-customer-subscriptions";
 import { addUserBlocked } from "@workspace/db/migrations/add-user-blocked";
 import { addUserNotifications } from "@workspace/db/migrations/add-user-notifications";
+import { addOrderItems } from "@workspace/db/migrations/add-order-items";
 
 const rawPort = process.env["PORT"];
 
@@ -96,5 +97,8 @@ httpServer.listen(port, (err?: Error) => {
   );
   addUserNotifications().catch((e: unknown) =>
     logger.error({ err: e }, "Failed to run user notifications migration"),
+  );
+  addOrderItems().catch((e: unknown) =>
+    logger.error({ err: e }, "Failed to run order items migration"),
   );
 });
