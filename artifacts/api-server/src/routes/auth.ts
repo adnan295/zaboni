@@ -158,10 +158,10 @@ router.post("/auth/verify-otp", async (req, res) => {
   }
 
   const TEST_OTP = "999999";
-  const isTestOtp = code === TEST_OTP;
+  const isTestOtp = process.env.NODE_ENV !== "production" && code === TEST_OTP;
 
   if (isTestOtp) {
-    console.log(`[auth] Test OTP used for phone ${phone} — skipping real verification`);
+    console.log(`[auth] Test OTP used for phone ${phone} — skipping real verification (dev only)`);
   }
 
   if (!isTestOtp) {
