@@ -436,7 +436,8 @@
     "itemsTitle": "Items",
     "serverPricedNote": "Final price is calculated by the server",
     "subtotal": "Subtotal",
-    "total": "Total"
+    "total": "Total",
+    "flashDealBannerDesc": "A {{discount}} discount will be applied to your full order automatically"
   },
   "payment": {
     "cashOnDelivery": "Cash on Delivery 💵",

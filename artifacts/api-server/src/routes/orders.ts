@@ -376,7 +376,8 @@ router.post("/orders", async (req, res) => {
           eq(flashDealsTable.isActive, true),
           lte(flashDealsTable.startsAt, now),
           gt(flashDealsTable.endsAt, now),
-          or(isNull(flashDealsTable.maxUses), lt(flashDealsTable.usedCount, flashDealsTable.maxUses))
+          or(isNull(flashDealsTable.maxUses), lt(flashDealsTable.usedCount, flashDealsTable.maxUses)),
+          body.data.flashDealId ? eq(flashDealsTable.id, body.data.flashDealId) : undefined
         )
       )
       .limit(1);
