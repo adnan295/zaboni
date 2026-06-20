@@ -217,7 +217,7 @@ router.get("/notifications", requireAuth, async (req, res) => {
 
 router.patch("/notifications/:id/read", requireAuth, async (req, res) => {
   const userId = req.auth!.userId;
-  const { id } = req.params;
+  const id = String(req.params["id"]);
   if (id.startsWith("bcast_")) { res.json({ ok: true }); return; }
   await db
     .update(userNotificationsTable)
@@ -228,7 +228,7 @@ router.patch("/notifications/:id/read", requireAuth, async (req, res) => {
 
 router.delete("/notifications/:id", requireAuth, async (req, res) => {
   const userId = req.auth!.userId;
-  const { id } = req.params;
+  const id = String(req.params["id"]);
   if (id.startsWith("bcast_")) { res.json({ ok: true }); return; }
   await db
     .delete(userNotificationsTable)
