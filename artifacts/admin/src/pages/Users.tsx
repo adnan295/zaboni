@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-type SortKey = "createdAt" | "orderCount" | "loyaltyPoints";
+type SortKey = "createdAt" | "orderCount" | "loyaltyPoints" | "lastOrderAt";
 type SortDir = "asc" | "desc";
 type SubscriptionFilter = "all" | "subscribed" | "not_subscribed";
 type StatusFilter = "all" | "active" | "blocked";
@@ -140,6 +140,9 @@ export default function Users() {
       if (sortKey === "createdAt") {
         va = a.createdAt;
         vb = b.createdAt;
+      } else if (sortKey === "lastOrderAt") {
+        va = a.lastOrderAt ?? "";
+        vb = b.lastOrderAt ?? "";
       } else {
         va = a[sortKey] as number;
         vb = b[sortKey] as number;
@@ -262,6 +265,7 @@ export default function Users() {
                 {sortableTh("orderCount", "الطلبات")}
                 {sortableTh("loyaltyPoints", "النقاط")}
                 <th className={thClass}>الاشتراك</th>
+                {sortableTh("lastOrderAt", "آخر طلب")}
                 {sortableTh("createdAt", "الانضمام")}
                 <th className={thClass}>الحالة</th>
                 <th className={thClass}></th>
@@ -299,6 +303,9 @@ export default function Users() {
                     ) : (
                       <span className="text-xs text-muted-foreground">—</span>
                     )}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">
+                    {user.lastOrderAt ? new Date(user.lastOrderAt).toLocaleDateString("ar-SY") : <span className="text-muted-foreground/50">—</span>}
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">
                     {new Date(user.createdAt).toLocaleDateString("ar-SY")}
@@ -372,16 +379,26 @@ export default function Users() {
                 )}
               </div>
 
-              {detail?.subscription && (
-                <div className="border rounded-lg p-3 bg-emerald-50/50">
-                  <p className="text-sm font-medium text-emerald-800 mb-1">الاشتراك الشهري</p>
-                  <div className="text-xs text-muted-foreground space-y-0.5">
-                    <div>من: {new Date(detail.subscription.startsAt).toLocaleDateString("ar-SY")}</div>
-                    <div>حتى: {new Date(detail.subscription.endsAt).toLocaleDateString("ar-SY")}</div>
-                    <div>المدفوع: {detail.subscription.pricePaid.toLocaleString()} ل.س</div>
+              {detail?.subscription && (() => {
+                const isActive = detail.subscription.isActive && new Date(detail.subscription.endsAt) > new Date();
+                return (
+                  <div className={`border rounded-lg p-3 ${isActive ? "bg-emerald-50/50" : "bg-muted/40"}`}>
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-sm font-medium text-emerald-800">الاشتراك الشهري</p>
+                      {isActive ? (
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">نشط ✅</span>
+                      ) : (
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">منتهي</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground space-y-0.5">
+                      <div>من: {new Date(detail.subscription.startsAt).toLocaleDateString("ar-SY")}</div>
+                      <div>حتى: {new Date(detail.subscription.endsAt).toLocaleDateString("ar-SY")}</div>
+                      <div>المدفوع: {detail.subscription.pricePaid.toLocaleString()} ل.س</div>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               <div className="flex border-b gap-0 mt-2">
                 {(["orders", "points", "badges"] as DetailTab[]).map((tab) => {

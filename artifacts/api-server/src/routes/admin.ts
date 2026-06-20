@@ -1265,13 +1265,7 @@ router.get("/admin/users/:id/detail", requireAdmin, async (req, res) => {
     db
       .select()
       .from(customerSubscriptionsTable)
-      .where(
-        and(
-          eq(customerSubscriptionsTable.userId, id),
-          eq(customerSubscriptionsTable.isActive, true),
-          sql`${customerSubscriptionsTable.endsAt} > NOW()`
-        )
-      )
+      .where(eq(customerSubscriptionsTable.userId, id))
       .orderBy(desc(customerSubscriptionsTable.endsAt))
       .limit(1),
   ]);
