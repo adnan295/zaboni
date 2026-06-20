@@ -145,6 +145,14 @@ export default function OrderRequestScreen() {
 
   const deliveryFee = feePreview?.fee ?? undefined;
 
+  const flashItemDiscount =
+    flashDeal && subtotal > 0
+      ? flashDeal.discountType === "percent"
+        ? Math.min(Math.round((subtotal * flashDeal.discountValue) / 100), subtotal)
+        : Math.min(Math.round(flashDeal.discountValue), subtotal)
+      : 0;
+  const effectiveSubtotal = subtotal - flashItemDiscount;
+
   const checkPromo = useCallback(async (code: string) => {
     if (!code.trim()) {
       setPromoStatus("idle");
@@ -281,7 +289,7 @@ export default function OrderRequestScreen() {
                 {flashDeal.discountType === "percent"
                   ? `${flashDeal.discountValue}%`
                   : `${flashDeal.discountValue.toLocaleString()} ل.س`}{" "}
-                على رسوم التوصيل تلقائياً
+                على قيمة الأصناف تلقائياً
               </Text>
             </View>
             {flashCountdown ? (
@@ -396,45 +404,21 @@ export default function OrderRequestScreen() {
         </View>
 
         {(feeLoading || feePreview != null) ? (
-          <View style={[styles.feeCard, { backgroundColor: colors.card, borderColor: flashDeal ? "#f97316" : colors.border }]}>
-            <MaterialIcons name="delivery-dining" size={20} color={flashDeal ? "#f97316" : colors.primary} />
+          <View style={[styles.feeCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <MaterialIcons name="delivery-dining" size={20} color={colors.primary} />
             <View style={styles.addrInfo}>
               <Text style={[styles.addrLabel, { color: colors.mutedForeground }]}>{t("orderRequest.deliveryFee")}</Text>
               {feeLoading ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : feePreview ? (
-                (() => {
-                  const originalFee = feePreview.fee;
-                  let discountedFee: number | null = null;
-                  if (flashDeal) {
-                    if (flashDeal.discountType === "percent") {
-                      discountedFee = Math.max(0, Math.round(originalFee * (1 - flashDeal.discountValue / 100)));
-                    } else {
-                      discountedFee = Math.max(0, originalFee - flashDeal.discountValue);
-                    }
-                  }
-                  return (
-                    <View style={styles.feeRow}>
-                      {discountedFee !== null ? (
-                        <>
-                          <Text style={[styles.feeAmount, { color: "#f97316", fontWeight: "700" }]}>
-                            {discountedFee.toLocaleString()} ل.س
-                          </Text>
-                          <Text style={[styles.feeAmount, { color: colors.mutedForeground, textDecorationLine: "line-through", fontSize: 13, fontWeight: "400" }]}>
-                            {originalFee.toLocaleString()}
-                          </Text>
-                        </>
-                      ) : (
-                        <Text style={[styles.feeAmount, { color: colors.foreground }]}>
-                          {originalFee.toLocaleString()} ل.س
-                        </Text>
-                      )}
-                      <Text style={[styles.feeDistance, { color: colors.mutedForeground }]}>
-                        ({feePreview.distanceKm} كم{feePreview.zoneLabel ? ` · ${feePreview.zoneLabel}` : ""})
-                      </Text>
-                    </View>
-                  );
-                })()
+                <View style={styles.feeRow}>
+                  <Text style={[styles.feeAmount, { color: colors.foreground }]}>
+                    {feePreview.fee.toLocaleString()} ل.س
+                  </Text>
+                  <Text style={[styles.feeDistance, { color: colors.mutedForeground }]}>
+                    ({feePreview.distanceKm} كم{feePreview.zoneLabel ? ` · ${feePreview.zoneLabel}` : ""})
+                  </Text>
+                </View>
               ) : null}
             </View>
           </View>
@@ -520,10 +504,21 @@ export default function OrderRequestScreen() {
         </View>
 
         {hasItems ? (
-          <View style={[styles.totalsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.totalsCard, { backgroundColor: colors.card, borderColor: flashItemDiscount > 0 ? "#f97316" : colors.border }]}>
             <View style={styles.totalRow}>
               <Text style={[styles.totalLabel, { color: colors.mutedForeground }]}>{t("orderRequest.subtotal")}</Text>
-              <Text style={[styles.totalValue, { color: colors.foreground }]}>{subtotal.toLocaleString()} ل.س</Text>
+              {flashItemDiscount > 0 ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Text style={[styles.totalValue, { color: "#f97316", fontWeight: "700" }]}>
+                    {effectiveSubtotal.toLocaleString()} ل.س
+                  </Text>
+                  <Text style={[styles.totalValue, { color: colors.mutedForeground, textDecorationLine: "line-through", fontSize: 13, fontWeight: "400" }]}>
+                    {subtotal.toLocaleString()}
+                  </Text>
+                </View>
+              ) : (
+                <Text style={[styles.totalValue, { color: colors.foreground }]}>{subtotal.toLocaleString()} ل.س</Text>
+              )}
             </View>
             {deliveryFee != null ? (
               <View style={styles.totalRow}>
@@ -535,7 +530,7 @@ export default function OrderRequestScreen() {
             <View style={styles.grandRow}>
               <Text style={[styles.grandLabel, { color: colors.foreground }]}>{t("orderRequest.total")}</Text>
               <Text style={[styles.grandValue, { color: colors.primary }]}>
-                {(subtotal + (deliveryFee ?? 0)).toLocaleString()} ل.س
+                {(effectiveSubtotal + (deliveryFee ?? 0)).toLocaleString()} ل.س
               </Text>
             </View>
             <Text style={[styles.totalNote, { color: colors.mutedForeground }]}>

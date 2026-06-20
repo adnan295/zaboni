@@ -451,6 +451,9 @@ router.post("/orders", async (req, res) => {
         appliedFlashDeal = { id: flashDealSnapshot.id, discountAmount };
         newOrder.flashDealId = flashDealSnapshot.id;
         newOrder.flashDealDiscount = discountAmount;
+        if (itemsTotal !== null) {
+          newOrder.totalPrice = Math.max(0, itemsTotal - discountAmount);
+        }
       }
     }
 
