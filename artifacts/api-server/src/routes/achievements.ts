@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
-import { db, userAchievementsTable, ordersTable, orderRatingsTable } from "@workspace/db";
+import { db, userAchievementsTable, ordersTable, orderRatingsTable, achievementsTable } from "@workspace/db";
 import { and, count, countDistinct, eq } from "drizzle-orm";
-import { ACHIEVEMENTS, checkAndAwardAchievements } from "../lib/achievements";
+import { checkAndAwardAchievements } from "../lib/achievements";
 
 const router: IRouter = Router();
 
@@ -18,7 +18,8 @@ router.get("/users/me/achievements", async (req, res) => {
     await checkAndAwardAchievements(userId);
   }
 
-  const [earnedRows, completedOrdersRow, distinctRestaurantsRow, ratingsRow] = await Promise.all([
+  const [definitions, earnedRows, completedOrdersRow, distinctRestaurantsRow, ratingsRow] = await Promise.all([
+    db.select().from(achievementsTable),
     db
       .select()
       .from(userAchievementsTable)
@@ -43,12 +44,14 @@ router.get("/users/me/achievements", async (req, res) => {
 
   const earnedSet = new Map(earnedRows.map((r) => [r.achievementKey, r.earnedAt]));
 
-  const achievements = ACHIEVEMENTS.map((def) => {
+  const achievements = definitions.map((def) => {
+    const condition = def.condition as { type: string; threshold: number };
     const earned = earnedSet.has(def.key);
+
     let current = 0;
-    if (def.type === "orders") current = completedOrders;
-    else if (def.type === "restaurants") current = distinctRestaurants;
-    else if (def.type === "ratings") current = ratingsGiven;
+    if (condition.type === "orders") current = completedOrders;
+    else if (condition.type === "restaurants") current = distinctRestaurants;
+    else if (condition.type === "ratings") current = ratingsGiven;
 
     return {
       key: def.key,
@@ -57,11 +60,11 @@ router.get("/users/me/achievements", async (req, res) => {
       titleEn: def.titleEn,
       descriptionAr: def.descriptionAr,
       descriptionEn: def.descriptionEn,
-      type: def.type,
-      threshold: def.threshold,
+      type: condition.type,
+      threshold: condition.threshold,
       earned,
       earnedAt: earned ? earnedSet.get(def.key)!.toISOString() : null,
-      progress: Math.min(current, def.threshold),
+      progress: Math.min(current, condition.threshold),
     };
   });
 
