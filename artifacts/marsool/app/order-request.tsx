@@ -538,15 +538,6 @@ export default function OrderRequestScreen() {
           ) : null}
         </View>
 
-        {hasItems && itemSavings > 0 && (
-          <View style={[styles.savingsRow, { backgroundColor: "#f0fdf4", borderColor: "#86efac" }]}>
-            <MaterialIcons name="savings" size={18} color="#16a34a" />
-            <Text style={[styles.savingsText, { color: "#16a34a" }]}>
-              {t("orderRequest.itemSavings", { amount: itemSavings.toLocaleString() })}
-            </Text>
-          </View>
-        )}
-
         {hasItems ? (
           <View style={[styles.totalsCard, { backgroundColor: colors.card, borderColor: flashItemDiscount > 0 ? "#f97316" : colors.border }]}>
             <View style={styles.totalRow}>
@@ -564,6 +555,14 @@ export default function OrderRequestScreen() {
                 <Text style={[styles.totalValue, { color: colors.foreground }]}>{subtotal.toLocaleString()} ل.س</Text>
               )}
             </View>
+            {hasItems && itemSavings > 0 && (
+              <View style={[styles.savingsRow, { backgroundColor: "#f0fdf4", borderColor: "#86efac" }]}>
+                <MaterialIcons name="savings" size={16} color="#16a34a" />
+                <Text style={[styles.savingsText, { color: "#16a34a" }]}>
+                  {t("orderRequest.itemSavings", { amount: itemSavings.toLocaleString() })}
+                </Text>
+              </View>
+            )}
             {effectiveDeliveryFee != null ? (
               <View style={styles.totalRow}>
                 <Text style={[styles.totalLabel, { color: colors.mutedForeground }]}>{t("orderRequest.deliveryFee")}</Text>

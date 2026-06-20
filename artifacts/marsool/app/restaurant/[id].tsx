@@ -607,6 +607,7 @@ export default function RestaurantScreen() {
                       onRemove={isOpen && available ? () => removeFromCart(item.id, item.nameAr, effectivePrice) : undefined}
                       isDeal={itemIsDeal}
                       dealPrice={itemDealPrice}
+                      dealDiscountPercent={typedItem.dealDiscountPercent ?? null}
                     />
                   </View>
                 );

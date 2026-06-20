@@ -21,9 +21,10 @@ interface Props {
   onRemove?: () => void;
   isDeal?: boolean;
   dealPrice?: number | null;
+  dealDiscountPercent?: number | null;
 }
 
-export default function MenuItemCard({ item, quantity = 0, onAdd, onRemove, isDeal, dealPrice }: Props) {
+export default function MenuItemCard({ item, quantity = 0, onAdd, onRemove, isDeal, dealPrice, dealDiscountPercent }: Props) {
   const colors = useColors();
   const { t } = useTranslation();
 
@@ -48,6 +49,11 @@ export default function MenuItemCard({ item, quantity = 0, onAdd, onRemove, isDe
   const hasPrice = item.price != null && item.price > 0;
   const inCart = quantity > 0;
   const showDeal = isDeal && dealPrice != null && dealPrice > 0;
+  const dealPct = showDeal
+    ? (dealDiscountPercent != null
+        ? Math.round(dealDiscountPercent)
+        : (item.price > 0 ? Math.round((1 - dealPrice! / item.price) * 100) : null))
+    : null;
 
   return (
     <Animated.View style={[styles.card, { backgroundColor: colors.card, borderColor: inCart ? colors.primary : (showDeal ? "#FF6B00" : colors.border), transform: [{ scale: scaleRef }] }]}>
@@ -55,7 +61,9 @@ export default function MenuItemCard({ item, quantity = 0, onAdd, onRemove, isDe
         <View style={styles.topRow}>
           {showDeal && (
             <View style={styles.dealBadge}>
-              <Text style={styles.dealBadgeText}>عرض 🔥</Text>
+              <Text style={styles.dealBadgeText}>
+                {dealPct != null && dealPct > 0 ? `خصم ${dealPct}%` : "عرض 🔥"}
+              </Text>
             </View>
           )}
           {!showDeal && item.isPopular && (
@@ -119,7 +127,9 @@ export default function MenuItemCard({ item, quantity = 0, onAdd, onRemove, isDe
         <Image source={{ uri: buildImageUrl(item.image) }} style={styles.image} resizeMode="cover" />
         {showDeal && (
           <View style={styles.imageDealBadge}>
-            <Text style={styles.imageDealBadgeText}>عرض 🔥</Text>
+            <Text style={styles.imageDealBadgeText}>
+              {dealPct != null && dealPct > 0 ? `خصم ${dealPct}%` : "عرض 🔥"}
+            </Text>
           </View>
         )}
       </View>
