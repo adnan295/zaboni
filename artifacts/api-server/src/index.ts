@@ -19,6 +19,7 @@ import { addLoyalty } from "@workspace/db/migrations/add-loyalty";
 import { addUserAchievements } from "@workspace/db/migrations/add-user-achievements";
 import { addCustomerSubscriptions } from "@workspace/db/migrations/add-customer-subscriptions";
 import { addUserBlocked } from "@workspace/db/migrations/add-user-blocked";
+import { addUserNotifications } from "@workspace/db/migrations/add-user-notifications";
 
 const rawPort = process.env["PORT"];
 
@@ -92,5 +93,8 @@ httpServer.listen(port, (err?: Error) => {
   );
   addUserBlocked().catch((e: unknown) =>
     logger.error({ err: e }, "Failed to run user blocked migration"),
+  );
+  addUserNotifications().catch((e: unknown) =>
+    logger.error({ err: e }, "Failed to run user notifications migration"),
   );
 });

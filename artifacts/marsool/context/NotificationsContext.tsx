@@ -4,7 +4,6 @@ import i18n from "@/i18n";
 import { getApiBaseUrl } from "@/lib/apiConfig";
 
 const STORAGE_KEY = "@marsool_notifications";
-const READ_IDS_KEY = "@marsool_notif_read_ids";
 const AUTH_TOKEN_KEY = "@marsool_jwt";
 
 export type NotifType = "order_status" | "promo" | "rating_request" | "system";
@@ -65,13 +64,14 @@ interface ServerNotif {
   id: string;
   title: string;
   body: string;
+  type?: NotifType;
+  orderId?: string | null;
+  isRead?: boolean;
   createdAt: string;
 }
 
-async function fetchServerNotifications(): Promise<ServerNotif[]> {
+async function fetchServerNotifications(token: string): Promise<ServerNotif[]> {
   try {
-    const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
-    if (!token) return [];
     const baseUrl = getApiBaseUrl();
     const res = await fetch(`${baseUrl}/api/notifications`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -83,58 +83,77 @@ async function fetchServerNotifications(): Promise<ServerNotif[]> {
   }
 }
 
-function mergeNotifications(
-  local: AppNotification[],
-  serverItems: ServerNotif[],
-  readIds: Set<string>,
-): AppNotification[] {
-  const localIds = new Set(local.map((n) => n.id));
-  const serverNotifs: AppNotification[] = serverItems
-    .filter((s) => !localIds.has(`srv_${s.id}`))
-    .map((s) => ({
-      id: `srv_${s.id}`,
-      type: "promo" as NotifType,
-      title: s.title,
-      body: s.body,
-      read: readIds.has(`srv_${s.id}`),
-      createdAt: new Date(s.createdAt).getTime(),
-    }));
-  const combined = [...local, ...serverNotifs];
-  combined.sort((a, b) => b.createdAt - a.createdAt);
-  return combined.slice(0, 60);
+async function markReadOnServer(id: string, token: string): Promise<void> {
+  if (id.startsWith("welcome-")) return;
+  try {
+    const baseUrl = getApiBaseUrl();
+    await fetch(`${baseUrl}/api/notifications/${id}/read`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch {
+    // silent
+  }
+}
+
+async function deleteOnServer(id: string, token: string): Promise<void> {
+  if (id.startsWith("welcome-")) return;
+  try {
+    const baseUrl = getApiBaseUrl();
+    await fetch(`${baseUrl}/api/notifications/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch {
+    // silent
+  }
+}
+
+function serverToApp(s: ServerNotif): AppNotification {
+  return {
+    id: s.id,
+    type: s.type ?? "system",
+    title: s.title,
+    body: s.body,
+    read: s.isRead ?? false,
+    createdAt: new Date(s.createdAt).getTime(),
+    orderId: s.orderId ?? undefined,
+  };
 }
 
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [toast, setToast] = useState<ToastPayload | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const readIdsRef = useRef<Set<string>>(new Set());
+  const authTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
-      const [raw, readRaw, serverItems] = await Promise.all([
-        AsyncStorage.getItem(STORAGE_KEY),
-        AsyncStorage.getItem(READ_IDS_KEY),
-        fetchServerNotifications(),
-      ]);
+      const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+      authTokenRef.current = token;
 
-      if (cancelled) return;
-
-      const readIds: Set<string> = new Set(readRaw ? (JSON.parse(readRaw) as string[]) : []);
-      readIdsRef.current = readIds;
-
-      let local: AppNotification[];
-      if (raw) {
-        local = JSON.parse(raw) as AppNotification[];
-      } else {
-        local = buildSeedNotifications();
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(local));
+      if (token) {
+        const serverItems = await fetchServerNotifications(token);
+        if (cancelled) return;
+        if (serverItems.length > 0) {
+          const mapped = serverItems.map(serverToApp);
+          setNotifications(mapped);
+          return;
+        }
       }
 
+      // Fallback: read from AsyncStorage cache
+      const raw = await AsyncStorage.getItem(STORAGE_KEY);
       if (cancelled) return;
-      setNotifications(mergeNotifications(local, serverItems, readIds));
+      if (raw) {
+        setNotifications(JSON.parse(raw) as AppNotification[]);
+      } else {
+        const seed = buildSeedNotifications();
+        setNotifications(seed);
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
+      }
     }
 
     load().catch(() => {});
@@ -165,16 +184,10 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   const addNotification = useCallback(
     (n: Omit<AppNotification, "id" | "read" | "createdAt">) => {
       const id = Date.now().toString() + Math.random().toString(36).substr(2, 6);
-      const entry: AppNotification = {
-        ...n,
-        id,
-        read: false,
-        createdAt: Date.now(),
-      };
+      const entry: AppNotification = { ...n, id, read: false, createdAt: Date.now() };
       setNotifications((prev) => {
         const next = [entry, ...prev].slice(0, 60);
-        const localOnly = next.filter((x) => !x.id.startsWith("srv_"));
-        AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(localOnly)).catch(() => {});
+        AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next.filter((x) => !x.id.startsWith("un_") && !x.id.startsWith("bcast_")))).catch(() => {});
         return next;
       });
       showToast({ id, type: n.type, title: n.title, body: n.body });
@@ -183,57 +196,41 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   );
 
   const markRead = useCallback((id: string) => {
-    setNotifications((prev) => {
-      const next = prev.map((n) => (n.id === id ? { ...n, read: true } : n));
-      if (id.startsWith("srv_")) {
-        readIdsRef.current.add(id);
-        AsyncStorage.setItem(READ_IDS_KEY, JSON.stringify([...readIdsRef.current])).catch(() => {});
-      } else {
-        const localOnly = next.filter((x) => !x.id.startsWith("srv_"));
-        AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(localOnly)).catch(() => {});
-      }
-      return next;
-    });
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    AsyncStorage.getItem(AUTH_TOKEN_KEY).then((token) => {
+      if (token) markReadOnServer(id, token).catch(() => {});
+    }).catch(() => {});
   }, []);
 
   const markAllRead = useCallback(() => {
     setNotifications((prev) => {
       const next = prev.map((n) => ({ ...n, read: true }));
-      const serverIds = next.filter((n) => n.id.startsWith("srv_")).map((n) => n.id);
-      serverIds.forEach((sid) => readIdsRef.current.add(sid));
-      if (serverIds.length > 0) {
-        AsyncStorage.setItem(READ_IDS_KEY, JSON.stringify([...readIdsRef.current])).catch(() => {});
-      }
-      const localOnly = next.filter((x) => !x.id.startsWith("srv_"));
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(localOnly)).catch(() => {});
+      AsyncStorage.getItem(AUTH_TOKEN_KEY).then((token) => {
+        if (token) {
+          prev.filter((n) => !n.read).forEach((n) => markReadOnServer(n.id, token).catch(() => {}));
+        }
+      }).catch(() => {});
       return next;
     });
   }, []);
 
   const deleteNotification = useCallback((id: string) => {
-    setNotifications((prev) => {
-      const next = prev.filter((n) => n.id !== id);
-      if (id.startsWith("srv_")) {
-        readIdsRef.current.add(id);
-        AsyncStorage.setItem(READ_IDS_KEY, JSON.stringify([...readIdsRef.current])).catch(() => {});
-      } else {
-        const localOnly = next.filter((x) => !x.id.startsWith("srv_"));
-        AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(localOnly)).catch(() => {});
-      }
-      return next;
-    });
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    AsyncStorage.getItem(AUTH_TOKEN_KEY).then((token) => {
+      if (token) deleteOnServer(id, token).catch(() => {});
+    }).catch(() => {});
   }, []);
 
   const clearAll = useCallback(() => {
-    setNotifications((prev) => {
-      const serverItems = prev.filter((n) => n.id.startsWith("srv_"));
-      serverItems.forEach((n) => readIdsRef.current.add(n.id));
-      if (serverItems.length > 0) {
-        AsyncStorage.setItem(READ_IDS_KEY, JSON.stringify([...readIdsRef.current])).catch(() => {});
-      }
-      AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
-      return serverItems.map((n) => ({ ...n, read: true }));
-    });
+    setNotifications([]);
+    AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
+    AsyncStorage.getItem(AUTH_TOKEN_KEY).then((token) => {
+      if (!token) return;
+      setNotifications((prev) => {
+        prev.forEach((n) => deleteOnServer(n.id, token).catch(() => {}));
+        return [];
+      });
+    }).catch(() => {});
   }, []);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
