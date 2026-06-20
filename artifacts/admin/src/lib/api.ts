@@ -767,6 +767,14 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ text }),
     }),
+
+  getFlashDeals: () => apiFetch<FlashDeal[]>("/admin/flash-deals"),
+  createFlashDeal: (data: Omit<FlashDeal, "id" | "usedCount" | "createdAt" | "restaurantName">) =>
+    apiFetch<FlashDeal>("/admin/flash-deals", { method: "POST", body: JSON.stringify(data) }),
+  updateFlashDeal: (id: string, data: Partial<Omit<FlashDeal, "id" | "usedCount" | "createdAt" | "restaurantName">>) =>
+    apiFetch<FlashDeal>(`/admin/flash-deals/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteFlashDeal: (id: string) =>
+    apiFetch<void>(`/admin/flash-deals/${id}`, { method: "DELETE" }),
 };
 
 export type SlaAlert = {
@@ -869,6 +877,21 @@ export type CancellationStats = {
     cancelled: number;
     rate: number;
   }[];
+};
+
+export type FlashDeal = {
+  id: string;
+  restaurantId: string;
+  restaurantName?: string | null;
+  title: string;
+  discountType: "percent" | "fixed";
+  discountValue: number;
+  startsAt: string;
+  endsAt: string;
+  maxUses: number | null;
+  usedCount: number;
+  isActive: boolean;
+  createdAt: string;
 };
 
 export type WaVerifyHealth = {

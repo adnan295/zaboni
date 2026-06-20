@@ -25,3 +25,4 @@ export * from "./home_section_items";
 export * from "./category_restaurant_exclusions";
 export * from "./restaurant_users";
 export * from "./admin_notes";
+export * from "./flash_deals";

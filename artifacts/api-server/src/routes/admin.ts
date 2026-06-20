@@ -24,6 +24,7 @@ import {
   homeSectionItemsTable,
   restaurantUsersTable,
   adminNotesTable,
+  flashDealsTable,
 } from "@workspace/db";
 import bcrypt from "bcryptjs";
 import { eq, count, desc, gte, lte, getTableColumns, and, sql, avg, asc, lt } from "drizzle-orm";
@@ -1338,6 +1339,76 @@ router.delete("/admin/promos/:id", async (req, res) => {
   const id = String(req.params["id"]);
   await db.delete(promoUsesTable).where(eq(promoUsesTable.promoId, id));
   await db.delete(promoCodesTable).where(eq(promoCodesTable.id, id));
+  res.status(204).end();
+});
+
+// Flash Deals CRUD
+const flashDealBodySchema = z.object({
+  restaurantId: z.string().min(1),
+  title: z.string().min(1).max(200),
+  discountType: z.enum(["percent", "fixed"]),
+  discountValue: z.number().positive(),
+  startsAt: z.string().datetime(),
+  endsAt: z.string().datetime(),
+  maxUses: z.number().int().positive().nullable().optional(),
+  isActive: z.boolean().default(true),
+});
+
+router.get("/admin/flash-deals", async (_req, res) => {
+  const rows = await db
+    .select({
+      id: flashDealsTable.id,
+      restaurantId: flashDealsTable.restaurantId,
+      restaurantName: restaurantsTable.nameAr,
+      title: flashDealsTable.title,
+      discountType: flashDealsTable.discountType,
+      discountValue: flashDealsTable.discountValue,
+      startsAt: flashDealsTable.startsAt,
+      endsAt: flashDealsTable.endsAt,
+      maxUses: flashDealsTable.maxUses,
+      usedCount: flashDealsTable.usedCount,
+      isActive: flashDealsTable.isActive,
+      createdAt: flashDealsTable.createdAt,
+    })
+    .from(flashDealsTable)
+    .leftJoin(restaurantsTable, eq(restaurantsTable.id, flashDealsTable.restaurantId))
+    .orderBy(desc(flashDealsTable.createdAt));
+  res.json(rows);
+});
+
+router.post("/admin/flash-deals", async (req, res) => {
+  const parsed = flashDealBodySchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صحيحة" }); return; }
+  const id = `fd_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+  const [deal] = await db.insert(flashDealsTable).values({
+    id,
+    restaurantId: parsed.data.restaurantId,
+    title: parsed.data.title,
+    discountType: parsed.data.discountType,
+    discountValue: parsed.data.discountValue,
+    startsAt: new Date(parsed.data.startsAt),
+    endsAt: new Date(parsed.data.endsAt),
+    maxUses: parsed.data.maxUses ?? null,
+    isActive: parsed.data.isActive,
+  }).returning();
+  res.status(201).json(deal);
+});
+
+router.put("/admin/flash-deals/:id", async (req, res) => {
+  const id = String(req.params["id"]);
+  const parsed = flashDealBodySchema.partial().safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صحيحة" }); return; }
+  const updateData: Record<string, unknown> = { ...parsed.data };
+  if (parsed.data.startsAt !== undefined) updateData["startsAt"] = new Date(parsed.data.startsAt);
+  if (parsed.data.endsAt !== undefined) updateData["endsAt"] = new Date(parsed.data.endsAt);
+  const [updated] = await db.update(flashDealsTable).set(updateData).where(eq(flashDealsTable.id, id)).returning();
+  if (!updated) { res.status(404).json({ error: "العرض غير موجود" }); return; }
+  res.json(updated);
+});
+
+router.delete("/admin/flash-deals/:id", async (req, res) => {
+  const id = String(req.params["id"]);
+  await db.delete(flashDealsTable).where(eq(flashDealsTable.id, id));
   res.status(204).end();
 });
 

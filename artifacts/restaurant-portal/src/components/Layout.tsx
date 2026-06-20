@@ -18,6 +18,7 @@ const navItems = [
   { href: "/menu", label: "قائمة الطعام", icon: "🍽️" },
   { href: "/orders", label: "الطلبات", icon: "📦", badgeKey: true },
   { href: "/hours", label: "أوقات العمل", icon: "🕐" },
+  { href: "/flash-deals", label: "عروض فلاش", icon: "⚡" },
   { href: "/promos", label: "أكواد الخصم", icon: "🎟️" },
   { href: "/promo", label: "بوستر ترويجي", icon: "✨" },
   { href: "/settings", label: "إعدادات المطعم", icon: "⚙️" },
