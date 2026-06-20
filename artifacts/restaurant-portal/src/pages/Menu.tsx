@@ -14,7 +14,7 @@ const emptyItem: Omit<MenuItem, "id" | "restaurantId"> = {
   name: "", nameAr: "", price: 0, category: "", categoryAr: "",
   description: null, descriptionAr: null, image: "", isPopular: false,
   subcategory: null, subcategoryAr: null, isAvailable: true,
-  isDeal: false, dealPrice: null, dealExpiresAt: null,
+  isDeal: false, dealPrice: null, dealDiscountPercent: null, dealExpiresAt: null,
 };
 
 function formatExpiry(expiresAt: string | null): string | null {

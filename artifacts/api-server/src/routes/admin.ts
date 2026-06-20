@@ -623,6 +623,10 @@ const menuItemBody = z.object({
   subcategory: z.string().nullable().optional().transform((v) => v?.trim() || null),
   subcategoryAr: z.string().nullable().optional().transform((v) => v?.trim() || null),
   isPopular: z.boolean().default(false),
+  isDeal: z.boolean().default(false),
+  dealPrice: z.number().min(0).nullable().optional(),
+  dealDiscountPercent: z.number().min(0).max(99).nullable().optional(),
+  dealExpiresAt: z.string().nullable().optional().transform((v) => (v ? new Date(v) : null)),
 });
 
 const updateMenuItemBody = z.object({
@@ -656,10 +660,29 @@ router.post("/admin/restaurants/:id/menu", async (req, res) => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const id = `item_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+  const data = { ...parsed.data };
+  // Derive dealPrice ↔ dealDiscountPercent when creating with a deal
+  if (data.isDeal && (data.dealDiscountPercent != null || data.dealPrice != null)) {
+    const basePrice = data.price;
+    if (data.dealDiscountPercent != null && data.dealPrice == null) {
+      data.dealPrice = Math.round(basePrice * (1 - data.dealDiscountPercent / 100));
+    } else if (data.dealPrice != null && data.dealDiscountPercent == null) {
+      data.dealDiscountPercent = Math.round((1 - data.dealPrice / basePrice) * 100);
+    }
+    if (data.dealPrice != null && data.dealPrice >= basePrice) {
+      res.status(400).json({ error: "سعر العرض يجب أن يكون أقل من السعر الأصلي" });
+      return;
+    }
+  }
+  if (!data.isDeal) {
+    data.dealPrice = null;
+    data.dealDiscountPercent = null;
+    data.dealExpiresAt = null;
+  }
+  const itemId = `item_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
   const [row] = await db
     .insert(menuItemsTable)
-    .values({ id, restaurantId, ...parsed.data })
+    .values({ id: itemId, restaurantId, ...data })
     .returning();
   res.status(201).json(row);
 });

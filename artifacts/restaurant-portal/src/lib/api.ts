@@ -167,6 +167,7 @@ export type MenuItem = {
   isAvailable: boolean;
   isDeal: boolean;
   dealPrice: number | null;
+  dealDiscountPercent?: number | null;
   dealExpiresAt: string | null;
 };
 
