@@ -758,7 +758,10 @@
     "earn": "Earned",
     "redeem": "Used",
     "viewHistory": "Points history",
-    "appliedDiscount": "Points discount: {{amount}} SYP"
+    "appliedDiscount": "Points discount: {{amount}} SYP",
+    "earnedOnOrder": "You earned {{points}} pts on this order",
+    "redeemedOnOrder": "You used {{points}} pts as a discount on this order",
+    "earnedBadge": "+{{points}} pts"
   },
   "achievements": {
     "sectionTitle": "My Achievements",

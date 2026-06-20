@@ -579,6 +579,24 @@ export default function OrderTrackingScreen() {
           </View>
         </View>
 
+        {isDelivered && (order.pointsEarned ?? 0) > 0 && (
+          <View style={[styles.pointsBanner, { backgroundColor: "#a855f711", borderColor: "#a855f730" }]}>
+            <MaterialIcons name="stars" size={22} color="#a855f7" />
+            <Text style={[styles.pointsBannerText, { color: "#a855f7" }]}>
+              {t("loyalty.earnedOnOrder", { points: (order.pointsEarned ?? 0).toLocaleString() })}
+            </Text>
+          </View>
+        )}
+
+        {(order.pointsRedeemed ?? 0) > 0 && (
+          <View style={[styles.pointsBanner, { backgroundColor: "#6366f111", borderColor: "#6366f130" }]}>
+            <MaterialIcons name="stars" size={22} color="#6366f1" />
+            <Text style={[styles.pointsBannerText, { color: "#6366f1" }]}>
+              {t("loyalty.redeemedOnOrder", { points: (order.pointsRedeemed ?? 0).toLocaleString() })}
+            </Text>
+          </View>
+        )}
+
         {isDelivered && (
           <View style={styles.deliveredActions}>
             {!rated && (
@@ -754,6 +772,18 @@ const styles = StyleSheet.create({
   orderText: { fontSize: 15, lineHeight: 22, textAlign: "left" },
   addrRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   addrText: { fontSize: 13, flex: 1 },
+  pointsBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+  },
+  pointsBannerText: { fontSize: 14, fontWeight: "700", flex: 1 },
   deliveredActions: { marginHorizontal: 16, marginTop: 4, gap: 12 },
   rateBtn: {
     flexDirection: "row",

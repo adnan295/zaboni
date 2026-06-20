@@ -174,6 +174,24 @@ function OrderCard({ order }: { order: Order }) {
           </View>
         )}
 
+        {order.status === "delivered" && (order.pointsEarned ?? 0) > 0 && (
+          <View style={[styles.pointsBadge, { backgroundColor: "#a855f711" }]}>
+            <MaterialIcons name="stars" size={13} color="#a855f7" />
+            <Text style={[styles.pointsBadgeText, { color: "#a855f7" }]}>
+              {t("loyalty.earnedBadge", { points: order.pointsEarned!.toLocaleString() })}
+            </Text>
+          </View>
+        )}
+
+        {(order.pointsRedeemed ?? 0) > 0 && (
+          <View style={[styles.pointsBadge, { backgroundColor: "#6366f111" }]}>
+            <MaterialIcons name="stars" size={13} color="#6366f1" />
+            <Text style={[styles.pointsBadgeText, { color: "#6366f1" }]}>
+              -{order.pointsRedeemed!.toLocaleString()} {t("loyalty.points")}
+            </Text>
+          </View>
+        )}
+
         {(order.status === "delivered" || order.status === "cancelled") && (
           <TouchableOpacity
             style={[styles.reorderBtn, { backgroundColor: colors.secondary }]}
@@ -209,6 +227,8 @@ type PaginatedOrdersResponse = {
     createdAt: string;
     address: string;
     estimatedMinutes: number;
+    pointsEarned?: number;
+    pointsRedeemed?: number;
   }[];
   total: number;
   hasMore: boolean;
@@ -229,6 +249,8 @@ function toLocalOrder(o: PaginatedOrdersResponse["orders"][number]): Order {
     createdAt: new Date(o.createdAt).getTime(),
     address: o.address,
     estimatedMinutes: o.estimatedMinutes,
+    pointsEarned: o.pointsEarned ?? 0,
+    pointsRedeemed: o.pointsRedeemed ?? 0,
   };
 }
 
@@ -381,4 +403,6 @@ const styles = StyleSheet.create({
   reorderBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
   reorderBtnText: { fontSize: 13, fontWeight: "700" },
   skeletonLine: { height: 16, borderRadius: 8, marginBottom: 4 },
+  pointsBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  pointsBadgeText: { fontSize: 12, fontWeight: "700" },
 });

@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request } from "express";
-import { db, ordersTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable, promoCodesTable, promoUsesTable, usersTable, flashDealsTable } from "@workspace/db";
-import { and, count, desc, eq, gt, isNull, lt, lte, or, sql } from "drizzle-orm";
+import { db, ordersTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable, promoCodesTable, promoUsesTable, usersTable, flashDealsTable, loyaltyTransactionsTable } from "@workspace/db";
+import { and, count, desc, eq, gt, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { notifyOrderUpdate, notifyNearbyCouriers, notifyRestaurantNewOrder } from "../orders/server";
 import { haversineKm, getFeeForDistance, DEFAULT_DELIVERY_FEE_SYP, DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON } from "../lib/deliveryZones";
@@ -134,7 +134,31 @@ router.get("/orders", async (req, res) => {
 
   const total = Number(countRows[0]?.count ?? 0);
   const hasMore = offset + allRows.length < total;
-  res.json({ orders: allRows, total, hasMore, page, limit });
+
+  const orderIds = allRows.map((o) => o.id);
+  const loyaltyTxs = orderIds.length > 0
+    ? await db
+        .select({ orderId: loyaltyTransactionsTable.orderId, type: loyaltyTransactionsTable.type, points: loyaltyTransactionsTable.points })
+        .from(loyaltyTransactionsTable)
+        .where(and(eq(loyaltyTransactionsTable.userId, userId), inArray(loyaltyTransactionsTable.orderId, orderIds)))
+    : [];
+
+  const pointsMap: Record<string, { pointsEarned: number; pointsRedeemed: number }> = {};
+  for (const tx of loyaltyTxs) {
+    if (!tx.orderId) continue;
+    const entry = pointsMap[tx.orderId] ?? { pointsEarned: 0, pointsRedeemed: 0 };
+    if (tx.type === "earn") entry.pointsEarned += tx.points;
+    else if (tx.type === "redeem") entry.pointsRedeemed += tx.points;
+    pointsMap[tx.orderId] = entry;
+  }
+
+  const orders = allRows.map((o) => ({
+    ...o,
+    pointsEarned: pointsMap[o.id]?.pointsEarned ?? 0,
+    pointsRedeemed: pointsMap[o.id]?.pointsRedeemed ?? 0,
+  }));
+
+  res.json({ orders, total, hasMore, page, limit });
 });
 
 router.post("/orders/validate-promo", async (req, res) => {
@@ -397,6 +421,19 @@ router.get("/orders/:id", async (req, res) => {
     return;
   }
   const order = rows[0]!;
+
+  const loyaltyTxs = await db
+    .select({ type: loyaltyTransactionsTable.type, points: loyaltyTransactionsTable.points })
+    .from(loyaltyTransactionsTable)
+    .where(and(eq(loyaltyTransactionsTable.orderId, id), eq(loyaltyTransactionsTable.userId, userId)));
+
+  let pointsEarned = 0;
+  let pointsRedeemed = 0;
+  for (const tx of loyaltyTxs) {
+    if (tx.type === "earn") pointsEarned += tx.points;
+    else if (tx.type === "redeem") pointsRedeemed += tx.points;
+  }
+
   const NOTE_STATUSES = ["cancelled", "searching"];
   if (NOTE_STATUSES.includes(order.status)) {
     const history = await db
@@ -406,10 +443,10 @@ router.get("/orders/:id", async (req, res) => {
       .orderBy(desc(orderStatusHistoryTable.createdAt))
       .limit(1);
     const note = history[0]?.note ?? null;
-    res.json({ ...order, cancelNote: note });
+    res.json({ ...order, cancelNote: note, pointsEarned, pointsRedeemed });
     return;
   }
-  res.json(order);
+  res.json({ ...order, pointsEarned, pointsRedeemed });
 });
 
 router.get("/orders/:id/courier-location", async (req, res) => {
