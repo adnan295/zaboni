@@ -29,7 +29,8 @@
         "buildType": "app-bundle"
       },
       "ios": {
-        "resourceClass": "m-medium"
+        "resourceClass": "m-medium",
+        "config": ".eas/build/production-ios.yml"
       }
     }
   },
