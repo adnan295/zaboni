@@ -87,7 +87,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           restaurantName,
           items: {
             ...base,
-            [item.menuItemId]: { ...item, qty: (existing?.qty ?? 0) + 1 },
+            [item.menuItemId]: {
+              ...item,
+              originalPrice: item.originalPrice ?? existing?.originalPrice,
+              qty: (existing?.qty ?? 0) + 1,
+            },
           },
         };
       });

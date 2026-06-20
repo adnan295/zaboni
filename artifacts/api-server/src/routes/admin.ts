@@ -643,6 +643,10 @@ const updateMenuItemBody = z.object({
     z.string().nullable().optional().transform((v) => (v == null ? null : v.trim() || null)),
   ),
   isPopular: z.boolean().optional(),
+  isDeal: z.boolean().optional(),
+  dealPrice: z.number().min(0).nullable().optional(),
+  dealDiscountPercent: z.number().min(0).max(99).nullable().optional(),
+  dealExpiresAt: z.string().nullable().optional().transform((v) => (v ? new Date(v) : null)),
 });
 
 router.post("/admin/restaurants/:id/menu", async (req, res) => {

@@ -80,7 +80,11 @@ export default function RestaurantCard({ restaurant, onPress }: Props) {
         )}
         {hasFlashDeal && (
           <View style={styles.flashBadge}>
-            <Text style={styles.flashBadgeText}>⚡ عرض محدود</Text>
+            {maxDealPercent != null && maxDealPercent > 0 ? (
+              <Text style={styles.flashBadgeText}>⚡ خصم حتى {maxDealPercent}%</Text>
+            ) : (
+              <Text style={styles.flashBadgeText}>⚡ عرض محدود</Text>
+            )}
           </View>
         )}
         {!hasFlashDeal && maxDealPercent != null && maxDealPercent > 0 && (
