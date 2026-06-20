@@ -1,5 +1,5 @@
 import { db, usersTable, loyaltyTransactionsTable, systemSettingsTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 const DEFAULT_EARN_RATE = 10;
 const DEFAULT_POINT_VALUE = 1;
@@ -96,18 +96,25 @@ export async function redeemPointsInTx(
   const discountAmount = calculateRedeemDiscount(points, settings.pointValue);
   if (discountAmount <= 0 || points <= 0) return 0;
 
-  const txId = `loy_redeem_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+  // Atomic guard: decrement only when current balance >= requested points.
+  // Single UPDATE avoids the read-then-write race where two concurrent
+  // requests both pass the balance check and both deduct.
+  const deducted = await tx
+    .update(usersTable)
+    .set({ loyaltyPoints: sql`${usersTable.loyaltyPoints} - ${points}` })
+    .where(
+      and(
+        eq(usersTable.id, userId),
+        sql`${usersTable.loyaltyPoints} >= ${points}`
+      )
+    )
+    .returning({ loyaltyPoints: usersTable.loyaltyPoints });
 
-  const [user] = await tx
-    .select({ loyaltyPoints: usersTable.loyaltyPoints })
-    .from(usersTable)
-    .where(eq(usersTable.id, userId))
-    .limit(1);
-
-  if (!user || user.loyaltyPoints < points) {
+  if (deducted.length === 0) {
     throw new Error("Insufficient loyalty points");
   }
 
+  const txId = `loy_redeem_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
   await tx.insert(loyaltyTransactionsTable).values({
     id: txId,
     userId,
@@ -116,11 +123,6 @@ export async function redeemPointsInTx(
     orderId,
     description: `استخدام نقاط في طلب #${orderId.slice(-6)}`,
   });
-
-  await tx
-    .update(usersTable)
-    .set({ loyaltyPoints: sql`${usersTable.loyaltyPoints} - ${points}` })
-    .where(eq(usersTable.id, userId));
 
   return discountAmount;
 }

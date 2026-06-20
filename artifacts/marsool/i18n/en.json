@@ -428,7 +428,8 @@
     "promoDiscount": "Discount: {{amount}} SYP",
     "estimatedTotal": "Estimated Items Total",
     "estimatedNote": "(approx. — final bill from courier)",
-    "deliveryFee": "Delivery Fee"
+    "deliveryFee": "Delivery Fee",
+    "totalAfterDiscount": "Total after discount"
   },
   "payment": {
     "cashOnDelivery": "Cash on Delivery 💵",

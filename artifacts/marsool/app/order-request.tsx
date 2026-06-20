@@ -381,28 +381,52 @@ export default function OrderRequestScreen() {
         ) : null}
 
         {loyaltyInfo !== null && loyaltyInfo.balance > 0 && (
-          <TouchableOpacity
-            style={[styles.loyaltyToggleCard, {
-              backgroundColor: usePoints ? "#fdf4ff" : colors.card,
-              borderColor: usePoints ? "#a855f7" : colors.border,
-            }]}
-            onPress={() => setUsePoints((v) => !v)}
-            activeOpacity={0.8}
-          >
-            <MaterialIcons name="stars" size={20} color={usePoints ? "#a855f7" : colors.primary} />
-            <View style={styles.addrInfo}>
-              <Text style={[styles.addrLabel, { color: colors.mutedForeground }]}>{t("loyalty.usePoints")}</Text>
-              <Text style={[styles.addrText, { color: usePoints ? "#7e22ce" : colors.foreground, fontWeight: "700" }]}>
-                {t("loyalty.usePointsDesc", {
-                  points: loyaltyInfo.balance.toLocaleString(),
-                  discount: loyaltyInfo.redeemDiscount.toLocaleString(),
-                })}
-              </Text>
-            </View>
-            <View style={[styles.toggleDot, { backgroundColor: usePoints ? "#a855f7" : colors.border }]}>
-              <View style={[styles.toggleInner, { backgroundColor: usePoints ? "#fff" : colors.mutedForeground }]} />
-            </View>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              style={[styles.loyaltyToggleCard, {
+                backgroundColor: usePoints ? "#fdf4ff" : colors.card,
+                borderColor: usePoints ? "#a855f7" : colors.border,
+              }]}
+              onPress={() => setUsePoints((v) => !v)}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons name="stars" size={20} color={usePoints ? "#a855f7" : colors.primary} />
+              <View style={styles.addrInfo}>
+                <Text style={[styles.addrLabel, { color: colors.mutedForeground }]}>{t("loyalty.usePoints")}</Text>
+                <Text style={[styles.addrText, { color: usePoints ? "#7e22ce" : colors.foreground, fontWeight: "700" }]}>
+                  {t("loyalty.usePointsDesc", {
+                    points: loyaltyInfo.balance.toLocaleString(),
+                    discount: loyaltyInfo.redeemDiscount.toLocaleString(),
+                  })}
+                </Text>
+              </View>
+              <View style={[styles.toggleDot, { backgroundColor: usePoints ? "#a855f7" : colors.border }]}>
+                <View style={[styles.toggleInner, { backgroundColor: usePoints ? "#fff" : colors.mutedForeground }]} />
+              </View>
+            </TouchableOpacity>
+
+            {usePoints && feePreview != null && (
+              <View style={[styles.pointsSummaryCard, { backgroundColor: "#f5f3ff", borderColor: "#a855f7" }]}>
+                <MaterialIcons name="receipt-long" size={18} color="#7e22ce" />
+                <View style={styles.addrInfo}>
+                  <View style={styles.summaryRow}>
+                    <Text style={[styles.summaryLabel, { color: "#6b21a8" }]}>{t("orderRequest.deliveryFee")}</Text>
+                    <Text style={[styles.summaryValue, { color: "#6b21a8" }]}>{feePreview.fee.toLocaleString()} ل.س</Text>
+                  </View>
+                  <View style={styles.summaryRow}>
+                    <Text style={[styles.summaryLabel, { color: "#a855f7" }]}>{t("loyalty.appliedDiscount", { amount: Math.min(loyaltyInfo.redeemDiscount, feePreview.fee).toLocaleString() })}</Text>
+                    <Text style={[styles.summaryValue, { color: "#a855f7" }]}>- {Math.min(loyaltyInfo.redeemDiscount, feePreview.fee).toLocaleString()} ل.س</Text>
+                  </View>
+                  <View style={[styles.summaryRow, { marginTop: 4 }]}>
+                    <Text style={[styles.summaryLabel, { color: "#581c87", fontWeight: "800", fontSize: 14 }]}>{t("orderRequest.totalAfterDiscount")}</Text>
+                    <Text style={[styles.summaryValue, { color: "#581c87", fontWeight: "900", fontSize: 15 }]}>
+                      {Math.max(0, feePreview.fee - loyaltyInfo.redeemDiscount).toLocaleString()} ل.س
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
+          </>
         )}
 
         <View style={[styles.promoCard, {
@@ -561,6 +585,22 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 8,
   },
+  pointsSummaryCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 14,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 8,
+  },
+  summaryLabel: { fontSize: 13, fontWeight: "600", flex: 1 },
+  summaryValue: { fontSize: 13, fontWeight: "700" },
   promoCard: {
     flexDirection: "row",
     alignItems: "center",

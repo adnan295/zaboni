@@ -428,7 +428,8 @@
     "promoDiscount": "خصم {{amount}} ل.س",
     "estimatedTotal": "المجموع التقديري للأصناف",
     "estimatedNote": "(تقديري، الفاتورة الحقيقية من السائق)",
-    "deliveryFee": "رسوم التوصيل"
+    "deliveryFee": "رسوم التوصيل",
+    "totalAfterDiscount": "المجموع بعد الخصم"
   },
   "payment": {
     "cashOnDelivery": "الدفع عند الاستلام 💵",

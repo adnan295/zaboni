@@ -370,10 +370,18 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
   }
 
   const updated = await db.transaction(async (tx) => {
+    // Guard on current status inside the transaction so concurrent requests both
+    // matching the pre-check cannot both win — only the first UPDATE succeeds.
     const rows = await tx
       .update(ordersTable)
       .set({ status: body.data.status, updatedAt: new Date() })
-      .where(and(eq(ordersTable.id, orderId), eq(ordersTable.courierId, courierId)))
+      .where(
+        and(
+          eq(ordersTable.id, orderId),
+          eq(ordersTable.courierId, courierId),
+          eq(ordersTable.status, currentOrder.status)
+        )
+      )
       .returning();
 
     if (rows.length === 0) return [];
@@ -392,6 +400,7 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
           const settings = await getLoyaltySettings();
           await awardPointsInTx(tx, currentOrder.userId, orderId, totalForPoints, settings);
         } catch {
+          // points award failure must not block order completion
         }
       }
     }
