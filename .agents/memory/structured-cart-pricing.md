@@ -15,4 +15,4 @@ description: How order pricing/restaurant scoping must stay server-computed in P
 
 **Why:** Task goal was a Yemeksepeti-style structured cart where prices are 100% server-computed; trusting client `totalPrice` or `restaurantId` was a price-tampering / cross-restaurant-cart vulnerability flagged in code review.
 
-**How to apply:** When adding priced add-ons (#262) or any new order field that affects price, compute it server-side from DB and fold it into `itemsTotal`; do not accept a client-provided amount.
+**How to apply:** When adding priced add-ons/options or any new order field that affects price, compute it server-side from DB and fold it into `itemsTotal`; do not accept a client-provided amount.
