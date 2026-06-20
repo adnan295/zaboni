@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request } from "express";
 import { db, restaurantsTable, menuItemsTable, restaurantHoursTable, promoBannersTable, restaurantCategoriesTable, restaurantCategorySortOrdersTable, homeSectionItemsTable, categoryRestaurantExclusionsTable, flashDealsTable } from "@workspace/db";
-import { and, asc, desc, eq, gt, inArray, lte, notInArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, lt, lte, notInArray, or, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -154,7 +154,8 @@ router.get("/restaurants", async (req, res) => {
             eq(flashDealsTable.isActive, true),
             lte(flashDealsTable.startsAt, now),
             gt(flashDealsTable.endsAt, now),
-            inArray(flashDealsTable.restaurantId, rows.map((r) => r.id))
+            inArray(flashDealsTable.restaurantId, rows.map((r) => r.id)),
+            or(isNull(flashDealsTable.maxUses), lt(flashDealsTable.usedCount, flashDealsTable.maxUses))
           )
         )
     : [];
@@ -255,7 +256,8 @@ router.get("/restaurants/:id/flash-deal", async (req, res) => {
         eq(flashDealsTable.restaurantId, id),
         eq(flashDealsTable.isActive, true),
         lte(flashDealsTable.startsAt, now),
-        gt(flashDealsTable.endsAt, now)
+        gt(flashDealsTable.endsAt, now),
+        or(isNull(flashDealsTable.maxUses), lt(flashDealsTable.usedCount, flashDealsTable.maxUses))
       )
     )
     .limit(1);

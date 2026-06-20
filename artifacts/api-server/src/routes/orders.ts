@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request } from "express";
 import { db, ordersTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable, promoCodesTable, promoUsesTable, usersTable, flashDealsTable } from "@workspace/db";
-import { and, count, desc, eq, gt, lte, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { notifyOrderUpdate, notifyNearbyCouriers, notifyRestaurantNewOrder } from "../orders/server";
 import { haversineKm, getFeeForDistance, DEFAULT_DELIVERY_FEE_SYP, DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON } from "../lib/deliveryZones";
@@ -225,31 +225,28 @@ router.post("/orders", async (req, res) => {
     promoUseData = { promoId: promoResult.promo.id, discountAmount: promoResult.discountAmount };
   }
 
-  let flashDealData: { id: string; discountAmount: number } | null = null;
+  let flashDealSnapshot: { id: string; discountType: string; discountValue: number } | null = null;
   if (body.data.restaurantId) {
     const now = new Date();
     const [activeDeal] = await db
-      .select()
+      .select({
+        id: flashDealsTable.id,
+        discountType: flashDealsTable.discountType,
+        discountValue: flashDealsTable.discountValue,
+      })
       .from(flashDealsTable)
       .where(
         and(
           eq(flashDealsTable.restaurantId, body.data.restaurantId),
           eq(flashDealsTable.isActive, true),
           lte(flashDealsTable.startsAt, now),
-          gt(flashDealsTable.endsAt, now)
+          gt(flashDealsTable.endsAt, now),
+          or(isNull(flashDealsTable.maxUses), lt(flashDealsTable.usedCount, flashDealsTable.maxUses))
         )
       )
       .limit(1);
     if (activeDeal) {
-      const canApply = activeDeal.maxUses == null || activeDeal.usedCount < activeDeal.maxUses;
-      if (canApply) {
-        const base = body.data.totalPrice ?? zoneFee;
-        const discountAmount =
-          activeDeal.discountType === "percent"
-            ? Math.min(Math.round((base * activeDeal.discountValue) / 100), base)
-            : Math.min(Math.round(activeDeal.discountValue), base);
-        flashDealData = { id: activeDeal.id, discountAmount };
-      }
+      flashDealSnapshot = activeDeal;
     }
   }
 
@@ -270,12 +267,36 @@ router.post("/orders", async (req, res) => {
     destinationLon: destLon,
     deliveryFee: zoneFee,
     totalPrice: body.data.totalPrice ?? null,
-    flashDealId: flashDealData?.id ?? null,
-    flashDealDiscount: flashDealData?.discountAmount ?? null,
+    flashDealId: null as string | null,
+    flashDealDiscount: null as number | null,
     estimatedMinutes,
   };
 
   const rows = await db.transaction(async (tx) => {
+    let appliedFlashDeal: { id: string; discountAmount: number } | null = null;
+    if (flashDealSnapshot) {
+      const updated = await tx
+        .update(flashDealsTable)
+        .set({ usedCount: sql`used_count + 1` })
+        .where(
+          and(
+            eq(flashDealsTable.id, flashDealSnapshot.id),
+            or(isNull(flashDealsTable.maxUses), lt(flashDealsTable.usedCount, flashDealsTable.maxUses))
+          )
+        )
+        .returning({ id: flashDealsTable.id });
+      if (updated.length > 0) {
+        const base = body.data.totalPrice ?? zoneFee;
+        const discountAmount =
+          flashDealSnapshot.discountType === "percent"
+            ? Math.min(Math.round((base * flashDealSnapshot.discountValue) / 100), base)
+            : Math.min(Math.round(flashDealSnapshot.discountValue), base);
+        appliedFlashDeal = { id: flashDealSnapshot.id, discountAmount };
+        newOrder.flashDealId = flashDealSnapshot.id;
+        newOrder.flashDealDiscount = discountAmount;
+      }
+    }
+
     const inserted = await tx.insert(ordersTable).values(newOrder).returning();
     await tx.insert(orderStatusHistoryTable).values({
       id: `${id}_searching`,
@@ -291,22 +312,18 @@ router.post("/orders", async (req, res) => {
         discountAmount: promoUseData.discountAmount,
       });
     }
-    if (flashDealData) {
-      await tx
-        .update(flashDealsTable)
-        .set({ usedCount: sql`used_count + 1` })
-        .where(eq(flashDealsTable.id, flashDealData.id));
-    }
-    return inserted;
+    return { inserted, appliedFlashDeal };
   });
+
+  const flashDealData = rows.appliedFlashDeal;
 
   void notifyNearbyCouriers(destLat, destLon, body.data.restaurantName, zoneFee);
 
   if (body.data.restaurantId) {
-    notifyRestaurantNewOrder(body.data.restaurantId, rows[0]);
+    notifyRestaurantNewOrder(body.data.restaurantId, rows.inserted[0]);
   }
 
-  res.status(201).json({ ...rows[0], appliedPromo: promoUseData ? true : false, appliedFlashDeal: flashDealData ? true : false });
+  res.status(201).json({ ...rows.inserted[0], appliedPromo: promoUseData ? true : false, appliedFlashDeal: flashDealData ? true : false });
 });
 
 router.get("/orders/ratings", async (req, res) => {

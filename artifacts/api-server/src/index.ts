@@ -14,6 +14,7 @@ import { addPromoRestaurant } from "@workspace/db/migrations/add-promo-restauran
 import { addMenuItemDeals } from "@workspace/db/migrations/add-menu-item-deals";
 import { addDealExpiresAt } from "@workspace/db/migrations/add-deal-expires-at";
 import { addAdminNotes } from "@workspace/db/migrations/add-admin-notes";
+import { addFlashDeals } from "@workspace/db/migrations/add-flash-deals";
 
 const rawPort = process.env["PORT"];
 
@@ -72,5 +73,8 @@ httpServer.listen(port, (err?: Error) => {
   );
   addAdminNotes().catch((e: unknown) =>
     logger.error({ err: e }, "Failed to run admin notes migration"),
+  );
+  addFlashDeals().catch((e: unknown) =>
+    logger.error({ err: e }, "Failed to run flash deals migration"),
   );
 });

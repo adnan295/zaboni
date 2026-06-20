@@ -15,7 +15,8 @@
     "./migrations/add-promo-restaurant": "./src/migrations/add-promo-restaurant.ts",
     "./migrations/add-menu-item-deals": "./src/migrations/add-menu-item-deals.ts",
     "./migrations/add-deal-expires-at": "./src/migrations/add-deal-expires-at.ts",
-    "./migrations/add-admin-notes": "./src/migrations/add-admin-notes.ts"
+    "./migrations/add-admin-notes": "./src/migrations/add-admin-notes.ts",
+    "./migrations/add-flash-deals": "./src/migrations/add-flash-deals.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",
