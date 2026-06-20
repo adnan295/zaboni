@@ -1,4 +1,4 @@
-import { Router, type Request, type Response, type NextFunction } from "express";
+import { Router, type Request, type Response } from "express";
 import { whatsappManager } from "../lib/whatsapp";
 import { db } from "@workspace/db";
 import {
@@ -37,6 +37,7 @@ import { sendPushToAllCustomers, isFlashDealImminent } from "../lib/push";
 import { sendSmsViaGateway, isSmsGatewayConfigured } from "../lib/sms";
 import { sendAdminAlertWebhook } from "../lib/waverifyMonitor";
 import { z } from "zod";
+import { requireAdmin } from "../middleware/adminAuth";
 
 const ORDER_STATUSES = [
   "searching",
@@ -48,28 +49,6 @@ const ORDER_STATUSES = [
 ] as const;
 
 const router = Router();
-
-const ADMIN_SECRET = process.env["ADMIN_SECRET"];
-
-function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  if (!ADMIN_SECRET) {
-    res.status(503).json({
-      error:
-        "Admin panel is not configured. Set the ADMIN_SECRET environment variable.",
-    });
-    return;
-  }
-  const authHeader = req.headers["authorization"];
-  const token =
-    typeof authHeader === "string" && authHeader.startsWith("Bearer ")
-      ? authHeader.slice(7)
-      : null;
-  if (!token || token !== ADMIN_SECRET) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-  next();
-}
 
 router.use("/admin", requireAdmin);
 
