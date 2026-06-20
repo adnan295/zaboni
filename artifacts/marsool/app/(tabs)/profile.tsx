@@ -81,7 +81,7 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const { user, signOut, isCourier, isCourierMode, setCourierMode, refreshRole, updateName } = useAuth();
-  const { orders } = useOrders();
+  const { orders, setStatusChangeHandler } = useOrders();
   const { favorites } = useFavorites();
   const { unreadCount } = useNotifications();
   const { ratings } = useRatings();
@@ -204,6 +204,15 @@ export default function ProfileScreen() {
       fetchSubscriptionStatus();
     }, [fetchApplication, fetchCustomerStats, fetchLoyalty, fetchAchievements, fetchSubscriptionStatus])
   );
+
+  useEffect(() => {
+    setStatusChangeHandler((_order, newStatus) => {
+      if (newStatus === "delivered") {
+        void fetchLoyalty();
+        void fetchCustomerStats();
+      }
+    });
+  }, [setStatusChangeHandler, fetchLoyalty, fetchCustomerStats]);
 
   const handleSignOut = () => {
     Alert.alert(t("profile.signOutTitle"), t("profile.signOutMessage"), [

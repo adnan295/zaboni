@@ -758,7 +758,10 @@
     "earn": "كسب",
     "redeem": "استخدام",
     "viewHistory": "سجل النقاط",
-    "appliedDiscount": "خصم النقاط: {{amount}} ل.س"
+    "appliedDiscount": "خصم النقاط: {{amount}} ل.س",
+    "earnedOnOrder": "ربحت {{points}} نقطة من هذا الطلب",
+    "redeemedOnOrder": "استخدمت {{points}} نقطة خصماً في هذا الطلب",
+    "earnedBadge": "+{{points}} نقطة"
   },
   "achievements": {
     "sectionTitle": "إنجازاتي",
