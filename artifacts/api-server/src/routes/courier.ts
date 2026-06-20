@@ -173,6 +173,9 @@ const locationSchema = z.object({
   lon: z.number().min(-180).max(180),
 });
 
+const MAX_SPEED_KMH = 150;
+const LOCATION_FRESHNESS_MINUTES = 5;
+
 router.patch("/courier/location", requireCourier, async (req, res) => {
   const body = locationSchema.safeParse(req.body);
   if (!body.success) {
@@ -181,6 +184,24 @@ router.patch("/courier/location", requireCourier, async (req, res) => {
   }
 
   const courierId = resolveUserId(req);
+
+  const current = await db
+    .select({ courierLat: usersTable.courierLat, courierLon: usersTable.courierLon, courierLocationUpdatedAt: usersTable.courierLocationUpdatedAt })
+    .from(usersTable)
+    .where(eq(usersTable.id, courierId))
+    .limit(1);
+
+  const prev = current[0];
+  if (prev?.courierLat !== null && prev?.courierLon !== null && prev?.courierLocationUpdatedAt !== null &&
+      prev?.courierLat !== undefined && prev?.courierLon !== undefined && prev?.courierLocationUpdatedAt !== undefined) {
+    const elapsedHours = (Date.now() - prev.courierLocationUpdatedAt.getTime()) / 3_600_000;
+    const distKm = haversineKm(prev.courierLat, prev.courierLon, body.data.lat, body.data.lon);
+    if (elapsedHours > 0 && distKm / elapsedHours > MAX_SPEED_KMH) {
+      res.status(429).json({ error: "Location update rejected: movement speed exceeds physical limit" });
+      return;
+    }
+  }
+
   await db
     .update(usersTable)
     .set({ courierLat: body.data.lat, courierLon: body.data.lon, courierLocationUpdatedAt: new Date() })
@@ -197,7 +218,7 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
 
   const courierUser = await db
-    .select({ lat: usersTable.courierLat, lon: usersTable.courierLon, isOnline: usersTable.isOnline })
+    .select({ lat: usersTable.courierLat, lon: usersTable.courierLon, isOnline: usersTable.isOnline, locationUpdatedAt: usersTable.courierLocationUpdatedAt })
     .from(usersTable)
     .where(eq(usersTable.id, courierId))
     .limit(1);
@@ -207,12 +228,27 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
     return;
   }
 
+  const isProduction = process.env["NODE_ENV"] === "production";
+  const locUpdatedAt = courierUser[0]?.locationUpdatedAt;
+  if (isProduction) {
+    if (!locUpdatedAt || !courierUser[0]?.lat || !courierUser[0]?.lon) {
+      res.json([]);
+      return;
+    }
+    const ageMinutes = (Date.now() - locUpdatedAt.getTime()) / 60_000;
+    if (ageMinutes > LOCATION_FRESHNESS_MINUTES) {
+      res.json([]);
+      return;
+    }
+  }
+
   const courierLat = courierUser[0]?.lat ?? DAMASCUS_LAT;
   const courierLon = courierUser[0]?.lon ?? DAMASCUS_LON;
 
   const rows = await db
     .select({
       id: ordersTable.id,
+      userId: ordersTable.userId,
       status: ordersTable.status,
       restaurantName: ordersTable.restaurantName,
       restaurantId: ordersTable.restaurantId,
@@ -229,8 +265,8 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
     .where(and(eq(ordersTable.status, "searching"), eq(ordersTable.courierId, "")))
     .orderBy(ordersTable.createdAt);
 
-  const isDev = process.env["NODE_ENV"] !== "production";
   const withDistance = rows
+    .filter((o) => o.userId !== courierId)
     .map((o) => {
       const destLat = o.destinationLat ?? DAMASCUS_LAT;
       const destLon = o.destinationLon ?? DAMASCUS_LON;
@@ -249,7 +285,7 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
         distanceKm,
       };
     })
-    .filter((o) => isDev || o.distanceKm <= NEARBY_RADIUS_KM)
+    .filter((o) => !isProduction || o.distanceKm <= NEARBY_RADIUS_KM)
     .sort((a, b) => a.distanceKm - b.distanceKm);
 
   res.json(withDistance);
@@ -310,7 +346,7 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   }
 
   const courierUsers = await db
-    .select({ name: usersTable.name, phone: usersTable.phone, isOnline: usersTable.isOnline, courierLat: usersTable.courierLat, courierLon: usersTable.courierLon })
+    .select({ name: usersTable.name, phone: usersTable.phone, isOnline: usersTable.isOnline, courierLat: usersTable.courierLat, courierLon: usersTable.courierLon, locationUpdatedAt: usersTable.courierLocationUpdatedAt })
     .from(usersTable)
     .where(eq(usersTable.id, courierId))
     .limit(1);
@@ -324,8 +360,14 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   if (isProduction) {
     const cLat = courierUsers[0]?.courierLat ?? null;
     const cLon = courierUsers[0]?.courierLon ?? null;
-    if (cLat === null || cLon === null) {
+    const locUpdatedAt = courierUsers[0]?.locationUpdatedAt ?? null;
+    if (cLat === null || cLon === null || locUpdatedAt === null) {
       res.status(409).json({ error: "Location not available. Please enable location and try again." });
+      return;
+    }
+    const ageMinutes = (Date.now() - locUpdatedAt.getTime()) / 60_000;
+    if (ageMinutes > LOCATION_FRESHNESS_MINUTES) {
+      res.status(409).json({ error: "Location is stale. Please allow the app to update your location and try again." });
       return;
     }
     const destLat = order!.destinationLat ?? DAMASCUS_LAT;
