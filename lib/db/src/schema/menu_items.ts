@@ -22,6 +22,7 @@ export const menuItemsTable = pgTable("menu_items", {
   isAvailable: boolean("is_available").notNull().default(true),
   isDeal: boolean("is_deal").notNull().default(false),
   dealPrice: real("deal_price"),
+  dealDiscountPercent: real("deal_discount_percent"),
   dealExpiresAt: timestamp("deal_expires_at"),
 });
 

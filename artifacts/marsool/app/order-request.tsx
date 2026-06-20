@@ -89,6 +89,16 @@ export default function OrderRequestScreen() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hasItems = cartEntries.length > 0;
+
+  const itemSavings = useMemo(
+    () => cartEntries.reduce((acc, item) => {
+      if (item.originalPrice != null && item.originalPrice > item.price) {
+        return acc + (item.originalPrice - item.price) * item.qty;
+      }
+      return acc;
+    }, 0),
+    [cartEntries]
+  );
   const canSubmit = hasItems && !!defaultAddress;
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
@@ -528,6 +538,15 @@ export default function OrderRequestScreen() {
           ) : null}
         </View>
 
+        {hasItems && itemSavings > 0 && (
+          <View style={[styles.savingsRow, { backgroundColor: "#f0fdf4", borderColor: "#86efac" }]}>
+            <MaterialIcons name="savings" size={18} color="#16a34a" />
+            <Text style={[styles.savingsText, { color: "#16a34a" }]}>
+              {t("orderRequest.itemSavings", { amount: itemSavings.toLocaleString() })}
+            </Text>
+          </View>
+        )}
+
         {hasItems ? (
           <View style={[styles.totalsCard, { backgroundColor: colors.card, borderColor: flashItemDiscount > 0 ? "#f97316" : colors.border }]}>
             <View style={styles.totalRow}>
@@ -739,6 +758,16 @@ const styles = StyleSheet.create({
   emptyCartText: { fontSize: 14, fontWeight: "600", textAlign: "center" },
   emptyCartBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
   emptyCartBtnText: { color: "#fff", fontSize: 14, fontWeight: "800" },
+  savingsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  savingsText: { fontSize: 14, fontWeight: "700", flex: 1 },
   totalsCard: { borderWidth: 1, borderRadius: 14, padding: 16, gap: 10 },
   totalRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   totalLabel: { fontSize: 14 },

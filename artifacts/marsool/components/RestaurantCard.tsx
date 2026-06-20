@@ -49,6 +49,7 @@ export default function RestaurantCard({ restaurant, onPress }: Props) {
   const fav = isFavorite(restaurant.id);
   const scale = React.useRef(new Animated.Value(1)).current;
   const hasFlashDeal = !!(restaurant as unknown as Record<string, unknown>)["hasFlashDeal"];
+  const maxDealPercent = (restaurant as unknown as Record<string, unknown>)["maxDealPercent"] as number | null | undefined;
 
   const handleFav = (e: GestureResponderEvent) => {
     e.stopPropagation();
@@ -82,7 +83,14 @@ export default function RestaurantCard({ restaurant, onPress }: Props) {
             <Text style={styles.flashBadgeText}>⚡ عرض محدود</Text>
           </View>
         )}
-        {restaurant.discount && !hasFlashDeal && (
+        {!hasFlashDeal && maxDealPercent != null && maxDealPercent > 0 && (
+          <View style={[styles.discountBadge, { backgroundColor: "#f97316" }]}>
+            <Text style={[styles.discountText, { color: "#fff" }]}>
+              خصم حتى {maxDealPercent}%
+            </Text>
+          </View>
+        )}
+        {restaurant.discount && !hasFlashDeal && !(maxDealPercent != null && maxDealPercent > 0) && (
           <View style={[styles.discountBadge, { backgroundColor: colors.primary }]}>
             <Text style={[styles.discountText, { color: colors.primaryForeground }]}>
               {restaurant.discount}

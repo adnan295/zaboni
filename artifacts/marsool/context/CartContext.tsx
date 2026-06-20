@@ -12,6 +12,7 @@ export interface CartItem {
   menuItemId: string;
   nameAr: string;
   price: number;
+  originalPrice?: number;
   qty: number;
   image?: string;
 }

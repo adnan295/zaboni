@@ -161,6 +161,35 @@ router.get("/restaurants", async (req, res) => {
     : [];
   const flashDealRestaurantIds = new Set(activeFlashDealRows.map((f) => f.restaurantId));
 
+  const dealItemRows = rows.length > 0
+    ? await db
+        .select({
+          restaurantId: menuItemsTable.restaurantId,
+          price: menuItemsTable.price,
+          dealPrice: menuItemsTable.dealPrice,
+          dealDiscountPercent: menuItemsTable.dealDiscountPercent,
+        })
+        .from(menuItemsTable)
+        .where(
+          and(
+            eq(menuItemsTable.isDeal, true),
+            inArray(menuItemsTable.restaurantId, rows.map((r) => r.id))
+          )
+        )
+    : [];
+  const maxDealPercentMap = new Map<string, number>();
+  for (const d of dealItemRows) {
+    const pct = d.dealDiscountPercent != null
+      ? d.dealDiscountPercent
+      : (d.dealPrice != null && d.price > 0)
+        ? Math.round((1 - d.dealPrice / d.price) * 100)
+        : null;
+    if (pct != null && pct > 0) {
+      const existing = maxDealPercentMap.get(d.restaurantId) ?? 0;
+      if (pct > existing) maxDealPercentMap.set(d.restaurantId, pct);
+    }
+  }
+
   const result = rows.map((r) => {
     const byDay = hoursMap.get(r.id);
     const distanceKm =
@@ -173,6 +202,7 @@ router.get("/restaurants", async (req, res) => {
       distanceKm,
       categorySortOrder: hasCategoryId ? (categorySortMap.get(r.id) ?? null) : null,
       hasFlashDeal: flashDealRestaurantIds.has(r.id),
+      maxDealPercent: maxDealPercentMap.get(r.id) ?? null,
     };
   });
 
