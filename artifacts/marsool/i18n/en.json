@@ -740,7 +740,8 @@
     "activeTitle": "You're Subscribed ⭐",
     "activeUntil": "Subscription active until {{date}}",
     "freeDeliveryActive": "Free delivery on all your orders",
-    "discountedDelivery": "Discounted delivery: {{fee}} SYP only"
+    "discountedDelivery": "Discounted delivery: {{fee}} SYP only",
+    "subscriberBadge": "Subscriber - Free Delivery"
   },
   "loyalty": {
     "title": "Loyalty Points",

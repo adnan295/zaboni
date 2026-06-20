@@ -293,7 +293,7 @@ router.post("/orders", async (req, res) => {
       const fullDiscountAmount = calculateRedeemDiscount(userPoints, loyaltySettings.pointValue);
       // Cap discount at the actual payable delivery fee so we never over-redeem points.
       // A user with 5000 pts worth 5000 SYP on a 500 SYP delivery should only burn 500 pts.
-      const cappedDiscountAmount = Math.min(fullDiscountAmount, zoneFee);
+      const cappedDiscountAmount = Math.min(fullDiscountAmount, effectiveDeliveryFee);
       if (cappedDiscountAmount > 0) {
         // Compute the minimum points that produce exactly the capped discount.
         const pointsToRedeem = Math.min(

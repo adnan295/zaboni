@@ -740,7 +740,8 @@
     "activeTitle": "أنت مشترك ⭐",
     "activeUntil": "الاشتراك ساري حتى {{date}}",
     "freeDeliveryActive": "توصيل مجاني لجميع طلباتك",
-    "discountedDelivery": "رسوم توصيل مخفضة: {{fee}} ل.س فقط"
+    "discountedDelivery": "رسوم توصيل مخفضة: {{fee}} ل.س فقط",
+    "subscriberBadge": "مشترك - توصيل مجاني"
   },
   "loyalty": {
     "title": "نقاط الولاء",

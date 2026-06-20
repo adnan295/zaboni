@@ -95,6 +95,7 @@ export default function ProfileScreen() {
   const [editNameValue, setEditNameValue] = useState("");
   const [savingName, setSavingName] = useState(false);
 
+  const [isSubscribed, setIsSubscribed] = useState(false);
   const [loyaltyData, setLoyaltyData] = useState<LoyaltyBalance | null>(null);
   const [achievementsData, setAchievementsData] = useState<AchievementsData | null>(null);
   const [celebrationAchievement, setCelebrationAchievement] = useState<Achievement | null>(null);
@@ -156,6 +157,16 @@ export default function ProfileScreen() {
     }
   }, [user?.id, isCourier]);
 
+  const fetchSubscriptionStatus = useCallback(async () => {
+    if (!user || isCourier) return;
+    try {
+      const data = await customFetch("/api/subscriptions/status") as { isSubscribed: boolean };
+      setIsSubscribed(data.isSubscribed);
+    } catch {
+      setIsSubscribed(false);
+    }
+  }, [user?.id, isCourier]);
+
   const fetchAchievements = useCallback(async () => {
     if (!user || isCourier) return;
     try {
@@ -190,7 +201,8 @@ export default function ProfileScreen() {
       fetchCustomerStats();
       fetchLoyalty();
       fetchAchievements();
-    }, [fetchApplication, fetchCustomerStats, fetchLoyalty, fetchAchievements])
+      fetchSubscriptionStatus();
+    }, [fetchApplication, fetchCustomerStats, fetchLoyalty, fetchAchievements, fetchSubscriptionStatus])
   );
 
   const handleSignOut = () => {
@@ -308,6 +320,11 @@ export default function ProfileScreen() {
             {isCourierMode && (
               <View style={[styles.modeDot, { backgroundColor: "#4CAF50" }]} />
             )}
+          </View>
+        )}
+        {isSubscribed && (
+          <View style={styles.subscriberBadge}>
+            <Text style={styles.subscriberBadgeText}>⭐ {t("subscription.subscriberBadge")}</Text>
           </View>
         )}
       </View>
@@ -734,6 +751,16 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   courierBadgeText: { fontSize: 12, fontWeight: "700", color: "#DC2626" },
+  subscriberBadge: {
+    marginTop: 6,
+    backgroundColor: "#FFF8E1",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#F9A825",
+  },
+  subscriberBadgeText: { fontSize: 12, fontWeight: "700", color: "#E65100" },
   modeDot: {
     width: 8,
     height: 8,
