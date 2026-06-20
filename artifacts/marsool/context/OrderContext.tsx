@@ -27,6 +27,7 @@ export interface Order {
   cancelNote?: string | null;
   pointsEarned?: number;
   pointsRedeemed?: number;
+  flashDealDiscount?: number;
 }
 
 interface OrderContextValue {
@@ -56,6 +57,7 @@ function apiOrderToLocal(apiOrder: {
   cancelNote?: string | null;
   pointsEarned?: number;
   pointsRedeemed?: number;
+  flashDealDiscount?: number | null;
 }): Order {
   return {
     id: apiOrder.id,
@@ -76,6 +78,7 @@ function apiOrderToLocal(apiOrder: {
     cancelNote: apiOrder.cancelNote ?? null,
     pointsEarned: apiOrder.pointsEarned ?? 0,
     pointsRedeemed: apiOrder.pointsRedeemed ?? 0,
+    flashDealDiscount: apiOrder.flashDealDiscount ?? undefined,
   };
 }
 
@@ -152,7 +155,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
           ...(usePoints ? { usePoints: true } : {}),
         }),
       });
-      const newOrder = apiOrderToLocal(result);
+      const newOrder = apiOrderToLocal(result as Parameters<typeof apiOrderToLocal>[0]);
       setOrders((prev) => {
         if (prev.some((o) => o.id === newOrder.id)) return prev;
         return [newOrder, ...prev];

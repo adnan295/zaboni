@@ -579,6 +579,15 @@ export default function OrderTrackingScreen() {
           </View>
         </View>
 
+        {(order.flashDealDiscount ?? 0) > 0 && (
+          <View style={[styles.pointsBanner, { backgroundColor: "#fff7ed", borderColor: "#fed7aa" }]}>
+            <Text style={{ fontSize: 18 }}>⚡</Text>
+            <Text style={[styles.pointsBannerText, { color: "#c2410c" }]}>
+              وفّرت {(order.flashDealDiscount ?? 0).toLocaleString()} ل.س بعرض الفلاش على رسوم التوصيل
+            </Text>
+          </View>
+        )}
+
         {isDelivered && (order.pointsEarned ?? 0) > 0 && (
           <View style={[styles.pointsBanner, { backgroundColor: "#a855f711", borderColor: "#a855f730" }]}>
             <MaterialIcons name="stars" size={22} color="#a855f7" />

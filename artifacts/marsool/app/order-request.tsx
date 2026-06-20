@@ -269,7 +269,7 @@ export default function OrderRequestScreen() {
                 {flashDeal.discountType === "percent"
                   ? `${flashDeal.discountValue}%`
                   : `${flashDeal.discountValue.toLocaleString()} ل.س`}{" "}
-                تلقائياً على طلبك
+                على رسوم التوصيل تلقائياً
               </Text>
             </View>
             {flashCountdown ? (
@@ -360,21 +360,45 @@ export default function OrderRequestScreen() {
         ) : null}
 
         {(feeLoading || feePreview != null) ? (
-          <View style={[styles.feeCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <MaterialIcons name="delivery-dining" size={20} color={colors.primary} />
+          <View style={[styles.feeCard, { backgroundColor: colors.card, borderColor: flashDeal ? "#f97316" : colors.border }]}>
+            <MaterialIcons name="delivery-dining" size={20} color={flashDeal ? "#f97316" : colors.primary} />
             <View style={styles.addrInfo}>
               <Text style={[styles.addrLabel, { color: colors.mutedForeground }]}>{t("orderRequest.deliveryFee")}</Text>
               {feeLoading ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : feePreview ? (
-                <View style={styles.feeRow}>
-                  <Text style={[styles.feeAmount, { color: colors.foreground }]}>
-                    {feePreview.fee.toLocaleString()} ل.س
-                  </Text>
-                  <Text style={[styles.feeDistance, { color: colors.mutedForeground }]}>
-                    ({feePreview.distanceKm} كم{feePreview.zoneLabel ? ` · ${feePreview.zoneLabel}` : ""})
-                  </Text>
-                </View>
+                (() => {
+                  const originalFee = feePreview.fee;
+                  let discountedFee: number | null = null;
+                  if (flashDeal) {
+                    if (flashDeal.discountType === "percent") {
+                      discountedFee = Math.max(0, Math.round(originalFee * (1 - flashDeal.discountValue / 100)));
+                    } else {
+                      discountedFee = Math.max(0, originalFee - flashDeal.discountValue);
+                    }
+                  }
+                  return (
+                    <View style={styles.feeRow}>
+                      {discountedFee !== null ? (
+                        <>
+                          <Text style={[styles.feeAmount, { color: "#f97316", fontWeight: "700" }]}>
+                            {discountedFee.toLocaleString()} ل.س
+                          </Text>
+                          <Text style={[styles.feeAmount, { color: colors.mutedForeground, textDecorationLine: "line-through", fontSize: 13, fontWeight: "400" }]}>
+                            {originalFee.toLocaleString()}
+                          </Text>
+                        </>
+                      ) : (
+                        <Text style={[styles.feeAmount, { color: colors.foreground }]}>
+                          {originalFee.toLocaleString()} ل.س
+                        </Text>
+                      )}
+                      <Text style={[styles.feeDistance, { color: colors.mutedForeground }]}>
+                        ({feePreview.distanceKm} كم{feePreview.zoneLabel ? ` · ${feePreview.zoneLabel}` : ""})
+                      </Text>
+                    </View>
+                  );
+                })()
               ) : null}
             </View>
           </View>
