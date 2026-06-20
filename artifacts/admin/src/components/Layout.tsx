@@ -29,6 +29,7 @@ const navItems = [
   { href: "/cancellation", label: "تحليل الإلغاءات", icon: "❌" },
   { href: "/ratings", label: "التقييمات", icon: "⭐" },
   { href: "/flash-deals", label: "عروض فلاش", icon: "⚡" },
+  { href: "/loyalty", label: "نقاط الولاء", icon: "⭐" },
   { href: "/promos", label: "أكواد الخصم", icon: "🎟️" },
   { href: "/notifications", label: "الإشعارات", icon: "🔔" },
   { href: "/financial", label: "التقارير المالية", icon: "💰" },

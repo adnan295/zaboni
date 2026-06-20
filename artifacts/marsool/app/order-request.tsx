@@ -40,6 +40,13 @@ function formatCountdown(endsAt: string): string {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+interface LoyaltyInfo {
+  balance: number;
+  redeemDiscount: number;
+  earnRate: number;
+  pointValue: number;
+}
+
 type PromoStatus = "idle" | "checking" | "valid" | "invalid" | "expired" | "exhausted" | "already_used";
 
 interface PromoResult {
@@ -90,6 +97,14 @@ export default function OrderRequestScreen() {
 
   const [flashDeal, setFlashDeal] = useState<FlashDealInfo | null>(null);
   const [flashCountdown, setFlashCountdown] = useState<string>("");
+  const [loyaltyInfo, setLoyaltyInfo] = useState<LoyaltyInfo | null>(null);
+  const [usePoints, setUsePoints] = useState(false);
+
+  useEffect(() => {
+    customFetch("/api/users/me/loyalty")
+      .then((data) => setLoyaltyInfo(data as LoyaltyInfo))
+      .catch(() => setLoyaltyInfo(null));
+  }, []);
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -212,7 +227,7 @@ export default function OrderRequestScreen() {
     const lat = defaultAddress.latitude ?? undefined;
     const lon = defaultAddress.longitude ?? undefined;
     try {
-      const order = await placeOrder(orderText.trim(), restaurantName ?? t("orderRequest.title"), address, appliedPromo, lat, lon, restaurantId);
+      const order = await placeOrder(orderText.trim(), restaurantName ?? t("orderRequest.title"), address, appliedPromo, lat, lon, restaurantId, usePoints);
       router.replace({
         pathname: "/order-tracking/[id]",
         params: { id: order.id },
@@ -365,6 +380,31 @@ export default function OrderRequestScreen() {
           </View>
         ) : null}
 
+        {loyaltyInfo !== null && loyaltyInfo.balance > 0 && (
+          <TouchableOpacity
+            style={[styles.loyaltyToggleCard, {
+              backgroundColor: usePoints ? "#fdf4ff" : colors.card,
+              borderColor: usePoints ? "#a855f7" : colors.border,
+            }]}
+            onPress={() => setUsePoints((v) => !v)}
+            activeOpacity={0.8}
+          >
+            <MaterialIcons name="stars" size={20} color={usePoints ? "#a855f7" : colors.primary} />
+            <View style={styles.addrInfo}>
+              <Text style={[styles.addrLabel, { color: colors.mutedForeground }]}>{t("loyalty.usePoints")}</Text>
+              <Text style={[styles.addrText, { color: usePoints ? "#7e22ce" : colors.foreground, fontWeight: "700" }]}>
+                {t("loyalty.usePointsDesc", {
+                  points: loyaltyInfo.balance.toLocaleString(),
+                  discount: loyaltyInfo.redeemDiscount.toLocaleString(),
+                })}
+              </Text>
+            </View>
+            <View style={[styles.toggleDot, { backgroundColor: usePoints ? "#a855f7" : colors.border }]}>
+              <View style={[styles.toggleInner, { backgroundColor: usePoints ? "#fff" : colors.mutedForeground }]} />
+            </View>
+          </TouchableOpacity>
+        )}
+
         <View style={[styles.promoCard, {
           backgroundColor: colors.card,
           borderColor: promoStatus === "valid" ? "#22c55e" : promoStatus !== "idle" && promoStatus !== "checking" ? "#ef4444" : colors.border,
@@ -501,6 +541,26 @@ const styles = StyleSheet.create({
   addrLabel: { fontSize: 11, fontWeight: "600", marginBottom: 2 },
   addrText: { fontSize: 14, fontWeight: "600" },
   changeAddr: { fontSize: 13, fontWeight: "700" },
+  loyaltyToggleCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 14,
+  },
+  toggleDot: {
+    width: 38,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  toggleInner: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+  },
   promoCard: {
     flexDirection: "row",
     alignItems: "center",

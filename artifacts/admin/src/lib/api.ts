@@ -775,6 +775,14 @@ export const api = {
     apiFetch<FlashDeal>(`/admin/flash-deals/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteFlashDeal: (id: string) =>
     apiFetch<void>(`/admin/flash-deals/${id}`, { method: "DELETE" }),
+
+  getLoyaltySettings: () => apiFetch<LoyaltySettings>("/admin/loyalty-settings"),
+  saveLoyaltySettings: (data: LoyaltySettings) =>
+    apiFetch<LoyaltySettings>("/admin/loyalty-settings", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  getLoyaltyUsers: () => apiFetch<LoyaltyUser[]>("/admin/loyalty-users"),
 };
 
 export type SlaAlert = {
@@ -894,12 +902,26 @@ export type FlashDeal = {
   createdAt: string;
 };
 
+export type LoyaltySettings = {
+  earnRate: number;
+  pointValue: number;
+};
+
+export type LoyaltyUser = {
+  id: string;
+  name: string;
+  phone: string;
+  role: string;
+  loyaltyPoints: number;
+};
+
 export type WaVerifyHealth = {
   ok: boolean;
   configured?: boolean;
   message?: string;
   error?: string;
 };
+
 
 export type WaVerifyHealthLogEntry = {
   id: number;

@@ -711,6 +711,23 @@
       "title": "شروط الاستخدام"
     }
   },
+  "loyalty": {
+    "title": "نقاط الولاء",
+    "balance": "رصيد نقاطك",
+    "points": "نقطة",
+    "redeemValue": "تساوي خصماً بقيمة {{amount}} ل.س",
+    "earnInfo": "تكسب {{rate}} نقطة لكل 1000 ل.س",
+    "usePoints": "استخدم نقاطي كخصم",
+    "usePointsDesc": "{{points}} نقطة = خصم {{discount}} ل.س",
+    "noPoints": "ليس لديك نقاط بعد",
+    "noPointsHint": "أكمل طلبات لتكسب نقاطاً",
+    "historyTitle": "تاريخ النقاط",
+    "noHistory": "لا توجد معاملات بعد",
+    "earn": "كسب",
+    "redeem": "استخدام",
+    "viewHistory": "سجل النقاط",
+    "appliedDiscount": "خصم النقاط: {{amount}} ل.س"
+  },
   "onboarding": {
     "skip": "تخطّي",
     "next": "التالي",

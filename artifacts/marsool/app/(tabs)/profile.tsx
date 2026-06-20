@@ -50,6 +50,12 @@ interface CustomerStats {
   memberSince: string | null;
 }
 
+interface LoyaltyBalance {
+  balance: number;
+  redeemDiscount: number;
+  earnRate: number;
+}
+
 export default function ProfileScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -69,6 +75,8 @@ export default function ProfileScreen() {
   const [editNameVisible, setEditNameVisible] = useState(false);
   const [editNameValue, setEditNameValue] = useState("");
   const [savingName, setSavingName] = useState(false);
+
+  const [loyaltyData, setLoyaltyData] = useState<LoyaltyBalance | null>(null);
 
   const avgRating =
     ratings.length > 0
@@ -115,11 +123,22 @@ export default function ProfileScreen() {
     }
   }, [user?.id]);
 
+  const fetchLoyalty = useCallback(async () => {
+    if (!user || isCourier) return;
+    try {
+      const data = await customFetch("/api/users/me/loyalty") as LoyaltyBalance;
+      setLoyaltyData(data);
+    } catch {
+      setLoyaltyData(null);
+    }
+  }, [user?.id, isCourier]);
+
   useFocusEffect(
     useCallback(() => {
       fetchApplication();
       fetchCustomerStats();
-    }, [fetchApplication, fetchCustomerStats])
+      fetchLoyalty();
+    }, [fetchApplication, fetchCustomerStats, fetchLoyalty])
   );
 
   const handleSignOut = () => {
@@ -192,6 +211,7 @@ export default function ProfileScreen() {
     { icon: "receipt-long", label: t("profile.menu.orders"), onPress: () => router.push("/orders"), badge: orders.length > 0 ? orders.length : undefined },
     { icon: "favorite", label: t("profile.menu.favorites"), onPress: () => router.push("/favorites"), badge: favorites.length > 0 ? favorites.length : undefined },
     { icon: "location-on", label: t("profile.menu.addresses"), onPress: () => router.push("/addresses") },
+    { icon: "stars", label: t("loyalty.viewHistory"), onPress: () => router.push("/loyalty-history") },
     { icon: "notifications", label: t("profile.menu.notifications"), onPress: () => router.push("/notifications"), badge: unreadCount > 0 ? unreadCount : undefined },
     { icon: "payment", label: t("profile.menu.payments"), onPress: () => router.push("/payment-info") },
     { icon: "help-outline", label: t("profile.menu.support"), onPress: () => router.push("/support") },
@@ -292,6 +312,34 @@ export default function ProfileScreen() {
               </>
             )}
           </View>
+        )}
+
+        {/* Loyalty card */}
+        {!isCourier && loyaltyData !== null && (
+          <TouchableOpacity
+            style={[styles.loyaltyCard, { backgroundColor: colors.primary }]}
+            onPress={() => router.push("/loyalty-history")}
+            activeOpacity={0.85}
+          >
+            <View style={styles.loyaltyLeft}>
+              <MaterialIcons name="stars" size={28} color="#fff" />
+              <View>
+                <Text style={styles.loyaltyLabel}>{t("loyalty.balance")}</Text>
+                <Text style={styles.loyaltyPoints}>
+                  {loyaltyData.balance.toLocaleString()} {t("loyalty.points")}
+                </Text>
+                {loyaltyData.redeemDiscount > 0 && (
+                  <Text style={styles.loyaltyValue}>
+                    {t("loyalty.redeemValue", { amount: loyaltyData.redeemDiscount.toLocaleString() })}
+                  </Text>
+                )}
+                {loyaltyData.balance === 0 && (
+                  <Text style={styles.loyaltyValue}>{t("loyalty.noPointsHint")}</Text>
+                )}
+              </View>
+            </View>
+            <MaterialIcons name="chevron-left" size={22} color="rgba(255,255,255,0.7)" />
+          </TouchableOpacity>
         )}
 
         {/* Courier section */}
@@ -581,6 +629,19 @@ const styles = StyleSheet.create({
   infoLabel: { fontSize: 12, marginBottom: 2 },
   infoValue: { fontSize: 14, fontWeight: "600" },
   infoDivider: { height: 1, marginHorizontal: 14 },
+  loyaltyCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  loyaltyLeft: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
+  loyaltyLabel: { fontSize: 11, color: "rgba(255,255,255,0.75)", fontWeight: "600" },
+  loyaltyPoints: { fontSize: 20, fontWeight: "900", color: "#fff" },
+  loyaltyValue: { fontSize: 12, color: "rgba(255,255,255,0.85)", marginTop: 2 },
   courierCard: {
     marginHorizontal: 16,
     marginTop: 12,
