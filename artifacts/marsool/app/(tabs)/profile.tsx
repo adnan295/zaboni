@@ -99,6 +99,7 @@ export default function ProfileScreen() {
   const [loyaltyData, setLoyaltyData] = useState<LoyaltyBalance | null>(null);
   const [achievementsData, setAchievementsData] = useState<AchievementsData | null>(null);
   const [celebrationAchievement, setCelebrationAchievement] = useState<Achievement | null>(null);
+  const [supportUnreadCount, setSupportUnreadCount] = useState(0);
   const knownEarnedKeys = useRef<Set<string>>(new Set());
   const celebrationScale = useRef(new Animated.Value(0)).current;
 
@@ -167,6 +168,16 @@ export default function ProfileScreen() {
     }
   }, [user?.id, isCourier]);
 
+  const fetchSupportUnread = useCallback(async () => {
+    if (!user || isCourier) return;
+    try {
+      const data = await customFetch("/api/support/unread-count") as { count: number };
+      setSupportUnreadCount(data.count);
+    } catch {
+      // ignore
+    }
+  }, [user?.id, isCourier]);
+
   const fetchAchievements = useCallback(async () => {
     if (!user || isCourier) return;
     try {
@@ -202,7 +213,8 @@ export default function ProfileScreen() {
       fetchLoyalty();
       fetchAchievements();
       fetchSubscriptionStatus();
-    }, [fetchApplication, fetchCustomerStats, fetchLoyalty, fetchAchievements, fetchSubscriptionStatus])
+      void fetchSupportUnread();
+    }, [fetchApplication, fetchCustomerStats, fetchLoyalty, fetchAchievements, fetchSubscriptionStatus, fetchSupportUnread])
   );
 
   useEffect(() => {
@@ -288,7 +300,7 @@ export default function ProfileScreen() {
     { icon: "local-shipping", label: t("subscription.menuLabel"), onPress: () => router.push("/subscription") },
     { icon: "notifications", label: t("profile.menu.notifications"), onPress: () => router.push("/notifications"), badge: unreadCount > 0 ? unreadCount : undefined },
     { icon: "payment", label: t("profile.menu.payments"), onPress: () => router.push("/payment-info") },
-    { icon: "help-outline", label: t("profile.menu.support"), onPress: () => router.push("/support") },
+    { icon: "help-outline", label: t("profile.menu.support"), onPress: () => router.push("/support"), badge: supportUnreadCount > 0 ? supportUnreadCount : undefined },
     { icon: "info-outline", label: t("profile.menu.about"), onPress: () => router.push("/about") },
   ];
 

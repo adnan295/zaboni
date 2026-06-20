@@ -32,3 +32,4 @@ export * from "./achievements";
 export * from "./user_achievements";
 export * from "./customer_subscriptions";
 export * from "./user_notifications";
+export * from "./support_messages";

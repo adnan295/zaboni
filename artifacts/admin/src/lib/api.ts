@@ -183,6 +183,30 @@ export type Courier = {
   lastDelivery: string | null;
 };
 
+export type SupportMessage = {
+  id: string;
+  userId: string;
+  text: string;
+  senderRole: "customer" | "support";
+  isRead: boolean;
+  createdAt: string;
+};
+
+export type SupportConversation = {
+  userId: string;
+  userName: string | null;
+  userPhone: string | null;
+  lastMessageText: string;
+  lastMessageAt: string;
+  unreadCount: number;
+  totalCount: number;
+};
+
+export type SupportThread = {
+  user: { name: string | null; phone: string | null };
+  messages: SupportMessage[];
+};
+
 export type ChatSummary = {
   orderId: string;
   orderText: string;
@@ -551,6 +575,15 @@ export const api = {
 
   getChats: (q?: string) => apiFetch<ChatSummary[]>(`/admin/chats${q ? `?q=${encodeURIComponent(q)}` : ""}`),
   getChatThread: (orderId: string) => apiFetch<ChatThread>(`/admin/chats/${orderId}`),
+
+  getSupportConversations: () => apiFetch<SupportConversation[]>("/admin/support/conversations"),
+  getSupportThread: (userId: string) => apiFetch<SupportThread>(`/admin/support/conversations/${userId}`),
+  sendSupportReply: (userId: string, text: string) =>
+    apiFetch<SupportMessage>(`/admin/support/conversations/${userId}`, {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    }),
+  getSupportUnreadCount: () => apiFetch<{ count: number }>("/admin/support/unread-count"),
 
   getUsers: () => apiFetch<User[]>("/admin/users"),
   getUserDetail: (id: string) => apiFetch<UserDetail>(`/admin/users/${id}/detail`),
