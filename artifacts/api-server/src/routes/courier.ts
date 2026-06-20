@@ -7,6 +7,7 @@ import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
 import { getLoyaltySettings, awardPointsInTx } from "../lib/loyalty";
 import { checkAndAwardAchievements } from "../lib/achievements";
 import { awardReferralCommissionInTx } from "../lib/referral";
+import { sendPushToUsers } from "../lib/push";
 
 const router: IRouter = Router();
 
@@ -515,18 +516,35 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
           // points award failure must not block order completion
         }
       }
-      // Referral commission: award 5% of itemsTotal to referrer on first delivered order
+      // Referral commission: award 5% of itemsTotal to referrer on FIRST delivered order only.
+      // We filter status = 'pending' so a referral is only paid once even if the referred
+      // user has multiple delivered orders in the future.
       if (order.totalPrice != null && order.totalPrice > 0) {
         try {
           const [pendingReferral] = await tx
             .select({ id: referralsTable.id, referrerId: referralsTable.referrerId })
             .from(referralsTable)
             .where(
-              eq(referralsTable.referredUserId, currentOrder.userId)
+              and(
+                eq(referralsTable.referredUserId, currentOrder.userId),
+                eq(referralsTable.status, "pending")
+              )
             )
             .limit(1);
           if (pendingReferral && pendingReferral.referrerId !== currentOrder.userId) {
-            await awardReferralCommissionInTx(tx, pendingReferral.id, pendingReferral.referrerId, orderId, order.totalPrice);
+            const commission = await awardReferralCommissionInTx(tx, pendingReferral.id, pendingReferral.referrerId, orderId, order.totalPrice);
+            if (commission > 0) {
+              // Notify referrer after the transaction commits (non-blocking)
+              const referrerId = pendingReferral.referrerId;
+              const commissionAmt = commission;
+              setImmediate(() => {
+                void sendPushToUsers(
+                  [referrerId],
+                  `💰 حصلت على ${commissionAmt.toLocaleString()} ل.س عمولة إحالة!`,
+                  "تهانينا! صديقك أكمل أول طلب بنجاح 🎉"
+                );
+              });
+            }
           }
         } catch {
           // referral commission failure must not block order completion
