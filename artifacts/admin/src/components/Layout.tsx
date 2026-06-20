@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
-import { clearAdminToken, api } from "@/lib/api";
+import { clearAdminToken, getAdminToken, api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { io, type Socket } from "socket.io-client";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -48,6 +49,30 @@ export default function Layout({ children, onLogout }: LayoutProps) {
   const { theme, setTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const qc = useQueryClient();
+  const socketRef = useRef<Socket | null>(null);
+
+  useEffect(() => {
+    const token = getAdminToken();
+    if (!token) return;
+
+    const socket = io("/orders", {
+      path: "/api/socket.io",
+      auth: { token },
+      transports: ["websocket"],
+    });
+    socketRef.current = socket;
+
+    socket.on("support_message_new", () => {
+      void qc.invalidateQueries({ queryKey: ["admin", "support-unread"] });
+      void qc.invalidateQueries({ queryKey: ["admin", "support-conversations"] });
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [qc]);
 
   const { data: stats } = useQuery({
     queryKey: ["admin", "stats"],

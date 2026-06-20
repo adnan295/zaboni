@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, type SupportConversation, type SupportThread } from "@/lib/api";
+import { api, getAdminToken, type SupportConversation, type SupportThread } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { io, type Socket } from "socket.io-client";
 
 function formatTime(iso: string) {
   const d = new Date(iso);
@@ -153,6 +154,31 @@ export default function CustomerSupport() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selected, setSelected] = useState<SupportConversation | null>(null);
+  const qc = useQueryClient();
+  const socketRef = useRef<Socket | null>(null);
+
+  useEffect(() => {
+    const token = getAdminToken();
+    if (!token) return;
+
+    const socket = io("/orders", {
+      path: "/api/socket.io",
+      auth: { token },
+      transports: ["websocket"],
+    });
+    socketRef.current = socket;
+
+    socket.on("support_message_new", ({ userId }: { userId: string }) => {
+      void qc.invalidateQueries({ queryKey: ["admin", "support-conversations"] });
+      void qc.invalidateQueries({ queryKey: ["admin", "support", userId] });
+      void qc.invalidateQueries({ queryKey: ["admin", "support-unread"] });
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [qc]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350);

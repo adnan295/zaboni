@@ -34,6 +34,7 @@ function getJwtSecret(): string | null {
 interface AuthenticatedSocket extends Socket {
   auth?: AuthPayload;
   restaurantAuth?: RestaurantPortalSocketPayload;
+  isAdmin?: boolean;
 }
 
 let _ordersNs: Namespace | null = null;
@@ -164,6 +165,13 @@ export function setupOrdersNamespace(io: SocketServer): void {
 
     if (!token) return next(new Error("Authentication required"));
 
+    // Allow admin panel connections via ADMIN_SECRET
+    const adminSecret = process.env["ADMIN_SECRET"];
+    if (adminSecret && token === adminSecret) {
+      socket.isAdmin = true;
+      return next();
+    }
+
     const secret = getJwtSecret();
     if (!secret) return next(new Error("JWT_SECRET not configured"));
 
@@ -181,6 +189,15 @@ export function setupOrdersNamespace(io: SocketServer): void {
   });
 
   ns.on("connection", async (socket: AuthenticatedSocket) => {
+    if (socket.isAdmin) {
+      socket.join("role:admins");
+      logger.info({ socketId: socket.id }, "Admin socket connected to /orders");
+      socket.on("disconnect", () => {
+        logger.info({ socketId: socket.id }, "Admin socket disconnected from /orders");
+      });
+      return;
+    }
+
     if (socket.restaurantAuth) {
       const { restaurantId, restaurantUserId } = socket.restaurantAuth;
       socket.join(`restaurant:${restaurantId}`);

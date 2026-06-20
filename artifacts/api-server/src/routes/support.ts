@@ -25,7 +25,7 @@ function requireAdmin(req: Request, res: Response, next: NextFunction): void {
 const router = Router();
 
 // ── Customer: GET /api/support/messages ──────────────────────────────────
-router.get("/api/support/messages", requireAuth, async (req, res) => {
+router.get("/support/messages", requireAuth, async (req, res) => {
   const userId = req.auth!.userId;
   const messages = await db
     .select()
@@ -41,7 +41,7 @@ const sendMessageSchema = z.object({
   text: z.string().min(1).max(2000),
 });
 
-router.post("/api/support/messages", requireAuth, async (req, res) => {
+router.post("/support/messages", requireAuth, async (req, res) => {
   const userId = req.auth!.userId;
   const parsed = sendMessageSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -66,7 +66,7 @@ router.post("/api/support/messages", requireAuth, async (req, res) => {
 });
 
 // ── Customer: PATCH /api/support/messages/mark-read ──────────────────────
-router.patch("/api/support/messages/mark-read", requireAuth, async (req, res) => {
+router.patch("/support/messages/mark-read", requireAuth, async (req, res) => {
   const userId = req.auth!.userId;
   await db
     .update(supportMessagesTable)
@@ -81,7 +81,7 @@ router.patch("/api/support/messages/mark-read", requireAuth, async (req, res) =>
 });
 
 // ── Customer: GET /api/support/unread-count ───────────────────────────────
-router.get("/api/support/unread-count", requireAuth, async (req, res) => {
+router.get("/support/unread-count", requireAuth, async (req, res) => {
   const userId = req.auth!.userId;
   const rows = await db
     .select({ id: supportMessagesTable.id })
@@ -97,7 +97,7 @@ router.get("/api/support/unread-count", requireAuth, async (req, res) => {
 });
 
 // ── Admin: GET /api/admin/support/conversations ───────────────────────────
-router.get("/api/admin/support/conversations", requireAdmin, async (req, res) => {
+router.get("/admin/support/conversations", requireAdmin, async (req, res) => {
   const rows = await db
     .select({
       userId: supportMessagesTable.userId,
@@ -155,7 +155,7 @@ router.get("/api/admin/support/conversations", requireAdmin, async (req, res) =>
 });
 
 // ── Admin: GET /api/admin/support/conversations/:userId ───────────────────
-router.get("/api/admin/support/conversations/:userId", requireAdmin, async (req, res) => {
+router.get("/admin/support/conversations/:userId", requireAdmin, async (req, res) => {
   const userId = String(req.params["userId"]);
   const messages = await db
     .select()
@@ -192,7 +192,7 @@ const adminReplySchema = z.object({
   text: z.string().min(1).max(2000),
 });
 
-router.post("/api/admin/support/conversations/:userId", requireAdmin, async (req, res) => {
+router.post("/admin/support/conversations/:userId", requireAdmin, async (req, res) => {
   const userId = String(req.params["userId"]);
   const parsed = adminReplySchema.safeParse(req.body);
   if (!parsed.success) {
@@ -218,7 +218,7 @@ router.post("/api/admin/support/conversations/:userId", requireAdmin, async (req
 });
 
 // ── Admin: GET /api/admin/support/unread-count ────────────────────────────
-router.get("/api/admin/support/unread-count", requireAdmin, async (_req, res) => {
+router.get("/admin/support/unread-count", requireAdmin, async (_req, res) => {
   const rows = await db
     .select({ id: supportMessagesTable.id })
     .from(supportMessagesTable)

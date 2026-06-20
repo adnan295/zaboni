@@ -22,6 +22,7 @@ import { addUserBlocked } from "@workspace/db/migrations/add-user-blocked";
 import { addUserNotifications } from "@workspace/db/migrations/add-user-notifications";
 import { addOrderItems } from "@workspace/db/migrations/add-order-items";
 import { migrate as addMenuDealDiscountPercent } from "@workspace/db/migrations/add-menu-deal-discount-percent";
+import { addSupportMessages } from "@workspace/db/migrations/add-support-messages";
 
 const rawPort = process.env["PORT"];
 
@@ -104,5 +105,8 @@ httpServer.listen(port, (err?: Error) => {
   );
   addMenuDealDiscountPercent().catch((e: unknown) =>
     logger.error({ err: e }, "Failed to run menu deal discount percent migration"),
+  );
+  addSupportMessages().catch((e: unknown) =>
+    logger.error({ err: e }, "Failed to run support messages migration"),
   );
 });
