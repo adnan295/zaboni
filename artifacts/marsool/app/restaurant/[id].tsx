@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -24,9 +24,27 @@ import { useBackIcon } from "@/hooks/useTypography";
 import MenuItemCard from "@/components/MenuItemCard";
 import { useFavorites } from "@/context/FavoritesContext";
 import { useAddresses } from "@/context/AddressContext";
-import { useGetRestaurant, useGetRestaurantMenu } from "@workspace/api-client-react";
+import { useGetRestaurant, useGetRestaurantMenu, customFetch } from "@workspace/api-client-react";
 import { haversineDistance } from "@/utils/geo";
 import { buildImageUrl } from "@/lib/apiConfig";
+
+type FlashDeal = {
+  id: string;
+  title: string;
+  discountType: "percent" | "fixed";
+  discountValue: number;
+  endsAt: string;
+};
+
+function formatCountdown(endsAt: string): string {
+  const diff = new Date(endsAt).getTime() - Date.now();
+  if (diff <= 0) return "انتهى العرض";
+  const h = Math.floor(diff / 3_600_000);
+  const m = Math.floor((diff % 3_600_000) / 60_000);
+  const s = Math.floor((diff % 60_000) / 1_000);
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
 
 const POPULAR_KEY = "__popular__";
 const DEALS_KEY = "__deals__";
@@ -84,6 +102,27 @@ export default function RestaurantScreen() {
 
   const [cart, setCart] = useState<Record<string, CartEntry>>({});
   const [activeCategory, setActiveCategory] = useState<string | null>(allTabs[0] ?? null);
+  const [flashDeal, setFlashDeal] = useState<FlashDeal | null>(null);
+  const [flashCountdown, setFlashCountdown] = useState<string>("");
+
+  useEffect(() => {
+    if (!id) return;
+    customFetch(`/api/restaurants/${id}/flash-deal`)
+      .then((data) => {
+        const deal = data as FlashDeal | null;
+        setFlashDeal(deal);
+        if (deal) setFlashCountdown(formatCountdown(deal.endsAt));
+      })
+      .catch(() => setFlashDeal(null));
+  }, [id]);
+
+  useEffect(() => {
+    if (!flashDeal) return;
+    const timer = setInterval(() => {
+      setFlashCountdown(formatCountdown(flashDeal.endsAt));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [flashDeal]);
 
   const scrollRef = useRef<ScrollView>(null);
   const catTabScrollRef = useRef<ScrollView>(null);
@@ -220,7 +259,7 @@ export default function RestaurantScreen() {
         contentContainerStyle={{ paddingBottom: 140 }}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        stickyHeaderIndices={allTabs.length > 0 ? [2] : undefined}
+        stickyHeaderIndices={allTabs.length > 0 ? [flashDeal ? 3 : 2] : undefined}
       >
         {/* [0] Hero */}
         <View style={styles.heroContainer}>
@@ -293,7 +332,28 @@ export default function RestaurantScreen() {
           </View>
         </View>
 
-        {/* [2] Sticky category tabs */}
+        {/* [2] Flash deal banner (conditional) */}
+        {flashDeal ? (
+          <View style={styles.flashBanner}>
+            <View style={styles.flashBannerLeft}>
+              <Text style={styles.flashBannerTitle}>⚡ {flashDeal.title}</Text>
+              <Text style={styles.flashBannerDiscount}>
+                خصم {flashDeal.discountType === "percent"
+                  ? `${flashDeal.discountValue}%`
+                  : `${flashDeal.discountValue.toLocaleString()} ل.س`}
+                {" "}يُطبَّق تلقائياً
+              </Text>
+            </View>
+            {flashCountdown ? (
+              <View style={styles.flashBannerTimer}>
+                <Text style={styles.flashBannerTimerLabel}>ينتهي خلال</Text>
+                <Text style={styles.flashBannerTimerValue}>{flashCountdown}</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
+        {/* [3 or 2] Sticky category tabs */}
         <View style={[styles.catTabsWrap, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
           <ScrollView
             ref={catTabScrollRef}
@@ -750,4 +810,22 @@ const styles = StyleSheet.create({
   dealPriceRow: { flexDirection: "row", alignItems: "center", gap: 4, flexWrap: "wrap" },
   dealOriginalPrice: { fontSize: 11, textDecorationLine: "line-through" },
   dealNewPrice: { fontSize: 13, fontWeight: "800", color: "#F97316" },
+  flashBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#DC2626",
+    marginHorizontal: 16,
+    marginBottom: 8,
+    marginTop: 4,
+    borderRadius: 14,
+    padding: 14,
+    gap: 10,
+  },
+  flashBannerLeft: { flex: 1, gap: 4 },
+  flashBannerTitle: { fontSize: 15, fontWeight: "800", color: "#fff" },
+  flashBannerDiscount: { fontSize: 12, color: "rgba(255,255,255,0.9)" },
+  flashBannerTimer: { alignItems: "center", minWidth: 64 },
+  flashBannerTimerLabel: { fontSize: 10, color: "rgba(255,255,255,0.8)", fontWeight: "600" },
+  flashBannerTimerValue: { fontSize: 18, fontWeight: "900", color: "#fff" },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -21,6 +21,24 @@ import { useBackIcon } from "@/hooks/useTypography";
 import { useOrders } from "@/context/OrderContext";
 import { useAddresses } from "@/context/AddressContext";
 import { customFetch } from "@workspace/api-client-react";
+
+type FlashDealInfo = {
+  id: string;
+  title: string;
+  discountType: "percent" | "fixed";
+  discountValue: number;
+  endsAt: string;
+};
+
+function formatCountdown(endsAt: string): string {
+  const diff = new Date(endsAt).getTime() - Date.now();
+  if (diff <= 0) return "";
+  const h = Math.floor(diff / 3_600_000);
+  const m = Math.floor((diff % 3_600_000) / 60_000);
+  const s = Math.floor((diff % 60_000) / 1_000);
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
 
 type PromoStatus = "idle" | "checking" | "valid" | "invalid" | "expired" | "exhausted" | "already_used";
 
@@ -69,6 +87,28 @@ export default function OrderRequestScreen() {
 
   const addrLat = defaultAddress?.latitude;
   const addrLon = defaultAddress?.longitude;
+
+  const [flashDeal, setFlashDeal] = useState<FlashDealInfo | null>(null);
+  const [flashCountdown, setFlashCountdown] = useState<string>("");
+
+  useEffect(() => {
+    if (!restaurantId) return;
+    customFetch(`/api/restaurants/${restaurantId}/flash-deal`)
+      .then((data) => {
+        const deal = data as FlashDealInfo | null;
+        setFlashDeal(deal);
+        if (deal) setFlashCountdown(formatCountdown(deal.endsAt));
+      })
+      .catch(() => setFlashDeal(null));
+  }, [restaurantId]);
+
+  useEffect(() => {
+    if (!flashDeal) return;
+    const timer = setInterval(() => {
+      setFlashCountdown(formatCountdown(flashDeal.endsAt));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [flashDeal]);
 
   useEffect(() => {
     if (addrLat == null || addrLon == null) {
@@ -205,6 +245,27 @@ export default function OrderRequestScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {flashDeal && (
+          <View style={styles.flashDealBanner}>
+            <View style={styles.flashDealLeft}>
+              <Text style={styles.flashDealTitle}>⚡ {flashDeal.title}</Text>
+              <Text style={styles.flashDealDesc}>
+                سيُطبَّق خصم{" "}
+                {flashDeal.discountType === "percent"
+                  ? `${flashDeal.discountValue}%`
+                  : `${flashDeal.discountValue.toLocaleString()} ل.س`}{" "}
+                تلقائياً على طلبك
+              </Text>
+            </View>
+            {flashCountdown ? (
+              <View style={styles.flashDealTimer}>
+                <Text style={styles.flashDealTimerLabel}>ينتهي خلال</Text>
+                <Text style={styles.flashDealTimerValue}>{flashCountdown}</Text>
+              </View>
+            ) : null}
+          </View>
+        )}
+
         {restaurantName ? (
           <View style={[styles.restaurantBadge, { backgroundColor: colors.secondary }]}>
             <MaterialIcons name="restaurant" size={16} color={colors.primary} />
@@ -364,6 +425,21 @@ export default function OrderRequestScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  flashDealBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#DC2626",
+    borderRadius: 14,
+    padding: 14,
+    gap: 10,
+  },
+  flashDealLeft: { flex: 1, gap: 4 },
+  flashDealTitle: { fontSize: 15, fontWeight: "800", color: "#fff" },
+  flashDealDesc: { fontSize: 12, color: "rgba(255,255,255,0.9)", lineHeight: 17 },
+  flashDealTimer: { alignItems: "center", minWidth: 64 },
+  flashDealTimerLabel: { fontSize: 10, color: "rgba(255,255,255,0.8)", fontWeight: "600" },
+  flashDealTimerValue: { fontSize: 18, fontWeight: "900", color: "#fff", fontVariant: ["tabular-nums"] as any },
   header: {
     flexDirection: "row",
     alignItems: "center",

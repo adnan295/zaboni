@@ -1,5 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
-import { db, restaurantUsersTable, restaurantsTable, menuItemsTable, restaurantHoursTable, ordersTable, otpCodesTable, orderRatingsTable, promoCodesTable, promoUsesTable } from "@workspace/db";
+import { db, restaurantUsersTable, restaurantsTable, menuItemsTable, restaurantHoursTable, ordersTable, otpCodesTable, orderRatingsTable, promoCodesTable, promoUsesTable, flashDealsTable } from "@workspace/db";
 import { eq, desc, and, gte, count, sql } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
@@ -640,6 +640,81 @@ router.delete("/restaurant-portal/promos/:id", requireRestaurantAuth, async (req
     .limit(1);
   if (!existing) { res.status(404).json({ error: "الكود غير موجود" }); return; }
   await db.delete(promoCodesTable).where(eq(promoCodesTable.id, promoId));
+  res.status(204).end();
+});
+
+// Flash Deals CRUD (restaurant-scoped)
+router.get("/restaurant-portal/flash-deals", requireRestaurantAuth, async (req, res) => {
+  const { restaurantId } = getRestaurantAuth(req);
+  const rows = await db
+    .select()
+    .from(flashDealsTable)
+    .where(eq(flashDealsTable.restaurantId, restaurantId))
+    .orderBy(desc(flashDealsTable.createdAt));
+  res.json(rows);
+});
+
+router.post("/restaurant-portal/flash-deals", requireRestaurantAuth, async (req, res) => {
+  const { restaurantId } = getRestaurantAuth(req);
+  const parsed = z.object({
+    title: z.string().min(1).max(200),
+    discountType: z.enum(["percent", "fixed"]),
+    discountValue: z.number().positive(),
+    startsAt: z.string().datetime(),
+    endsAt: z.string().datetime(),
+    maxUses: z.number().int().positive().nullable().optional(),
+    isActive: z.boolean().default(true),
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صحيحة" }); return; }
+  const id = `fd_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+  const [deal] = await db.insert(flashDealsTable).values({
+    id,
+    restaurantId,
+    title: parsed.data.title,
+    discountType: parsed.data.discountType,
+    discountValue: parsed.data.discountValue,
+    startsAt: new Date(parsed.data.startsAt),
+    endsAt: new Date(parsed.data.endsAt),
+    maxUses: parsed.data.maxUses ?? null,
+    isActive: parsed.data.isActive,
+  }).returning();
+  res.status(201).json(deal);
+});
+
+router.put("/restaurant-portal/flash-deals/:id", requireRestaurantAuth, async (req, res) => {
+  const { restaurantId } = getRestaurantAuth(req);
+  const dealId = String(req.params["id"]);
+  const [existing] = await db.select({ id: flashDealsTable.id })
+    .from(flashDealsTable)
+    .where(and(eq(flashDealsTable.id, dealId), eq(flashDealsTable.restaurantId, restaurantId)))
+    .limit(1);
+  if (!existing) { res.status(404).json({ error: "العرض غير موجود" }); return; }
+  const parsed = z.object({
+    title: z.string().min(1).max(200).optional(),
+    discountType: z.enum(["percent", "fixed"]).optional(),
+    discountValue: z.number().positive().optional(),
+    startsAt: z.string().datetime().optional(),
+    endsAt: z.string().datetime().optional(),
+    maxUses: z.number().int().positive().nullable().optional(),
+    isActive: z.boolean().optional(),
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صحيحة" }); return; }
+  const updateData: Record<string, unknown> = { ...parsed.data };
+  if (parsed.data.startsAt !== undefined) updateData["startsAt"] = new Date(parsed.data.startsAt);
+  if (parsed.data.endsAt !== undefined) updateData["endsAt"] = new Date(parsed.data.endsAt);
+  const [updated] = await db.update(flashDealsTable).set(updateData).where(eq(flashDealsTable.id, dealId)).returning();
+  res.json(updated);
+});
+
+router.delete("/restaurant-portal/flash-deals/:id", requireRestaurantAuth, async (req, res) => {
+  const { restaurantId } = getRestaurantAuth(req);
+  const dealId = String(req.params["id"]);
+  const [existing] = await db.select({ id: flashDealsTable.id })
+    .from(flashDealsTable)
+    .where(and(eq(flashDealsTable.id, dealId), eq(flashDealsTable.restaurantId, restaurantId)))
+    .limit(1);
+  if (!existing) { res.status(404).json({ error: "العرض غير موجود" }); return; }
+  await db.delete(flashDealsTable).where(eq(flashDealsTable.id, dealId));
   res.status(204).end();
 });
 
