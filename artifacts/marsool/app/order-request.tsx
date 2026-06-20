@@ -145,12 +145,16 @@ export default function OrderRequestScreen() {
 
   const deliveryFee = feePreview?.fee ?? undefined;
 
-  const flashItemDiscount =
-    flashDeal && subtotal > 0
-      ? flashDeal.discountType === "percent"
-        ? Math.min(Math.round((subtotal * flashDeal.discountValue) / 100), subtotal)
-        : Math.min(Math.round(flashDeal.discountValue), subtotal)
-      : 0;
+  const applyFlashDiscount = (base: number): number => {
+    if (!flashDeal || base <= 0) return base;
+    if (flashDeal.discountType === "percent") {
+      return Math.max(0, Math.round(base * (1 - flashDeal.discountValue / 100)));
+    }
+    return Math.max(0, base - flashDeal.discountValue);
+  };
+
+  const effectiveDeliveryFee = deliveryFee != null ? applyFlashDiscount(deliveryFee) : undefined;
+  const flashItemDiscount = flashDeal && subtotal > 0 ? subtotal - applyFlashDiscount(subtotal) : 0;
   const effectiveSubtotal = subtotal - flashItemDiscount;
 
   const checkPromo = useCallback(async (code: string) => {
@@ -246,6 +250,7 @@ export default function OrderRequestScreen() {
         lon,
         restaurantId,
         usePoints,
+        flashDealId: flashDeal?.id ?? undefined,
       });
       cart.clear();
       router.replace({
@@ -289,7 +294,7 @@ export default function OrderRequestScreen() {
                 {flashDeal.discountType === "percent"
                   ? `${flashDeal.discountValue}%`
                   : `${flashDeal.discountValue.toLocaleString()} ل.س`}{" "}
-                على قيمة الأصناف تلقائياً
+                على قيمة طلبك بالكامل تلقائياً
               </Text>
             </View>
             {flashCountdown ? (
@@ -404,12 +409,32 @@ export default function OrderRequestScreen() {
         </View>
 
         {(feeLoading || feePreview != null) ? (
-          <View style={[styles.feeCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <MaterialIcons name="delivery-dining" size={20} color={colors.primary} />
+          <View style={[styles.feeCard, { backgroundColor: colors.card, borderColor: flashDeal ? "#f97316" : colors.border }]}>
+            <MaterialIcons name="delivery-dining" size={20} color={flashDeal ? "#f97316" : colors.primary} />
             <View style={styles.addrInfo}>
               <Text style={[styles.addrLabel, { color: colors.mutedForeground }]}>{t("orderRequest.deliveryFee")}</Text>
               {feeLoading ? (
                 <ActivityIndicator size="small" color={colors.primary} />
+              ) : feePreview && effectiveDeliveryFee != null ? (
+                <View style={styles.feeRow}>
+                  {effectiveDeliveryFee < feePreview.fee ? (
+                    <>
+                      <Text style={[styles.feeAmount, { color: "#f97316", fontWeight: "700" }]}>
+                        {effectiveDeliveryFee.toLocaleString()} ل.س
+                      </Text>
+                      <Text style={[styles.feeAmount, { color: colors.mutedForeground, textDecorationLine: "line-through", fontSize: 13, fontWeight: "400" }]}>
+                        {feePreview.fee.toLocaleString()}
+                      </Text>
+                    </>
+                  ) : (
+                    <Text style={[styles.feeAmount, { color: colors.foreground }]}>
+                      {feePreview.fee.toLocaleString()} ل.س
+                    </Text>
+                  )}
+                  <Text style={[styles.feeDistance, { color: colors.mutedForeground }]}>
+                    ({feePreview.distanceKm} كم{feePreview.zoneLabel ? ` · ${feePreview.zoneLabel}` : ""})
+                  </Text>
+                </View>
               ) : feePreview ? (
                 <View style={styles.feeRow}>
                   <Text style={[styles.feeAmount, { color: colors.foreground }]}>
@@ -520,17 +545,28 @@ export default function OrderRequestScreen() {
                 <Text style={[styles.totalValue, { color: colors.foreground }]}>{subtotal.toLocaleString()} ل.س</Text>
               )}
             </View>
-            {deliveryFee != null ? (
+            {effectiveDeliveryFee != null ? (
               <View style={styles.totalRow}>
                 <Text style={[styles.totalLabel, { color: colors.mutedForeground }]}>{t("orderRequest.deliveryFee")}</Text>
-                <Text style={[styles.totalValue, { color: colors.foreground }]}>{deliveryFee.toLocaleString()} ل.س</Text>
+                {flashItemDiscount > 0 && deliveryFee != null && effectiveDeliveryFee < deliveryFee ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Text style={[styles.totalValue, { color: "#f97316", fontWeight: "700" }]}>
+                      {effectiveDeliveryFee.toLocaleString()} ل.س
+                    </Text>
+                    <Text style={[styles.totalValue, { color: colors.mutedForeground, textDecorationLine: "line-through", fontSize: 13, fontWeight: "400" }]}>
+                      {deliveryFee!.toLocaleString()}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={[styles.totalValue, { color: colors.foreground }]}>{effectiveDeliveryFee.toLocaleString()} ل.س</Text>
+                )}
               </View>
             ) : null}
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
             <View style={styles.grandRow}>
               <Text style={[styles.grandLabel, { color: colors.foreground }]}>{t("orderRequest.total")}</Text>
               <Text style={[styles.grandValue, { color: colors.primary }]}>
-                {(effectiveSubtotal + (deliveryFee ?? 0)).toLocaleString()} ل.س
+                {(effectiveSubtotal + (effectiveDeliveryFee ?? 0)).toLocaleString()} ل.س
               </Text>
             </View>
             <Text style={[styles.totalNote, { color: colors.mutedForeground }]}>
