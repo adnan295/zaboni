@@ -436,7 +436,8 @@
     "itemsTitle": "الأصناف",
     "serverPricedNote": "يتم احتساب السعر النهائي من الخادم",
     "subtotal": "المجموع الفرعي",
-    "total": "الإجمالي"
+    "total": "الإجمالي",
+    "flashDealBannerDesc": "سيُطبَّق خصم {{discount}} على قيمة طلبك بالكامل تلقائياً"
   },
   "payment": {
     "cashOnDelivery": "الدفع عند الاستلام 💵",

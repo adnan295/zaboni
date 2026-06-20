@@ -290,11 +290,11 @@ export default function OrderRequestScreen() {
             <View style={styles.flashDealLeft}>
               <Text style={styles.flashDealTitle}>⚡ {flashDeal.title}</Text>
               <Text style={styles.flashDealDesc}>
-                سيُطبَّق خصم{" "}
-                {flashDeal.discountType === "percent"
-                  ? `${flashDeal.discountValue}%`
-                  : `${flashDeal.discountValue.toLocaleString()} ل.س`}{" "}
-                على قيمة طلبك بالكامل تلقائياً
+                {t("orderRequest.flashDealBannerDesc", {
+                  discount: flashDeal.discountType === "percent"
+                    ? `${flashDeal.discountValue}%`
+                    : `${flashDeal.discountValue.toLocaleString()} ل.س`,
+                })}
               </Text>
             </View>
             {flashCountdown ? (
