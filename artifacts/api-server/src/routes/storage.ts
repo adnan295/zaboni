@@ -1,11 +1,13 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { Readable } from "stream";
 import jwt from "jsonwebtoken";
+import rateLimit from "express-rate-limit";
 import {
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
 } from "@workspace/api-zod";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import { ObjectPermission } from "../lib/objectAcl";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -33,17 +35,33 @@ function requireUploadAuth(req: Request, res: Response, next: NextFunction): voi
 
   const adminSecret = process.env["ADMIN_SECRET"];
   if (adminSecret && token === adminSecret) {
+    res.locals["isAdmin"] = true;
     next();
     return;
   }
 
   try {
-    jwt.verify(token, getJwtSecret());
+    const payload = jwt.verify(token, getJwtSecret()) as { userId?: string };
+    res.locals["isAdmin"] = false;
+    res.locals["userId"] = payload.userId;
     next();
   } catch {
     res.status(401).json({ error: "Unauthorized" });
   }
 }
+
+const uploadRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req: Request, res: Response) => {
+    const userId = res.locals["userId"] as string | undefined;
+    return userId ?? req.ip ?? "unknown";
+  },
+  message: { error: "Too many upload requests. Please try again later." },
+  skip: (_req: Request, res: Response) => res.locals["isAdmin"] === true,
+});
 
 /**
  * POST /storage/uploads/request-url
@@ -52,8 +70,9 @@ function requireUploadAuth(req: Request, res: Response, next: NextFunction): voi
  * The client sends JSON metadata (name, size, contentType) — NOT the file.
  * Then uploads the file directly to the returned presigned URL.
  * Enforces: max 5MB, only image/jpeg | image/png | image/webp.
+ * Rate limited to 20 requests per minute per authenticated user.
  */
-router.post("/storage/uploads/request-url", requireUploadAuth, async (req: Request, res: Response) => {
+router.post("/storage/uploads/request-url", requireUploadAuth, uploadRateLimit, async (req: Request, res: Response) => {
   const parsed = RequestUploadUrlBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Missing or invalid required fields" });
@@ -127,6 +146,8 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
  *
  * Serve object entities from PRIVATE_OBJECT_DIR.
  * Requires admin secret or valid user JWT.
+ * Enforces per-object ACL: admin bypasses; non-admin callers must satisfy
+ * canAccessObjectEntity (owner match or public visibility).
  */
 router.get("/storage/objects/*path", requireUploadAuth, async (req: Request, res: Response) => {
   try {
@@ -134,6 +155,20 @@ router.get("/storage/objects/*path", requireUploadAuth, async (req: Request, res
     const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
     const objectPath = `/objects/${wildcardPath}`;
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+
+    const isAdmin = res.locals["isAdmin"] as boolean;
+    if (!isAdmin) {
+      const userId = res.locals["userId"] as string | undefined;
+      const allowed = await objectStorageService.canAccessObjectEntity({
+        userId,
+        objectFile,
+        requestedPermission: ObjectPermission.READ,
+      });
+      if (!allowed) {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
+    }
 
     const response = await objectStorageService.downloadObject(objectFile);
 
