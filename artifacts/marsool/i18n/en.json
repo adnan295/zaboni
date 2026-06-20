@@ -729,6 +729,15 @@
     "viewHistory": "Points history",
     "appliedDiscount": "Points discount: {{amount}} SYP"
   },
+  "achievements": {
+    "sectionTitle": "My Achievements",
+    "earned": "Unlocked",
+    "locked": "Locked",
+    "progress": "{{current}} / {{total}}",
+    "celebrationTitle": "🎉 Well done!",
+    "celebrationBody": "You earned a new badge",
+    "close": "Awesome!"
+  },
   "onboarding": {
     "skip": "Skip",
     "next": "Next",

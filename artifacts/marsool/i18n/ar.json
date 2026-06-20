@@ -729,6 +729,15 @@
     "viewHistory": "سجل النقاط",
     "appliedDiscount": "خصم النقاط: {{amount}} ل.س"
   },
+  "achievements": {
+    "sectionTitle": "إنجازاتي",
+    "earned": "تم الفتح",
+    "locked": "مقفل",
+    "progress": "{{current}} / {{total}}",
+    "celebrationTitle": "🎉 أحسنت!",
+    "celebrationBody": "حصلت على شارة جديدة",
+    "close": "رائع!"
+  },
   "onboarding": {
     "skip": "تخطّي",
     "next": "التالي",

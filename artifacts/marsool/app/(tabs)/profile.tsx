@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -10,6 +10,7 @@ import {
   Modal,
   TextInput,
   KeyboardAvoidingView,
+  Animated,
 } from "react-native";
 import { Image } from "expo-image";
 import { default as Text } from "@/components/AppText";
@@ -56,6 +57,24 @@ interface LoyaltyBalance {
   earnRate: number;
 }
 
+interface Achievement {
+  key: string;
+  icon: string;
+  titleAr: string;
+  titleEn: string;
+  descriptionAr: string;
+  descriptionEn: string;
+  type: string;
+  threshold: number;
+  earned: boolean;
+  earnedAt: string | null;
+  progress: number;
+}
+
+interface AchievementsData {
+  achievements: Achievement[];
+}
+
 export default function ProfileScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -77,6 +96,10 @@ export default function ProfileScreen() {
   const [savingName, setSavingName] = useState(false);
 
   const [loyaltyData, setLoyaltyData] = useState<LoyaltyBalance | null>(null);
+  const [achievementsData, setAchievementsData] = useState<AchievementsData | null>(null);
+  const [celebrationAchievement, setCelebrationAchievement] = useState<Achievement | null>(null);
+  const knownEarnedKeys = useRef<Set<string>>(new Set());
+  const celebrationScale = useRef(new Animated.Value(0)).current;
 
   const avgRating =
     ratings.length > 0
@@ -133,12 +156,41 @@ export default function ProfileScreen() {
     }
   }, [user?.id, isCourier]);
 
+  const fetchAchievements = useCallback(async () => {
+    if (!user || isCourier) return;
+    try {
+      const data = await customFetch("/api/users/me/achievements") as AchievementsData;
+      setAchievementsData(data);
+      for (const ach of data.achievements) {
+        if (ach.earned && !knownEarnedKeys.current.has(ach.key)) {
+          knownEarnedKeys.current.add(ach.key);
+          if (knownEarnedKeys.current.size > data.achievements.filter((a) => a.earned).length) {
+            continue;
+          }
+          if (ach.earnedAt) {
+            const age = Date.now() - new Date(ach.earnedAt).getTime();
+            if (age < 60_000) {
+              setCelebrationAchievement(ach);
+              celebrationScale.setValue(0);
+              Animated.spring(celebrationScale, { toValue: 1, useNativeDriver: true, tension: 60, friction: 8 }).start();
+            }
+          }
+        } else if (ach.earned) {
+          knownEarnedKeys.current.add(ach.key);
+        }
+      }
+    } catch {
+      setAchievementsData(null);
+    }
+  }, [user?.id, isCourier]);
+
   useFocusEffect(
     useCallback(() => {
       fetchApplication();
       fetchCustomerStats();
       fetchLoyalty();
-    }, [fetchApplication, fetchCustomerStats, fetchLoyalty])
+      fetchAchievements();
+    }, [fetchApplication, fetchCustomerStats, fetchLoyalty, fetchAchievements])
   );
 
   const handleSignOut = () => {
@@ -342,6 +394,58 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         )}
 
+        {/* Achievements */}
+        {!isCourier && achievementsData !== null && (
+          <View style={[styles.achievementsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.achievementsSectionTitle, { color: colors.foreground }]}>
+              {t("achievements.sectionTitle")}
+            </Text>
+            <View style={styles.achievementsGrid}>
+              {achievementsData.achievements.map((ach) => (
+                <View
+                  key={ach.key}
+                  style={[
+                    styles.achievementItem,
+                    ach.earned
+                      ? { backgroundColor: colors.primary + "15", borderColor: colors.primary + "40" }
+                      : { backgroundColor: colors.secondary, borderColor: colors.border },
+                  ]}
+                >
+                  <Text style={[styles.achievementIcon, { opacity: ach.earned ? 1 : 0.35 }]}>
+                    {ach.icon}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.achievementTitle,
+                      { color: ach.earned ? colors.foreground : colors.mutedForeground },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {ach.titleAr}
+                  </Text>
+                  {ach.earned ? (
+                    <View style={[styles.earnedBadge, { backgroundColor: colors.primary }]}>
+                      <MaterialIcons name="check" size={10} color="#fff" />
+                    </View>
+                  ) : (
+                    <View style={styles.progressBarBg}>
+                      <View
+                        style={[
+                          styles.progressBarFill,
+                          {
+                            backgroundColor: colors.primary,
+                            width: `${Math.round((ach.progress / ach.threshold) * 100)}%` as unknown as number,
+                          },
+                        ]}
+                      />
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
         {/* Courier section */}
         {appLoading ? (
           <View style={[styles.courierCard, { backgroundColor: colors.card, borderColor: colors.border, alignItems: "center" }]}>
@@ -489,6 +593,44 @@ export default function ProfileScreen() {
           {t("profile.version")}
         </Text>
       </ScrollView>
+
+      {/* Celebration Modal */}
+      <Modal
+        visible={celebrationAchievement !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCelebrationAchievement(null)}
+      >
+        <View style={styles.celebrationOverlay}>
+          <Animated.View
+            style={[
+              styles.celebrationCard,
+              { backgroundColor: colors.card, transform: [{ scale: celebrationScale }] },
+            ]}
+          >
+            <Text style={styles.celebrationEmoji}>{celebrationAchievement?.icon ?? "🎉"}</Text>
+            <Text style={[styles.celebrationTitle, { color: colors.foreground }]}>
+              {t("achievements.celebrationTitle")}
+            </Text>
+            <Text style={[styles.celebrationAchTitle, { color: colors.primary }]}>
+              {celebrationAchievement?.titleAr}
+            </Text>
+            <Text style={[styles.celebrationDesc, { color: colors.mutedForeground }]}>
+              {celebrationAchievement?.descriptionAr}
+            </Text>
+            <TouchableOpacity
+              style={[styles.celebrationBtn, { backgroundColor: colors.primary }]}
+              onPress={() => {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                setCelebrationAchievement(null);
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.celebrationBtnText}>{t("achievements.close")}</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </Modal>
 
       {/* Edit Name Modal */}
       <Modal
@@ -749,4 +891,110 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   editNameSaveText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  achievementsCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+  },
+  achievementsSectionTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 12,
+  },
+  achievementsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  achievementItem: {
+    width: "30%",
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 10,
+    alignItems: "center",
+    gap: 6,
+    position: "relative",
+  },
+  achievementIcon: {
+    fontSize: 26,
+  },
+  achievementTitle: {
+    fontSize: 11,
+    fontWeight: "600",
+    textAlign: "center",
+    lineHeight: 15,
+  },
+  earnedBadge: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  progressBarBg: {
+    width: "100%",
+    height: 4,
+    backgroundColor: "rgba(0,0,0,0.08)",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: 4,
+    borderRadius: 2,
+  },
+  celebrationOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 32,
+  },
+  celebrationCard: {
+    width: "100%",
+    borderRadius: 24,
+    padding: 28,
+    alignItems: "center",
+    gap: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  celebrationEmoji: {
+    fontSize: 64,
+  },
+  celebrationTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  celebrationAchTitle: {
+    fontSize: 24,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+  celebrationDesc: {
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  celebrationBtn: {
+    marginTop: 8,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 16,
+    width: "100%",
+    alignItems: "center",
+  },
+  celebrationBtnText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+  },
 });

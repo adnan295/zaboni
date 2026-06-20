@@ -2621,6 +2621,33 @@ router.get("/admin/loyalty-users", async (_req, res) => {
   res.json(rows);
 });
 
+router.get("/admin/achievements-stats", requireAdmin, async (_req, res) => {
+  const { ACHIEVEMENTS } = await import("../lib/achievements");
+  const { userAchievementsTable } = await import("@workspace/db");
+  const { count: drizzleCount } = await import("drizzle-orm");
+
+  const rows = await db
+    .select({
+      achievementKey: userAchievementsTable.achievementKey,
+      c: drizzleCount(),
+    })
+    .from(userAchievementsTable)
+    .groupBy(userAchievementsTable.achievementKey);
+
+  const stats = ACHIEVEMENTS.map((def) => {
+    const row = rows.find((r) => r.achievementKey === def.key);
+    return {
+      key: def.key,
+      icon: def.icon,
+      titleAr: def.titleAr,
+      titleEn: def.titleEn,
+      earnedCount: Number(row?.c ?? 0),
+    };
+  });
+
+  res.json({ stats });
+});
+
 router.get("/admin/whatsapp/accounts", (_req, res) => {
   res.json(whatsappManager.getStatus());
 });
