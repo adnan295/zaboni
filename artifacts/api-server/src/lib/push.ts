@@ -230,6 +230,24 @@ export async function sendPushToRole(
 }
 
 /**
+ * Send a push notification to all customers (role="customer").
+ * Persists to user_notifications so they appear in the in-app notification list.
+ */
+export async function sendPushToAllCustomers(
+  title: string,
+  body: string,
+  data?: Record<string, string>,
+): Promise<PushTotals> {
+  const customers = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.role, "customer"));
+  const userIds = customers.map((c) => c.id);
+  if (userIds.length === 0) return emptyTotals();
+  return sendPushToUsers(userIds, title, body, data);
+}
+
+/**
  * Send a push notification using already-collected tokens (no DB round-trip).
  * Used by hot paths like courier broadcast where the caller already has a filtered list.
  */

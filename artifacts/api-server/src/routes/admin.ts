@@ -33,6 +33,7 @@ import {
 import bcrypt from "bcryptjs";
 import { eq, count, sum, desc, gte, lte, getTableColumns, and, sql, avg, asc, lt } from "drizzle-orm";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
+import { sendPushToAllCustomers } from "../lib/push";
 import { sendSmsViaGateway, isSmsGatewayConfigured } from "../lib/sms";
 import { sendAdminAlertWebhook } from "../lib/waverifyMonitor";
 import { z } from "zod";
@@ -1544,6 +1545,7 @@ router.post("/admin/flash-deals", async (req, res) => {
   const parsed = flashDealBodySchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صحيحة" }); return; }
   const id = `fd_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+  const endsAtDate = new Date(parsed.data.endsAt);
   const [deal] = await db.insert(flashDealsTable).values({
     id,
     restaurantId: parsed.data.restaurantId,
@@ -1551,11 +1553,35 @@ router.post("/admin/flash-deals", async (req, res) => {
     discountType: parsed.data.discountType,
     discountValue: parsed.data.discountValue,
     startsAt: new Date(parsed.data.startsAt),
-    endsAt: new Date(parsed.data.endsAt),
+    endsAt: endsAtDate,
     maxUses: parsed.data.maxUses ?? null,
     isActive: parsed.data.isActive,
   }).returning();
   res.status(201).json(deal);
+
+  if (parsed.data.isActive) {
+    void (async () => {
+      try {
+        const [restaurant] = await db
+          .select({ nameAr: restaurantsTable.nameAr })
+          .from(restaurantsTable)
+          .where(eq(restaurantsTable.id, parsed.data.restaurantId))
+          .limit(1);
+        if (!restaurant) return;
+        const discount = parsed.data.discountType === "percent"
+          ? `${parsed.data.discountValue}%`
+          : `${parsed.data.discountValue} ل.س`;
+        const endTime = endsAtDate.toLocaleTimeString("ar-SY", { hour: "2-digit", minute: "2-digit", hour12: true });
+        await sendPushToAllCustomers(
+          `🔥 عرض فلاش: ${restaurant.nameAr}`,
+          `خصم ${discount} على طلبك — ينتهي في ${endTime}`,
+          { type: "flash_deal", restaurantId: parsed.data.restaurantId },
+        );
+      } catch (err) {
+        req.log?.warn({ err }, "Failed to send flash deal push notification");
+      }
+    })();
+  }
 });
 
 router.put("/admin/flash-deals/:id", async (req, res) => {
