@@ -20,7 +20,8 @@
     "./migrations/add-loyalty": "./src/migrations/add-loyalty.ts",
     "./migrations/add-user-achievements": "./src/migrations/add-user-achievements.ts",
     "./migrations/add-customer-subscriptions": "./src/migrations/add-customer-subscriptions.ts",
-    "./migrations/add-user-blocked": "./src/migrations/add-user-blocked.ts"
+    "./migrations/add-user-blocked": "./src/migrations/add-user-blocked.ts",
+    "./migrations/add-user-notifications": "./src/migrations/add-user-notifications.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",

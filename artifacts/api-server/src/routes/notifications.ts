@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, usersTable, notificationLogsTable } from "@workspace/db";
-import { eq, desc, or, ilike, inArray, sql } from "drizzle-orm";
+import { db, usersTable, notificationLogsTable, userNotificationsTable } from "@workspace/db";
+import { eq, desc, or, ilike, inArray, sql, and } from "drizzle-orm";
 import { z } from "zod";
 import type { Request, Response, NextFunction } from "express";
 import { broadcastAppNotification } from "../orders/server";
@@ -130,17 +130,15 @@ router.post("/admin/notifications/send-to-user", async (req, res) => {
   if (!user.pushToken && !user.fcmToken && !user.apnToken) {
     const failId = `notif_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
     await db.insert(notificationLogsTable).values({
-      id: failId,
-      title,
-      body,
-      target: "targeted",
-      sentCount: 0,
-      failedCount: 1,
+      id: failId, title, body, target: "targeted", sentCount: 0, failedCount: 1,
+    });
+    await db.insert(userNotificationsTable).values({
+      id: `un_${Date.now()}${Math.random().toString(36).slice(2, 8)}`,
+      userId: user.id, title, body, type: "system",
     });
     res.status(422).json({
       error: "لا يمتلك هذا المستخدم رمز push نشط — لم يُرسَل الإشعار",
-      userId: user.id,
-      userName: user.name,
+      userId: user.id, userName: user.name,
     });
     return;
   }
@@ -169,19 +167,73 @@ router.post("/admin/notifications/send-to-user", async (req, res) => {
   });
 });
 
-router.get("/notifications", requireAuth, async (_req, res) => {
-  const rows = await db
-    .select({
-      id: notificationLogsTable.id,
-      title: notificationLogsTable.title,
-      body: notificationLogsTable.body,
-      createdAt: notificationLogsTable.createdAt,
-    })
-    .from(notificationLogsTable)
-    .where(inArray(notificationLogsTable.target, ["all", "customers"]))
-    .orderBy(desc(notificationLogsTable.createdAt))
-    .limit(30);
-  res.json(rows);
+router.get("/notifications", requireAuth, async (req, res) => {
+  const userId = req.auth!.userId;
+
+  const [personal, broadcast] = await Promise.all([
+    db
+      .select({
+        id: userNotificationsTable.id,
+        title: userNotificationsTable.title,
+        body: userNotificationsTable.body,
+        type: userNotificationsTable.type,
+        orderId: userNotificationsTable.orderId,
+        isRead: userNotificationsTable.isRead,
+        createdAt: userNotificationsTable.createdAt,
+      })
+      .from(userNotificationsTable)
+      .where(eq(userNotificationsTable.userId, userId))
+      .orderBy(desc(userNotificationsTable.createdAt))
+      .limit(50),
+    db
+      .select({
+        id: notificationLogsTable.id,
+        title: notificationLogsTable.title,
+        body: notificationLogsTable.body,
+        createdAt: notificationLogsTable.createdAt,
+      })
+      .from(notificationLogsTable)
+      .where(inArray(notificationLogsTable.target, ["all", "customers"]))
+      .orderBy(desc(notificationLogsTable.createdAt))
+      .limit(20),
+  ]);
+
+  const broadcastMapped = broadcast.map((n) => ({
+    id: `bcast_${n.id}`,
+    title: n.title,
+    body: n.body,
+    type: "promo" as const,
+    orderId: null,
+    isRead: false,
+    createdAt: n.createdAt,
+  }));
+
+  const combined = [...personal, ...broadcastMapped].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  ).slice(0, 60);
+
+  res.json(combined);
+});
+
+router.patch("/notifications/:id/read", requireAuth, async (req, res) => {
+  const userId = req.auth!.userId;
+  const { id } = req.params;
+  if (id.startsWith("bcast_")) { res.json({ ok: true }); return; }
+  await db
+    .update(userNotificationsTable)
+    .set({ isRead: true })
+    .where(and(eq(userNotificationsTable.id, id), eq(userNotificationsTable.userId, userId)));
+  res.json({ ok: true });
+});
+
+router.delete("/notifications/:id", requireAuth, async (req, res) => {
+  const userId = req.auth!.userId;
+  const { id } = req.params;
+  if (id.startsWith("bcast_")) { res.json({ ok: true }); return; }
+  await db
+    .delete(userNotificationsTable)
+    .where(and(eq(userNotificationsTable.id, id), eq(userNotificationsTable.userId, userId)));
+  res.json({ ok: true });
 });
 
 const churnSchema = z.object({

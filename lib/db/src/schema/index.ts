@@ -30,3 +30,4 @@ export * from "./loyalty_transactions";
 export * from "./achievements";
 export * from "./user_achievements";
 export * from "./customer_subscriptions";
+export * from "./user_notifications";
