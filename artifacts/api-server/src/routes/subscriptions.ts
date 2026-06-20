@@ -1,7 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, customerSubscriptionsTable, usersTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
-import { z } from "zod";
+import { and, eq, gt, sql } from "drizzle-orm";
 import { getSubscriptionSettings, getActiveSubscription } from "../lib/customerSubscription";
 
 const router: IRouter = Router();
@@ -22,51 +21,62 @@ router.get("/subscriptions/status", async (req, res) => {
 
 router.post("/subscriptions/subscribe", async (req, res) => {
   const userId = req.auth!.userId;
-
-  const existing = await getActiveSubscription(userId);
-  if (existing) {
-    res.status(409).json({ error: "already_subscribed", endsAt: existing.endsAt });
-    return;
-  }
-
   const settings = await getSubscriptionSettings();
   const price = settings.monthlyPrice;
-
-  const [userRow] = await db
-    .select({ walletBalance: usersTable.walletBalance })
-    .from(usersTable)
-    .where(eq(usersTable.id, userId))
-    .limit(1);
-
-  if (!userRow) {
-    res.status(404).json({ error: "user_not_found" });
-    return;
-  }
-
-  if (userRow.walletBalance < price) {
-    res.status(402).json({
-      error: "insufficient_balance",
-      required: price,
-      balance: userRow.walletBalance,
-    });
-    return;
-  }
 
   const now = new Date();
   const endsAt = new Date(now);
   endsAt.setMonth(endsAt.getMonth() + 1);
-
   const id = `csub_${Date.now()}${Math.random().toString(36).slice(2, 9)}`;
 
-  const [sub] = await db.transaction(async (tx) => {
-    await tx
+  let outcome: "ok" | "not_found" | "insufficient_balance" | "already_subscribed" = "ok";
+  let newBalance = 0;
+  let sub: (typeof customerSubscriptionsTable.$inferSelect) | null = null;
+
+  await db.transaction(async (tx) => {
+    // 1. Check for an existing active subscription inside the transaction so
+    //    concurrent requests can't both slip through the guard.
+    const [existing] = await tx
+      .select({ id: customerSubscriptionsTable.id, endsAt: customerSubscriptionsTable.endsAt })
+      .from(customerSubscriptionsTable)
+      .where(
+        and(
+          eq(customerSubscriptionsTable.userId, userId),
+          eq(customerSubscriptionsTable.isActive, true),
+          gt(customerSubscriptionsTable.endsAt, now),
+        ),
+      )
+      .limit(1);
+
+    if (existing) {
+      outcome = "already_subscribed";
+      return;
+    }
+
+    // 2. Conditionally deduct balance — only succeeds when wallet_balance >= price.
+    //    The WHERE guard makes this race-safe: if two requests arrive simultaneously,
+    //    only one wins; the other gets 0 rows updated.
+    const updated = await tx
       .update(usersTable)
       .set({ walletBalance: sql`${usersTable.walletBalance} - ${price}` })
-      .where(
-        eq(usersTable.id, userId)
-      );
+      .where(and(eq(usersTable.id, userId), sql`${usersTable.walletBalance} >= ${price}`))
+      .returning({ newBalance: usersTable.walletBalance });
 
-    return tx
+    if (updated.length === 0) {
+      // Either user doesn't exist or balance was insufficient.
+      const [userRow] = await tx
+        .select({ walletBalance: usersTable.walletBalance })
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .limit(1);
+      outcome = userRow ? "insufficient_balance" : "not_found";
+      return;
+    }
+
+    newBalance = updated[0]!.newBalance;
+
+    // 3. Insert the subscription record.
+    const [inserted] = await tx
       .insert(customerSubscriptionsTable)
       .values({
         id,
@@ -79,12 +89,25 @@ router.post("/subscriptions/subscribe", async (req, res) => {
         createdByAdmin: false,
       })
       .returning();
+
+    sub = inserted ?? null;
   });
 
-  res.status(201).json({ subscription: sub, newBalance: userRow.walletBalance - price });
-});
+  if (outcome === "already_subscribed") {
+    res.status(409).json({ error: "already_subscribed" });
+    return;
+  }
+  if (outcome === "not_found") {
+    res.status(404).json({ error: "user_not_found" });
+    return;
+  }
+  if (outcome === "insufficient_balance") {
+    res.status(402).json({ error: "insufficient_balance", required: price });
+    return;
+  }
 
-const body = z.object({ isActive: z.boolean() });
+  res.status(201).json({ subscription: sub, newBalance });
+});
 
 router.patch("/subscriptions/:id/cancel", async (req, res) => {
   const userId = req.auth!.userId;
