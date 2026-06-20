@@ -168,6 +168,46 @@ export default function RestaurantScreen() {
     cartCtx.decItem(itemId);
   };
 
+  const renderCartControl = (
+    itemId: string,
+    nameAr: string,
+    price: number,
+    accentColor: string,
+    canAdd: boolean,
+  ) => {
+    const qty = cart[itemId]?.qty ?? 0;
+    if (qty > 0) {
+      return (
+        <View style={[styles.popularStepper, { backgroundColor: accentColor }]}>
+          <TouchableOpacity
+            style={styles.popularStepperBtn}
+            onPress={() => removeFromCart(itemId, nameAr, price)}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          >
+            <MaterialIcons name="remove" size={16} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.popularStepperQty}>{qty}</Text>
+          <TouchableOpacity
+            style={styles.popularStepperBtn}
+            onPress={canAdd ? () => addToCart(itemId, nameAr, price) : undefined}
+            disabled={!canAdd}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          >
+            <MaterialIcons name="add" size={16} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    if (canAdd) {
+      return (
+        <View style={[styles.popularAddBtn, { backgroundColor: accentColor }]}>
+          <MaterialIcons name="add" size={16} color="#fff" />
+        </View>
+      );
+    }
+    return null;
+  };
+
   const cartEntries = Object.values(cart);
   const totalItems = cartEntries.reduce((s, e) => s + e.qty, 0);
   const estimatedTotal = cartEntries.reduce((s, e) => s + (e.price || 0) * e.qty, 0);
@@ -432,15 +472,9 @@ export default function RestaurantScreen() {
                       <View style={styles.unavailableBadge}>
                         <Text style={styles.unavailableText}>غير متوفر</Text>
                       </View>
-                    ) : cart[item.id]?.qty ? (
-                      <View style={[styles.popularQtyBadge, { backgroundColor: colors.primary }]}>
-                        <Text style={styles.popularQtyText}>{cart[item.id]!.qty}</Text>
-                      </View>
-                    ) : canAdd ? (
-                      <View style={[styles.popularAddBtn, { backgroundColor: "#F97316" }]}>
-                        <MaterialIcons name="add" size={16} color="#fff" />
-                      </View>
-                    ) : null}
+                    ) : (
+                      renderCartControl(item.id, item.nameAr, dealPrice, "#F97316", canAdd)
+                    )}
                     <View style={styles.popularCardBody}>
                       <Text style={[styles.popularItemName, { color: colors.foreground }]} numberOfLines={2}>
                         {item.nameAr}
@@ -496,15 +530,15 @@ export default function RestaurantScreen() {
                       <View style={styles.unavailableBadge}>
                         <Text style={styles.unavailableText}>غير متوفر</Text>
                       </View>
-                    ) : cart[item.id]?.qty ? (
-                      <View style={[styles.popularQtyBadge, { backgroundColor: colors.primary }]}>
-                        <Text style={styles.popularQtyText}>{cart[item.id]!.qty}</Text>
-                      </View>
-                    ) : canAdd ? (
-                      <View style={[styles.popularAddBtn, { backgroundColor: itemIsDeal ? "#F97316" : colors.primary }]}>
-                        <MaterialIcons name="add" size={16} color="#fff" />
-                      </View>
-                    ) : null}
+                    ) : (
+                      renderCartControl(
+                        item.id,
+                        item.nameAr,
+                        effectivePrice,
+                        itemIsDeal ? "#F97316" : colors.primary,
+                        canAdd,
+                      )
+                    )}
                     <View style={styles.popularCardBody}>
                       <Text style={[styles.popularItemName, { color: colors.foreground }]} numberOfLines={2}>
                         {item.nameAr}
@@ -728,18 +762,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  popularQtyBadge: {
+  popularStepper: {
     position: "absolute",
     bottom: 68,
     left: 8,
-    minWidth: 28,
+    flexDirection: "row",
+    alignItems: "center",
     height: 28,
     borderRadius: 8,
+    overflow: "hidden",
+  },
+  popularStepperBtn: {
+    width: 28,
+    height: 28,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 6,
   },
-  popularQtyText: { color: "#fff", fontSize: 13, fontWeight: "800" },
+  popularStepperQty: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
+    minWidth: 20,
+    textAlign: "center",
+  },
   popularCardBody: { padding: 10, gap: 4 },
   popularItemName: { fontSize: 13, fontWeight: "700", textAlign: "left" },
   popularItemPrice: { fontSize: 13, fontWeight: "800", textAlign: "left" },
