@@ -10,6 +10,7 @@
     "db:sync-from-prod": "pnpm --filter @workspace/scripts run db:sync-from-prod"
   },
   "private": true,
+  "packageManager": "pnpm@10.26.1",
   "devDependencies": {
     "prettier": "^3.8.1",
     "tsx": "catalog:",
