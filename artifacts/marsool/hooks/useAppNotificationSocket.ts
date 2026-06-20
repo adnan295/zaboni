@@ -29,6 +29,7 @@ export function useAppNotificationSocket(
     const socketUrl = base || window?.location?.origin || "";
 
     const socket: Socket = io(`${socketUrl}/orders`, {
+      path: "/api/socket.io",
       auth: { token: authToken },
       transports: ["websocket"],
       reconnection: true,
