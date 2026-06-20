@@ -23,6 +23,7 @@ interface HRestaurant {
   isOpen: boolean;
   isLogo: boolean;
   discount: string | null;
+  hasFlashDeal?: boolean;
 }
 
 interface Props {
@@ -50,6 +51,7 @@ export default function HorizontalRestaurantCard({ restaurant, onPress, variant 
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === "ar";
   const isDeal = variant === "deal";
+  const hasFlashDeal = restaurant.hasFlashDeal ?? !!(restaurant as unknown as Record<string, unknown>)["hasFlashDeal"];
 
   return (
     <TouchableOpacity
@@ -76,7 +78,12 @@ export default function HorizontalRestaurantCard({ restaurant, onPress, variant 
             <Text style={styles.closedText}>{t("restaurant.closed")}</Text>
           </View>
         )}
-        {!!restaurant.discount && (
+        {hasFlashDeal && (
+          <View style={styles.flashBadge}>
+            <Text style={styles.flashBadgeText}>⚡ عرض محدود</Text>
+          </View>
+        )}
+        {!!restaurant.discount && !hasFlashDeal && (
           <View style={[styles.badge, { backgroundColor: isDeal ? "#fff" : colors.primary }]}>
             <Text style={[styles.badgeText, { color: isDeal ? colors.primary : "#fff" }]}>
               {restaurant.discount}
@@ -156,6 +163,16 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   badgeText: { fontSize: 10, fontWeight: "700", color: "#fff" },
+  flashBadge: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    backgroundColor: "#f97316",
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  flashBadgeText: { fontSize: 10, fontWeight: "700", color: "#fff" },
   info: { padding: 10, gap: 5 },
   name: { fontSize: 13, fontWeight: "700" },
   meta: { flexDirection: "row", alignItems: "center", gap: 3 },
