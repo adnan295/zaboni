@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { db, ordersTable, orderItemsTable, menuItemsTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable, promoCodesTable, promoUsesTable, usersTable, flashDealsTable, loyaltyTransactionsTable } from "@workspace/db";
+import { db, ordersTable, orderItemsTable, menuItemsTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable, promoCodesTable, promoUsesTable, usersTable, flashDealsTable, loyaltyTransactionsTable, customerWalletTransactionsTable } from "@workspace/db";
 import { and, count, desc, eq, gt, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { notifyOrderUpdate, notifyNearbyCouriers, notifyRestaurantNewOrder } from "../orders/server";
@@ -25,6 +25,7 @@ const createOrderSchema = z
     lon: z.number().min(-180).max(180).optional(),
     restaurantId: z.string().optional(),
     usePoints: z.boolean().optional(),
+    useWallet: z.boolean().optional(),
     items: z.array(orderItemInputSchema).max(100).optional(),
     flashDealId: z.string().optional(),
   })
@@ -408,6 +409,18 @@ router.post("/orders", async (req, res) => {
     estimatedMinutes,
   };
 
+  let walletDeductData: { deductAmount: number } | null = null;
+  if (body.data.useWallet) {
+    const [userRow] = await db.select({ walletBalance: usersTable.walletBalance }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    const balance = userRow?.walletBalance ?? 0;
+    if (balance > 0) {
+      const cappedDeduct = Math.min(balance, effectiveDeliveryFee);
+      if (cappedDeduct > 0) {
+        walletDeductData = { deductAmount: cappedDeduct };
+      }
+    }
+  }
+
   let loyaltyRedeemData: { points: number; discountAmount: number } | null = null;
   if (body.data.usePoints) {
     const [loyaltySettings, userRow] = await Promise.all([
@@ -482,6 +495,36 @@ router.post("/orders", async (req, res) => {
         discountAmount: promoUseData.discountAmount,
       });
     }
+    if (walletDeductData) {
+      try {
+        const deducted = await tx
+          .update(usersTable)
+          .set({ walletBalance: sql`${usersTable.walletBalance} - ${walletDeductData.deductAmount}` })
+          .where(
+            and(
+              eq(usersTable.id, userId),
+              sql`${usersTable.walletBalance} >= ${walletDeductData.deductAmount}`
+            )
+          )
+          .returning({ walletBalance: usersTable.walletBalance });
+        if (deducted.length === 0) {
+          walletDeductData = null;
+        } else {
+          const wTxId = `cwt_pay_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+          await tx.insert(customerWalletTransactionsTable).values({
+            id: wTxId,
+            userId,
+            amount: -walletDeductData.deductAmount,
+            type: "order_payment",
+            description: `خصم محفظة على طلب #${id.slice(-6)}`,
+            orderId: id,
+          });
+          newOrder.deliveryFee = Math.max(0, newOrder.deliveryFee - walletDeductData.deductAmount);
+        }
+      } catch {
+        walletDeductData = null;
+      }
+    }
     if (loyaltyRedeemData) {
       const settings = await getLoyaltySettings();
       const { redeemPointsInTx } = await import("../lib/loyalty");
@@ -515,6 +558,7 @@ router.post("/orders", async (req, res) => {
     appliedFlashDeal: flashDealData ? true : false,
     pointsDiscount: loyaltyRedeemData?.discountAmount ?? 0,
     pointsRedeemed: loyaltyRedeemData?.points ?? 0,
+    walletDiscount: walletDeductData?.deductAmount ?? 0,
     subscriberDiscount: subscribed,
   });
 });

@@ -110,11 +110,16 @@ export default function OrderRequestScreen() {
   const [flashCountdown, setFlashCountdown] = useState<string>("");
   const [loyaltyInfo, setLoyaltyInfo] = useState<LoyaltyInfo | null>(null);
   const [usePoints, setUsePoints] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [useWallet, setUseWallet] = useState(false);
 
   useEffect(() => {
     customFetch("/api/users/me/loyalty")
       .then((data) => setLoyaltyInfo(data as LoyaltyInfo))
       .catch(() => setLoyaltyInfo(null));
+    customFetch("/api/wallet/balance")
+      .then((data) => setWalletBalance((data as { balance: number }).balance))
+      .catch(() => setWalletBalance(null));
   }, []);
 
   useEffect(() => {
@@ -260,6 +265,7 @@ export default function OrderRequestScreen() {
         lon,
         restaurantId,
         usePoints,
+        useWallet,
         flashDealId: flashDeal?.id ?? undefined,
       });
       cart.clear();
@@ -458,6 +464,31 @@ export default function OrderRequestScreen() {
             </View>
           </View>
         ) : null}
+
+        {walletBalance !== null && walletBalance > 0 && effectiveDeliveryFee != null && (
+          <TouchableOpacity
+            style={[styles.loyaltyToggleCard, {
+              backgroundColor: useWallet ? "#f0fdf4" : colors.card,
+              borderColor: useWallet ? "#22c55e" : colors.border,
+            }]}
+            onPress={() => setUseWallet((v) => !v)}
+            activeOpacity={0.8}
+          >
+            <MaterialIcons name="account-balance-wallet" size={20} color={useWallet ? "#16a34a" : colors.primary} />
+            <View style={styles.addrInfo}>
+              <Text style={[styles.addrLabel, { color: colors.mutedForeground }]}>{t("wallet.useWallet")}</Text>
+              <Text style={[styles.addrText, { color: useWallet ? "#15803d" : colors.foreground, fontWeight: "700" }]}>
+                {t("wallet.useWalletDesc", {
+                  balance: walletBalance.toLocaleString(),
+                  discount: Math.min(walletBalance, effectiveDeliveryFee).toLocaleString(),
+                })}
+              </Text>
+            </View>
+            <View style={[styles.toggleDot, { backgroundColor: useWallet ? "#22c55e" : colors.border }]}>
+              <View style={[styles.toggleInner, { backgroundColor: useWallet ? "#fff" : colors.mutedForeground }]} />
+            </View>
+          </TouchableOpacity>
+        )}
 
         {loyaltyInfo !== null && loyaltyInfo.balance > 0 && (
           <>

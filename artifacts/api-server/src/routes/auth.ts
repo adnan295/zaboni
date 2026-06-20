@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { randomInt } from "crypto";
-import { db, otpCodesTable, usersTable, ordersTable } from "@workspace/db";
+import { db, otpCodesTable, usersTable, ordersTable, referralCodesTable, referralsTable } from "@workspace/db";
 import { and, eq, gt, count, sum } from "drizzle-orm";
 import { z } from "zod";
 import jwt from "jsonwebtoken";
@@ -289,6 +289,7 @@ const updateProfileSchema = z.object({
   name: z.string().min(1).max(60).optional(),
   phone: e164Phone.optional(),
   avatarUrl: z.string().max(1024).nullable().optional(),
+  referralCode: z.string().length(8).optional(),
 });
 
 router.patch("/auth/me", async (req, res) => {
@@ -347,6 +348,34 @@ router.patch("/auth/me", async (req, res) => {
     .returning();
 
   if (rows.length === 0) { res.status(404).json({ error: "User not found" }); return; }
+
+  if (body.data.referralCode) {
+    const code = body.data.referralCode.toUpperCase();
+    try {
+      const [codeRow] = await db
+        .select({ userId: referralCodesTable.userId })
+        .from(referralCodesTable)
+        .where(eq(referralCodesTable.code, code))
+        .limit(1);
+      if (codeRow && codeRow.userId !== userId) {
+        const [existingReferral] = await db
+          .select({ id: referralsTable.id })
+          .from(referralsTable)
+          .where(eq(referralsTable.referredUserId, userId))
+          .limit(1);
+        if (!existingReferral) {
+          await db.insert(referralsTable).values({
+            id: `ref_${Date.now()}${Math.random().toString(36).slice(2, 7)}`,
+            referrerId: codeRow.userId,
+            referredUserId: userId,
+            status: "pending",
+          });
+        }
+      }
+    } catch {
+      // referral registration failure must not block profile update
+    }
+  }
 
   res.json(rows[0]);
 });

@@ -1,11 +1,12 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { db, usersTable, ordersTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, systemSettingsTable, courierCustomerRatingsTable, courierWalletTransactionsTable, courierApplicationsTable } from "@workspace/db";
+import { db, usersTable, ordersTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, systemSettingsTable, courierCustomerRatingsTable, courierWalletTransactionsTable, courierApplicationsTable, referralsTable } from "@workspace/db";
 import { and, eq, ne, notInArray, avg, count, sql, desc, getTableColumns } from "drizzle-orm";
 import { haversineKm as _haversineKm } from "../lib/deliveryZones";
 import { z } from "zod";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
 import { getLoyaltySettings, awardPointsInTx } from "../lib/loyalty";
 import { checkAndAwardAchievements } from "../lib/achievements";
+import { awardReferralCommissionInTx } from "../lib/referral";
 
 const router: IRouter = Router();
 
@@ -512,6 +513,23 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
           await awardPointsInTx(tx, currentOrder.userId, orderId, totalForPoints, settings);
         } catch {
           // points award failure must not block order completion
+        }
+      }
+      // Referral commission: award 5% of itemsTotal to referrer on first delivered order
+      if (order.totalPrice != null && order.totalPrice > 0) {
+        try {
+          const [pendingReferral] = await tx
+            .select({ id: referralsTable.id, referrerId: referralsTable.referrerId })
+            .from(referralsTable)
+            .where(
+              eq(referralsTable.referredUserId, currentOrder.userId)
+            )
+            .limit(1);
+          if (pendingReferral && pendingReferral.referrerId !== currentOrder.userId) {
+            await awardReferralCommissionInTx(tx, pendingReferral.id, pendingReferral.referrerId, orderId, order.totalPrice);
+          }
+        } catch {
+          // referral commission failure must not block order completion
         }
       }
     }
