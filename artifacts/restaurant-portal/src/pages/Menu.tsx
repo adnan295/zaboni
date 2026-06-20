@@ -32,6 +32,8 @@ export default function Menu() {
   const [search, setSearch] = useState("");
   const [dealPriceInput, setDealPriceInput] = useState<Record<string, string>>({});
   const [dealExpiryInput, setDealExpiryInput] = useState<Record<string, string>>({});
+  const [dealMode, setDealMode] = useState<Record<string, "price" | "percent">>({});
+  const [dealPercentInput, setDealPercentInput] = useState<Record<string, string>>({});
 
   const { data: items = [], isLoading } = useQuery({ queryKey: ["portal-menu"], queryFn: api.getMenu });
 
@@ -76,8 +78,8 @@ export default function Menu() {
   });
 
   const dealMutation = useMutation({
-    mutationFn: ({ id, isDeal, dealPrice, dealExpiresAt }: { id: string; isDeal: boolean; dealPrice?: number | null; dealExpiresAt?: string | null }) =>
-      api.updateItemDeal(id, isDeal, dealPrice, dealExpiresAt),
+    mutationFn: ({ id, isDeal, dealPrice, dealExpiresAt, dealDiscountPercent }: { id: string; isDeal: boolean; dealPrice?: number | null; dealExpiresAt?: string | null; dealDiscountPercent?: number | null }) =>
+      api.updateItemDeal(id, isDeal, dealPrice, dealExpiresAt, dealDiscountPercent),
     onMutate: async ({ id, isDeal, dealPrice, dealExpiresAt }) => {
       await qc.cancelQueries({ queryKey: ["portal-menu"] });
       const prev = qc.getQueryData<MenuItem[]>(["portal-menu"]);
@@ -212,31 +214,82 @@ export default function Menu() {
 
                     {!item.isDeal && (
                       <div className="mt-3 space-y-2">
-                        <div className="flex gap-2 items-center">
-                          <Input
-                            type="number"
-                            min="0"
-                            placeholder="سعر العرض"
-                            className="h-8 text-sm"
-                            value={dealPriceInput[item.id] ?? ""}
-                            onChange={e => setDealPriceInput(prev => ({ ...prev, [item.id]: e.target.value }))}
-                          />
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-orange-300 text-orange-600 hover:bg-orange-50 shrink-0"
-                            disabled={dealMutation.isPending || !dealPriceInput[item.id]}
-                            onClick={() => {
-                              const price = parseFloat(dealPriceInput[item.id] ?? "");
-                              if (!price || price <= 0) return;
-                              const expiryLocal = dealExpiryInput[item.id];
-                              const dealExpiresAt = expiryLocal ? new Date(expiryLocal).toISOString() : null;
-                              dealMutation.mutate({ id: item.id, isDeal: true, dealPrice: price, dealExpiresAt });
-                            }}
+                        <div className="flex gap-1 rounded-lg overflow-hidden border border-orange-200 self-start">
+                          <button
+                            className={`px-3 py-1 text-xs font-semibold transition-colors ${(dealMode[item.id] ?? "price") === "price" ? "bg-orange-500 text-white" : "bg-transparent text-orange-600 hover:bg-orange-50"}`}
+                            onClick={() => setDealMode(prev => ({ ...prev, [item.id]: "price" }))}
                           >
-                            تفعيل عرض 🔥
-                          </Button>
+                            سعر ثابت
+                          </button>
+                          <button
+                            className={`px-3 py-1 text-xs font-semibold transition-colors ${dealMode[item.id] === "percent" ? "bg-orange-500 text-white" : "bg-transparent text-orange-600 hover:bg-orange-50"}`}
+                            onClick={() => setDealMode(prev => ({ ...prev, [item.id]: "percent" }))}
+                          >
+                            نسبة خصم %
+                          </button>
                         </div>
+                        {(dealMode[item.id] ?? "price") === "price" ? (
+                          <div className="flex gap-2 items-center">
+                            <Input
+                              type="number"
+                              min="0"
+                              placeholder="سعر العرض"
+                              className="h-8 text-sm"
+                              value={dealPriceInput[item.id] ?? ""}
+                              onChange={e => setDealPriceInput(prev => ({ ...prev, [item.id]: e.target.value }))}
+                            />
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-orange-300 text-orange-600 hover:bg-orange-50 shrink-0"
+                              disabled={dealMutation.isPending || !dealPriceInput[item.id]}
+                              onClick={() => {
+                                const price = parseFloat(dealPriceInput[item.id] ?? "");
+                                if (!price || price <= 0) return;
+                                const expiryLocal = dealExpiryInput[item.id];
+                                const dealExpiresAt = expiryLocal ? new Date(expiryLocal).toISOString() : null;
+                                dealMutation.mutate({ id: item.id, isDeal: true, dealPrice: price, dealExpiresAt });
+                              }}
+                            >
+                              تفعيل عرض 🔥
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2 items-center">
+                            <div className="relative flex-1">
+                              <Input
+                                type="number"
+                                min="1"
+                                max="99"
+                                placeholder="نسبة الخصم"
+                                className="h-8 text-sm pl-8"
+                                value={dealPercentInput[item.id] ?? ""}
+                                onChange={e => setDealPercentInput(prev => ({ ...prev, [item.id]: e.target.value }))}
+                              />
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-bold">%</span>
+                            </div>
+                            {dealPercentInput[item.id] && parseFloat(dealPercentInput[item.id]) > 0 && parseFloat(dealPercentInput[item.id]) < 100 && (
+                              <span className="text-xs text-orange-600 font-semibold shrink-0">
+                                → {Math.round(item.price * (1 - parseFloat(dealPercentInput[item.id]) / 100))} ل.س
+                              </span>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-orange-300 text-orange-600 hover:bg-orange-50 shrink-0"
+                              disabled={dealMutation.isPending || !dealPercentInput[item.id]}
+                              onClick={() => {
+                                const pct = parseFloat(dealPercentInput[item.id] ?? "");
+                                if (!pct || pct <= 0 || pct >= 100) return;
+                                const expiryLocal = dealExpiryInput[item.id];
+                                const dealExpiresAt = expiryLocal ? new Date(expiryLocal).toISOString() : null;
+                                dealMutation.mutate({ id: item.id, isDeal: true, dealDiscountPercent: pct, dealExpiresAt });
+                              }}
+                            >
+                              تفعيل عرض 🔥
+                            </Button>
+                          </div>
+                        )}
                         <div className="flex items-center gap-2">
                           <Input
                             type="datetime-local"

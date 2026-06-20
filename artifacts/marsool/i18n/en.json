@@ -437,7 +437,8 @@
     "serverPricedNote": "Final price is calculated by the server",
     "subtotal": "Subtotal",
     "total": "Total",
-    "flashDealBannerDesc": "A {{discount}} discount will be applied to your full order automatically"
+    "flashDealBannerDesc": "A {{discount}} discount will be applied to your full order automatically",
+    "itemSavings": "You saved {{amount}} SYP on this order 🎉"
   },
   "payment": {
     "cashOnDelivery": "Cash on Delivery 💵",

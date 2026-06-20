@@ -87,6 +87,7 @@ type RestaurantItem = {
   discount: string | null;
   hasFlashDeal?: boolean;
   flashDealEndsAt?: string | null;
+  maxDealPercent?: number | null;
   lat?: number | null;
   lon?: number | null;
   phone?: string | null;

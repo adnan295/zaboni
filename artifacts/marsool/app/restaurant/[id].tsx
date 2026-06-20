@@ -83,11 +83,18 @@ export default function RestaurantScreen() {
   const { data: menuItemsData } = useGetRestaurantMenu(id ?? "");
   const menuItems = menuItemsData ?? [];
   const categories = Array.from(new Set(menuItems.map((m) => m.categoryAr)));
-  type MenuItemWithDeal = typeof menuItems[number] & { isDeal?: boolean; dealPrice?: number | null };
+  type MenuItemWithDeal = typeof menuItems[number] & { isDeal?: boolean; dealPrice?: number | null; dealDiscountPercent?: number | null };
 
   const getEffectivePrice = (item: MenuItemWithDeal): number => {
     const typed = item as MenuItemWithDeal;
     return typed.isDeal && typed.dealPrice ? typed.dealPrice : item.price;
+  };
+
+  const getDealPercent = (item: MenuItemWithDeal): number | null => {
+    if (!item.isDeal) return null;
+    if (item.dealDiscountPercent != null) return Math.round(item.dealDiscountPercent);
+    if (item.dealPrice != null && item.price > 0) return Math.round((1 - item.dealPrice / item.price) * 100);
+    return null;
   };
 
   const dealItems = menuItems.filter((m) => (m as MenuItemWithDeal).isDeal);
@@ -137,7 +144,7 @@ export default function RestaurantScreen() {
   const allTabsRef = useRef<string[]>(allTabs);
   allTabsRef.current = allTabs;
 
-  const addToCart = (itemId: string, nameAr: string, price: number) => {
+  const addToCart = (itemId: string, nameAr: string, price: number, originalPrice?: number) => {
     if (!restaurant) return;
     if (
       cartCtx.restaurantId &&
@@ -154,14 +161,14 @@ export default function RestaurantScreen() {
             style: "destructive",
             onPress: () =>
               cartCtx.replaceCart(restaurant.id, restaurant.nameAr, [
-                { menuItemId: itemId, nameAr, price, qty: 1 },
+                { menuItemId: itemId, nameAr, price, originalPrice, qty: 1 },
               ]),
           },
         ]
       );
       return;
     }
-    cartCtx.addItem(restaurant.id, restaurant.nameAr, { menuItemId: itemId, nameAr, price });
+    cartCtx.addItem(restaurant.id, restaurant.nameAr, { menuItemId: itemId, nameAr, price, originalPrice });
   };
 
   const removeFromCart = (itemId: string, _nameAr?: string, _price?: number) => {
@@ -462,12 +469,16 @@ export default function RestaurantScreen() {
                         opacity: itemAvailable ? 1 : 0.5,
                       },
                     ]}
-                    onPress={canAdd && !cart[item.id]?.qty ? () => addToCart(item.id, item.nameAr, dealPrice) : undefined}
+                    onPress={canAdd && !cart[item.id]?.qty ? () => addToCart(item.id, item.nameAr, dealPrice, item.price !== dealPrice ? item.price : undefined) : undefined}
                     activeOpacity={canAdd && !cart[item.id]?.qty ? 0.85 : 1}
                   >
                     <Image source={{ uri: buildImageUrl(item.image) }} style={styles.popularImage} resizeMode="cover" />
                     <View style={styles.dealBadge}>
-                      <Text style={styles.dealBadgeText}>🔥 عرض</Text>
+                      {getDealPercent(item as MenuItemWithDeal) != null ? (
+                        <Text style={styles.dealBadgeText}>خصم {getDealPercent(item as MenuItemWithDeal)}%</Text>
+                      ) : (
+                        <Text style={styles.dealBadgeText}>🔥 عرض</Text>
+                      )}
                     </View>
                     {!itemAvailable ? (
                       <View style={styles.unavailableBadge}>
@@ -518,13 +529,17 @@ export default function RestaurantScreen() {
                         opacity: itemAvailable ? 1 : 0.5,
                       },
                     ]}
-                    onPress={canAdd && !cart[item.id]?.qty ? () => addToCart(item.id, item.nameAr, effectivePrice) : undefined}
+                    onPress={canAdd && !cart[item.id]?.qty ? () => addToCart(item.id, item.nameAr, effectivePrice, itemIsDeal && effectivePrice !== item.price ? item.price : undefined) : undefined}
                     activeOpacity={canAdd && !cart[item.id]?.qty ? 0.85 : 1}
                   >
                     <Image source={{ uri: buildImageUrl(item.image) }} style={styles.popularImage} resizeMode="cover" />
                     {itemIsDeal && (
                       <View style={styles.dealBadge}>
-                        <Text style={styles.dealBadgeText}>🔥 عرض</Text>
+                        {getDealPercent(item as MenuItemWithDeal) != null ? (
+                          <Text style={styles.dealBadgeText}>خصم {getDealPercent(item as MenuItemWithDeal)}%</Text>
+                        ) : (
+                          <Text style={styles.dealBadgeText}>🔥 عرض</Text>
+                        )}
                       </View>
                     )}
                     {!itemAvailable ? (
@@ -588,7 +603,7 @@ export default function RestaurantScreen() {
                     <MenuItemCard
                       item={item}
                       quantity={cart[item.id]?.qty ?? 0}
-                      onAdd={isOpen && available ? () => addToCart(item.id, item.nameAr, effectivePrice) : undefined}
+                      onAdd={isOpen && available ? () => addToCart(item.id, item.nameAr, effectivePrice, itemIsDeal && effectivePrice !== item.price ? item.price : undefined) : undefined}
                       onRemove={isOpen && available ? () => removeFromCart(item.id, item.nameAr, effectivePrice) : undefined}
                       isDeal={itemIsDeal}
                       dealPrice={itemDealPrice}

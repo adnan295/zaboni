@@ -278,23 +278,37 @@ router.patch("/restaurant-portal/menu/:itemId/deal", requireRestaurantAuth, asyn
   const parsed = z.object({
     isDeal: z.boolean(),
     dealPrice: z.number().positive().nullable().optional(),
+    dealDiscountPercent: z.number().min(1).max(99).nullable().optional(),
     dealExpiresAt: z.string().datetime().nullable().optional(),
   }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "isDeal (boolean) مطلوب" }); return; }
-  if (parsed.data.isDeal && !parsed.data.dealPrice) {
-    res.status(400).json({ error: "يجب تحديد سعر العرض عند تفعيل العرض" }); return;
+  if (parsed.data.isDeal && !parsed.data.dealPrice && !parsed.data.dealDiscountPercent) {
+    res.status(400).json({ error: "يجب تحديد سعر العرض أو نسبة الخصم عند تفعيل العرض" }); return;
   }
   const [existing] = await db.select({ id: menuItemsTable.id, price: menuItemsTable.price }).from(menuItemsTable).where(and(eq(menuItemsTable.id, itemId), eq(menuItemsTable.restaurantId, restaurantId))).limit(1);
   if (!existing) { res.status(404).json({ error: "الصنف غير موجود" }); return; }
-  if (parsed.data.isDeal && parsed.data.dealPrice && parsed.data.dealPrice >= existing.price) {
-    res.status(400).json({ error: "سعر العرض يجب أن يكون أقل من السعر الأصلي" }); return;
+
+  let finalDealPrice = parsed.data.dealPrice ?? null;
+  let finalDealDiscountPercent = parsed.data.dealDiscountPercent ?? null;
+
+  if (parsed.data.isDeal) {
+    if (finalDealDiscountPercent != null && finalDealPrice == null) {
+      finalDealPrice = Math.round(existing.price * (1 - finalDealDiscountPercent / 100));
+    } else if (finalDealPrice != null && finalDealDiscountPercent == null) {
+      finalDealDiscountPercent = Math.round((1 - finalDealPrice / existing.price) * 100);
+    }
+    if (finalDealPrice != null && finalDealPrice >= existing.price) {
+      res.status(400).json({ error: "سعر العرض يجب أن يكون أقل من السعر الأصلي" }); return;
+    }
   }
+
   const dealExpiresAt = parsed.data.isDeal && parsed.data.dealExpiresAt
     ? new Date(parsed.data.dealExpiresAt)
     : null;
   const [updated] = await db.update(menuItemsTable).set({
     isDeal: parsed.data.isDeal,
-    dealPrice: parsed.data.isDeal ? (parsed.data.dealPrice ?? null) : null,
+    dealPrice: parsed.data.isDeal ? finalDealPrice : null,
+    dealDiscountPercent: parsed.data.isDeal ? finalDealDiscountPercent : null,
     dealExpiresAt,
   }).where(eq(menuItemsTable.id, itemId)).returning();
   res.json(updated);

@@ -437,7 +437,8 @@
     "serverPricedNote": "يتم احتساب السعر النهائي من الخادم",
     "subtotal": "المجموع الفرعي",
     "total": "الإجمالي",
-    "flashDealBannerDesc": "سيُطبَّق خصم {{discount}} على قيمة طلبك بالكامل تلقائياً"
+    "flashDealBannerDesc": "سيُطبَّق خصم {{discount}} على قيمة طلبك بالكامل تلقائياً",
+    "itemSavings": "وفّرت {{amount}} ل.س على هذا الطلب 🎉"
   },
   "payment": {
     "cashOnDelivery": "الدفع عند الاستلام 💵",
