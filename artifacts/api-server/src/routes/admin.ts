@@ -25,6 +25,10 @@ import {
   restaurantUsersTable,
   adminNotesTable,
   flashDealsTable,
+  loyaltyTransactionsTable,
+  userAchievementsTable,
+  achievementsTable,
+  customerSubscriptionsTable,
 } from "@workspace/db";
 import bcrypt from "bcryptjs";
 import { eq, count, sum, desc, gte, lte, getTableColumns, and, sql, avg, asc, lt } from "drizzle-orm";
@@ -1180,11 +1184,177 @@ router.patch("/admin/orders/:id/status", async (req, res) => {
 });
 
 router.get("/admin/users", async (_req, res) => {
-  const rows = await db
-    .select()
+  const rows = await db.execute(sql`
+    SELECT
+      u.id,
+      u.phone,
+      u.name,
+      u.role,
+      u.avatar_url       AS "avatarUrl",
+      u.created_at       AS "createdAt",
+      u.loyalty_points   AS "loyaltyPoints",
+      u.is_blocked       AS "isBlocked",
+      COALESCE(oc.order_count, 0)::int AS "orderCount",
+      oc.last_order_at   AS "lastOrderAt",
+      CASE WHEN cs.user_id IS NOT NULL THEN true ELSE false END AS "isSubscribed"
+    FROM users u
+    LEFT JOIN (
+      SELECT user_id,
+             COUNT(*)::int          AS order_count,
+             MAX(created_at)        AS last_order_at
+      FROM orders
+      GROUP BY user_id
+    ) oc ON u.id = oc.user_id
+    LEFT JOIN (
+      SELECT DISTINCT user_id
+      FROM customer_subscriptions
+      WHERE is_active = true AND ends_at > NOW()
+    ) cs ON u.id = cs.user_id
+    ORDER BY u.created_at DESC
+  `);
+  res.json(rows.rows);
+});
+
+router.get("/admin/users/:id/detail", requireAdmin, async (req, res) => {
+  const id = String(req.params["id"]);
+
+  const [userRow] = await db
+    .select({ loyaltyPoints: usersTable.loyaltyPoints })
     .from(usersTable)
-    .orderBy(desc(usersTable.createdAt));
-  res.json(rows);
+    .where(eq(usersTable.id, id));
+
+  if (!userRow) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const [ordersResult, transactions, achievements, subscription] = await Promise.all([
+    db.execute(sql`
+      SELECT id,
+             restaurant_name AS "restaurantName",
+             status,
+             created_at     AS "createdAt",
+             total_price    AS "totalPrice",
+             delivery_fee   AS "deliveryFee",
+             order_text     AS "orderText"
+      FROM orders
+      WHERE user_id = ${id}
+      ORDER BY created_at DESC
+      LIMIT 10
+    `),
+
+    db
+      .select()
+      .from(loyaltyTransactionsTable)
+      .where(eq(loyaltyTransactionsTable.userId, id))
+      .orderBy(desc(loyaltyTransactionsTable.createdAt))
+      .limit(10),
+
+    db
+      .select({
+        achievementKey: userAchievementsTable.achievementKey,
+        earnedAt: userAchievementsTable.earnedAt,
+        titleAr: achievementsTable.titleAr,
+        icon: achievementsTable.icon,
+      })
+      .from(userAchievementsTable)
+      .leftJoin(achievementsTable, eq(userAchievementsTable.achievementKey, achievementsTable.key))
+      .where(eq(userAchievementsTable.userId, id))
+      .orderBy(desc(userAchievementsTable.earnedAt)),
+
+    db
+      .select()
+      .from(customerSubscriptionsTable)
+      .where(
+        and(
+          eq(customerSubscriptionsTable.userId, id),
+          eq(customerSubscriptionsTable.isActive, true),
+          sql`${customerSubscriptionsTable.endsAt} > NOW()`
+        )
+      )
+      .orderBy(desc(customerSubscriptionsTable.endsAt))
+      .limit(1),
+  ]);
+
+  res.json({
+    currentPoints: userRow.loyaltyPoints,
+    orders: ordersResult.rows,
+    loyaltyTransactions: transactions,
+    achievements,
+    subscription: subscription[0] ?? null,
+  });
+});
+
+router.post("/admin/users/:id/adjust-points", requireAdmin, async (req, res) => {
+  const id = String(req.params["id"]);
+  const parsed = z
+    .object({ delta: z.number().int(), note: z.string().min(1) })
+    .safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "delta (integer) and note (string) are required" });
+    return;
+  }
+  const { delta, note } = parsed.data;
+
+  const [userRow] = await db
+    .select({ loyaltyPoints: usersTable.loyaltyPoints })
+    .from(usersTable)
+    .where(eq(usersTable.id, id));
+
+  if (!userRow) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  if (delta < 0 && userRow.loyaltyPoints + delta < 0) {
+    res.status(400).json({ error: "Insufficient points for deduction" });
+    return;
+  }
+
+  const txId = `loy_admin_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+
+  await db.transaction(async (tx) => {
+    await tx.insert(loyaltyTransactionsTable).values({
+      id: txId,
+      userId: id,
+      type: "admin_adjust",
+      points: delta,
+      description: note,
+    });
+    await tx
+      .update(usersTable)
+      .set({ loyaltyPoints: sql`${usersTable.loyaltyPoints} + ${delta}` })
+      .where(eq(usersTable.id, id));
+  });
+
+  const [updated] = await db
+    .select({ loyaltyPoints: usersTable.loyaltyPoints })
+    .from(usersTable)
+    .where(eq(usersTable.id, id));
+
+  res.json({ ok: true, newPoints: updated?.loyaltyPoints ?? 0 });
+});
+
+router.patch("/admin/users/:id/block", requireAdmin, async (req, res) => {
+  const id = String(req.params["id"]);
+  const parsed = z.object({ block: z.boolean() }).safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "block (boolean) is required" });
+    return;
+  }
+
+  const [row] = await db
+    .update(usersTable)
+    .set({ isBlocked: parsed.data.block })
+    .where(eq(usersTable.id, id))
+    .returning({ id: usersTable.id, isBlocked: usersTable.isBlocked });
+
+  if (!row) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  res.json({ ok: true, isBlocked: row.isBlocked });
 });
 
 router.patch("/admin/users/:id/role", async (req, res) => {

@@ -121,6 +121,50 @@ export type User = {
   role: "customer" | "courier";
   avatarUrl?: string | null;
   createdAt: string;
+  orderCount: number;
+  loyaltyPoints: number;
+  isSubscribed: boolean;
+  lastOrderAt: string | null;
+  isBlocked: boolean;
+};
+
+export type UserDetailOrder = {
+  id: string;
+  restaurantName: string;
+  status: string;
+  createdAt: string;
+  totalPrice: number | null;
+  deliveryFee: number | null;
+  orderText: string;
+};
+
+export type UserDetailTransaction = {
+  id: string;
+  type: string;
+  points: number;
+  description: string;
+  createdAt: string;
+};
+
+export type UserDetailAchievement = {
+  achievementKey: string;
+  earnedAt: string;
+  titleAr: string | null;
+  icon: string | null;
+};
+
+export type UserDetail = {
+  currentPoints: number;
+  orders: UserDetailOrder[];
+  loyaltyTransactions: UserDetailTransaction[];
+  achievements: UserDetailAchievement[];
+  subscription: {
+    id: string;
+    startsAt: string;
+    endsAt: string;
+    isActive: boolean;
+    pricePaid: number;
+  } | null;
 };
 
 export type Courier = {
@@ -505,6 +549,17 @@ export const api = {
   getChatThread: (orderId: string) => apiFetch<ChatThread>(`/admin/chats/${orderId}`),
 
   getUsers: () => apiFetch<User[]>("/admin/users"),
+  getUserDetail: (id: string) => apiFetch<UserDetail>(`/admin/users/${id}/detail`),
+  adjustUserPoints: (id: string, delta: number, note: string) =>
+    apiFetch<{ ok: boolean; newPoints: number }>(`/admin/users/${id}/adjust-points`, {
+      method: "POST",
+      body: JSON.stringify({ delta, note }),
+    }),
+  blockUser: (id: string, block: boolean) =>
+    apiFetch<{ ok: boolean; isBlocked: boolean }>(`/admin/users/${id}/block`, {
+      method: "PATCH",
+      body: JSON.stringify({ block }),
+    }),
   updateUserRole: (id: string, role: "customer" | "courier") =>
     apiFetch<User>(`/admin/users/${id}/role`, {
       method: "PATCH",
