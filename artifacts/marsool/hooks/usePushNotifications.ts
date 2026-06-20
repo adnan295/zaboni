@@ -53,6 +53,7 @@ function getNotificationContent(
 
 function pushTypeToNotifType(type: string | undefined): NotifType {
   if (type === "order_update" || type === "new_order") return "order_status";
+  if (type === "flash_deal") return "promo";
   return "system";
 }
 
@@ -74,6 +75,14 @@ function getNotificationTargetRoute(
     }
     if (orderId) {
       return `/order-tracking/${orderId}` as string;
+    }
+    return "/(tabs)";
+  }
+
+  if (type === "flash_deal") {
+    const restaurantId = data?.restaurantId as string | undefined;
+    if (restaurantId) {
+      return `/restaurant/${restaurantId}` as string;
     }
     return "/(tabs)";
   }

@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { sendSmsViaGateway } from "../lib/sms";
+import { sendPushToAllCustomers, isFlashDealImminent } from "../lib/push";
 import { whatsappManager } from "../lib/whatsapp";
 import { objectStorageClient } from "../lib/objectStorage";
 import { composeBannerByTemplate, listPublicTemplates, getPreviewBuffer, ensurePreviewsExist } from "../lib/promoBannerComposer";
@@ -667,6 +668,7 @@ router.post("/restaurant-portal/flash-deals", requireRestaurantAuth, async (req,
   }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صحيحة" }); return; }
   const id = `fd_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+  const endsAtDate = new Date(parsed.data.endsAt);
   const [deal] = await db.insert(flashDealsTable).values({
     id,
     restaurantId,
@@ -674,11 +676,35 @@ router.post("/restaurant-portal/flash-deals", requireRestaurantAuth, async (req,
     discountType: parsed.data.discountType,
     discountValue: parsed.data.discountValue,
     startsAt: new Date(parsed.data.startsAt),
-    endsAt: new Date(parsed.data.endsAt),
+    endsAt: endsAtDate,
     maxUses: parsed.data.maxUses ?? null,
     isActive: parsed.data.isActive,
   }).returning();
   res.status(201).json(deal);
+
+  if (isFlashDealImminent(parsed.data.isActive, new Date(parsed.data.startsAt))) {
+    void (async () => {
+      try {
+        const [restaurant] = await db
+          .select({ nameAr: restaurantsTable.nameAr })
+          .from(restaurantsTable)
+          .where(eq(restaurantsTable.id, restaurantId))
+          .limit(1);
+        if (!restaurant) return;
+        const discount = parsed.data.discountType === "percent"
+          ? `${parsed.data.discountValue}%`
+          : `${parsed.data.discountValue} ل.س`;
+        const endTime = endsAtDate.toLocaleTimeString("ar-SY", { hour: "2-digit", minute: "2-digit", hour12: true });
+        await sendPushToAllCustomers(
+          `🔥 عرض فلاش: ${restaurant.nameAr}`,
+          `خصم ${discount} على طلبك — ينتهي في ${endTime}`,
+          { type: "flash_deal", restaurantId },
+        );
+      } catch (err) {
+        req.log?.warn({ err }, "Failed to send flash deal push notification");
+      }
+    })();
+  }
 });
 
 router.put("/restaurant-portal/flash-deals/:id", requireRestaurantAuth, async (req, res) => {
