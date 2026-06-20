@@ -202,6 +202,10 @@ router.post("/auth/verify-otp", async (req, res) => {
   let userAvatarUrl: string | null = null;
 
   if (existingUser.length > 0) {
+    if (existingUser[0].isBlocked) {
+      res.status(403).json({ error: "هذا الحساب موقوف / This account has been blocked" });
+      return;
+    }
     userId = existingUser[0].id;
     userName = name ?? existingUser[0].name;
     userRole = (existingUser[0].role as "customer" | "courier") ?? "customer";
@@ -262,7 +266,7 @@ router.get("/auth/me", async (req, res) => {
   }
 
   const users = await db
-    .select({ id: usersTable.id, phone: usersTable.phone, name: usersTable.name, role: usersTable.role, avatarUrl: usersTable.avatarUrl })
+    .select({ id: usersTable.id, phone: usersTable.phone, name: usersTable.name, role: usersTable.role, avatarUrl: usersTable.avatarUrl, isBlocked: usersTable.isBlocked })
     .from(usersTable)
     .where(eq(usersTable.id, userId))
     .limit(1);
@@ -272,7 +276,13 @@ router.get("/auth/me", async (req, res) => {
     return;
   }
 
-  res.json(users[0]);
+  if (users[0].isBlocked) {
+    res.status(403).json({ error: "Account is blocked" });
+    return;
+  }
+
+  const { isBlocked: _b, ...userFields } = users[0];
+  res.json(userFields);
 });
 
 const updateProfileSchema = z.object({
@@ -299,6 +309,10 @@ router.patch("/auth/me", async (req, res) => {
     res.status(401).json({ error: "Invalid or expired token" });
     return;
   }
+
+  const callerCheck = await db.select({ isBlocked: usersTable.isBlocked }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  if (callerCheck.length === 0) { res.status(404).json({ error: "User not found" }); return; }
+  if (callerCheck[0].isBlocked) { res.status(403).json({ error: "Account is blocked" }); return; }
 
   const body = updateProfileSchema.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Invalid profile data", details: body.error.issues }); return; }
@@ -385,11 +399,14 @@ router.get("/me/stats", async (req, res) => {
   }
 
   const [userRow, totalRow, completedRow, deliveryFeeRow] = await Promise.all([
-    db.select({ createdAt: usersTable.createdAt }).from(usersTable).where(eq(usersTable.id, userId)).limit(1),
+    db.select({ createdAt: usersTable.createdAt, isBlocked: usersTable.isBlocked }).from(usersTable).where(eq(usersTable.id, userId)).limit(1),
     db.select({ count: count() }).from(ordersTable).where(eq(ordersTable.userId, userId)),
     db.select({ count: count() }).from(ordersTable).where(and(eq(ordersTable.userId, userId), eq(ordersTable.status, "delivered"))),
     db.select({ total: sum(ordersTable.deliveryFee) }).from(ordersTable).where(and(eq(ordersTable.userId, userId), eq(ordersTable.status, "delivered"))),
   ]);
+
+  if (!userRow[0]) { res.status(404).json({ error: "User not found" }); return; }
+  if (userRow[0].isBlocked) { res.status(403).json({ error: "Account is blocked" }); return; }
 
   res.json({
     totalOrders: totalRow[0]?.count ?? 0,
