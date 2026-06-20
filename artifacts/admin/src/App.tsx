@@ -32,6 +32,7 @@ import RestaurantAccounts from "@/pages/RestaurantAccounts";
 import RestaurantPerformance from "@/pages/RestaurantPerformance";
 import ChurnAnalysis from "@/pages/ChurnAnalysis";
 import CancellationAnalysis from "@/pages/CancellationAnalysis";
+import CourierPerformancePage from "@/pages/CourierPerformance";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -72,6 +73,7 @@ function Router({ onLogout }: { onLogout: () => void }) {
         <Route path="/restaurant-performance" component={RestaurantPerformance} />
         <Route path="/churn" component={ChurnAnalysis} />
         <Route path="/cancellation" component={CancellationAnalysis} />
+        <Route path="/courier-performance" component={CourierPerformancePage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

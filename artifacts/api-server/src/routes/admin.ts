@@ -936,6 +936,163 @@ router.get("/admin/cancellation-stats", async (req, res) => {
   });
 });
 
+// ─── Courier Performance ──────────────────────────────────────────────────
+
+router.get("/admin/courier-performance", async (req, res) => {
+  const daysRaw = parseInt(String(req.query["days"] ?? "7"));
+  const days = [7, 30].includes(daysRaw) ? daysRaw : 7;
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  const rows = await db.execute(sql`
+    SELECT
+      u.id,
+      u.name,
+      u.phone,
+      u.avatar_url                                    AS "avatarUrl",
+      u.is_online                                     AS "isOnline",
+      GREATEST(
+        u.courier_location_updated_at,
+        MAX(o.updated_at)
+      )                                               AS "lastSeen",
+      COUNT(o.id) FILTER (
+        WHERE o.status = 'delivered'
+          AND o.created_at >= ${since}
+      )::int                                          AS deliveries,
+      COUNT(o.id) FILTER (
+        WHERE o.status = 'cancelled'
+          AND o.courier_id = u.id
+          AND o.courier_id <> ''
+          AND o.created_at >= ${since}
+      )::int                                          AS "cancelledAfterAssign",
+      ROUND(
+        CAST(AVG(
+          CASE WHEN or2.courier_stars > 0 THEN or2.courier_stars END
+        ) AS numeric), 1
+      )                                               AS "avgRating",
+      ROUND(
+        CAST(AVG(
+          CASE WHEN o.status = 'delivered'
+                AND o.created_at >= ${since}
+            THEN EXTRACT(EPOCH FROM (
+              (SELECT h2.created_at FROM order_status_history h2
+               WHERE h2.order_id = o.id AND h2.status = 'delivered'
+               ORDER BY h2.created_at DESC LIMIT 1)
+              -
+              (SELECT h1.created_at FROM order_status_history h1
+               WHERE h1.order_id = o.id AND h1.status = 'accepted'
+               ORDER BY h1.created_at ASC LIMIT 1)
+            )) / 60.0
+          END
+        ) AS numeric), 0
+      )                                               AS "avgDeliveryMinutes"
+    FROM users u
+    LEFT JOIN orders o ON o.courier_id = u.id
+    LEFT JOIN order_ratings or2 ON or2.courier_id = u.id
+    WHERE u.role = 'courier'
+    GROUP BY u.id, u.name, u.phone, u.avatar_url, u.is_online, u.courier_location_updated_at
+    ORDER BY deliveries DESC
+  `);
+
+  res.json(
+    rows.rows.map((r: Record<string, unknown>) => {
+      const deliveries = Number(r["deliveries"] ?? 0);
+      const cancelled = Number(r["cancelledAfterAssign"] ?? 0);
+      const total = deliveries + cancelled;
+      return {
+        id: r["id"],
+        name: r["name"],
+        phone: r["phone"],
+        avatarUrl: r["avatarUrl"],
+        isOnline: r["isOnline"],
+        lastSeen: r["lastSeen"],
+        deliveries,
+        cancelledAfterAssign: cancelled,
+        acceptanceRate: total > 0 ? Math.round((deliveries / total) * 100) : null,
+        avgRating: r["avgRating"] != null ? Number(r["avgRating"]) : null,
+        avgDeliveryMinutes: r["avgDeliveryMinutes"] != null ? Number(r["avgDeliveryMinutes"]) : null,
+      };
+    }),
+  );
+});
+
+router.get("/admin/courier-performance/:courierId", async (req, res) => {
+  const courierId = String(req.params["courierId"]);
+  const daysRaw = parseInt(String(req.query["days"] ?? "7"));
+  const days = [7, 30].includes(daysRaw) ? daysRaw : 7;
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  // Verify courier exists
+  const [courier] = await db
+    .select({ id: usersTable.id, name: usersTable.name })
+    .from(usersTable)
+    .where(and(eq(usersTable.id, courierId), eq(usersTable.role, "courier")))
+    .limit(1);
+
+  if (!courier) {
+    res.status(404).json({ error: "Courier not found" });
+    return;
+  }
+
+  const [dailyRows, recentOrders] = await Promise.all([
+    db.execute(sql`
+      WITH date_series AS (
+        SELECT TO_CHAR(
+          generate_series(
+            (NOW() AT TIME ZONE 'Asia/Damascus' - CAST(${days - 1} || ' days' AS INTERVAL))::date,
+            (NOW() AT TIME ZONE 'Asia/Damascus')::date,
+            '1 day'::interval
+          ),
+          'YYYY-MM-DD'
+        ) AS date
+      ),
+      daily AS (
+        SELECT
+          TO_CHAR(DATE_TRUNC('day', created_at AT TIME ZONE 'Asia/Damascus'), 'YYYY-MM-DD') AS date,
+          COUNT(*)::int AS count
+        FROM orders
+        WHERE courier_id = ${courierId}
+          AND status = 'delivered'
+          AND created_at >= ${since}
+        GROUP BY 1
+      )
+      SELECT d.date, COALESCE(c.count, 0)::int AS count
+      FROM date_series d
+      LEFT JOIN daily c ON c.date = d.date
+      ORDER BY d.date
+    `),
+    db.execute(sql`
+      SELECT
+        o.id,
+        o.status,
+        o.restaurant_name AS "restaurantName",
+        o.address,
+        o.order_text      AS "orderText",
+        o.delivery_fee    AS "deliveryFee",
+        o.created_at      AS "createdAt",
+        u.name            AS "customerName"
+      FROM orders o
+      LEFT JOIN users u ON u.id = o.user_id
+      WHERE o.courier_id = ${courierId}
+        AND o.created_at >= ${since}
+      ORDER BY o.created_at DESC
+      LIMIT 20
+    `),
+  ]);
+
+  res.json({
+    courierId,
+    days,
+    dailyDeliveries: (dailyRows.rows as { date: string; count: number }[]).map((r) => ({
+      date: r.date,
+      count: Number(r.count),
+    })),
+    recentOrders: (recentOrders.rows as Record<string, unknown>[]).map((r) => ({
+      ...r,
+      deliveryFee: Number(r["deliveryFee"] ?? 0),
+    })),
+  });
+});
+
 const STATUS_PUSH_MESSAGES: Record<string, string> = {
   accepted: "قبل مندوب طلبك وهو في الطريق لاستلامه!",
   picked_up: "المندوب استلم طلبك من المطعم 📦",
