@@ -6,14 +6,41 @@ import {
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
 } from "@workspace/api-zod";
-import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import { ObjectStorageService, ObjectNotFoundError, MAX_PUBLIC_UPLOAD_SIZE_BYTES } from "../lib/objectStorage";
 import { ObjectPermission } from "../lib/objectAcl";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
 
-const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+const MAX_UPLOAD_SIZE_BYTES = MAX_PUBLIC_UPLOAD_SIZE_BYTES;
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+const DAILY_UPLOAD_LIMIT = 50;
+
+interface UserUploadBucket {
+  count: number;
+  dateUtc: string;
+}
+
+const userUploadBuckets = new Map<string, UserUploadBucket>();
+
+function todayUtc(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function checkAndIncrementDailyQuota(userId: string): boolean {
+  const today = todayUtc();
+  const bucket = userUploadBuckets.get(userId);
+  if (!bucket || bucket.dateUtc !== today) {
+    userUploadBuckets.set(userId, { count: 1, dateUtc: today });
+    return true;
+  }
+  if (bucket.count >= DAILY_UPLOAD_LIMIT) {
+    return false;
+  }
+  bucket.count++;
+  return true;
+}
 
 function getJwtSecret(): string {
   const secret = process.env["JWT_SECRET"];
@@ -89,6 +116,16 @@ router.post("/storage/uploads/request-url", requireUploadAuth, uploadRateLimit, 
   if (size > MAX_UPLOAD_SIZE_BYTES) {
     res.status(400).json({ error: "حجم الملف يتجاوز الحد المسموح (5 ميغابايت)" });
     return;
+  }
+
+  const isAdmin = res.locals["isAdmin"] as boolean;
+  const userId = res.locals["userId"] as string | undefined;
+  if (!isAdmin && userId) {
+    const allowed = checkAndIncrementDailyQuota(userId);
+    if (!allowed) {
+      res.status(429).json({ error: "تجاوزت الحد اليومي لرفع الملفات" });
+      return;
+    }
   }
 
   try {

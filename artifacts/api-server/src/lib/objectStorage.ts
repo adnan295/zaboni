@@ -11,6 +11,8 @@ import {
 
 const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
 
+export const MAX_PUBLIC_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+
 export const objectStorageClient = new Storage({
   credentials: {
     audience: "replit",
@@ -206,6 +208,32 @@ export class ObjectStorageService {
       return false;
     }
     return true;
+  }
+
+  /**
+   * Scan the public uploads directory and delete any objects that fail size or
+   * magic-byte validation. Returns counts for observability logging.
+   */
+  async scanAndCleanPublicUploads(): Promise<{ scanned: number; deleted: number }> {
+    let scanned = 0;
+    let deleted = 0;
+
+    const publicPaths = this.getPublicObjectSearchPaths();
+    const baseDir = publicPaths[0];
+    const { bucketName, objectName: baseObjectName } = parseObjectPath(baseDir);
+    const bucket = objectStorageClient.bucket(bucketName);
+    const uploadsPrefix = `${baseObjectName}/uploads/`.replace(/^\//, "");
+
+    const [files] = await bucket.getFiles({ prefix: uploadsPrefix });
+    for (const file of files) {
+      scanned++;
+      const valid = await this.validatePublicUpload(file, MAX_PUBLIC_UPLOAD_SIZE_BYTES);
+      if (!valid) {
+        deleted++;
+      }
+    }
+
+    return { scanned, deleted };
   }
 
   async getPublicObjectUploadURL(contentType?: string): Promise<{ uploadURL: string; objectPath: string }> {
