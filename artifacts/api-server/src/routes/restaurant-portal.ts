@@ -1,6 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { db, restaurantUsersTable, restaurantsTable, menuItemsTable, restaurantHoursTable, ordersTable, otpCodesTable, orderRatingsTable, promoCodesTable, promoUsesTable, flashDealsTable } from "@workspace/db";
-import { eq, desc, and, gte, count, sql } from "drizzle-orm";
+import { eq, desc, and, gte, count, sum, sql } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -716,6 +716,28 @@ router.delete("/restaurant-portal/flash-deals/:id", requireRestaurantAuth, async
   if (!existing) { res.status(404).json({ error: "العرض غير موجود" }); return; }
   await db.delete(flashDealsTable).where(eq(flashDealsTable.id, dealId));
   res.status(204).end();
+});
+
+router.get("/restaurant-portal/flash-deals/:id/stats", requireRestaurantAuth, async (req, res) => {
+  const { restaurantId } = getRestaurantAuth(req);
+  const dealId = String(req.params["id"]);
+  const [deal] = await db.select({ id: flashDealsTable.id, maxUses: flashDealsTable.maxUses, usedCount: flashDealsTable.usedCount })
+    .from(flashDealsTable)
+    .where(and(eq(flashDealsTable.id, dealId), eq(flashDealsTable.restaurantId, restaurantId)))
+    .limit(1);
+  if (!deal) { res.status(404).json({ error: "العرض غير موجود" }); return; }
+
+  const [stats] = await db.select({
+    ordersCount: count(),
+    totalDiscount: sum(ordersTable.flashDealDiscount),
+    totalRevenue: sum(ordersTable.totalPrice),
+  }).from(ordersTable).where(eq(ordersTable.flashDealId, dealId));
+
+  const ordersCount = Number(stats?.ordersCount ?? 0);
+  const totalDiscount = Number(stats?.totalDiscount ?? 0);
+  const totalRevenue = Number(stats?.totalRevenue ?? 0);
+  const conversionRate = deal.maxUses ? Math.round((ordersCount / deal.maxUses) * 100) : null;
+  res.json({ ordersCount, totalDiscount, totalRevenue, conversionRate });
 });
 
 router.get("/restaurant-portal/promo-templates", requireRestaurantAuth, (_req, res) => {

@@ -27,7 +27,7 @@ import {
   flashDealsTable,
 } from "@workspace/db";
 import bcrypt from "bcryptjs";
-import { eq, count, desc, gte, lte, getTableColumns, and, sql, avg, asc, lt } from "drizzle-orm";
+import { eq, count, sum, desc, gte, lte, getTableColumns, and, sql, avg, asc, lt } from "drizzle-orm";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
 import { sendSmsViaGateway, isSmsGatewayConfigured } from "../lib/sms";
 import { sendAdminAlertWebhook } from "../lib/waverifyMonitor";
@@ -1410,6 +1410,25 @@ router.delete("/admin/flash-deals/:id", async (req, res) => {
   const id = String(req.params["id"]);
   await db.delete(flashDealsTable).where(eq(flashDealsTable.id, id));
   res.status(204).end();
+});
+
+router.get("/admin/flash-deals/:id/stats", async (req, res) => {
+  const id = String(req.params["id"]);
+  const [deal] = await db.select({ id: flashDealsTable.id, maxUses: flashDealsTable.maxUses, usedCount: flashDealsTable.usedCount })
+    .from(flashDealsTable).where(eq(flashDealsTable.id, id)).limit(1);
+  if (!deal) { res.status(404).json({ error: "العرض غير موجود" }); return; }
+
+  const [stats] = await db.select({
+    ordersCount: count(),
+    totalDiscount: sum(ordersTable.flashDealDiscount),
+    totalRevenue: sum(ordersTable.totalPrice),
+  }).from(ordersTable).where(eq(ordersTable.flashDealId, id));
+
+  const ordersCount = Number(stats?.ordersCount ?? 0);
+  const totalDiscount = Number(stats?.totalDiscount ?? 0);
+  const totalRevenue = Number(stats?.totalRevenue ?? 0);
+  const conversionRate = deal.maxUses ? Math.round((ordersCount / deal.maxUses) * 100) : null;
+  res.json({ ordersCount, totalDiscount, totalRevenue, conversionRate });
 });
 
 const DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];

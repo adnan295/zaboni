@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, type FlashDeal, type Restaurant } from "@/lib/api";
+import { api, type FlashDeal, type FlashDealStats, type Restaurant } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,6 +59,66 @@ const defaultForm = {
 
 type FormState = typeof defaultForm;
 
+function StatsRow({ dealId }: { dealId: string }) {
+  const { data, isLoading, isError } = useQuery<FlashDealStats>({
+    queryKey: ["admin", "flash-deal-stats", dealId],
+    queryFn: () => api.getFlashDealStats(dealId),
+  });
+
+  if (isLoading) {
+    return (
+      <tr>
+        <td colSpan={7} className="px-6 pb-3 pt-0">
+          <div className="bg-muted/30 rounded-lg px-4 py-3 text-sm text-muted-foreground">جارٍ تحميل الإحصائيات...</div>
+        </td>
+      </tr>
+    );
+  }
+  if (isError || !data) {
+    return (
+      <tr>
+        <td colSpan={7} className="px-6 pb-3 pt-0">
+          <div className="bg-muted/30 rounded-lg px-4 py-3 text-sm text-destructive">تعذّر تحميل الإحصائيات</div>
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <tr>
+      <td colSpan={7} className="px-6 pb-3 pt-0">
+        <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm" dir="rtl">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-blue-700">{data.ordersCount}</div>
+            <div className="text-muted-foreground mt-0.5">طلبات استخدمت العرض</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-red-600">{data.totalDiscount.toLocaleString()}</div>
+            <div className="text-muted-foreground mt-0.5">إجمالي الخصم (ل.س)</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-green-700">{data.totalRevenue.toLocaleString()}</div>
+            <div className="text-muted-foreground mt-0.5">إجمالي الإيرادات (ل.س)</div>
+          </div>
+          <div className="text-center">
+            {data.conversionRate != null ? (
+              <>
+                <div className="text-2xl font-bold text-purple-700">{data.conversionRate}%</div>
+                <div className="text-muted-foreground mt-0.5">معدل التحويل</div>
+              </>
+            ) : (
+              <>
+                <div className="text-2xl font-bold text-gray-400">—</div>
+                <div className="text-muted-foreground mt-0.5">معدل التحويل (بلا حد)</div>
+              </>
+            )}
+          </div>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 export default function FlashDeals() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -70,6 +130,7 @@ export default function FlashDeals() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(defaultForm);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [expandedStats, setExpandedStats] = useState<Set<string>>(new Set());
 
   const createMutation = useMutation({
     mutationFn: (data: Parameters<typeof api.createFlashDeal>[0]) => api.createFlashDeal(data),
@@ -138,6 +199,15 @@ export default function FlashDeals() {
     }
   }
 
+  function toggleStats(id: string) {
+    setExpandedStats((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   const isBusy = createMutation.isPending || updateMutation.isPending;
 
   return (
@@ -171,28 +241,40 @@ export default function FlashDeals() {
             <tbody className="divide-y">
               {deals.map((deal) => {
                 const status = getDealStatus(deal);
+                const isExpanded = expandedStats.has(deal.id);
                 return (
-                  <tr key={deal.id} className="hover:bg-muted/30">
-                    <td className="px-4 py-3 font-medium">{deal.restaurantName ?? deal.restaurantId}</td>
-                    <td className="px-4 py-3">{deal.title}</td>
-                    <td className="px-4 py-3 font-mono">
-                      {deal.discountType === "percent" ? `${deal.discountValue}%` : `${deal.discountValue.toLocaleString()} ل.س`}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">
-                      <div>{new Date(deal.startsAt).toLocaleString("ar-SY")}</div>
-                      <div>← {new Date(deal.endsAt).toLocaleString("ar-SY")}</div>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {deal.usedCount}{deal.maxUses != null ? ` / ${deal.maxUses}` : ""}
-                    </td>
-                    <td className={`px-4 py-3 font-medium ${status.color}`}>{status.label}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => openEdit(deal)}>تعديل</Button>
-                        <Button size="sm" variant="destructive" onClick={() => setDeleteId(deal.id)}>حذف</Button>
-                      </div>
-                    </td>
-                  </tr>
+                  <>
+                    <tr key={deal.id} className="hover:bg-muted/30">
+                      <td className="px-4 py-3 font-medium">{deal.restaurantName ?? deal.restaurantId}</td>
+                      <td className="px-4 py-3">{deal.title}</td>
+                      <td className="px-4 py-3 font-mono">
+                        {deal.discountType === "percent" ? `${deal.discountValue}%` : `${deal.discountValue.toLocaleString()} ل.س`}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        <div>{new Date(deal.startsAt).toLocaleString("ar-SY")}</div>
+                        <div>← {new Date(deal.endsAt).toLocaleString("ar-SY")}</div>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {deal.usedCount}{deal.maxUses != null ? ` / ${deal.maxUses}` : ""}
+                      </td>
+                      <td className={`px-4 py-3 font-medium ${status.color}`}>{status.label}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-2 flex-wrap">
+                          <Button
+                            size="sm"
+                            variant={isExpanded ? "secondary" : "outline"}
+                            onClick={() => toggleStats(deal.id)}
+                            title="عرض الإحصائيات"
+                          >
+                            📊
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => openEdit(deal)}>تعديل</Button>
+                          <Button size="sm" variant="destructive" onClick={() => setDeleteId(deal.id)}>حذف</Button>
+                        </div>
+                      </td>
+                    </tr>
+                    {isExpanded && <StatsRow key={`stats-${deal.id}`} dealId={deal.id} />}
+                  </>
                 );
               })}
             </tbody>
