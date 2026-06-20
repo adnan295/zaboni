@@ -783,6 +783,26 @@ export const api = {
       body: JSON.stringify(data),
     }),
   getLoyaltyUsers: () => apiFetch<LoyaltyUser[]>("/admin/loyalty-users"),
+
+  getCustomerSubscriptions: () =>
+    apiFetch<CustomerSubscriptionRow[]>("/admin/customer-subscriptions"),
+  createCustomerSubscription: (data: { userId: string; durationDays: number }) =>
+    apiFetch<CustomerSubscriptionRow>("/admin/customer-subscriptions", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  toggleCustomerSubscription: (id: string, isActive: boolean) =>
+    apiFetch<CustomerSubscriptionRow>(`/admin/customer-subscriptions/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ isActive }),
+    }),
+  getCustomerSubscriptionSettings: () =>
+    apiFetch<CustomerSubscriptionSettings>("/admin/subscription-settings"),
+  updateCustomerSubscriptionSettings: (data: CustomerSubscriptionSettings) =>
+    apiFetch<CustomerSubscriptionSettings>("/admin/subscription-settings", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
 };
 
 export type SlaAlert = {
@@ -929,4 +949,24 @@ export type WaVerifyHealthLogEntry = {
   httpStatus: number | null;
   message: string | null;
   checkedAt: string;
+};
+
+export type CustomerSubscriptionSettings = {
+  monthlyPrice: number;
+  subscriberDeliveryFee: number;
+};
+
+export type CustomerSubscriptionRow = {
+  id: string;
+  userId: string;
+  startsAt: string;
+  endsAt: string;
+  planType: string;
+  pricePaid: number;
+  isActive: boolean;
+  createdByAdmin: boolean;
+  createdAt: string;
+  userName: string | null;
+  userPhone: string;
+  walletBalance: number;
 };

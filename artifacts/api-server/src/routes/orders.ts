@@ -6,6 +6,7 @@ import { notifyOrderUpdate, notifyNearbyCouriers, notifyRestaurantNewOrder } fro
 import { haversineKm, getFeeForDistance, DEFAULT_DELIVERY_FEE_SYP, DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON } from "../lib/deliveryZones";
 import { getLoyaltySettings, calculateRedeemDiscount, redeemLoyaltyPoints } from "../lib/loyalty";
 import { checkAndAwardAchievements } from "../lib/achievements";
+import { isUserSubscribed, getSubscriptionSettings } from "../lib/customerSubscription";
 
 const router: IRouter = Router();
 
@@ -218,6 +219,12 @@ router.post("/orders", async (req, res) => {
   const distanceKm = haversineKm(originLat, originLon, destLat, destLon);
   const { fee: zoneFee } = await getFeeForDistance(distanceKm);
 
+  const [subscribed, subSettings] = await Promise.all([
+    isUserSubscribed(userId),
+    getSubscriptionSettings(),
+  ]);
+  const effectiveDeliveryFee = subscribed ? subSettings.subscriberDeliveryFee : zoneFee;
+
   let promoUseData: { promoId: string; discountAmount: number } | null = null;
   if (body.data.promoCode) {
     const promoResult = await validatePromoForUser(body.data.promoCode, userId, zoneFee, body.data.restaurantId);
@@ -268,7 +275,7 @@ router.post("/orders", async (req, res) => {
     address: body.data.address,
     destinationLat: destLat,
     destinationLon: destLon,
-    deliveryFee: zoneFee,
+    deliveryFee: effectiveDeliveryFee,
     totalPrice: body.data.totalPrice ?? null,
     flashDealId: null as string | null,
     flashDealDiscount: null as number | null,
@@ -352,7 +359,7 @@ router.post("/orders", async (req, res) => {
 
   const flashDealData = rows.appliedFlashDeal;
 
-  void notifyNearbyCouriers(destLat, destLon, body.data.restaurantName, zoneFee);
+  void notifyNearbyCouriers(destLat, destLon, body.data.restaurantName, effectiveDeliveryFee);
 
   if (body.data.restaurantId) {
     notifyRestaurantNewOrder(body.data.restaurantId, rows.inserted[0]);
@@ -364,6 +371,7 @@ router.post("/orders", async (req, res) => {
     appliedFlashDeal: flashDealData ? true : false,
     pointsDiscount: loyaltyRedeemData?.discountAmount ?? 0,
     pointsRedeemed: loyaltyRedeemData?.points ?? 0,
+    subscriberDiscount: subscribed,
   });
 });
 

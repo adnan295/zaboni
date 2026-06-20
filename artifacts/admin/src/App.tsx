@@ -35,6 +35,7 @@ import CancellationAnalysis from "@/pages/CancellationAnalysis";
 import CourierPerformancePage from "@/pages/CourierPerformance";
 import FlashDeals from "@/pages/FlashDeals";
 import Loyalty from "@/pages/Loyalty";
+import CustomerSubscriptions from "@/pages/CustomerSubscriptions";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -78,6 +79,7 @@ function Router({ onLogout }: { onLogout: () => void }) {
         <Route path="/courier-performance" component={CourierPerformancePage} />
         <Route path="/flash-deals" component={FlashDeals} />
         <Route path="/loyalty" component={Loyalty} />
+        <Route path="/customer-subscriptions" component={CustomerSubscriptions} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

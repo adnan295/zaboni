@@ -264,6 +264,7 @@ export default function ProfileScreen() {
     { icon: "favorite", label: t("profile.menu.favorites"), onPress: () => router.push("/favorites"), badge: favorites.length > 0 ? favorites.length : undefined },
     { icon: "location-on", label: t("profile.menu.addresses"), onPress: () => router.push("/addresses") },
     { icon: "stars", label: t("loyalty.viewHistory"), onPress: () => router.push("/loyalty-history") },
+    { icon: "local-shipping", label: t("subscription.menuLabel"), onPress: () => router.push("/subscription") },
     { icon: "notifications", label: t("profile.menu.notifications"), onPress: () => router.push("/notifications"), badge: unreadCount > 0 ? unreadCount : undefined },
     { icon: "payment", label: t("profile.menu.payments"), onPress: () => router.push("/payment-info") },
     { icon: "help-outline", label: t("profile.menu.support"), onPress: () => router.push("/support") },
