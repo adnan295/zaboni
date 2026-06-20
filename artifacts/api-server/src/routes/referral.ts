@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable, referralsTable, referralCodesTable, customerWalletTransactionsTable } from "@workspace/db";
-import { eq, desc, sql } from "drizzle-orm";
+import { and, eq, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getOrCreateReferralCode } from "../lib/referral";
 
@@ -14,20 +14,18 @@ router.get("/referrals/my-code", async (req, res) => {
   const userId = resolveUserId(req);
   const code = await getOrCreateReferralCode(userId);
 
-  const [referralStats] = await db
-    .select({ total: sql<number>`count(*)` })
-    .from(referralsTable)
-    .where(eq(referralsTable.referrerId, userId));
-
-  const paidReferrals = await db
-    .select({ total: sql<number>`coalesce(sum(commission_amount), 0)` })
-    .from(referralsTable)
-    .where(eq(referralsTable.referrerId, userId));
+  const [allReferrals, paidReferrals] = await Promise.all([
+    db.select({ total: sql<number>`count(*)` }).from(referralsTable).where(eq(referralsTable.referrerId, userId)),
+    db.select({ total: sql<number>`count(*)`, earned: sql<number>`coalesce(sum(commission_amount), 0)` })
+      .from(referralsTable)
+      .where(and(eq(referralsTable.referrerId, userId), eq(referralsTable.status, "paid"))),
+  ]);
 
   res.json({
     code,
-    totalReferrals: Number(referralStats?.total ?? 0),
-    totalEarned: Number(paidReferrals[0]?.total ?? 0),
+    totalReferrals: Number(allReferrals[0]?.total ?? 0),
+    totalPaidReferrals: Number(paidReferrals[0]?.total ?? 0),
+    totalEarned: Number(paidReferrals[0]?.earned ?? 0),
   });
 });
 

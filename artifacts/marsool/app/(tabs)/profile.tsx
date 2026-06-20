@@ -505,9 +505,9 @@ export default function ProfileScreen() {
                 />
                 <View style={styles.infoContent}>
                   <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>
-                    {tx.type === "commission"
+                    {tx.type === "referral_commission"
                       ? t("wallet.typeCommission")
-                      : tx.type === "payment"
+                      : tx.type === "order_payment"
                       ? t("wallet.typePayment")
                       : t("wallet.typeAdjustment")}
                   </Text>

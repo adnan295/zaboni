@@ -334,6 +334,21 @@ router.patch("/auth/me", async (req, res) => {
   }
   if (body.data.avatarUrl !== undefined) updates.avatarUrl = body.data.avatarUrl;
 
+  // Validate referral code BEFORE performing the profile update so we can
+  // reject self-referral with 400 without leaving a partial profile change.
+  if (body.data.referralCode) {
+    const code = body.data.referralCode.toUpperCase();
+    const [codeRow] = await db
+      .select({ userId: referralCodesTable.userId })
+      .from(referralCodesTable)
+      .where(eq(referralCodesTable.code, code))
+      .limit(1);
+    if (codeRow && codeRow.userId === userId) {
+      res.status(400).json({ error: "self_referral" });
+      return;
+    }
+  }
+
   if (Object.keys(updates).length === 0) {
     const existing = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
     if (existing.length === 0) { res.status(404).json({ error: "User not found" }); return; }
