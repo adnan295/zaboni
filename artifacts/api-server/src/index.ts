@@ -18,6 +18,7 @@ import { addFlashDeals } from "@workspace/db/migrations/add-flash-deals";
 import { addLoyalty } from "@workspace/db/migrations/add-loyalty";
 import { addUserAchievements } from "@workspace/db/migrations/add-user-achievements";
 import { addCustomerSubscriptions } from "@workspace/db/migrations/add-customer-subscriptions";
+import { addUserBlocked } from "@workspace/db/migrations/add-user-blocked";
 
 const rawPort = process.env["PORT"];
 
@@ -88,5 +89,8 @@ httpServer.listen(port, (err?: Error) => {
   );
   addCustomerSubscriptions().catch((e: unknown) =>
     logger.error({ err: e }, "Failed to run customer subscriptions migration"),
+  );
+  addUserBlocked().catch((e: unknown) =>
+    logger.error({ err: e }, "Failed to run user blocked migration"),
   );
 });

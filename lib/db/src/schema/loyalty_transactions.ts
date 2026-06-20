@@ -4,7 +4,7 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 export const loyaltyTransactionsTable = pgTable("loyalty_transactions", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull(),
-  type: text("type", { enum: ["earn", "redeem"] }).notNull(),
+  type: text("type", { enum: ["earn", "redeem", "admin_adjust"] }).notNull(),
   points: integer("points").notNull(),
   orderId: text("order_id"),
   description: text("description").notNull().default(""),
