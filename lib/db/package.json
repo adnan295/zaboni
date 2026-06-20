@@ -23,7 +23,8 @@
     "./migrations/add-user-blocked": "./src/migrations/add-user-blocked.ts",
     "./migrations/add-user-notifications": "./src/migrations/add-user-notifications.ts",
     "./migrations/add-order-items": "./src/migrations/add-order-items.ts",
-    "./migrations/add-menu-deal-discount-percent": "./src/migrations/add-menu-deal-discount-percent.ts"
+    "./migrations/add-menu-deal-discount-percent": "./src/migrations/add-menu-deal-discount-percent.ts",
+    "./migrations/add-support-messages": "./src/migrations/add-support-messages.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",
