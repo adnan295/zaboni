@@ -124,6 +124,17 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
       return;
     }
 
+    // User-uploaded objects land under uploads/. Validate actual size and magic
+    // bytes before serving — this catches oversized or non-image payloads that
+    // bypassed the client-declared metadata check at upload-URL request time.
+    if (filePath.startsWith("uploads/")) {
+      const valid = await objectStorageService.validatePublicUpload(file, MAX_UPLOAD_SIZE_BYTES);
+      if (!valid) {
+        res.status(404).json({ error: "File not found" });
+        return;
+      }
+    }
+
     const response = await objectStorageService.downloadObject(file);
 
     res.status(response.status);
