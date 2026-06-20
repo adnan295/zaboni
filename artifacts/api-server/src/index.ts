@@ -1,5 +1,7 @@
 import { createServer } from "http";
+import { Server as SocketServer } from "socket.io";
 import app from "./app";
+import { setupOrdersNamespace } from "./orders/server";
 import { startOrderExpiryJob } from "./lib/orderExpiry";
 import { startDealExpiryJob } from "./lib/dealExpiry";
 import { logger } from "./lib/logger";
@@ -39,6 +41,12 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 const httpServer = createServer(app);
+
+const io = new SocketServer(httpServer, {
+  path: "/api/socket.io",
+  cors: { origin: "*" },
+});
+setupOrdersNamespace(io);
 
 httpServer.listen(port, (err?: Error) => {
   if (err) {

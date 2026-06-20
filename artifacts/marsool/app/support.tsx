@@ -81,6 +81,7 @@ export default function SupportScreen() {
     const socketUrl =
       base || (typeof window !== "undefined" ? window?.location?.origin : "") || "";
     const socket: Socket = io(`${socketUrl}/orders`, {
+      path: "/api/socket.io",
       auth: { token },
       transports: ["websocket"],
       reconnection: true,
