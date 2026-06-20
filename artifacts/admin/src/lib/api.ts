@@ -186,6 +186,7 @@ export type Courier = {
 export type SupportMessage = {
   id: string;
   userId: string;
+  ticketId: string | null;
   text: string;
   senderRole: "customer" | "support";
   isRead: boolean;
@@ -204,6 +205,40 @@ export type SupportConversation = {
 
 export type SupportThread = {
   user: { name: string | null; phone: string | null };
+  messages: SupportMessage[];
+};
+
+export type SupportTicketCategory = "order_delayed" | "wrong_items" | "damaged" | "payment" | "other";
+export type SupportTicketStatus = "open" | "resolved";
+
+export type AdminTicket = {
+  id: string;
+  userId: string;
+  userName: string | null;
+  userPhone: string | null;
+  orderId: string | null;
+  orderRef: string | null;
+  category: SupportTicketCategory;
+  status: SupportTicketStatus;
+  createdAt: string;
+  resolvedAt: string | null;
+  unreadCount: number;
+  lastMessage: string | null;
+  lastMessageAt: string | null;
+};
+
+export type AdminTicketOrder = {
+  id: string;
+  restaurantName: string;
+  status: string;
+  totalPrice: number | null;
+  deliveryFee: number;
+  createdAt: string;
+  estimatedMinutes: number;
+};
+
+export type AdminTicketDetail = {
+  ticket: AdminTicket & { order: AdminTicketOrder | null };
   messages: SupportMessage[];
 };
 
@@ -584,6 +619,22 @@ export const api = {
       body: JSON.stringify({ text }),
     }),
   getSupportUnreadCount: () => apiFetch<{ count: number }>("/admin/support/unread-count"),
+
+  getAdminTickets: (filters?: { status?: string; category?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.status) params.set("status", filters.status);
+    if (filters?.category) params.set("category", filters.category);
+    const qs = params.toString();
+    return apiFetch<AdminTicket[]>(`/admin/support/tickets${qs ? `?${qs}` : ""}`);
+  },
+  getAdminTicket: (id: string) => apiFetch<AdminTicketDetail>(`/admin/support/tickets/${id}`),
+  sendAdminTicketReply: (id: string, text: string) =>
+    apiFetch<SupportMessage>(`/admin/support/tickets/${id}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    }),
+  resolveAdminTicket: (id: string) =>
+    apiFetch<{ ok: boolean }>(`/admin/support/tickets/${id}/resolve`, { method: "PATCH" }),
 
   getUsers: () => apiFetch<User[]>("/admin/users"),
   getUserDetail: (id: string) => apiFetch<UserDetail>(`/admin/users/${id}/detail`),
