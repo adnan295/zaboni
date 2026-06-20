@@ -23,6 +23,7 @@ import {
   orderStatusHistoryTable,
   homeSectionItemsTable,
   restaurantUsersTable,
+  adminNotesTable,
 } from "@workspace/db";
 import bcrypt from "bcryptjs";
 import { eq, count, desc, gte, lte, getTableColumns, and, sql, avg, asc, lt } from "drizzle-orm";
@@ -2457,6 +2458,61 @@ router.delete("/admin/restaurant-accounts/:id", async (req, res) => {
 });
 
 // ─── WhatsApp ─────────────────────────────────────────────────────────────────
+
+// ── Courier Notes ─────────────────────────────────────────────────────────────
+
+router.get("/admin/couriers/:courierId/notes", async (req, res) => {
+  const courierId = String(req.params["courierId"]);
+
+  const [courier] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(and(eq(usersTable.id, courierId), eq(usersTable.role, "courier")))
+    .limit(1);
+
+  if (!courier) {
+    res.status(404).json({ error: "Courier not found" });
+    return;
+  }
+
+  const notes = await db
+    .select()
+    .from(adminNotesTable)
+    .where(eq(adminNotesTable.courierId, courierId))
+    .orderBy(desc(adminNotesTable.createdAt))
+    .limit(3);
+
+  res.json(notes);
+});
+
+router.post("/admin/couriers/:courierId/notes", async (req, res) => {
+  const courierId = String(req.params["courierId"]);
+  const body = z.object({ text: z.string().min(1).max(1000) }).safeParse(req.body);
+
+  if (!body.success) {
+    res.status(400).json({ error: "النص مطلوب (1–1000 حرف)" });
+    return;
+  }
+
+  const [courier] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(and(eq(usersTable.id, courierId), eq(usersTable.role, "courier")))
+    .limit(1);
+
+  if (!courier) {
+    res.status(404).json({ error: "Courier not found" });
+    return;
+  }
+
+  const id = crypto.randomUUID();
+  const [note] = await db
+    .insert(adminNotesTable)
+    .values({ id, courierId, text: body.data.text, adminId: "admin" })
+    .returning();
+
+  res.status(201).json(note);
+});
 
 router.get("/admin/whatsapp/accounts", (_req, res) => {
   res.json(whatsappManager.getStatus());

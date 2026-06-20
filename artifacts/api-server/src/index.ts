@@ -13,6 +13,7 @@ import { addMenuItemAvailability } from "@workspace/db/migrations/add-menu-item-
 import { addPromoRestaurant } from "@workspace/db/migrations/add-promo-restaurant";
 import { addMenuItemDeals } from "@workspace/db/migrations/add-menu-item-deals";
 import { addDealExpiresAt } from "@workspace/db/migrations/add-deal-expires-at";
+import { addAdminNotes } from "@workspace/db/migrations/add-admin-notes";
 
 const rawPort = process.env["PORT"];
 
@@ -68,5 +69,8 @@ httpServer.listen(port, (err?: Error) => {
   );
   addDealExpiresAt().catch((e: unknown) =>
     logger.error({ err: e }, "Failed to run deal expires at migration"),
+  );
+  addAdminNotes().catch((e: unknown) =>
+    logger.error({ err: e }, "Failed to run admin notes migration"),
   );
 });

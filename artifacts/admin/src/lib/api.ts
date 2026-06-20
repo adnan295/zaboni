@@ -759,6 +759,14 @@ export const api = {
     apiFetch<CourierPerformanceRow[]>(`/admin/courier-performance?days=${days}`),
   getCourierPerformanceDetail: (courierId: string, days: number) =>
     apiFetch<CourierPerformanceDetail>(`/admin/courier-performance/${courierId}?days=${days}`),
+
+  getCourierNotes: (courierId: string) =>
+    apiFetch<AdminNote[]>(`/admin/couriers/${courierId}/notes`),
+  addCourierNote: (courierId: string, text: string) =>
+    apiFetch<AdminNote>(`/admin/couriers/${courierId}/notes`, {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    }),
 };
 
 export type SlaAlert = {
@@ -796,6 +804,14 @@ export type WAAccount = {
   status: "connecting" | "qr" | "connected" | "disconnected";
   qrDataUrl?: string;
   phone?: string;
+  createdAt: string;
+};
+
+export type AdminNote = {
+  id: string;
+  courierId: string;
+  text: string;
+  adminId: string;
   createdAt: string;
 };
 
