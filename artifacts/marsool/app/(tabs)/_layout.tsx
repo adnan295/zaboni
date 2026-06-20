@@ -19,21 +19,21 @@ function NativeTabLayout() {
   const { activeOrder } = useOrders();
   return (
     <NativeTabs>
-      <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: "house", selected: "house.fill" }} />
-        <Label>{t("tabs.home")}</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="favorites">
-        <Icon sf={{ default: "heart", selected: "heart.fill" }} />
-        <Label>{t("tabs.favorites")}</Label>
+      <NativeTabs.Trigger name="profile">
+        <Icon sf={{ default: "person", selected: "person.fill" }} />
+        <Label>{t("tabs.profile")}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="orders" badge={activeOrder ? "!" : undefined}>
         <Icon sf={{ default: "bag", selected: "bag.fill" }} />
         <Label>{t("tabs.orders")}</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="profile">
-        <Icon sf={{ default: "person", selected: "person.fill" }} />
-        <Label>{t("tabs.profile")}</Label>
+      <NativeTabs.Trigger name="favorites">
+        <Icon sf={{ default: "heart", selected: "heart.fill" }} />
+        <Label>{t("tabs.favorites")}</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="index">
+        <Icon sf={{ default: "house", selected: "house.fill" }} />
+        <Label>{t("tabs.home")}</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
@@ -86,26 +86,14 @@ function ClassicTabLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="profile"
         options={{
-          title: t("tabs.home"),
+          title: t("tabs.profile"),
           tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="house" tintColor={color} size={24} />
+              <SymbolView name="person" tintColor={color} size={24} />
             ) : (
-              <Feather name="home" size={22} color={color} />
-            ),
-        }}
-      />
-      <Tabs.Screen
-        name="favorites"
-        options={{
-          title: t("tabs.favorites"),
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="heart" tintColor={color} size={24} />
-            ) : (
-              <Feather name="heart" size={22} color={color} />
+              <Feather name="user" size={22} color={color} />
             ),
         }}
       />
@@ -124,14 +112,26 @@ function ClassicTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="favorites"
         options={{
-          title: t("tabs.profile"),
+          title: t("tabs.favorites"),
           tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="person" tintColor={color} size={24} />
+              <SymbolView name="heart" tintColor={color} size={24} />
             ) : (
-              <Feather name="user" size={22} color={color} />
+              <Feather name="heart" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: t("tabs.home"),
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="house" tintColor={color} size={24} />
+            ) : (
+              <Feather name="home" size={22} color={color} />
             ),
         }}
       />

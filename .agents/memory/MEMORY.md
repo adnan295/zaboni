@@ -1,2 +1,1 @@
 - [Restaurant-portal port fix](restaurant-portal-port.md) — artifact.toml port must be registered in .replit [[ports]] for workflow health-check to succeed.
-- [Marsool RTL tab bar](marsool-rtl-tab-bar.md) — bottom tab order keeps getting flipped; root cause is OTA not reaching device, not the JSX order. Don't flip again without on-device proof.
