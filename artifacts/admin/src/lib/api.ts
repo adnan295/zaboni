@@ -808,8 +808,10 @@ export type CourierPerformanceRow = {
   lastSeen: string | null;
   deliveries: number;
   cancelledAfterAssign: number;
+  totalAssigned: number;
   acceptanceRate: number | null;
   avgRating: number | null;
+  ratingCount: number;
   avgDeliveryMinutes: number | null;
 };
 
@@ -826,6 +828,12 @@ export type CourierPerformanceDetail = {
     deliveryFee: number;
     createdAt: string;
     customerName: string | null;
+  }[];
+  ratingHistory: {
+    stars: number;
+    ratedAt: string;
+    customerName: string | null;
+    restaurantName: string | null;
   }[];
 };
 
