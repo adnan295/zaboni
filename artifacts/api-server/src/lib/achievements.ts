@@ -150,14 +150,16 @@ export async function checkAndAwardAchievements(userId: string): Promise<Achieve
     if (newlyEarned.length === 0) return [];
 
     const now = new Date();
-    await db.insert(userAchievementsTable).values(
-      newlyEarned.map((def) => ({
-        id: `ua_${userId}_${def.key}_${now.getTime()}`,
-        userId,
-        achievementKey: def.key,
-        earnedAt: now,
-      })),
-    );
+    await db.insert(userAchievementsTable)
+      .values(
+        newlyEarned.map((def) => ({
+          id: `ua_${userId}_${def.key}_${now.getTime()}`,
+          userId,
+          achievementKey: def.key,
+          earnedAt: now,
+        })),
+      )
+      .onConflictDoNothing();
 
     for (const def of newlyEarned) {
       void sendPushToUsers([userId], `${def.icon} ${def.titleAr}`, def.descriptionAr, {
