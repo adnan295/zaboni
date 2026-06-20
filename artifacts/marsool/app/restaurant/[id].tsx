@@ -181,7 +181,8 @@ export default function RestaurantScreen() {
         <View style={[styles.popularStepper, { backgroundColor: accentColor }]}>
           <TouchableOpacity
             style={styles.popularStepperBtn}
-            onPress={() => removeFromCart(itemId, nameAr, price)}
+            onPress={canAdd ? () => removeFromCart(itemId, nameAr, price) : undefined}
+            disabled={!canAdd}
             hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           >
             <MaterialIcons name="remove" size={16} color="#fff" />
@@ -461,8 +462,8 @@ export default function RestaurantScreen() {
                         opacity: itemAvailable ? 1 : 0.5,
                       },
                     ]}
-                    onPress={canAdd ? () => addToCart(item.id, item.nameAr, dealPrice) : undefined}
-                    activeOpacity={canAdd ? 0.85 : 1}
+                    onPress={canAdd && !cart[item.id]?.qty ? () => addToCart(item.id, item.nameAr, dealPrice) : undefined}
+                    activeOpacity={canAdd && !cart[item.id]?.qty ? 0.85 : 1}
                   >
                     <Image source={{ uri: buildImageUrl(item.image) }} style={styles.popularImage} resizeMode="cover" />
                     <View style={styles.dealBadge}>
@@ -517,8 +518,8 @@ export default function RestaurantScreen() {
                         opacity: itemAvailable ? 1 : 0.5,
                       },
                     ]}
-                    onPress={canAdd ? () => addToCart(item.id, item.nameAr, effectivePrice) : undefined}
-                    activeOpacity={canAdd ? 0.85 : 1}
+                    onPress={canAdd && !cart[item.id]?.qty ? () => addToCart(item.id, item.nameAr, effectivePrice) : undefined}
+                    activeOpacity={canAdd && !cart[item.id]?.qty ? 0.85 : 1}
                   >
                     <Image source={{ uri: buildImageUrl(item.image) }} style={styles.popularImage} resizeMode="cover" />
                     {itemIsDeal && (
