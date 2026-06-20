@@ -29,6 +29,9 @@ import {
   userAchievementsTable,
   achievementsTable,
   customerSubscriptionsTable,
+  referralsTable,
+  referralCodesTable,
+  customerWalletTransactionsTable,
 } from "@workspace/db";
 import bcrypt from "bcryptjs";
 import { eq, count, sum, desc, gte, lte, getTableColumns, and, sql, avg, asc, lt } from "drizzle-orm";
@@ -3018,6 +3021,73 @@ router.patch("/admin/customer-subscriptions/:id", async (req, res) => {
   }
 
   res.json(updated);
+});
+
+router.get("/admin/referral-stats", async (_req, res) => {
+  const [totalRow] = await db.select({ total: count() }).from(referralsTable);
+  const [paidRow] = await db.select({ total: count() }).from(referralsTable).where(eq(referralsTable.status, "paid"));
+  const [commissionsRow] = await db.select({ total: sum(referralsTable.commissionAmount) }).from(referralsTable).where(eq(referralsTable.status, "paid"));
+
+  const referrals = await db
+    .select({
+      id: referralsTable.id,
+      referrerId: referralsTable.referrerId,
+      referrerName: usersTable.name,
+      referrerPhone: usersTable.phone,
+      referredUserId: referralsTable.referredUserId,
+      commissionAmount: referralsTable.commissionAmount,
+      status: referralsTable.status,
+      createdAt: referralsTable.createdAt,
+    })
+    .from(referralsTable)
+    .leftJoin(usersTable, eq(referralsTable.referrerId, usersTable.id))
+    .orderBy(desc(referralsTable.createdAt))
+    .limit(100);
+
+  const referredUsersIds = referrals.map((r) => r.referredUserId);
+  let referredNames: Map<string, { name: string; phone: string }> = new Map();
+  if (referredUsersIds.length > 0) {
+    const { inArray } = await import("drizzle-orm");
+    const referredRows = await db
+      .select({ id: usersTable.id, name: usersTable.name, phone: usersTable.phone })
+      .from(usersTable)
+      .where(inArray(usersTable.id, referredUsersIds));
+    referredNames = new Map(referredRows.map((r) => [r.id, { name: r.name, phone: r.phone }]));
+  }
+
+  const topReferrers = await db
+    .select({
+      referrerId: referralsTable.referrerId,
+      referrerName: usersTable.name,
+      referrerPhone: usersTable.phone,
+      cnt: count(),
+      earned: sum(referralsTable.commissionAmount),
+    })
+    .from(referralsTable)
+    .leftJoin(usersTable, eq(referralsTable.referrerId, usersTable.id))
+    .groupBy(referralsTable.referrerId, usersTable.name, usersTable.phone)
+    .orderBy(desc(count()))
+    .limit(10);
+
+  res.json({
+    totalReferrals: Number(totalRow?.total ?? 0),
+    paidReferrals: Number(paidRow?.total ?? 0),
+    totalCommissions: Number(commissionsRow?.total ?? 0),
+    topReferrers: topReferrers.map((r) => ({
+      userId: r.referrerId,
+      name: r.referrerName ?? "",
+      phone: r.referrerPhone ?? "",
+      count: Number(r.cnt),
+      earned: Number(r.earned ?? 0),
+    })),
+    referrals: referrals.map((r) => ({
+      ...r,
+      referrerName: r.referrerName ?? "",
+      referrerPhone: r.referrerPhone ?? "",
+      referredName: referredNames.get(r.referredUserId)?.name ?? "",
+      referredPhone: referredNames.get(r.referredUserId)?.phone ?? "",
+    })),
+  });
 });
 
 router.get("/admin/whatsapp/accounts", (_req, res) => {

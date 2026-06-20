@@ -15,6 +15,7 @@ import loyaltyRouter from "./loyalty";
 import achievementsRouter from "./achievements";
 import subscriptionsRouter from "./subscriptions";
 import supportRouter from "./support";
+import referralRouter from "./referral";
 import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
@@ -38,5 +39,6 @@ router.use(favoritesRouter);
 router.use(loyaltyRouter);
 router.use(achievementsRouter);
 router.use(subscriptionsRouter);
+router.use(referralRouter);
 
 export default router;

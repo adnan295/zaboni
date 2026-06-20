@@ -25,7 +25,8 @@
     "./migrations/add-order-items": "./src/migrations/add-order-items.ts",
     "./migrations/add-menu-deal-discount-percent": "./src/migrations/add-menu-deal-discount-percent.ts",
     "./migrations/add-support-messages": "./src/migrations/add-support-messages.ts",
-    "./migrations/add-support-tickets": "./src/migrations/add-support-tickets.ts"
+    "./migrations/add-support-tickets": "./src/migrations/add-support-tickets.ts",
+    "./migrations/add-referral-system": "./src/migrations/add-referral-system.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",

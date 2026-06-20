@@ -11,7 +11,9 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Animated,
+  Share,
 } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { Image } from "expo-image";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -57,6 +59,14 @@ interface LoyaltyBalance {
   earnRate: number;
 }
 
+interface WalletTransaction {
+  id: string;
+  type: string;
+  amount: number;
+  note: string | null;
+  createdAt: string;
+}
+
 interface Achievement {
   key: string;
   icon: string;
@@ -97,6 +107,11 @@ export default function ProfileScreen() {
 
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loyaltyData, setLoyaltyData] = useState<LoyaltyBalance | null>(null);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [walletTransactions, setWalletTransactions] = useState<WalletTransaction[]>([]);
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [referralStats, setReferralStats] = useState<{ totalReferrals: number; totalEarned: number } | null>(null);
+  const [codeCopied, setCodeCopied] = useState(false);
   const [achievementsData, setAchievementsData] = useState<AchievementsData | null>(null);
   const [celebrationAchievement, setCelebrationAchievement] = useState<Achievement | null>(null);
   const [supportUnreadCount, setSupportUnreadCount] = useState(0);
@@ -158,6 +173,31 @@ export default function ProfileScreen() {
     }
   }, [user?.id, isCourier]);
 
+  const fetchWallet = useCallback(async () => {
+    if (!user || isCourier) return;
+    try {
+      const [balData, txData] = await Promise.all([
+        customFetch("/api/wallet/balance") as Promise<{ balance: number }>,
+        customFetch("/api/wallet/transactions") as Promise<{ transactions: WalletTransaction[] }>,
+      ]);
+      setWalletBalance(balData.balance);
+      setWalletTransactions(txData.transactions ?? []);
+    } catch {
+      setWalletBalance(null);
+    }
+  }, [user?.id, isCourier]);
+
+  const fetchReferral = useCallback(async () => {
+    if (!user || isCourier) return;
+    try {
+      const data = await customFetch("/api/referrals/my-code") as { code: string; totalReferrals: number; totalEarned: number };
+      setReferralCode(data.code);
+      setReferralStats({ totalReferrals: data.totalReferrals, totalEarned: data.totalEarned });
+    } catch {
+      setReferralCode(null);
+    }
+  }, [user?.id, isCourier]);
+
   const fetchSubscriptionStatus = useCallback(async () => {
     if (!user || isCourier) return;
     try {
@@ -214,7 +254,9 @@ export default function ProfileScreen() {
       fetchAchievements();
       fetchSubscriptionStatus();
       void fetchSupportUnread();
-    }, [fetchApplication, fetchCustomerStats, fetchLoyalty, fetchAchievements, fetchSubscriptionStatus, fetchSupportUnread])
+      void fetchWallet();
+      void fetchReferral();
+    }, [fetchApplication, fetchCustomerStats, fetchLoyalty, fetchAchievements, fetchSubscriptionStatus, fetchSupportUnread, fetchWallet, fetchReferral])
   );
 
   useEffect(() => {
@@ -431,6 +473,129 @@ export default function ProfileScreen() {
             </View>
             <MaterialIcons name="chevron-left" size={22} color="rgba(255,255,255,0.7)" />
           </TouchableOpacity>
+        )}
+
+        {/* Wallet card */}
+        {!isCourier && walletBalance !== null && (
+          <View style={[styles.loyaltyCard, { backgroundColor: "#15803d" }]}>
+            <View style={styles.loyaltyLeft}>
+              <MaterialIcons name="account-balance-wallet" size={28} color="#fff" />
+              <View>
+                <Text style={styles.loyaltyLabel}>{t("wallet.balance")}</Text>
+                <Text style={styles.loyaltyPoints}>
+                  {walletBalance.toLocaleString()} {t("wallet.currency")}
+                </Text>
+                {walletBalance === 0 && (
+                  <Text style={styles.loyaltyValue}>{t("wallet.noBalanceHint")}</Text>
+                )}
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Wallet transactions */}
+        {!isCourier && walletTransactions.length > 0 && (
+          <View style={[styles.achievementsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.achievementsSectionTitle, { color: colors.foreground }]}>
+              {t("wallet.transactionsTitle")}
+            </Text>
+            {walletTransactions.slice(0, 5).map((tx) => (
+              <View key={tx.id} style={[styles.infoRow, { paddingVertical: 8 }]}>
+                <MaterialIcons
+                  name={tx.amount > 0 ? "add-circle-outline" : "remove-circle-outline"}
+                  size={18}
+                  color={tx.amount > 0 ? "#16a34a" : "#dc2626"}
+                />
+                <View style={styles.infoContent}>
+                  <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>
+                    {tx.type === "commission"
+                      ? t("wallet.typeCommission")
+                      : tx.type === "payment"
+                      ? t("wallet.typePayment")
+                      : t("wallet.typeAdjustment")}
+                  </Text>
+                  <Text style={[styles.infoValue, { color: tx.amount > 0 ? "#16a34a" : "#dc2626", fontWeight: "700" }]}>
+                    {tx.amount > 0 ? "+" : ""}{tx.amount.toLocaleString()} {t("wallet.currency")}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Referral card */}
+        {!isCourier && referralCode !== null && (
+          <View style={[styles.achievementsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.referralHeader}>
+              <MaterialIcons name="card-giftcard" size={22} color={colors.primary} />
+              <Text style={[styles.achievementsSectionTitle, { color: colors.foreground, marginBottom: 0, flex: 1, marginLeft: 8 }]}>
+                {t("referral.title")}
+              </Text>
+            </View>
+
+            <Text style={[styles.infoLabel, { color: colors.mutedForeground, marginTop: 12, marginBottom: 6 }]}>
+              {t("referral.codeLabel")}
+            </Text>
+            <View style={styles.referralCodeRow}>
+              <Text style={[styles.referralCode, { color: colors.primary, borderColor: colors.primary + "40", backgroundColor: colors.primary + "10" }]}>
+                {referralCode}
+              </Text>
+              <TouchableOpacity
+                style={[styles.referralBtn, { backgroundColor: colors.secondary }]}
+                onPress={async () => {
+                  await Clipboard.setStringAsync(referralCode);
+                  setCodeCopied(true);
+                  setTimeout(() => setCodeCopied(false), 2000);
+                }}
+              >
+                <MaterialIcons name={codeCopied ? "check" : "content-copy"} size={18} color={colors.primary} />
+                <Text style={[styles.referralBtnText, { color: colors.primary }]}>
+                  {codeCopied ? t("referral.copied") : t("referral.copy")}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.referralBtn, { backgroundColor: colors.secondary }]}
+                onPress={() => {
+                  Share.share({ message: `${t("referral.codeLabel")}: ${referralCode}` });
+                }}
+              >
+                <MaterialIcons name="share" size={18} color={colors.primary} />
+                <Text style={[styles.referralBtnText, { color: colors.primary }]}>{t("referral.share")}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {referralStats !== null && (
+              <View style={styles.referralStatsRow}>
+                <View style={styles.referralStatItem}>
+                  <Text style={[styles.referralStatValue, { color: colors.foreground }]}>
+                    {referralStats.totalReferrals}
+                  </Text>
+                  <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>{t("referral.totalReferrals")}</Text>
+                </View>
+                <View style={[styles.referralStatDivider, { backgroundColor: colors.border }]} />
+                <View style={styles.referralStatItem}>
+                  <Text style={[styles.referralStatValue, { color: "#16a34a" }]}>
+                    {referralStats.totalEarned.toLocaleString()} {t("wallet.currency")}
+                  </Text>
+                  <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>{t("referral.totalEarned")}</Text>
+                </View>
+              </View>
+            )}
+
+            <View style={[styles.referralSteps, { backgroundColor: colors.secondary, borderRadius: 12, padding: 12, marginTop: 12 }]}>
+              <Text style={[styles.achievementsSectionTitle, { color: colors.foreground, marginBottom: 8, fontSize: 13 }]}>
+                {t("referral.howItWorksTitle")}
+              </Text>
+              {[t("referral.step1"), t("referral.step2"), t("referral.step3")].map((step, i) => (
+                <View key={i} style={styles.referralStep}>
+                  <View style={[styles.referralStepNum, { backgroundColor: colors.primary }]}>
+                    <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>{i + 1}</Text>
+                  </View>
+                  <Text style={[{ color: colors.foreground, fontSize: 13, flex: 1 }]}>{step}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
         )}
 
         {/* Achievements */}
@@ -1045,5 +1210,73 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "700",
+  },
+  referralHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  referralCodeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+    marginBottom: 4,
+  },
+  referralCode: {
+    fontSize: 22,
+    fontWeight: "900",
+    letterSpacing: 3,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    overflow: "hidden",
+  },
+  referralBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  referralBtnText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  referralStatsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 12,
+    gap: 0,
+  },
+  referralStatItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+  referralStatDivider: {
+    width: 1,
+    height: 32,
+    marginHorizontal: 8,
+  },
+  referralStatValue: {
+    fontSize: 18,
+    fontWeight: "800",
+    marginBottom: 2,
+  },
+  referralSteps: {},
+  referralStep: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    marginBottom: 8,
+  },
+  referralStepNum: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
   },
 });

@@ -32,6 +32,8 @@
       "title": "ما اسمك؟",
       "subtitle": "سنستخدمه لمخاطبتك في التطبيق",
       "placeholder": "اسمك الكامل",
+      "referralPlaceholder": "كود الإحالة (اختياري)",
+      "referralHint": "إن أحالك أحد الأصدقاء، أدخل كوده هنا",
       "loading": "جاري الدخول...",
       "start": "ابدأ الطلب",
       "errorTitle": "خطأ",
@@ -859,5 +861,33 @@
     "switchTitle": "بدء سلة جديدة؟",
     "switchBody": "سلتك تحتوي على أصناف من {{restaurant}}. هل تريد إفراغها والبدء من جديد؟",
     "switchConfirm": "سلة جديدة"
+  },
+  "wallet": {
+    "title": "محفظتي",
+    "balance": "رصيد المحفظة",
+    "currency": "ل.س",
+    "noBalance": "رصيدك صفر",
+    "noBalanceHint": "احصل على رصيد عبر إحالة أصدقائك",
+    "useWallet": "استخدم رصيد المحفظة",
+    "useWalletDesc": "رصيد {{balance}} ل.س · خصم {{discount}} ل.س على التوصيل",
+    "transactionsTitle": "سجل المحفظة",
+    "noTransactions": "لا توجد معاملات بعد",
+    "typeCommission": "عمولة إحالة",
+    "typePayment": "خصم على طلب",
+    "typeAdjustment": "تعديل إداري"
+  },
+  "referral": {
+    "title": "أحِل أصدقاءك",
+    "myCode": "كودي",
+    "codeLabel": "شارك هذا الكود مع أصدقائك",
+    "copy": "نسخ",
+    "copied": "تم النسخ!",
+    "share": "مشاركة",
+    "totalReferrals": "إجمالي الإحالات",
+    "totalEarned": "إجمالي المكسب",
+    "howItWorksTitle": "كيف يعمل النظام؟",
+    "step1": "شارك كودك الخاص مع صديق",
+    "step2": "يُدخل الكود عند التسجيل",
+    "step3": "عند تسليم طلبه الأول، تحصل على 5٪ من قيمته"
   }
 }

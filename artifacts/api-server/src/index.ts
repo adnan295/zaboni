@@ -27,6 +27,7 @@ import { addOrderItems } from "@workspace/db/migrations/add-order-items";
 import { migrate as addMenuDealDiscountPercent } from "@workspace/db/migrations/add-menu-deal-discount-percent";
 import { addSupportMessages } from "@workspace/db/migrations/add-support-messages";
 import { addSupportTickets } from "@workspace/db/migrations/add-support-tickets";
+import { addReferralSystem } from "@workspace/db/migrations/add-referral-system";
 
 const rawPort = process.env["PORT"];
 
@@ -122,5 +123,8 @@ httpServer.listen(port, (err?: Error) => {
   );
   addSupportTickets().catch((e: unknown) =>
     logger.error({ err: e }, "Failed to run support tickets migration"),
+  );
+  addReferralSystem().catch((e: unknown) =>
+    logger.error({ err: e }, "Failed to run referral system migration"),
   );
 });

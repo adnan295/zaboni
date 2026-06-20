@@ -32,6 +32,8 @@
       "title": "What's your name?",
       "subtitle": "We'll use it to address you in the app",
       "placeholder": "Full name",
+      "referralPlaceholder": "Referral code (optional)",
+      "referralHint": "If a friend referred you, enter their code here",
       "loading": "Signing in...",
       "start": "Start Ordering",
       "errorTitle": "Error",
@@ -859,5 +861,33 @@
     "switchTitle": "Start a new cart?",
     "switchBody": "Your cart has items from {{restaurant}}. Empty it and start over?",
     "switchConfirm": "New cart"
+  },
+  "wallet": {
+    "title": "My Wallet",
+    "balance": "Wallet Balance",
+    "currency": "SYP",
+    "noBalance": "Zero balance",
+    "noBalanceHint": "Earn credit by referring friends",
+    "useWallet": "Use wallet credit",
+    "useWalletDesc": "Balance {{balance}} SYP · Discount {{discount}} SYP on delivery",
+    "transactionsTitle": "Wallet History",
+    "noTransactions": "No transactions yet",
+    "typeCommission": "Referral commission",
+    "typePayment": "Order discount",
+    "typeAdjustment": "Admin adjustment"
+  },
+  "referral": {
+    "title": "Refer Friends",
+    "myCode": "My Code",
+    "codeLabel": "Share this code with friends",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "share": "Share",
+    "totalReferrals": "Total referrals",
+    "totalEarned": "Total earned",
+    "howItWorksTitle": "How does it work?",
+    "step1": "Share your unique code with a friend",
+    "step2": "They enter it when signing up",
+    "step3": "When their first order is delivered, you earn 5% of its value"
   }
 }
