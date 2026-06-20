@@ -307,13 +307,30 @@ router.get("/home-sections/:section", async (req, res) => {
 
   let restaurantIds: string[] = manualItems.map((i) => i.restaurantId);
 
+  const flashRestaurantIds = new Set<string>();
+
   if (section === "deals") {
-    const dealItems = await db
-      .select({ restaurantId: menuItemsTable.restaurantId })
-      .from(menuItemsTable)
-      .where(eq(menuItemsTable.isDeal, true));
+    const now = new Date();
+    const [dealItems, flashItems] = await Promise.all([
+      db
+        .select({ restaurantId: menuItemsTable.restaurantId })
+        .from(menuItemsTable)
+        .where(eq(menuItemsTable.isDeal, true)),
+      db
+        .select({ restaurantId: flashDealsTable.restaurantId })
+        .from(flashDealsTable)
+        .where(
+          and(
+            eq(flashDealsTable.isActive, true),
+            lte(flashDealsTable.startsAt, now),
+            gt(flashDealsTable.endsAt, now),
+            or(isNull(flashDealsTable.maxUses), lt(flashDealsTable.usedCount, flashDealsTable.maxUses))
+          )
+        ),
+    ]);
     const dealRestaurantIds = [...new Set(dealItems.map((i) => i.restaurantId))];
-    const combined = [...new Set([...restaurantIds, ...dealRestaurantIds])];
+    for (const f of flashItems) flashRestaurantIds.add(f.restaurantId);
+    const combined = [...new Set([...restaurantIds, ...dealRestaurantIds, ...flashRestaurantIds])];
     restaurantIds = combined;
   }
 
@@ -328,7 +345,13 @@ router.get("/home-sections/:section", async (req, res) => {
     .where(inArray(restaurantsTable.id, restaurantIds));
 
   const map = new Map(restaurants.map((r) => [r.id, r]));
-  const ordered = restaurantIds.map((id) => map.get(id)).filter(Boolean);
+  const ordered = restaurantIds
+    .map((id) => {
+      const r = map.get(id);
+      if (!r) return null;
+      return { ...r, hasFlashDeal: flashRestaurantIds.has(id) };
+    })
+    .filter(Boolean);
   res.json(ordered);
 });
 
