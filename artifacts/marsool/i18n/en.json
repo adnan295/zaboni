@@ -888,7 +888,7 @@
     "noBalance": "Zero balance",
     "noBalanceHint": "Earn credit by referring friends",
     "useWallet": "Use wallet credit",
-    "useWalletDesc": "Balance {{balance}} SYP · Discount {{discount}} SYP on delivery",
+    "useWalletDesc": "Balance {{balance}} SYP · Discount {{discount}} SYP",
     "transactionsTitle": "Wallet History",
     "noTransactions": "No transactions yet",
     "typeCommission": "Referral commission",

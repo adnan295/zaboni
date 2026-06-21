@@ -480,7 +480,7 @@ export default function OrderRequestScreen() {
               <Text style={[styles.addrText, { color: useWallet ? "#15803d" : colors.foreground, fontWeight: "700" }]}>
                 {t("wallet.useWalletDesc", {
                   balance: walletBalance.toLocaleString(),
-                  discount: Math.min(walletBalance, effectiveDeliveryFee).toLocaleString(),
+                  discount: Math.min(walletBalance, subtotal + effectiveDeliveryFee).toLocaleString(),
                 })}
               </Text>
             </View>
