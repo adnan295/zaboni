@@ -71,4 +71,39 @@ router.get("/config/home-filters", async (_req, res) => {
   }
 });
 
+const TAB_AVAILABLE_TYPES = [
+  { type: "home",      labelAr: "الرئيسية" },
+  { type: "favorites", labelAr: "المفضلة"  },
+  { type: "orders",    labelAr: "طلباتي"   },
+  { type: "profile",   labelAr: "حسابي"    },
+  { type: "offers",    labelAr: "عروض"     },
+  { type: "search",    labelAr: "بحث"      },
+] as const;
+
+const DEFAULT_TAB_BAR = [
+  { type: "home",      labelAr: "الرئيسية", order: 0 },
+  { type: "favorites", labelAr: "المفضلة",  order: 1 },
+  { type: "orders",    labelAr: "طلباتي",   order: 2 },
+  { type: "profile",   labelAr: "حسابي",    order: 3 },
+];
+
+router.get("/config/tab-bar", async (_req, res) => {
+  try {
+    const rows = await db
+      .select()
+      .from(systemSettingsTable)
+      .where(inArray(systemSettingsTable.key, ["tab_bar_config"]));
+    const row = rows[0];
+    if (!row) { res.json(DEFAULT_TAB_BAR); return; }
+    const parsed = JSON.parse(row.value);
+    res.json(Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_TAB_BAR);
+  } catch {
+    res.json(DEFAULT_TAB_BAR);
+  }
+});
+
+router.get("/config/tab-bar/available-types", (_req, res) => {
+  res.json(TAB_AVAILABLE_TYPES);
+});
+
 export default router;

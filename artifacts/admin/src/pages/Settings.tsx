@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, type HomeFilter } from "@/lib/api";
+import { api, type HomeFilter, type TabBarItem, type AvailableTabType } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -420,6 +420,7 @@ export default function Settings() {
       </Card>
 
       <HomeFiltersCard />
+      <TabBarCard />
     </div>
   );
 }
@@ -548,6 +549,146 @@ function HomeFiltersCard() {
           className="w-full mt-2"
         >
           {saveMutation.isPending ? "جارٍ الحفظ…" : "حفظ الفلاتر"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+const TAB_LABEL_MAP: Record<string, string> = {
+  home:      "الرئيسية",
+  favorites: "المفضلة",
+  orders:    "طلباتي",
+  profile:   "حسابي",
+  offers:    "عروض",
+  search:    "بحث",
+};
+
+function TabBarCard() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: config, isLoading: configLoading } = useQuery<TabBarItem[]>({
+    queryKey: ["admin", "tab-bar"],
+    queryFn: api.getTabBarConfig,
+  });
+
+  const { data: available = [] } = useQuery<AvailableTabType[]>({
+    queryKey: ["admin", "tab-bar-types"],
+    queryFn: api.getAvailableTabTypes,
+  });
+
+  const [items, setItems] = useState<TabBarItem[]>([]);
+  const [addType, setAddType] = useState<string>("");
+
+  useEffect(() => {
+    if (config) setItems(config);
+  }, [config]);
+
+  const saveMutation = useMutation({
+    mutationFn: api.saveTabBarConfig,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "tab-bar"] });
+      toast({ title: "تم حفظ شريط التبويبات ✓" });
+    },
+    onError: (e: Error) => {
+      toast({ title: e.message || "فشل الحفظ", variant: "destructive" });
+    },
+  });
+
+  const move = (idx: number, dir: -1 | 1) => {
+    const next = idx + dir;
+    if (next < 0 || next >= items.length) return;
+    setItems((prev) => {
+      const copy = [...prev];
+      [copy[idx], copy[next]] = [copy[next], copy[idx]];
+      return copy.map((x, i) => ({ ...x, order: i }));
+    });
+  };
+
+  const remove = (idx: number) => {
+    setItems((prev) => prev.filter((_, i) => i !== idx).map((x, i) => ({ ...x, order: i })));
+  };
+
+  const renameItem = (idx: number, val: string) => {
+    setItems((prev) => prev.map((x, i) => (i === idx ? { ...x, labelAr: val } : x)));
+  };
+
+  const addTab = () => {
+    if (!addType) return;
+    const def = available.find((a) => a.type === addType);
+    if (!def) return;
+    const newItem: TabBarItem = { type: def.type, labelAr: def.labelAr, order: items.length };
+    setItems((prev) => [...prev, newItem]);
+    setAddType("");
+  };
+
+  const usedTypes = new Set(items.map((x) => x.type));
+  const addableTypes = available.filter((a) => !usedTypes.has(a.type));
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>شريط التبويبات السفلي</CardTitle>
+        <CardDescription>
+          تحكم بالتبويبات التي تظهر في الشريط السفلي للتطبيق وترتيبها. تبويب الرئيسية إلزامي.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {configLoading ? (
+          <p className="text-sm text-muted-foreground">جارٍ التحميل…</p>
+        ) : (
+          items.map((item, idx) => (
+            <div key={`${item.type}-${idx}`} className="flex items-center gap-2 p-3 rounded-md border">
+              <div className="flex flex-col gap-1 flex-1">
+                <p className="text-xs text-muted-foreground">{TAB_LABEL_MAP[item.type] ?? item.type}</p>
+                <Input
+                  value={item.labelAr}
+                  onChange={(e) => renameItem(idx, e.target.value)}
+                  className="h-8 text-sm"
+                  dir="rtl"
+                  placeholder="اسم التبويب"
+                />
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <Button variant="ghost" size="sm" onClick={() => move(idx, -1)} disabled={idx === 0}
+                  className="h-8 w-8 p-0">↑</Button>
+                <Button variant="ghost" size="sm" onClick={() => move(idx, 1)} disabled={idx === items.length - 1}
+                  className="h-8 w-8 p-0">↓</Button>
+                <Button variant="ghost" size="sm" onClick={() => remove(idx)}
+                  disabled={item.type === "home"}
+                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                  aria-label="حذف">✕</Button>
+              </div>
+            </div>
+          ))
+        )}
+
+        {/* Add tab row */}
+        {addableTypes.length > 0 && (
+          <div className="flex gap-2 pt-1">
+            <Select value={addType} onValueChange={setAddType}>
+              <SelectTrigger className="flex-1 h-9">
+                <SelectValue placeholder="اختر تبويباً للإضافة…" />
+              </SelectTrigger>
+              <SelectContent>
+                {addableTypes.map((a) => (
+                  <SelectItem key={a.type} value={a.type}>{TAB_LABEL_MAP[a.type] ?? a.type}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button variant="outline" onClick={addTab} disabled={!addType} className="h-9 px-3">
+              ＋ إضافة
+            </Button>
+          </div>
+        )}
+
+        <Button
+          onClick={() => saveMutation.mutate(items)}
+          disabled={saveMutation.isPending || configLoading}
+          className="w-full mt-2"
+        >
+          {saveMutation.isPending ? "جارٍ الحفظ…" : "حفظ الشريط السفلي"}
         </Button>
       </CardContent>
     </Card>

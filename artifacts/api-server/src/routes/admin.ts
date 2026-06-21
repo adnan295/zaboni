@@ -2052,6 +2052,40 @@ router.put("/admin/settings/home-filters", requireAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
+const TAB_TYPES = ["home", "favorites", "orders", "profile", "offers", "search"] as const;
+const tabBarSchema = z
+  .array(
+    z.object({
+      type: z.enum(TAB_TYPES),
+      labelAr: z.string().min(1).max(30),
+      order: z.number().int().min(0),
+    })
+  )
+  .min(1)
+  .refine((items) => items.some((i) => i.type === "home"), {
+    message: "يجب وجود تبويب الرئيسية",
+  })
+  .refine((items) => new Set(items.map((i) => i.type)).size === items.length, {
+    message: "لا يمكن إضافة نفس التبويب مرتين",
+  });
+
+router.put("/admin/settings/tab-bar", requireAdmin, async (req, res) => {
+  const parsed = tabBarSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.errors[0]?.message ?? "بيانات غير صحيحة" });
+    return;
+  }
+  const ordered = parsed.data.map((item, i) => ({ ...item, order: i }));
+  await db
+    .insert(systemSettingsTable)
+    .values({ key: "tab_bar_config", value: JSON.stringify(ordered), updatedAt: new Date() })
+    .onConflictDoUpdate({
+      target: systemSettingsTable.key,
+      set: { value: JSON.stringify(ordered), updatedAt: new Date() },
+    });
+  res.json({ ok: true });
+});
+
 router.get("/admin/sms/status", async (_req, res) => {
   const jwtConfigured = !!(process.env["JWT_SECRET"]);
   const smsConfigured = await isSmsGatewayConfigured();
