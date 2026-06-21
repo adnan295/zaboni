@@ -562,6 +562,7 @@ const TAB_LABEL_MAP: Record<string, string> = {
   profile:   "حسابي",
   offers:    "عروض",
   search:    "بحث",
+  errand:    "🛍 اطلب من أي مكان",
 };
 
 function TabBarCard() {

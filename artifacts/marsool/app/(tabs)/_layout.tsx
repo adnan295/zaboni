@@ -1,11 +1,11 @@
 import { BlurView } from "expo-blur";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
-import { Tabs } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
 import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { SymbolView } from "expo-symbols";
 import { Feather } from "@expo/vector-icons";
 import React, { useMemo } from "react";
-import { I18nManager, Platform, StyleSheet, View, useColorScheme } from "react-native";
+import { I18nManager, Platform, StyleSheet, TouchableOpacity, View, useColorScheme } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 
@@ -16,7 +16,7 @@ import { getApiBaseUrl } from "@/lib/apiConfig";
 
 const BADGE_RED = "#DC2626";
 
-type TabType = "home" | "favorites" | "orders" | "profile" | "offers" | "search";
+type TabType = "home" | "favorites" | "orders" | "profile" | "offers" | "search" | "errand";
 
 type TabBarItem = {
   type: TabType;
@@ -28,7 +28,8 @@ const DEFAULT_TAB_BAR: TabBarItem[] = [
   { type: "home",      labelAr: "الرئيسية", order: 0 },
   { type: "favorites", labelAr: "المفضلة",  order: 1 },
   { type: "orders",    labelAr: "طلباتي",   order: 2 },
-  { type: "profile",   labelAr: "حسابي",    order: 3 },
+  { type: "errand",    labelAr: "اطلب",     order: 3 },
+  { type: "profile",   labelAr: "حسابي",    order: 4 },
 ];
 
 const TAB_SCREEN_NAME: Record<TabType, string> = {
@@ -38,6 +39,7 @@ const TAB_SCREEN_NAME: Record<TabType, string> = {
   profile:   "profile",
   offers:    "offers",
   search:    "search",
+  errand:    "errand",
 };
 
 type TabDef = {
@@ -47,15 +49,16 @@ type TabDef = {
 };
 
 const TAB_DEF: Record<TabType, TabDef> = {
-  home:      { sfDefault: "house",             sfSelected: "house.fill",              feather: "home"     },
-  favorites: { sfDefault: "heart",             sfSelected: "heart.fill",              feather: "heart"    },
-  orders:    { sfDefault: "bag",               sfSelected: "bag.fill",                feather: "package"  },
-  profile:   { sfDefault: "person",            sfSelected: "person.fill",             feather: "user"     },
-  offers:    { sfDefault: "tag",               sfSelected: "tag.fill",                feather: "tag"      },
-  search:    { sfDefault: "magnifyingglass",   sfSelected: "magnifyingglass",         feather: "search"   },
+  home:      { sfDefault: "house",             sfSelected: "house.fill",              feather: "home"          },
+  favorites: { sfDefault: "heart",             sfSelected: "heart.fill",              feather: "heart"         },
+  orders:    { sfDefault: "bag",               sfSelected: "bag.fill",                feather: "package"       },
+  profile:   { sfDefault: "person",            sfSelected: "person.fill",             feather: "user"          },
+  offers:    { sfDefault: "tag",               sfSelected: "tag.fill",                feather: "tag"           },
+  search:    { sfDefault: "magnifyingglass",   sfSelected: "magnifyingglass",         feather: "search"        },
+  errand:    { sfDefault: "bag.badge.plus",    sfSelected: "bag.badge.plus",          feather: "shopping-bag"  },
 };
 
-const ALL_TAB_TYPES: TabType[] = ["home", "favorites", "orders", "profile", "offers", "search"];
+const ALL_TAB_TYPES: TabType[] = ["home", "favorites", "orders", "profile", "offers", "search", "errand"];
 
 async function fetchTabBarConfig(): Promise<TabBarItem[]> {
   try {
@@ -102,6 +105,7 @@ function ClassicTabLayout({ config }: { config: TabBarItem[] }) {
   const { t } = useTranslation();
   const { fontMedium } = useTypography();
   const { activeOrder } = useOrders();
+  const router = useRouter();
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
@@ -160,6 +164,7 @@ function ClassicTabLayout({ config }: { config: TabBarItem[] }) {
       {config.map((item) => {
         const def = TAB_DEF[item.type];
         const name = TAB_SCREEN_NAME[item.type];
+        const isErrand = item.type === "errand";
         return (
           <Tabs.Screen
             key={item.type}
@@ -172,7 +177,9 @@ function ClassicTabLayout({ config }: { config: TabBarItem[] }) {
                   ? { backgroundColor: BADGE_RED, fontSize: 10, minWidth: 16, height: 16 }
                   : undefined,
               tabBarIcon: ({ color, focused }) =>
-                isIOS ? (
+                isErrand ? (
+                  <Feather name="shopping-bag" size={22} color="#ea580c" />
+                ) : isIOS ? (
                   <SymbolView
                     name={focused ? def.sfSelected : def.sfDefault}
                     tintColor={color}
@@ -181,6 +188,18 @@ function ClassicTabLayout({ config }: { config: TabBarItem[] }) {
                 ) : (
                   <Feather name={def.feather as any} size={22} color={color} />
                 ),
+              tabBarActiveTintColor: isErrand ? "#ea580c" : undefined,
+              ...(isErrand
+                ? {
+                    tabBarButton: (props: any) => (
+                      <TouchableOpacity
+                        {...props}
+                        onPress={() => router.push("/errand-request" as any)}
+                        activeOpacity={0.7}
+                      />
+                    ),
+                  }
+                : {}),
             }}
           />
         );

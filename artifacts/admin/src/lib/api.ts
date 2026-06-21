@@ -1148,12 +1148,12 @@ export type HomeFilter = {
 };
 
 export type TabBarItem = {
-  type: "home" | "favorites" | "orders" | "profile" | "offers" | "search";
+  type: "home" | "favorites" | "orders" | "profile" | "offers" | "search" | "errand";
   labelAr: string;
   order: number;
 };
 
 export type AvailableTabType = {
-  type: "home" | "favorites" | "orders" | "profile" | "offers" | "search";
+  type: "home" | "favorites" | "orders" | "profile" | "offers" | "search" | "errand";
   labelAr: string;
 };
