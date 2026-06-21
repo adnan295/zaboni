@@ -191,12 +191,14 @@ function ClassicTabLayout({ config }: { config: TabBarItem[] }) {
               tabBarActiveTintColor: isErrand ? "#ea580c" : undefined,
               ...(isErrand
                 ? {
-                    tabBarButton: (props: any) => (
+                    tabBarButton: ({ style, children }: any) => (
                       <TouchableOpacity
-                        {...props}
+                        style={style}
                         onPress={() => router.push("/errand-request" as any)}
                         activeOpacity={0.7}
-                      />
+                      >
+                        {children}
+                      </TouchableOpacity>
                     ),
                   }
                 : {}),
