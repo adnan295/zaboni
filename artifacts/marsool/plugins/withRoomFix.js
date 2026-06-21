@@ -1,4 +1,4 @@
-const { withAppBuildGradle } = require('@expo/config-plugins');
+const { withAppBuildGradle } = require(require.resolve('@expo/config-plugins', { paths: [__dirname] }));
 
 module.exports = function withRoomFix(config) {
   return withAppBuildGradle(config, (config) => {
