@@ -34,6 +34,9 @@ yarn-error.*
 # local env files
 .env*.local
 
+# EAS local credentials — never commit
+credentials.json
+
 # typescript
 *.tsbuildinfo
 .vercel
