@@ -4,6 +4,8 @@ import { getApiBaseUrl } from "@/lib/apiConfig";
 
 const STORAGE_KEY = "@marsool_notifications";
 const AUTH_TOKEN_KEY = "@marsool_jwt";
+const DISMISSED_IDS_KEY = "@marsool_dismissed_notif_ids";
+const READ_IDS_KEY = "@marsool_read_notif_ids";
 
 export type NotifType = "order_status" | "promo" | "rating_request" | "system";
 
@@ -97,6 +99,72 @@ function serverToApp(s: ServerNotif): AppNotification {
   };
 }
 
+async function getDismissedIds(): Promise<Set<string>> {
+  try {
+    const raw = await AsyncStorage.getItem(DISMISSED_IDS_KEY);
+    return new Set<string>(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+async function getReadIds(): Promise<Set<string>> {
+  try {
+    const raw = await AsyncStorage.getItem(READ_IDS_KEY);
+    return new Set<string>(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+async function addToDismissed(id: string): Promise<void> {
+  try {
+    const raw = await AsyncStorage.getItem(DISMISSED_IDS_KEY);
+    const ids: string[] = raw ? JSON.parse(raw) : [];
+    if (!ids.includes(id)) {
+      await AsyncStorage.setItem(DISMISSED_IDS_KEY, JSON.stringify([...ids, id]));
+    }
+  } catch {
+    // silent
+  }
+}
+
+async function addToRead(id: string): Promise<void> {
+  try {
+    const raw = await AsyncStorage.getItem(READ_IDS_KEY);
+    const ids: string[] = raw ? JSON.parse(raw) : [];
+    if (!ids.includes(id)) {
+      await AsyncStorage.setItem(READ_IDS_KEY, JSON.stringify([...ids, id]));
+    }
+  } catch {
+    // silent
+  }
+}
+
+async function addManyToRead(newIds: string[]): Promise<void> {
+  if (newIds.length === 0) return;
+  try {
+    const raw = await AsyncStorage.getItem(READ_IDS_KEY);
+    const ids: string[] = raw ? JSON.parse(raw) : [];
+    const merged = Array.from(new Set([...ids, ...newIds]));
+    await AsyncStorage.setItem(READ_IDS_KEY, JSON.stringify(merged));
+  } catch {
+    // silent
+  }
+}
+
+async function addManyToDismissed(newIds: string[]): Promise<void> {
+  if (newIds.length === 0) return;
+  try {
+    const raw = await AsyncStorage.getItem(DISMISSED_IDS_KEY);
+    const existing: string[] = raw ? JSON.parse(raw) : [];
+    const merged = Array.from(new Set([...existing, ...newIds]));
+    await AsyncStorage.setItem(DISMISSED_IDS_KEY, JSON.stringify(merged));
+  } catch {
+    // silent
+  }
+}
+
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [toast, setToast] = useState<ToastPayload | null>(null);
@@ -111,10 +179,30 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       authTokenRef.current = token;
 
       if (token) {
-        const serverItems = await fetchServerNotifications(token);
+        const [serverItems, dismissedIds, readIds] = await Promise.all([
+          fetchServerNotifications(token),
+          getDismissedIds(),
+          getReadIds(),
+        ]);
         if (cancelled) return;
+
         if (serverItems.length > 0) {
-          const mapped = serverItems.map(serverToApp);
+          // Apply local dismissed/read overrides to server data
+          const serverIds = new Set(serverItems.map((n) => n.id));
+
+          // Trim dismissed set to only IDs still on server (prevent unbounded growth)
+          const trimmedDismissed = [...dismissedIds].filter((id) => serverIds.has(id));
+          if (trimmedDismissed.length !== dismissedIds.size) {
+            AsyncStorage.setItem(DISMISSED_IDS_KEY, JSON.stringify(trimmedDismissed)).catch(() => {});
+          }
+
+          const mapped = serverItems
+            .filter((n) => !dismissedIds.has(n.id))
+            .map((n) => ({
+              ...serverToApp(n),
+              read: readIds.has(n.id) || (n.isRead ?? false),
+            }));
+
           setNotifications(mapped);
           return;
         }
@@ -169,6 +257,9 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
 
   const markRead = useCallback((id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    // Persist read state locally so it survives app restarts
+    addToRead(id).catch(() => {});
+    // Sync to server
     AsyncStorage.getItem(AUTH_TOKEN_KEY).then((token) => {
       if (token) markReadOnServer(id, token).catch(() => {});
     }).catch(() => {});
@@ -176,33 +267,41 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
 
   const markAllRead = useCallback(() => {
     setNotifications((prev) => {
-      const next = prev.map((n) => ({ ...n, read: true }));
-      AsyncStorage.getItem(AUTH_TOKEN_KEY).then((token) => {
-        if (token) {
-          prev.filter((n) => !n.read).forEach((n) => markReadOnServer(n.id, token).catch(() => {}));
-        }
-      }).catch(() => {});
-      return next;
+      const unreadIds = prev.filter((n) => !n.read).map((n) => n.id);
+      if (unreadIds.length > 0) {
+        // Persist all as read locally
+        addManyToRead(unreadIds).catch(() => {});
+        // Sync to server
+        AsyncStorage.getItem(AUTH_TOKEN_KEY).then((token) => {
+          if (token) unreadIds.forEach((id) => markReadOnServer(id, token).catch(() => {}));
+        }).catch(() => {});
+      }
+      return prev.map((n) => ({ ...n, read: true }));
     });
   }, []);
 
   const deleteNotification = useCallback((id: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+    // Persist dismissal locally so it survives app restarts
+    addToDismissed(id).catch(() => {});
+    // Sync to server
     AsyncStorage.getItem(AUTH_TOKEN_KEY).then((token) => {
       if (token) deleteOnServer(id, token).catch(() => {});
     }).catch(() => {});
   }, []);
 
   const clearAll = useCallback(() => {
-    setNotifications([]);
-    AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
-    AsyncStorage.getItem(AUTH_TOKEN_KEY).then((token) => {
-      if (!token) return;
-      setNotifications((prev) => {
-        prev.forEach((n) => deleteOnServer(n.id, token).catch(() => {}));
-        return [];
-      });
-    }).catch(() => {});
+    setNotifications((prev) => {
+      const allIds = prev.map((n) => n.id);
+      // Persist all as dismissed locally
+      addManyToDismissed(allIds).catch(() => {});
+      // Sync deletions to server
+      AsyncStorage.getItem(AUTH_TOKEN_KEY).then((token) => {
+        if (token) prev.forEach((n) => deleteOnServer(n.id, token).catch(() => {}));
+      }).catch(() => {});
+      AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
+      return [];
+    });
   }, []);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
