@@ -176,6 +176,31 @@ async function fetchHomeSection(section: "popular" | "deals"): Promise<Restauran
   return res.json();
 }
 
+type HomeFilter = {
+  key: "rating" | "time" | "fee" | "openNow";
+  labelAr: string;
+  enabled: boolean;
+  order: number;
+};
+
+const DEFAULT_HOME_FILTERS: HomeFilter[] = [
+  { key: "rating", labelAr: "تقييم", enabled: false, order: 0 },
+  { key: "time", labelAr: "وقت", enabled: false, order: 1 },
+  { key: "fee", labelAr: "سعر", enabled: false, order: 2 },
+  { key: "openNow", labelAr: "مفتوح الآن", enabled: false, order: 3 },
+];
+
+async function fetchHomeFilters(): Promise<HomeFilter[]> {
+  try {
+    const base = getApiBaseUrl();
+    const res = await fetch(`${base}/api/config/home-filters`);
+    if (!res.ok) return DEFAULT_HOME_FILTERS;
+    return res.json();
+  } catch {
+    return DEFAULT_HOME_FILTERS;
+  }
+}
+
 export default function HomeScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -254,6 +279,23 @@ export default function HomeScreen() {
     queryFn: fetchAppConfig,
     staleTime: 5 * 60 * 1000,
   });
+
+  const { data: homeFilters = DEFAULT_HOME_FILTERS } = useQuery<HomeFilter[]>({
+    queryKey: ["homeFilters"],
+    queryFn: fetchHomeFilters,
+    staleTime: 5 * 60 * 1000,
+    placeholderData: DEFAULT_HOME_FILTERS,
+  });
+
+  const enabledFilters = useMemo(
+    () =>
+      homeFilters
+        .filter((f) => f.enabled)
+        .sort((a, b) => a.order - b.order),
+    [homeFilters]
+  );
+
+  const showFilterBar = enabledFilters.length > 0;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -364,11 +406,13 @@ export default function HomeScreen() {
   };
 
 
-  const filterOptions: { key: SortBy; label: string }[] = [
-    { key: "rating", label: t("home.filterRating") },
-    { key: "time", label: t("home.filterTime") },
-    { key: "fee", label: t("home.filterFee") },
-  ];
+  const filterLabel = useCallback((f: HomeFilter): string => {
+    if (f.key === "rating") return t("home.filterRating");
+    if (f.key === "time") return t("home.filterTime");
+    if (f.key === "fee") return t("home.filterFee");
+    if (f.key === "openNow") return t("home.openOnly");
+    return f.labelAr;
+  }, [t]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -616,50 +660,47 @@ export default function HomeScreen() {
         )}
 
         {/* ===== Filter Bar ===== */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterScroll}
-          style={styles.filterContainer}
-        >
-          {filterOptions.map((opt) => {
-            const isActive = sortBy === opt.key;
-            return (
-              <TouchableOpacity
-                key={opt.key}
-                style={[
-                  styles.filterChip,
-                  {
-                    backgroundColor: isActive ? colors.primary : colors.card,
-                    borderColor: isActive ? colors.primary : colors.border,
-                  },
-                ]}
-                onPress={() => setSortBy(isActive ? "default" : opt.key)}
-              >
-                <Text style={[styles.filterChipText, { color: isActive ? "#fff" : colors.foreground }]}>
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-          <TouchableOpacity
-            style={[
-              styles.filterChip,
-              {
-                backgroundColor: openOnly ? colors.primary : colors.card,
-                borderColor: openOnly ? colors.primary : colors.border,
-                flexDirection: "row",
-                gap: 4,
-              },
-            ]}
-            onPress={() => setOpenOnly((p) => !p)}
+        {showFilterBar && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterScroll}
+            style={styles.filterContainer}
           >
-            <MaterialIcons name="store" size={13} color={openOnly ? "#fff" : colors.foreground} />
-            <Text style={[styles.filterChipText, { color: openOnly ? "#fff" : colors.foreground }]}>
-              {t("home.openOnly")}
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
+            {enabledFilters.map((f) => {
+              const isSort = f.key !== "openNow";
+              const isActive = isSort ? sortBy === f.key : openOnly;
+              return (
+                <TouchableOpacity
+                  key={f.key}
+                  style={[
+                    styles.filterChip,
+                    {
+                      backgroundColor: isActive ? colors.primary : colors.card,
+                      borderColor: isActive ? colors.primary : colors.border,
+                      flexDirection: f.key === "openNow" ? "row" : undefined,
+                      gap: f.key === "openNow" ? 4 : undefined,
+                    },
+                  ]}
+                  onPress={() => {
+                    if (isSort) {
+                      setSortBy(isActive ? "default" : (f.key as SortBy));
+                    } else {
+                      setOpenOnly((p) => !p);
+                    }
+                  }}
+                >
+                  {f.key === "openNow" && (
+                    <MaterialIcons name="store" size={13} color={isActive ? "#fff" : colors.foreground} />
+                  )}
+                  <Text style={[styles.filterChipText, { color: isActive ? "#fff" : colors.foreground }]}>
+                    {filterLabel(f)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
 
         {/* ===== Explore All Section ===== */}
         <View style={styles.exploreSection}>

@@ -776,6 +776,13 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  getHomeFilters: () => apiFetch<HomeFilter[]>("/config/home-filters"),
+  saveHomeFilters: (filters: HomeFilter[]) =>
+    apiFetch<{ ok: boolean }>("/admin/settings/home-filters", {
+      method: "PUT",
+      body: JSON.stringify(filters),
+    }),
+
   getSmsStatus: () =>
     apiFetch<{ jwtConfigured: boolean; smsConfigured: boolean; smsMethod: string; smsUrl: string | null }>("/admin/sms/status"),
   testSms: (phone: string) =>
@@ -1121,4 +1128,11 @@ export type CustomerSubscriptionRow = {
   userName: string | null;
   userPhone: string;
   walletBalance: number;
+};
+
+export type HomeFilter = {
+  key: "rating" | "time" | "fee" | "openNow";
+  labelAr: string;
+  enabled: boolean;
+  order: number;
 };
