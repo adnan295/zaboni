@@ -518,29 +518,6 @@ export default function HomeScreen() {
           </ScrollView>
         )}
 
-        {/* ===== Errand/Concierge Card ===== */}
-        <TouchableOpacity
-          style={styles.errandCard}
-          onPress={() => router.push("/errand-request" as any)}
-          activeOpacity={0.88}
-        >
-          <View style={[styles.errandIconWrap, { backgroundColor: "#fff3e0" }]}>
-            <MaterialIcons name="shopping-bag" size={28} color="#ea580c" />
-          </View>
-          <View style={styles.errandTextWrap}>
-            <Text style={[styles.errandTitle, { color: colors.foreground }]}>
-              {t("home.errandCard.title")}
-            </Text>
-            <Text style={[styles.errandSubtitle, { color: colors.mutedForeground }]}>
-              {t("home.errandCard.subtitle")}
-            </Text>
-          </View>
-          <View style={[styles.errandFeeBadge, { backgroundColor: "#fff3e0" }]}>
-            <Text style={styles.errandFeeText}>10,000 ل.س</Text>
-          </View>
-          <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
-        </TouchableOpacity>
-
         {/* ===== Visual Category Tiles ===== */}
         <ScrollView
           horizontal
@@ -818,42 +795,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.38)",
   },
   bannerTitle: { color: "#fff", fontSize: 16, fontWeight: "700" },
-
-  // Errand card
-  errandCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#fed7aa",
-    backgroundColor: "#fff",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 10,
-    shadowColor: "#ea580c",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  errandIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  errandTextWrap: { flex: 1, gap: 2 },
-  errandTitle: { fontSize: 14, fontWeight: "700" },
-  errandSubtitle: { fontSize: 12 },
-  errandFeeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  errandFeeText: { fontSize: 12, fontWeight: "700", color: "#ea580c" },
 
   // Category tiles
   categoriesContainer: { marginTop: 16, marginBottom: 2 },

@@ -2052,7 +2052,7 @@ router.put("/admin/settings/home-filters", requireAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
-const TAB_TYPES = ["home", "favorites", "orders", "profile", "offers", "search"] as const;
+const TAB_TYPES = ["home", "favorites", "orders", "profile", "offers", "search", "errand"] as const;
 const tabBarSchema = z
   .array(
     z.object({

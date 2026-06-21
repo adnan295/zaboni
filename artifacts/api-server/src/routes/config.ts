@@ -72,11 +72,12 @@ router.get("/config/home-filters", async (_req, res) => {
 });
 
 const TAB_AVAILABLE_TYPES = [
-  { type: "home",      labelAr: "الرئيسية" },
-  { type: "favorites", labelAr: "المفضلة"  },
-  { type: "orders",    labelAr: "طلباتي"   },
-  { type: "profile",   labelAr: "حسابي"    },
-  { type: "offers",    labelAr: "عروض"     },
+  { type: "home",      labelAr: "الرئيسية"       },
+  { type: "favorites", labelAr: "المفضلة"         },
+  { type: "orders",    labelAr: "طلباتي"           },
+  { type: "profile",   labelAr: "حسابي"            },
+  { type: "offers",    labelAr: "عروض"             },
+  { type: "errand",    labelAr: "🛍 اطلب من أي مكان" },
   { type: "search",    labelAr: "بحث"      },
 ] as const;
 
@@ -84,7 +85,8 @@ const DEFAULT_TAB_BAR = [
   { type: "home",      labelAr: "الرئيسية", order: 0 },
   { type: "favorites", labelAr: "المفضلة",  order: 1 },
   { type: "orders",    labelAr: "طلباتي",   order: 2 },
-  { type: "profile",   labelAr: "حسابي",    order: 3 },
+  { type: "errand",    labelAr: "اطلب",     order: 3 },
+  { type: "profile",   labelAr: "حسابي",    order: 4 },
 ];
 
 router.get("/config/tab-bar", async (_req, res) => {
