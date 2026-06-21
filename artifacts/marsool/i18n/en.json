@@ -290,12 +290,6 @@
       "justNow": "Just now",
       "minutes": "{{count}} min ago",
       "hours": "{{count}} hr ago"
-    },
-    "seed": {
-      "welcome1Title": "Welcome to Zaboni!",
-      "welcome1Body": "Use code WELCOME for 25% off your first order",
-      "welcome2Title": "Limited offer: Free delivery",
-      "welcome2Body": "Order now and enjoy free delivery on all your orders"
     }
   },
   "tabs": {
