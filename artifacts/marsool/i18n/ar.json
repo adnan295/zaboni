@@ -888,7 +888,7 @@
     "noBalance": "رصيدك صفر",
     "noBalanceHint": "احصل على رصيد عبر إحالة أصدقائك",
     "useWallet": "استخدم رصيد المحفظة",
-    "useWalletDesc": "رصيد {{balance}} ل.س · خصم {{discount}} ل.س على التوصيل",
+    "useWalletDesc": "رصيد {{balance}} ل.س · خصم {{discount}} ل.س",
     "transactionsTitle": "سجل المحفظة",
     "noTransactions": "لا توجد معاملات بعد",
     "typeCommission": "عمولة إحالة",
