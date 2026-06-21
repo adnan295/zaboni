@@ -64,14 +64,7 @@ export default function OnboardingScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (activeIndex < slides.length - 1) {
       const nextIdx = activeIndex + 1;
-      if (isRTL) {
-        flatListRef.current?.scrollToOffset({
-          offset: (slides.length - 1 - nextIdx) * SCREEN_WIDTH,
-          animated: true,
-        });
-      } else {
-        flatListRef.current?.scrollToIndex({ index: nextIdx, animated: true });
-      }
+      flatListRef.current?.scrollToIndex({ index: nextIdx, animated: true });
       setActiveIndex(nextIdx);
     } else {
       finish();
@@ -79,10 +72,8 @@ export default function OnboardingScreen() {
   }
 
   function handleScrollEnd(e: { nativeEvent: { contentOffset: { x: number } } }) {
-    const raw = e.nativeEvent.contentOffset.x / SCREEN_WIDTH;
-    const rawIdx = Math.round(Math.abs(raw));
-    const idx = isRTL ? slides.length - 1 - rawIdx : rawIdx;
-    setActiveIndex(Math.max(0, Math.min(idx, slides.length - 1)));
+    const rawIdx = Math.round(Math.abs(e.nativeEvent.contentOffset.x) / SCREEN_WIDTH);
+    setActiveIndex(Math.max(0, Math.min(rawIdx, slides.length - 1)));
   }
 
   return (
