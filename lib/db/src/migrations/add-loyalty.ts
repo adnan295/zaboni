@@ -16,5 +16,12 @@ export async function addLoyalty(): Promise<void> {
       created_at timestamptz NOT NULL DEFAULT now()
     )
   `);
-  console.log("[migration] loyalty_points column and loyalty_transactions table ensured.");
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS system_settings (
+      key text PRIMARY KEY,
+      value text NOT NULL,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+  console.log("[migration] loyalty_points column, loyalty_transactions and system_settings tables ensured.");
 }
