@@ -41,6 +41,8 @@ export const ordersTable = pgTable("orders", {
   flashDealDiscount: integer("flash_deal_discount"),
   paymentMethod: text("payment_method").notNull().default("cash"),
   estimatedMinutes: integer("estimated_minutes").notNull().default(30),
+  orderType: text("order_type").notNull().default("restaurant"),
+  placeName: text("place_name"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

@@ -32,6 +32,8 @@ export interface CourierOrder {
   destinationLat?: number | null;
   destinationLon?: number | null;
   deliveryFee?: number | null;
+  orderType?: string;
+  placeName?: string | null;
 }
 
 export type CourierDeliveryStatus = "picked_up" | "on_way" | "delivered";

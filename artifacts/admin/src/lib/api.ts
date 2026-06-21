@@ -109,6 +109,8 @@ export type Order = {
   updatedAt: string;
   customerName?: string | null;
   customerPhone?: string | null;
+  orderType?: string | null;
+  placeName?: string | null;
 };
 
 export type OrdersPage = {

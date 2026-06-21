@@ -59,15 +59,26 @@ function OrderCard({
 
   const age = ageMinutes(order.createdAt);
   const isOld = age > 20;
+  const isErrand = order.orderType === "errand";
 
   return (
     <View style={[
       styles.card,
-      { backgroundColor: colors.card, borderColor: isOld ? "#fca5a5" : colors.border },
+      { backgroundColor: colors.card, borderColor: isErrand ? "#fed7aa" : isOld ? "#fca5a5" : colors.border },
     ]}>
       <View style={styles.cardHeader}>
         <View style={styles.row}>
-          {order.restaurantName ? (
+          {isErrand ? (
+            <>
+              <MaterialIcons name="shopping-bag" size={15} color="#ea580c" />
+              <Text style={[styles.restaurant, { color: "#ea580c" }]}>
+                {order.placeName ?? t("errand.badge")}
+              </Text>
+              <View style={styles.errandBadge}>
+                <Text style={styles.errandBadgeText}>{t("errand.badge")}</Text>
+              </View>
+            </>
+          ) : order.restaurantName ? (
             <>
               <MaterialIcons name="restaurant" size={15} color={colors.primary} />
               <Text style={[styles.restaurant, { color: colors.primary }]}>{order.restaurantName}</Text>
@@ -430,6 +441,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#fee2e2",
   },
   oldBadgeText: { fontSize: 11, fontWeight: "700", color: "#dc2626" },
+  errandBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: "#fff3e0",
+  },
+  errandBadgeText: { fontSize: 10, fontWeight: "700", color: "#ea580c" },
   timeAgo: { fontSize: 12 },
   detailRow: {
     flexDirection: "row",

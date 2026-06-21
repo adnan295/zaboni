@@ -360,7 +360,24 @@ export default function ActiveOrderScreen() {
 
           {/* Order details */}
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            {order.restaurantName ? (
+            {order.orderType === "errand" ? (
+              <View style={styles.infoRow}>
+                <MaterialIcons name="shopping-bag" size={18} color="#ea580c" />
+                <View style={styles.infoContent}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>
+                      مطلوب من
+                    </Text>
+                    <View style={styles.errandBadge}>
+                      <Text style={styles.errandBadgeText}>مندوب متجول</Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.infoValue, { color: "#ea580c", fontWeight: "800" }]}>
+                    {order.placeName ?? "—"}
+                  </Text>
+                </View>
+              </View>
+            ) : order.restaurantName ? (
               <View style={styles.infoRow}>
                 <MaterialIcons name="restaurant" size={18} color={colors.primary} />
                 <View style={styles.infoContent}>
@@ -629,6 +646,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   navBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  errandBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: "#fff3e0",
+  },
+  errandBadgeText: { fontSize: 10, fontWeight: "700", color: "#ea580c" },
   statusCard: {
     marginHorizontal: 16,
     marginTop: 12,

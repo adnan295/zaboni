@@ -28,11 +28,14 @@ const createOrderSchema = z
     useWallet: z.boolean().optional(),
     items: z.array(orderItemInputSchema).max(100).optional(),
     flashDealId: z.string().optional(),
+    orderType: z.enum(["restaurant", "errand"]).default("restaurant"),
+    placeName: z.string().max(200).optional(),
   })
   .refine(
     (d) =>
       (d.items != null && d.items.length > 0) ||
-      (d.orderText != null && d.orderText.trim().length > 0),
+      (d.orderText != null && d.orderText.trim().length > 0) ||
+      (d.orderType === "errand" && d.placeName != null && d.placeName.trim().length > 0),
     { message: "items_or_orderText_required" },
   );
 
@@ -241,6 +244,53 @@ router.post("/orders", async (req, res) => {
   const id = `${Date.now()}${Math.random().toString(36).slice(2, 9)}`;
   const estimatedMinutes = Math.floor(Math.random() * 15) + 30;
 
+  // Errand (concierge) order: fixed 10,000 SYP delivery fee, no restaurant lookup.
+  if (body.data.orderType === "errand") {
+    const placeName = body.data.placeName?.trim() ?? "";
+    const itemsText = body.data.orderText?.trim() ?? "";
+    if (!placeName) {
+      res.status(400).json({ error: "errand_place_name_required" });
+      return;
+    }
+    const errandOrderText = itemsText ? `${placeName}: ${itemsText}` : placeName;
+    const destLat = body.data.lat ?? DAMASCUS_CENTER_LAT;
+    const destLon = body.data.lon ?? DAMASCUS_CENTER_LON;
+    const errandOrder = {
+      id,
+      userId,
+      orderText: errandOrderText,
+      restaurantName: "",
+      restaurantPhone: "",
+      restaurantId: null as string | null,
+      status: "searching" as const,
+      courierName: "",
+      courierPhone: "",
+      courierRating: 0,
+      courierId: "",
+      address: body.data.address,
+      destinationLat: destLat,
+      destinationLon: destLon,
+      deliveryFee: 10000,
+      totalPrice: null as number | null,
+      flashDealId: null as string | null,
+      flashDealDiscount: null as number | null,
+      estimatedMinutes,
+      orderType: "errand",
+      placeName,
+    };
+    await db.transaction(async (tx) => {
+      await tx.insert(ordersTable).values(errandOrder);
+      await tx.insert(orderStatusHistoryTable).values({
+        id: `${id}_searching`,
+        orderId: id,
+        status: "searching",
+      });
+    });
+    void notifyNearbyCouriers(destLat, destLon, placeName, errandOrder.deliveryFee);
+    res.status(201).json({ ...errandOrder, items: [] });
+    return;
+  }
+
   // Structured cart: the server recomputes every line price from the DB.
   // Client-supplied prices are never trusted.
   const computedOrderItems: {
@@ -407,6 +457,8 @@ router.post("/orders", async (req, res) => {
     flashDealId: null as string | null,
     flashDealDiscount: null as number | null,
     estimatedMinutes,
+    orderType: "restaurant",
+    placeName: null as string | null,
   };
 
   let walletDeductData: { deductAmount: number } | null = null;
