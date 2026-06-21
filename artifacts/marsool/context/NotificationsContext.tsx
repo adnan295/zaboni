@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import i18n from "@/i18n";
 import { getApiBaseUrl } from "@/lib/apiConfig";
 
 const STORAGE_KEY = "@marsool_notifications";
@@ -39,27 +38,6 @@ interface NotificationsContextValue {
 
 const NotificationsContext = createContext<NotificationsContextValue | null>(null);
 
-function buildSeedNotifications(): AppNotification[] {
-  return [
-    {
-      id: "welcome-1",
-      type: "promo",
-      title: i18n.t("notifications.seed.welcome1Title"),
-      body: i18n.t("notifications.seed.welcome1Body"),
-      read: false,
-      createdAt: Date.now(),
-    },
-    {
-      id: "welcome-2",
-      type: "promo",
-      title: i18n.t("notifications.seed.welcome2Title"),
-      body: i18n.t("notifications.seed.welcome2Body"),
-      read: false,
-      createdAt: Date.now() - 600000,
-    },
-  ];
-}
-
 interface ServerNotif {
   id: string;
   title: string;
@@ -84,7 +62,6 @@ async function fetchServerNotifications(token: string): Promise<ServerNotif[]> {
 }
 
 async function markReadOnServer(id: string, token: string): Promise<void> {
-  if (id.startsWith("welcome-")) return;
   try {
     const baseUrl = getApiBaseUrl();
     await fetch(`${baseUrl}/api/notifications/${id}/read`, {
@@ -97,7 +74,6 @@ async function markReadOnServer(id: string, token: string): Promise<void> {
 }
 
 async function deleteOnServer(id: string, token: string): Promise<void> {
-  if (id.startsWith("welcome-")) return;
   try {
     const baseUrl = getApiBaseUrl();
     await fetch(`${baseUrl}/api/notifications/${id}`, {
@@ -149,10 +125,6 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       if (cancelled) return;
       if (raw) {
         setNotifications(JSON.parse(raw) as AppNotification[]);
-      } else {
-        const seed = buildSeedNotifications();
-        setNotifications(seed);
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
       }
     }
 
