@@ -1,4 +1,27 @@
-const { withAppBuildGradle } = require(require.resolve('@expo/config-plugins', { paths: [__dirname] }));
+const path = require('path');
+
+const resolveConfigPlugins = () => {
+  const searchPaths = [
+    __dirname,
+    path.join(__dirname, '..'),
+    path.join(__dirname, '..', '..', '..'),
+  ];
+
+  for (const p of searchPaths) {
+    try {
+      return require(require.resolve('@expo/config-plugins', { paths: [p] }));
+    } catch (_) {}
+  }
+
+  const cached = Object.keys(require.cache).find(
+    (k) => /[/\\]@expo[/\\]config-plugins[/\\]build[/\\]index\.js$/.test(k)
+  );
+  if (cached) return require(cached);
+
+  return require('@expo/config-plugins');
+};
+
+const { withAppBuildGradle } = resolveConfigPlugins();
 
 module.exports = function withRoomFix(config) {
   return withAppBuildGradle(config, (config) => {
