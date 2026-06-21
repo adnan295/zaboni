@@ -2026,6 +2026,32 @@ router.put("/admin/settings", async (req, res) => {
   res.json({ ok: true });
 });
 
+const HOME_FILTER_KEYS = ["rating", "time", "fee", "openNow"] as const;
+const homeFiltersSchema = z.array(
+  z.object({
+    key: z.enum(HOME_FILTER_KEYS),
+    labelAr: z.string().min(1).max(40),
+    enabled: z.boolean(),
+    order: z.number().int().min(0),
+  })
+).length(4);
+
+router.put("/admin/settings/home-filters", requireAdmin, async (req, res) => {
+  const parsed = homeFiltersSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "بيانات الفلاتر غير صحيحة" });
+    return;
+  }
+  await db
+    .insert(systemSettingsTable)
+    .values({ key: "home_filters", value: JSON.stringify(parsed.data), updatedAt: new Date() })
+    .onConflictDoUpdate({
+      target: systemSettingsTable.key,
+      set: { value: JSON.stringify(parsed.data), updatedAt: new Date() },
+    });
+  res.json({ ok: true });
+});
+
 router.get("/admin/sms/status", async (_req, res) => {
   const jwtConfigured = !!(process.env["JWT_SECRET"]);
   const smsConfigured = await isSmsGatewayConfigured();

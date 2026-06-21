@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, type HomeFilter } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -418,6 +418,138 @@ export default function Settings() {
           )}
         </CardContent>
       </Card>
+
+      <HomeFiltersCard />
     </div>
+  );
+}
+
+function HomeFiltersCard() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: filters, isLoading } = useQuery<HomeFilter[]>({
+    queryKey: ["admin", "home-filters"],
+    queryFn: api.getHomeFilters,
+  });
+
+  const [localFilters, setLocalFilters] = useState<HomeFilter[]>([]);
+
+  useEffect(() => {
+    if (filters) setLocalFilters(filters);
+  }, [filters]);
+
+  const saveMutation = useMutation({
+    mutationFn: api.saveHomeFilters,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "home-filters"] });
+      toast({ title: "تم حفظ الفلاتر بنجاح ✓" });
+    },
+    onError: () => {
+      toast({ title: "فشل الحفظ", variant: "destructive" });
+    },
+  });
+
+  const toggle = (idx: number) => {
+    setLocalFilters((prev) =>
+      prev.map((f, i) => (i === idx ? { ...f, enabled: !f.enabled } : f))
+    );
+  };
+
+  const move = (idx: number, dir: -1 | 1) => {
+    const next = idx + dir;
+    if (next < 0 || next >= localFilters.length) return;
+    setLocalFilters((prev) => {
+      const copy = [...prev];
+      [copy[idx], copy[next]] = [copy[next], copy[idx]];
+      return copy.map((f, i) => ({ ...f, order: i }));
+    });
+  };
+
+  const labelFor = (key: string) => {
+    const map: Record<string, string> = {
+      rating: "تقييم",
+      time: "وقت التوصيل",
+      fee: "سعر التوصيل",
+      openNow: "مفتوح الآن",
+    };
+    return map[key] ?? key;
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>فلاتر الصفحة الرئيسية</CardTitle>
+        <CardDescription>
+          تحكم بالفلاتر التي تظهر للمستخدمين في الشاشة الرئيسية للتطبيق. رتّبها حسب الأولوية.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">جارٍ التحميل…</p>
+        ) : (
+          localFilters.map((f, idx) => (
+            <div key={f.key} className="flex items-center justify-between p-3 rounded-md border">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => toggle(idx)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                    f.enabled ? "bg-primary" : "bg-muted"
+                  }`}
+                  aria-label={f.enabled ? "تعطيل" : "تفعيل"}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                      f.enabled ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+                <span className="font-medium text-sm">{labelFor(f.key)}</span>
+                {f.enabled && (
+                  <Badge variant="default" className="bg-green-600 text-xs">مفعّل</Badge>
+                )}
+              </div>
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => move(idx, -1)}
+                  disabled={idx === 0}
+                  className="h-7 w-7 p-0"
+                  aria-label="تحريك للأعلى"
+                >
+                  ↑
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => move(idx, 1)}
+                  disabled={idx === localFilters.length - 1}
+                  className="h-7 w-7 p-0"
+                  aria-label="تحريك للأسفل"
+                >
+                  ↓
+                </Button>
+              </div>
+            </div>
+          ))
+        )}
+
+        {!isLoading && localFilters.filter((f) => f.enabled).length === 0 && (
+          <p className="text-xs text-muted-foreground">
+            لا توجد فلاتر مفعّلة — لن يظهر شريط الفلاتر في التطبيق.
+          </p>
+        )}
+
+        <Button
+          onClick={() => saveMutation.mutate(localFilters)}
+          disabled={saveMutation.isPending || isLoading}
+          className="w-full mt-2"
+        >
+          {saveMutation.isPending ? "جارٍ الحفظ…" : "حفظ الفلاتر"}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

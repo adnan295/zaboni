@@ -46,4 +46,29 @@ router.get("/config/app", async (_req, res) => {
   }
 });
 
+const DEFAULT_HOME_FILTERS = [
+  { key: "rating", labelAr: "تقييم", enabled: false, order: 0 },
+  { key: "time", labelAr: "وقت", enabled: false, order: 1 },
+  { key: "fee", labelAr: "سعر", enabled: false, order: 2 },
+  { key: "openNow", labelAr: "مفتوح الآن", enabled: false, order: 3 },
+];
+
+router.get("/config/home-filters", async (_req, res) => {
+  try {
+    const rows = await db
+      .select()
+      .from(systemSettingsTable)
+      .where(inArray(systemSettingsTable.key, ["home_filters"]));
+    const row = rows[0];
+    if (!row) {
+      res.json(DEFAULT_HOME_FILTERS);
+      return;
+    }
+    const parsed = JSON.parse(row.value);
+    res.json(Array.isArray(parsed) ? parsed : DEFAULT_HOME_FILTERS);
+  } catch {
+    res.json(DEFAULT_HOME_FILTERS);
+  }
+});
+
 export default router;
