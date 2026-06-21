@@ -4,42 +4,99 @@ import { Tabs } from "expo-router";
 import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { SymbolView } from "expo-symbols";
 import { Feather } from "@expo/vector-icons";
-import React from "react";
-import { Platform, StyleSheet, View, useColorScheme } from "react-native";
+import React, { useMemo } from "react";
+import { I18nManager, Platform, StyleSheet, View, useColorScheme } from "react-native";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
 
 import { useColors } from "@/hooks/useColors";
 import { useTypography } from "@/hooks/useTypography";
 import { useOrders } from "@/context/OrderContext";
+import { getApiBaseUrl } from "@/lib/apiConfig";
 
 const BADGE_RED = "#DC2626";
 
-function NativeTabLayout() {
+type TabType = "home" | "favorites" | "orders" | "profile" | "offers" | "search";
+
+type TabBarItem = {
+  type: TabType;
+  labelAr: string;
+  order: number;
+};
+
+const DEFAULT_TAB_BAR: TabBarItem[] = [
+  { type: "home",      labelAr: "الرئيسية", order: 0 },
+  { type: "favorites", labelAr: "المفضلة",  order: 1 },
+  { type: "orders",    labelAr: "طلباتي",   order: 2 },
+  { type: "profile",   labelAr: "حسابي",    order: 3 },
+];
+
+const TAB_SCREEN_NAME: Record<TabType, string> = {
+  home:      "index",
+  favorites: "favorites",
+  orders:    "orders",
+  profile:   "profile",
+  offers:    "offers",
+  search:    "search",
+};
+
+type TabDef = {
+  sfDefault:  string;
+  sfSelected: string;
+  feather:    string;
+};
+
+const TAB_DEF: Record<TabType, TabDef> = {
+  home:      { sfDefault: "house",             sfSelected: "house.fill",              feather: "home"     },
+  favorites: { sfDefault: "heart",             sfSelected: "heart.fill",              feather: "heart"    },
+  orders:    { sfDefault: "bag",               sfSelected: "bag.fill",                feather: "package"  },
+  profile:   { sfDefault: "person",            sfSelected: "person.fill",             feather: "user"     },
+  offers:    { sfDefault: "tag",               sfSelected: "tag.fill",                feather: "tag"      },
+  search:    { sfDefault: "magnifyingglass",   sfSelected: "magnifyingglass",         feather: "search"   },
+};
+
+const ALL_TAB_TYPES: TabType[] = ["home", "favorites", "orders", "profile", "offers", "search"];
+
+async function fetchTabBarConfig(): Promise<TabBarItem[]> {
+  try {
+    const base = getApiBaseUrl();
+    const res = await fetch(`${base}/api/config/tab-bar`);
+    if (!res.ok) return DEFAULT_TAB_BAR;
+    const data = await res.json();
+    return Array.isArray(data) && data.length > 0 ? data : DEFAULT_TAB_BAR;
+  } catch {
+    return DEFAULT_TAB_BAR;
+  }
+}
+
+function NativeTabLayout({ config }: { config: TabBarItem[] }) {
   const { t } = useTranslation();
   const { activeOrder } = useOrders();
+
+  const labelFor = (item: TabBarItem) => {
+    const key = `tabs.${item.type}` as const;
+    const translated = t(key as any);
+    return translated && !translated.startsWith("tabs.") ? translated : item.labelAr;
+  };
+
   return (
     <NativeTabs>
-      <NativeTabs.Trigger name="profile">
-        <Icon sf={{ default: "person", selected: "person.fill" }} />
-        <Label>{t("tabs.profile")}</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="orders" badge={activeOrder ? "!" : undefined}>
-        <Icon sf={{ default: "bag", selected: "bag.fill" }} />
-        <Label>{t("tabs.orders")}</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="favorites">
-        <Icon sf={{ default: "heart", selected: "heart.fill" }} />
-        <Label>{t("tabs.favorites")}</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: "house", selected: "house.fill" }} />
-        <Label>{t("tabs.home")}</Label>
-      </NativeTabs.Trigger>
+      {config.map((item) => {
+        const def = TAB_DEF[item.type];
+        const name = TAB_SCREEN_NAME[item.type];
+        const badge = item.type === "orders" ? (activeOrder ? "!" : undefined) : undefined;
+        return (
+          <NativeTabs.Trigger key={item.type} name={name} badge={badge}>
+            <Icon sf={{ default: def.sfDefault, selected: def.sfSelected }} />
+            <Label>{labelFor(item)}</Label>
+          </NativeTabs.Trigger>
+        );
+      })}
     </NativeTabs>
   );
 }
 
-function ClassicTabLayout() {
+function ClassicTabLayout({ config }: { config: TabBarItem[] }) {
   const colors = useColors();
   const colorScheme = useColorScheme();
   const { t } = useTranslation();
@@ -48,6 +105,19 @@ function ClassicTabLayout() {
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
+
+  const activeTypes = useMemo(
+    () => new Set(config.map((x) => x.type)),
+    [config]
+  );
+
+  const labelFor = (item: TabBarItem) => {
+    const key = `tabs.${item.type}` as const;
+    const translated = t(key as any);
+    return translated && !translated.startsWith("tabs.") ? translated : item.labelAr;
+  };
+
+  const hiddenTypes = ALL_TAB_TYPES.filter((tp) => !activeTypes.has(tp));
 
   return (
     <Tabs
@@ -61,7 +131,7 @@ function ClassicTabLayout() {
           borderTopWidth: isWeb ? 1 : 0,
           borderTopColor: colors.border,
           elevation: 0,
-          flexDirection: "row",
+          flexDirection: I18nManager.isRTL ? "row-reverse" : "row",
           ...(isWeb ? { height: 84 } : {}),
         },
         tabBarBackground: () =>
@@ -86,63 +156,58 @@ function ClassicTabLayout() {
         },
       }}
     >
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: t("tabs.profile"),
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="person" tintColor={color} size={24} />
-            ) : (
-              <Feather name="user" size={22} color={color} />
-            ),
-        }}
-      />
-      <Tabs.Screen
-        name="orders"
-        options={{
-          title: t("tabs.orders"),
-          tabBarBadge: activeOrder ? "!" : undefined,
-          tabBarBadgeStyle: { backgroundColor: BADGE_RED, fontSize: 10, minWidth: 16, height: 16 },
-          tabBarIcon: ({ color, focused }) =>
-            isIOS ? (
-              <SymbolView name={focused ? "bag.fill" : "bag"} tintColor={color} size={24} />
-            ) : (
-              <Feather name="package" size={22} color={color} />
-            ),
-        }}
-      />
-      <Tabs.Screen
-        name="favorites"
-        options={{
-          title: t("tabs.favorites"),
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="heart" tintColor={color} size={24} />
-            ) : (
-              <Feather name="heart" size={22} color={color} />
-            ),
-        }}
-      />
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: t("tabs.home"),
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="house" tintColor={color} size={24} />
-            ) : (
-              <Feather name="home" size={22} color={color} />
-            ),
-        }}
-      />
+      {/* Active tabs in config order */}
+      {config.map((item) => {
+        const def = TAB_DEF[item.type];
+        const name = TAB_SCREEN_NAME[item.type];
+        return (
+          <Tabs.Screen
+            key={item.type}
+            name={name}
+            options={{
+              title: labelFor(item),
+              tabBarBadge: item.type === "orders" && activeOrder ? "!" : undefined,
+              tabBarBadgeStyle:
+                item.type === "orders"
+                  ? { backgroundColor: BADGE_RED, fontSize: 10, minWidth: 16, height: 16 }
+                  : undefined,
+              tabBarIcon: ({ color, focused }) =>
+                isIOS ? (
+                  <SymbolView
+                    name={focused ? def.sfSelected : def.sfDefault}
+                    tintColor={color}
+                    size={24}
+                  />
+                ) : (
+                  <Feather name={def.feather as any} size={22} color={color} />
+                ),
+            }}
+          />
+        );
+      })}
+
+      {/* Hidden screens — still navigable but not in tab bar */}
+      {hiddenTypes.map((tp) => (
+        <Tabs.Screen
+          key={`hidden-${tp}`}
+          name={TAB_SCREEN_NAME[tp]}
+          options={{ tabBarButton: () => null, title: "" }}
+        />
+      ))}
     </Tabs>
   );
 }
 
 export default function TabLayout() {
+  const { data: tabConfig = DEFAULT_TAB_BAR } = useQuery<TabBarItem[]>({
+    queryKey: ["tabBarConfig"],
+    queryFn: fetchTabBarConfig,
+    staleTime: 2 * 60 * 1000,
+    placeholderData: DEFAULT_TAB_BAR,
+  });
+
   if (isLiquidGlassAvailable()) {
-    return <NativeTabLayout />;
+    return <NativeTabLayout config={tabConfig} />;
   }
-  return <ClassicTabLayout />;
+  return <ClassicTabLayout config={tabConfig} />;
 }

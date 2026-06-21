@@ -279,7 +279,9 @@
     "home": "Home",
     "favorites": "Favorites",
     "orders": "My Orders",
-    "profile": "Profile"
+    "profile": "Profile",
+    "offers": "Offers",
+    "search": "Search"
   },
   "courierTabs": {
     "available": "Orders",

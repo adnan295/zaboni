@@ -783,6 +783,14 @@ export const api = {
       body: JSON.stringify(filters),
     }),
 
+  getTabBarConfig: () => apiFetch<TabBarItem[]>("/config/tab-bar"),
+  getAvailableTabTypes: () => apiFetch<AvailableTabType[]>("/config/tab-bar/available-types"),
+  saveTabBarConfig: (items: TabBarItem[]) =>
+    apiFetch<{ ok: boolean }>("/admin/settings/tab-bar", {
+      method: "PUT",
+      body: JSON.stringify(items),
+    }),
+
   getSmsStatus: () =>
     apiFetch<{ jwtConfigured: boolean; smsConfigured: boolean; smsMethod: string; smsUrl: string | null }>("/admin/sms/status"),
   testSms: (phone: string) =>
@@ -1135,4 +1143,15 @@ export type HomeFilter = {
   labelAr: string;
   enabled: boolean;
   order: number;
+};
+
+export type TabBarItem = {
+  type: "home" | "favorites" | "orders" | "profile" | "offers" | "search";
+  labelAr: string;
+  order: number;
+};
+
+export type AvailableTabType = {
+  type: "home" | "favorites" | "orders" | "profile" | "offers" | "search";
+  labelAr: string;
 };
