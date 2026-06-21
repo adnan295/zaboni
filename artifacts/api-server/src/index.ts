@@ -28,6 +28,7 @@ import { migrate as addMenuDealDiscountPercent } from "@workspace/db/migrations/
 import { addSupportMessages } from "@workspace/db/migrations/add-support-messages";
 import { addSupportTickets } from "@workspace/db/migrations/add-support-tickets";
 import { addReferralSystem } from "@workspace/db/migrations/add-referral-system";
+import { addErrandOrders } from "@workspace/db/migrations/add-errand-orders";
 
 const rawPort = process.env["PORT"];
 
@@ -126,5 +127,8 @@ httpServer.listen(port, (err?: Error) => {
   );
   addReferralSystem().catch((e: unknown) =>
     logger.error({ err: e }, "Failed to run referral system migration"),
+  );
+  addErrandOrders().catch((e: unknown) =>
+    logger.error({ err: e }, "Failed to run errand orders migration"),
   );
 });

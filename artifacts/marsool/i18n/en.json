@@ -82,7 +82,30 @@
       "pickedUp": "Courier picked up your order",
       "onWay": "Courier is on the way to you",
       "delivered": "Delivered"
+    },
+    "errandCard": {
+      "title": "Order from Anywhere",
+      "subtitle": "Send a courier to any shop or supermarket"
     }
+  },
+  "errand": {
+    "title": "Order from Anywhere",
+    "placeNameLabel": "Place Name",
+    "placeNamePlaceholder": "e.g. Al-Quds Library, Al-Nour Pharmacy...",
+    "itemsLabel": "What do you need?",
+    "itemsPlaceholder": "Write the items you need...",
+    "addressLabel": "Delivery Address",
+    "noAddress": "No address set",
+    "changeAddress": "Change Address",
+    "feeNote": "Delivery fee: 10,000 SYP (fixed)",
+    "feeDescription": "The courier will buy items and add the actual invoice upon delivery",
+    "submit": "Place Order",
+    "submitting": "Submitting...",
+    "badge": "Errand",
+    "requiredFields": "Please enter the place name and items",
+    "noAddressAlert": "Please add a delivery address first",
+    "errorTitle": "Error",
+    "errorMsg": "Failed to place order, please try again"
   },
   "profile": {
     "defaultUser": "User",

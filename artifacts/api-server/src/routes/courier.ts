@@ -278,6 +278,8 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
       updatedAt: ordersTable.updatedAt,
       destinationLat: ordersTable.destinationLat,
       destinationLon: ordersTable.destinationLon,
+      orderType: ordersTable.orderType,
+      placeName: ordersTable.placeName,
     })
     .from(ordersTable)
     .where(and(eq(ordersTable.status, "searching"), eq(ordersTable.courierId, "")))
@@ -301,6 +303,8 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
         createdAt: o.createdAt,
         updatedAt: o.updatedAt,
         distanceKm,
+        orderType: o.orderType,
+        placeName: o.placeName,
       };
     })
     .filter((o) => !isProduction || o.distanceKm <= NEARBY_RADIUS_KM)

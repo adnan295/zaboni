@@ -309,11 +309,20 @@ function OrderRow({ order }: { order: Order }) {
         onClick={() => setExpanded((e) => !e)}
       >
         <td className="px-4 py-3">
-          <p className="font-mono text-xs text-muted-foreground mb-1">
-            #{order.id.slice(-8)}
-          </p>
+          <div className="flex items-center gap-1.5 mb-1">
+            <p className="font-mono text-xs text-muted-foreground">
+              #{order.id.slice(-8)}
+            </p>
+            {order.orderType === "errand" && (
+              <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700">
+                متجول
+              </span>
+            )}
+          </div>
           <p className="text-sm line-clamp-1" dir="rtl">
-            {order.orderText}
+            {order.orderType === "errand" && order.placeName
+              ? `🛍 ${order.placeName}`
+              : order.orderText}
           </p>
         </td>
         <td className="px-4 py-3 text-sm">
