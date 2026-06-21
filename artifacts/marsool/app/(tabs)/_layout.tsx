@@ -74,9 +74,9 @@ function NativeTabLayout({ config }: { config: TabBarItem[] }) {
   const { activeOrder } = useOrders();
 
   const labelFor = (item: TabBarItem) => {
-    const key = `tabs.${item.type}` as const;
-    const translated = t(key as any);
-    return translated && !translated.startsWith("tabs.") ? translated : item.labelAr;
+    if (item.labelAr && item.labelAr.trim()) return item.labelAr;
+    const translated = t(`tabs.${item.type}` as any);
+    return translated && !translated.startsWith("tabs.") ? translated : item.type;
   };
 
   return (
@@ -112,9 +112,9 @@ function ClassicTabLayout({ config }: { config: TabBarItem[] }) {
   );
 
   const labelFor = (item: TabBarItem) => {
-    const key = `tabs.${item.type}` as const;
-    const translated = t(key as any);
-    return translated && !translated.startsWith("tabs.") ? translated : item.labelAr;
+    if (item.labelAr && item.labelAr.trim()) return item.labelAr;
+    const translated = t(`tabs.${item.type}` as any);
+    return translated && !translated.startsWith("tabs.") ? translated : item.type;
   };
 
   const hiddenTypes = ALL_TAB_TYPES.filter((tp) => !activeTypes.has(tp));
