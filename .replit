@@ -61,3 +61,6 @@ externalPort = 4200
 [userenv.shared]
 
 [userenv.development]
+
+[userenv.production]
+APPLE_REVIEW_PHONE = "+963123456789"
