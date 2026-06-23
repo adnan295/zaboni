@@ -88,13 +88,13 @@ export default function SearchTabScreen() {
     if (!q.trim()) { setResults([]); return; }
     setLoading(true);
     try {
-      const params = new URLSearchParams({ q: q.trim(), sortBy });
+      const params = new URLSearchParams({ search: q.trim(), sortBy });
       if (openOnly) params.set("openOnly", "1");
       if (userLocation) {
         params.set("lat", String(userLocation.lat));
         params.set("lon", String(userLocation.lon));
       }
-      const data = await customFetch<RestaurantItem[]>(`/api/search?${params.toString()}`);
+      const data = await customFetch<RestaurantItem[]>(`/api/restaurants?${params.toString()}`);
       setResults(data ?? []);
     } catch {
       setResults([]);
