@@ -11,6 +11,7 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Image,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -141,6 +142,7 @@ export default function WalletScreen() {
 
   const [walletData, setWalletData] = useState<WalletData | null>(null);
   const [subStatus, setSubStatus] = useState<SubStatus | null>(null);
+  const [paymentQrUrl, setPaymentQrUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [renewingSubscription, setRenewingSubscription] = useState(false);
@@ -155,12 +157,14 @@ export default function WalletScreen() {
 
   const fetchWallet = useCallback(async () => {
     try {
-      const [walletRes, subRes] = await Promise.allSettled([
+      const [walletRes, subRes, qrRes] = await Promise.allSettled([
         customFetch("/api/courier/wallet") as Promise<WalletData>,
         customFetch("/api/courier/subscription/status") as Promise<SubStatus>,
+        customFetch("/api/courier/payment-qr") as Promise<{ url: string | null }>,
       ]);
       if (walletRes.status === "fulfilled") setWalletData(walletRes.value);
       if (subRes.status === "fulfilled") setSubStatus(subRes.value);
+      if (qrRes.status === "fulfilled") setPaymentQrUrl(qrRes.value.url);
     } catch {
       setWalletData(null);
     } finally {
@@ -340,6 +344,25 @@ export default function WalletScreen() {
             )}
           </View>
 
+          {paymentQrUrl ? (
+            <View style={[styles.qrCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={styles.qrHeader}>
+                <MaterialIcons name="qr-code" size={20} color={colors.primary} />
+                <Text style={[styles.qrTitle, { color: colors.foreground }]}>ادفع عبر QR</Text>
+              </View>
+              <Text style={[styles.qrDesc, { color: colors.mutedForeground }]}>
+                امسح الـ QR بتطبيق الدفع (سيريتل كاش / MTN) لإرسال مبلغ الاشتراك
+              </Text>
+              <View style={styles.qrImageWrap}>
+                <Image
+                  source={{ uri: paymentQrUrl }}
+                  style={styles.qrImage}
+                  resizeMode="contain"
+                />
+              </View>
+            </View>
+          ) : null}
+
           <View style={[styles.infoCard, { backgroundColor: "#fff7ed", borderColor: "#fed7aa" }]}>
             <MaterialIcons name="info-outline" size={18} color="#ea580c" />
             <Text style={[styles.infoText, { color: "#9a3412" }]}>
@@ -497,6 +520,27 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   renewBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  qrCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    gap: 10,
+    alignItems: "center",
+  },
+  qrHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+  qrTitle: { fontSize: 16, fontWeight: "700" },
+  qrDesc: { fontSize: 12, textAlign: "center", lineHeight: 18 },
+  qrImageWrap: {
+    width: 200,
+    height: 200,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#fff",
+    padding: 8,
+  },
+  qrImage: { width: "100%", height: "100%" },
   infoCard: {
     flexDirection: "row",
     alignItems: "flex-start",

@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { db, usersTable, ordersTable, orderItemsTable, orderItemOptionsTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, courierSubscriptionPlansTable, courierCustomerRatingsTable, courierWalletTransactionsTable, courierApplicationsTable, referralsTable, courierSubscriptionRequestsTable } from "@workspace/db";
+import { db, usersTable, ordersTable, orderItemsTable, orderItemOptionsTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, courierSubscriptionPlansTable, courierCustomerRatingsTable, courierWalletTransactionsTable, courierApplicationsTable, referralsTable, courierSubscriptionRequestsTable, systemSettingsTable } from "@workspace/db";
 import { and, eq, ne, inArray, notInArray, avg, count, sql, desc, getTableColumns } from "drizzle-orm";
 import { haversineKm as _haversineKm } from "../lib/deliveryZones";
 import { z } from "zod";
@@ -1387,6 +1387,15 @@ router.delete("/courier/subscription/request", requireCourier, async (req, res) 
     .where(eq(courierSubscriptionRequestsTable.id, pending.id));
 
   res.json({ ok: true });
+});
+
+router.get("/courier/payment-qr", async (_req, res) => {
+  const rows = await db
+    .select()
+    .from(systemSettingsTable)
+    .where(eq(systemSettingsTable.key, "payment_qr_url"));
+  const url = rows[0]?.value ?? null;
+  res.json({ url });
 });
 
 export default router;

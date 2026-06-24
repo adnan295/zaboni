@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { ImageUpload } from "@/components/ImageUpload";
 import {
   Select,
   SelectContent,
@@ -48,6 +49,8 @@ export default function Settings() {
   const [webhookTestResult, setWebhookTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [webhookTestLoading, setWebhookTestLoading] = useState(false);
 
+  const [paymentQrUrl, setPaymentQrUrl] = useState("");
+
   useEffect(() => {
     if (settings) {
       setGatewayUrl(settings["sms_gateway_url"] ?? "");
@@ -55,6 +58,7 @@ export default function Settings() {
       setSender(settings["sms_gateway_sender"] ?? "");
       setMethod((settings["sms_gateway_method"] as "GET" | "POST") ?? "POST");
       setAlertWebhookUrl(settings["alert_webhook_url"] ?? "");
+      setPaymentQrUrl(settings["payment_qr_url"] ?? "");
     }
   }, [settings]);
 
@@ -92,6 +96,26 @@ export default function Settings() {
 
   function handleWebhookSave() {
     webhookSaveMutation.mutate({ alert_webhook_url: alertWebhookUrl.trim() });
+  }
+
+  const qrSaveMutation = useMutation({
+    mutationFn: (data: Record<string, string>) => api.updateSettings(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "settings"] });
+      toast({ title: "تم الحفظ", description: "تم حفظ QR الدفع بنجاح" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "خطأ", description: err.message, variant: "destructive" });
+    },
+  });
+
+  function handleQrSave() {
+    qrSaveMutation.mutate({ payment_qr_url: paymentQrUrl });
+  }
+
+  function handleQrDelete() {
+    setPaymentQrUrl("");
+    qrSaveMutation.mutate({ payment_qr_url: "" });
   }
 
   async function handleWebhookTest() {
@@ -416,6 +440,57 @@ export default function Settings() {
               </p>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Payment QR Code Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">📲</span>
+            <div>
+              <CardTitle>QR كود الدفع</CardTitle>
+              <CardDescription>
+                ارفع صورة QR لحساب الدفع (سيريتل كاش / MTN) — ستظهر للسائق في شاشة المحفظة
+              </CardDescription>
+            </div>
+            <div className="mr-auto">
+              {paymentQrUrl ? (
+                <Badge variant="default" className="bg-green-600">مُعدَّل ✓</Badge>
+              ) : (
+                <Badge variant="secondary">غير مُعدَّل</Badge>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <ImageUpload
+            label="صورة QR الدفع"
+            value={paymentQrUrl}
+            onChange={setPaymentQrUrl}
+          />
+          <div className="flex gap-3">
+            <Button
+              onClick={handleQrSave}
+              disabled={qrSaveMutation.isPending}
+              className="flex-1 bg-orange-500 hover:bg-orange-600"
+            >
+              {qrSaveMutation.isPending ? "جاري الحفظ..." : "حفظ QR الدفع"}
+            </Button>
+            {paymentQrUrl && (
+              <Button
+                onClick={handleQrDelete}
+                disabled={qrSaveMutation.isPending}
+                variant="outline"
+                className="shrink-0 text-destructive border-destructive hover:bg-destructive/10"
+              >
+                حذف QR
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            الصورة ستظهر للسائق في شاشة "محفظتي" تحت سجل المعاملات — فقط إذا كانت مرفوعة
+          </p>
         </CardContent>
       </Card>
 
