@@ -22,5 +22,6 @@ export interface Order {
   estimatedMinutes: number;
   createdAt: Date;
   updatedAt: Date;
+  restaurantNote?: string | null;
   items?: OrderItem[];
 }

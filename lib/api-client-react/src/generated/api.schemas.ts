@@ -120,6 +120,7 @@ export interface Order {
   estimatedMinutes: number;
   createdAt: string;
   updatedAt: string;
+  restaurantNote?: string | null;
   items?: OrderItem[];
 }
 

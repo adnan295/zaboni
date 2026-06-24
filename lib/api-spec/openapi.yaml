@@ -567,6 +567,9 @@ components:
         updatedAt:
           type: string
           format: date-time
+        restaurantNote:
+          type: string
+          nullable: true
         items:
           type: array
           items:
