@@ -50,9 +50,36 @@ export function OrderDetailSheet({ order, open, onOpenChange }: Props) {
 
           <div className="space-y-1.5 text-sm">
             <p className="font-semibold text-xs text-muted-foreground uppercase tracking-wide">محتوى الطلب</p>
-            <div className="bg-muted/50 rounded-lg p-3 leading-7 text-foreground whitespace-pre-wrap break-words">
-              {order.orderText}
-            </div>
+            {order.items && order.items.length > 0 ? (
+              <div className="border border-border rounded-lg overflow-hidden">
+                {order.items.map((item, idx) => (
+                  <div key={item.id} className={`px-3 py-2.5 ${idx < order.items.length - 1 ? "border-b border-border" : ""}`}>
+                    <div className="flex justify-between items-start gap-2">
+                      <span className="font-medium text-foreground">{item.nameAr} × {item.qty}</span>
+                      <span className="font-bold text-primary shrink-0">{item.lineTotal.toLocaleString()} ل.س</span>
+                    </div>
+                    {item.options.map((opt, i) => (
+                      <p key={i} className="text-xs text-muted-foreground mt-0.5 mr-3">
+                        ↳ {opt.nameAr}{opt.extraPrice > 0 ? ` (+${opt.extraPrice.toLocaleString()} ل.س)` : ""}
+                      </p>
+                    ))}
+                    {item.note && (
+                      <p className="text-xs text-muted-foreground mt-0.5 mr-3">📝 {item.note}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-muted/50 rounded-lg p-3 leading-7 text-foreground whitespace-pre-wrap break-words">
+                {order.orderText}
+              </div>
+            )}
+            {order.restaurantNote && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm">
+                <span className="font-semibold text-amber-700 text-xs">ملاحظة للمطعم: </span>
+                <span className="text-amber-900">{order.restaurantNote}</span>
+              </div>
+            )}
           </div>
 
           <div className="grid gap-3">

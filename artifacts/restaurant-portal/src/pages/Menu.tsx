@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, type MenuItem } from "@/lib/api";
+import { api, type MenuItem, type OptionGroup } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,153 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { ImageUpload } from "@/components/ImageUpload";
+import { Trash2, Plus } from "lucide-react";
+
+function OptionGroupsDialog({ item, open, onClose }: { item: MenuItem | null; open: boolean; onClose: () => void }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [newGroupName, setNewGroupName] = useState("");
+  const [newOpts, setNewOpts] = useState<Record<string, { nameAr: string; extraPrice: string }>>({});
+
+  const { data: groups = [], isLoading } = useQuery<OptionGroup[]>({
+    queryKey: ["option-groups", item?.id],
+    queryFn: () => api.getOptionGroups(item!.id),
+    enabled: open && !!item,
+  });
+
+  const addGroupMut = useMutation({
+    mutationFn: (nameAr: string) => api.createOptionGroup(item!.id, { nameAr }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["option-groups", item?.id] }); setNewGroupName(""); },
+    onError: () => toast({ variant: "destructive", title: "فشل إضافة المجموعة" }),
+  });
+
+  const delGroupMut = useMutation({
+    mutationFn: (groupId: string) => api.deleteOptionGroup(item!.id, groupId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["option-groups", item?.id] }),
+    onError: () => toast({ variant: "destructive", title: "فشل الحذف" }),
+  });
+
+  const addOptMut = useMutation({
+    mutationFn: ({ groupId, nameAr, extraPrice }: { groupId: string; nameAr: string; extraPrice: number }) =>
+      api.createOption(item!.id, groupId, { nameAr, extraPrice }),
+    onSuccess: (_data, { groupId }) => {
+      qc.invalidateQueries({ queryKey: ["option-groups", item?.id] });
+      setNewOpts(prev => { const n = { ...prev }; delete n[groupId]; return n; });
+    },
+    onError: () => toast({ variant: "destructive", title: "فشل إضافة الخيار" }),
+  });
+
+  const delOptMut = useMutation({
+    mutationFn: ({ groupId, optionId }: { groupId: string; optionId: string }) =>
+      api.deleteOption(item!.id, groupId, optionId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["option-groups", item?.id] }),
+    onError: () => toast({ variant: "destructive", title: "فشل الحذف" }),
+  });
+
+  if (!item) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto" dir="rtl">
+        <DialogHeader>
+          <DialogTitle>إضافات: {item.nameAr}</DialogTitle>
+        </DialogHeader>
+
+        {isLoading ? (
+          <p className="text-center py-6 text-muted-foreground text-sm">جاري التحميل...</p>
+        ) : (
+          <div className="space-y-4">
+            {groups.length === 0 && (
+              <p className="text-center py-4 text-muted-foreground text-sm">لا توجد مجموعات إضافات بعد</p>
+            )}
+
+            {groups.map((group) => {
+              const newOpt = newOpts[group.id] ?? { nameAr: "", extraPrice: "" };
+              return (
+                <div key={group.id} className="border border-border rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="font-semibold text-sm">{group.nameAr}</p>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      onClick={() => delGroupMut.mutate(group.id)}
+                      disabled={delGroupMut.isPending}
+                    >
+                      <Trash2 size={14} />
+                    </Button>
+                  </div>
+
+                  <div className="space-y-1 pr-2">
+                    {group.options.map((opt) => (
+                      <div key={opt.id} className="flex items-center justify-between text-sm">
+                        <span>{opt.nameAr}{opt.extraPrice > 0 ? ` (+${opt.extraPrice} ل.س)` : ""}</span>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                          onClick={() => delOptMut.mutate({ groupId: group.id, optionId: opt.id })}
+                          disabled={delOptMut.isPending}
+                        >
+                          <Trash2 size={12} />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-2 items-center pt-1">
+                    <Input
+                      placeholder="اسم الخيار"
+                      className="h-8 text-sm flex-1"
+                      value={newOpt.nameAr}
+                      onChange={(e) => setNewOpts((prev) => ({ ...prev, [group.id]: { ...newOpt, nameAr: e.target.value } }))}
+                    />
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder="سعر إضافي"
+                      className="h-8 text-sm w-28"
+                      value={newOpt.extraPrice}
+                      onChange={(e) => setNewOpts((prev) => ({ ...prev, [group.id]: { ...newOpt, extraPrice: e.target.value } }))}
+                    />
+                    <Button
+                      size="sm"
+                      className="h-8 shrink-0"
+                      disabled={!newOpt.nameAr.trim() || addOptMut.isPending}
+                      onClick={() => addOptMut.mutate({ groupId: group.id, nameAr: newOpt.nameAr.trim(), extraPrice: parseFloat(newOpt.extraPrice) || 0 })}
+                    >
+                      <Plus size={14} />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+
+            <div className="flex gap-2 items-center border-t border-border pt-3">
+              <Input
+                placeholder="اسم المجموعة الجديدة (مثال: الحجم، الإضافات)"
+                className="h-9 text-sm flex-1"
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+              />
+              <Button
+                size="sm"
+                disabled={!newGroupName.trim() || addGroupMut.isPending}
+                onClick={() => addGroupMut.mutate(newGroupName.trim())}
+              >
+                إضافة مجموعة
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>إغلاق</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 const emptyItem: Omit<MenuItem, "id" | "restaurantId"> = {
   name: "", nameAr: "", price: 0, category: "", categoryAr: "",
@@ -29,6 +176,7 @@ export default function Menu() {
   const qc = useQueryClient();
   const [editItem, setEditItem] = useState<Partial<MenuItem> | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [optGroupItem, setOptGroupItem] = useState<MenuItem | null>(null);
   const [search, setSearch] = useState("");
   const [dealPriceInput, setDealPriceInput] = useState<Record<string, string>>({});
   const [dealExpiryInput, setDealExpiryInput] = useState<Record<string, string>>({});
@@ -324,6 +472,10 @@ export default function Menu() {
                       >
                         {item.isAvailable ? "تعيين كـ نفد" : "تعيين كـ متوفر"}
                       </Button>
+                      <Button size="sm" variant="outline" onClick={() => setOptGroupItem(item)} title="إدارة الإضافات">
+                        <Plus size={14} className="ml-1" />
+                        إضافات
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => setEditItem({ ...item })}>تعديل</Button>
                       <Button size="sm" variant="destructive" onClick={() => setDeleteId(item.id)}>حذف</Button>
                     </div>
@@ -387,6 +539,12 @@ export default function Menu() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <OptionGroupsDialog
+        item={optGroupItem}
+        open={!!optGroupItem}
+        onClose={() => setOptGroupItem(null)}
+      />
 
       <AlertDialog open={!!deleteId} onOpenChange={open => !open && setDeleteId(null)}>
         <AlertDialogContent dir="rtl">

@@ -1,6 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
-import { db, restaurantUsersTable, restaurantsTable, menuItemsTable, restaurantHoursTable, ordersTable, otpCodesTable, orderRatingsTable, promoCodesTable, promoUsesTable, flashDealsTable } from "@workspace/db";
-import { eq, desc, and, gte, count, sum, sql } from "drizzle-orm";
+import { db, restaurantUsersTable, restaurantsTable, menuItemsTable, restaurantHoursTable, ordersTable, orderItemsTable, orderItemOptionsTable, otpCodesTable, orderRatingsTable, promoCodesTable, promoUsesTable, flashDealsTable, menuItemOptionGroupsTable, menuItemOptionsTable } from "@workspace/db";
+import { eq, desc, and, gte, inArray, count, sum, sql } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -214,7 +214,37 @@ router.put("/restaurant-portal/restaurant", requireRestaurantAuth, async (req, r
 router.get("/restaurant-portal/menu", requireRestaurantAuth, async (req, res) => {
   const { restaurantId } = getRestaurantAuth(req);
   const items = await db.select().from(menuItemsTable).where(eq(menuItemsTable.restaurantId, restaurantId)).orderBy(menuItemsTable.category, menuItemsTable.name);
-  res.json(items);
+
+  if (items.length === 0) { res.json([]); return; }
+  const itemIds = items.map((i) => i.id);
+  const groupRows = await db.select({
+    groupId: menuItemOptionGroupsTable.id,
+    groupNameAr: menuItemOptionGroupsTable.nameAr,
+    groupSortOrder: menuItemOptionGroupsTable.sortOrder,
+    menuItemId: menuItemOptionGroupsTable.menuItemId,
+    optionId: menuItemOptionsTable.id,
+    optionNameAr: menuItemOptionsTable.nameAr,
+    optionExtraPrice: menuItemOptionsTable.extraPrice,
+    optionIsDefault: menuItemOptionsTable.isDefault,
+    optionSortOrder: menuItemOptionsTable.sortOrder,
+  })
+    .from(menuItemOptionGroupsTable)
+    .leftJoin(menuItemOptionsTable, eq(menuItemOptionsTable.groupId, menuItemOptionGroupsTable.id))
+    .where(inArray(menuItemOptionGroupsTable.menuItemId, itemIds))
+    .orderBy(menuItemOptionGroupsTable.sortOrder, menuItemOptionsTable.sortOrder);
+
+  type OptionGroup = { id: string; nameAr: string; sortOrder: number; options: { id: string; nameAr: string; extraPrice: number; isDefault: boolean; sortOrder: number }[] };
+  const groupsByItemId = new Map<string, Map<string, OptionGroup>>();
+  for (const row of groupRows) {
+    if (!groupsByItemId.has(row.menuItemId)) groupsByItemId.set(row.menuItemId, new Map());
+    const gm = groupsByItemId.get(row.menuItemId)!;
+    if (!gm.has(row.groupId)) gm.set(row.groupId, { id: row.groupId, nameAr: row.groupNameAr, sortOrder: row.groupSortOrder, options: [] });
+    if (row.optionId) gm.get(row.groupId)!.options.push({ id: row.optionId, nameAr: row.optionNameAr!, extraPrice: row.optionExtraPrice!, isDefault: row.optionIsDefault!, sortOrder: row.optionSortOrder! });
+  }
+  res.json(items.map((item) => {
+    const gm = groupsByItemId.get(item.id);
+    return { ...item, optionGroups: gm ? Array.from(gm.values()) : [] };
+  }));
 });
 
 router.post("/restaurant-portal/menu", requireRestaurantAuth, async (req, res) => {
@@ -323,6 +353,96 @@ router.delete("/restaurant-portal/menu/:itemId", requireRestaurantAuth, async (r
   res.status(204).end();
 });
 
+router.get("/restaurant-portal/menu/:itemId/option-groups", requireRestaurantAuth, async (req, res) => {
+  const { restaurantId } = getRestaurantAuth(req);
+  const itemId = String(req.params["itemId"]);
+  const [item] = await db.select({ id: menuItemsTable.id }).from(menuItemsTable).where(and(eq(menuItemsTable.id, itemId), eq(menuItemsTable.restaurantId, restaurantId))).limit(1);
+  if (!item) { res.status(404).json({ error: "الصنف غير موجود" }); return; }
+  const groups = await db.select().from(menuItemOptionGroupsTable).where(eq(menuItemOptionGroupsTable.menuItemId, itemId)).orderBy(menuItemOptionGroupsTable.sortOrder);
+  const options = groups.length > 0 ? await db.select().from(menuItemOptionsTable).where(inArray(menuItemOptionsTable.groupId, groups.map((g) => g.id))).orderBy(menuItemOptionsTable.sortOrder) : [];
+  const optsByGroup = new Map<string, typeof options>();
+  for (const o of options) {
+    if (!optsByGroup.has(o.groupId)) optsByGroup.set(o.groupId, []);
+    optsByGroup.get(o.groupId)!.push(o);
+  }
+  res.json(groups.map((g) => ({ ...g, options: optsByGroup.get(g.id) ?? [] })));
+});
+
+router.post("/restaurant-portal/menu/:itemId/option-groups", requireRestaurantAuth, async (req, res) => {
+  const { restaurantId } = getRestaurantAuth(req);
+  const itemId = String(req.params["itemId"]);
+  const [item] = await db.select({ id: menuItemsTable.id }).from(menuItemsTable).where(and(eq(menuItemsTable.id, itemId), eq(menuItemsTable.restaurantId, restaurantId))).limit(1);
+  if (!item) { res.status(404).json({ error: "الصنف غير موجود" }); return; }
+  const parsed = z.object({ nameAr: z.string().min(1), sortOrder: z.number().int().default(0) }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  const id = `og_${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
+  const [group] = await db.insert(menuItemOptionGroupsTable).values({ id, menuItemId: itemId, ...parsed.data }).returning();
+  res.status(201).json({ ...group, options: [] });
+});
+
+router.put("/restaurant-portal/menu/:itemId/option-groups/:groupId", requireRestaurantAuth, async (req, res) => {
+  const { restaurantId } = getRestaurantAuth(req);
+  const itemId = String(req.params["itemId"]);
+  const groupId = String(req.params["groupId"]);
+  const [item] = await db.select({ id: menuItemsTable.id }).from(menuItemsTable).where(and(eq(menuItemsTable.id, itemId), eq(menuItemsTable.restaurantId, restaurantId))).limit(1);
+  if (!item) { res.status(404).json({ error: "الصنف غير موجود" }); return; }
+  const parsed = z.object({ nameAr: z.string().min(1).optional(), sortOrder: z.number().int().optional() }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  const [updated] = await db.update(menuItemOptionGroupsTable).set(parsed.data).where(and(eq(menuItemOptionGroupsTable.id, groupId), eq(menuItemOptionGroupsTable.menuItemId, itemId))).returning();
+  if (!updated) { res.status(404).json({ error: "المجموعة غير موجودة" }); return; }
+  res.json(updated);
+});
+
+router.delete("/restaurant-portal/menu/:itemId/option-groups/:groupId", requireRestaurantAuth, async (req, res) => {
+  const { restaurantId } = getRestaurantAuth(req);
+  const itemId = String(req.params["itemId"]);
+  const groupId = String(req.params["groupId"]);
+  const [item] = await db.select({ id: menuItemsTable.id }).from(menuItemsTable).where(and(eq(menuItemsTable.id, itemId), eq(menuItemsTable.restaurantId, restaurantId))).limit(1);
+  if (!item) { res.status(404).json({ error: "الصنف غير موجود" }); return; }
+  await db.delete(menuItemOptionGroupsTable).where(and(eq(menuItemOptionGroupsTable.id, groupId), eq(menuItemOptionGroupsTable.menuItemId, itemId)));
+  res.status(204).end();
+});
+
+router.post("/restaurant-portal/menu/:itemId/option-groups/:groupId/options", requireRestaurantAuth, async (req, res) => {
+  const { restaurantId } = getRestaurantAuth(req);
+  const itemId = String(req.params["itemId"]);
+  const groupId = String(req.params["groupId"]);
+  const [item] = await db.select({ id: menuItemsTable.id }).from(menuItemsTable).where(and(eq(menuItemsTable.id, itemId), eq(menuItemsTable.restaurantId, restaurantId))).limit(1);
+  if (!item) { res.status(404).json({ error: "الصنف غير موجود" }); return; }
+  const [group] = await db.select({ id: menuItemOptionGroupsTable.id }).from(menuItemOptionGroupsTable).where(and(eq(menuItemOptionGroupsTable.id, groupId), eq(menuItemOptionGroupsTable.menuItemId, itemId))).limit(1);
+  if (!group) { res.status(404).json({ error: "المجموعة غير موجودة" }); return; }
+  const parsed = z.object({ nameAr: z.string().min(1), extraPrice: z.number().int().min(0).default(0), isDefault: z.boolean().default(false), sortOrder: z.number().int().default(0) }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  const id = `mio_${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
+  const [option] = await db.insert(menuItemOptionsTable).values({ id, groupId, ...parsed.data }).returning();
+  res.status(201).json(option);
+});
+
+router.put("/restaurant-portal/menu/:itemId/option-groups/:groupId/options/:optionId", requireRestaurantAuth, async (req, res) => {
+  const { restaurantId } = getRestaurantAuth(req);
+  const itemId = String(req.params["itemId"]);
+  const groupId = String(req.params["groupId"]);
+  const optionId = String(req.params["optionId"]);
+  const [item] = await db.select({ id: menuItemsTable.id }).from(menuItemsTable).where(and(eq(menuItemsTable.id, itemId), eq(menuItemsTable.restaurantId, restaurantId))).limit(1);
+  if (!item) { res.status(404).json({ error: "الصنف غير موجود" }); return; }
+  const parsed = z.object({ nameAr: z.string().min(1).optional(), extraPrice: z.number().int().min(0).optional(), isDefault: z.boolean().optional(), sortOrder: z.number().int().optional() }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  const [updated] = await db.update(menuItemOptionsTable).set(parsed.data).where(and(eq(menuItemOptionsTable.id, optionId), eq(menuItemOptionsTable.groupId, groupId))).returning();
+  if (!updated) { res.status(404).json({ error: "الخيار غير موجود" }); return; }
+  res.json(updated);
+});
+
+router.delete("/restaurant-portal/menu/:itemId/option-groups/:groupId/options/:optionId", requireRestaurantAuth, async (req, res) => {
+  const { restaurantId } = getRestaurantAuth(req);
+  const itemId = String(req.params["itemId"]);
+  const groupId = String(req.params["groupId"]);
+  const optionId = String(req.params["optionId"]);
+  const [item] = await db.select({ id: menuItemsTable.id }).from(menuItemsTable).where(and(eq(menuItemsTable.id, itemId), eq(menuItemsTable.restaurantId, restaurantId))).limit(1);
+  if (!item) { res.status(404).json({ error: "الصنف غير موجود" }); return; }
+  await db.delete(menuItemOptionsTable).where(and(eq(menuItemOptionsTable.id, optionId), eq(menuItemOptionsTable.groupId, groupId)));
+  res.status(204).end();
+});
+
 router.get("/restaurant-portal/hours", requireRestaurantAuth, async (req, res) => {
   const { restaurantId } = getRestaurantAuth(req);
   const hours = await db.select().from(restaurantHoursTable).where(eq(restaurantHoursTable.restaurantId, restaurantId)).orderBy(restaurantHoursTable.dayOfWeek);
@@ -360,7 +480,38 @@ router.get("/restaurant-portal/orders", requireRestaurantAuth, async (req, res) 
     .where(eq(ordersTable.restaurantId, restaurantId))
     .orderBy(desc(ordersTable.createdAt))
     .limit(limit);
-  res.json(orders);
+
+  if (orders.length === 0) { res.json([]); return; }
+
+  const orderIds = orders.map((o) => o.id);
+  const itemRows = await db.select({
+    id: orderItemsTable.id,
+    orderId: orderItemsTable.orderId,
+    nameAr: orderItemsTable.nameAr,
+    qty: orderItemsTable.qty,
+    unitPrice: orderItemsTable.unitPrice,
+    lineTotal: orderItemsTable.lineTotal,
+    note: orderItemsTable.note,
+    optNameAr: orderItemOptionsTable.nameAr,
+    optExtraPrice: orderItemOptionsTable.extraPrice,
+  })
+    .from(orderItemsTable)
+    .leftJoin(orderItemOptionsTable, eq(orderItemOptionsTable.orderItemId, orderItemsTable.id))
+    .where(inArray(orderItemsTable.orderId, orderIds));
+
+  type ItemAcc = { id: string; nameAr: string; qty: number; unitPrice: number; lineTotal: number; note: string | null; options: { nameAr: string; extraPrice: number }[] };
+  const itemMap = new Map<string, Map<string, ItemAcc>>();
+  for (const row of itemRows) {
+    if (!itemMap.has(row.orderId)) itemMap.set(row.orderId, new Map());
+    const om = itemMap.get(row.orderId)!;
+    if (!om.has(row.id)) om.set(row.id, { id: row.id, nameAr: row.nameAr, qty: row.qty, unitPrice: row.unitPrice, lineTotal: row.lineTotal, note: row.note, options: [] });
+    if (row.optNameAr) om.get(row.id)!.options.push({ nameAr: row.optNameAr, extraPrice: row.optExtraPrice ?? 0 });
+  }
+
+  res.json(orders.map((o) => ({
+    ...o,
+    items: itemMap.has(o.id) ? Array.from(itemMap.get(o.id)!.values()) : [],
+  })));
 });
 
 router.get("/restaurant-portal/analytics", requireRestaurantAuth, async (req, res) => {

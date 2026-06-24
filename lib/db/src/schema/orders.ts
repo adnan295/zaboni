@@ -43,6 +43,7 @@ export const ordersTable = pgTable("orders", {
   estimatedMinutes: integer("estimated_minutes").notNull().default(30),
   orderType: text("order_type").notNull().default("restaurant"),
   placeName: text("place_name"),
+  restaurantNote: text("restaurant_note"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

@@ -22,7 +22,8 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import MenuItemCard from "@/components/MenuItemCard";
-import ItemNoteModal from "@/components/ItemNoteModal";
+import ItemNoteModal, { type OptionGroup } from "@/components/ItemNoteModal";
+import type { SelectedOption } from "@/context/CartContext";
 import { useFavorites } from "@/context/FavoritesContext";
 import { useAddresses } from "@/context/AddressContext";
 import { useCart } from "@/context/CartContext";
@@ -84,7 +85,7 @@ export default function RestaurantScreen() {
   const { data: menuItemsData } = useGetRestaurantMenu(id ?? "");
   const menuItems = menuItemsData ?? [];
   const categories = Array.from(new Set(menuItems.map((m) => m.categoryAr)));
-  type MenuItemWithDeal = typeof menuItems[number] & { isDeal?: boolean; dealPrice?: number | null; dealDiscountPercent?: number | null };
+  type MenuItemWithDeal = typeof menuItems[number] & { isDeal?: boolean; dealPrice?: number | null; dealDiscountPercent?: number | null; optionGroups?: OptionGroup[] };
 
   const getEffectivePrice = (item: MenuItemWithDeal): number => {
     const typed = item as MenuItemWithDeal;
@@ -182,15 +183,17 @@ export default function RestaurantScreen() {
     setNoteModalData({ item, effectivePrice, originalPrice });
   };
 
-  const handleModalAdd = (note: string, qty: number) => {
+  const handleModalAdd = (note: string, qty: number, selectedOptions: SelectedOption[]) => {
     if (!restaurant || !noteModalData) return;
     const { item, effectivePrice, originalPrice } = noteModalData;
+    const optionsExtra = selectedOptions.reduce((sum, o) => sum + o.extraPrice, 0);
     cartCtx.addItem(restaurant.id, restaurant.nameAr, {
       menuItemId: item.id,
       nameAr: item.nameAr,
-      price: effectivePrice,
+      price: effectivePrice + optionsExtra,
       originalPrice,
       note: note || undefined,
+      selectedOptions: selectedOptions.length > 0 ? selectedOptions : undefined,
     });
     for (let i = 1; i < qty; i++) {
       cartCtx.incItem(item.id);
@@ -657,6 +660,8 @@ export default function RestaurantScreen() {
         isDeal={noteModalData?.item?.isDeal}
         effectivePrice={noteModalData?.effectivePrice}
         initialNote={(noteModalData?.item ? (cartCtx.items[noteModalData.item.id]?.note ?? "") : "")}
+        initialSelectedOptions={noteModalData?.item ? cartCtx.items[noteModalData.item.id]?.selectedOptions : undefined}
+        optionGroups={(noteModalData?.item as MenuItemWithDeal | null)?.optionGroups}
         initialQty={1}
         onClose={() => setNoteModalData(null)}
         onAdd={handleModalAdd}
