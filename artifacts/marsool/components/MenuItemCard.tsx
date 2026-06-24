@@ -2,10 +2,10 @@ import React from "react";
 import {
   View,
   StyleSheet,
-  Image,
   TouchableOpacity,
   Animated,
 } from "react-native";
+import { Image } from "expo-image";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -124,7 +124,7 @@ export default function MenuItemCard({ item, quantity = 0, onAdd, onRemove, isDe
       </View>
 
       <View style={styles.imageWrap}>
-        <Image source={{ uri: buildImageUrl(item.image) }} style={styles.image} resizeMode="cover" />
+        <Image source={{ uri: buildImageUrl(item.image) }} style={styles.image} contentFit="cover" />
         {showDeal && (
           <View style={styles.imageDealBadge}>
             <Text style={styles.imageDealBadgeText}>
