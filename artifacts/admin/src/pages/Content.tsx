@@ -174,7 +174,6 @@ function BannerSection() {
               <ImageUpload
                 value={form.image}
                 onChange={(url) => setForm((f) => ({ ...f, image: url }))}
-                folder="banners"
               />
             </div>
             <div className="space-y-1">

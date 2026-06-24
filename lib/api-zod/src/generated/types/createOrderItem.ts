@@ -5,8 +5,11 @@
  * Marsool delivery app API
  * OpenAPI spec version: 0.1.0
  */
+import type { CreateOrderItemOption } from "./createOrderItemOption";
 
 export interface CreateOrderItem {
   menuItemId: string;
   qty: number;
+  note?: string;
+  selectedOptions?: CreateOrderItemOption[];
 }

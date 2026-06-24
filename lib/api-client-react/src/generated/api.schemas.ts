@@ -45,6 +45,21 @@ export interface Restaurant {
   discount?: string | null;
 }
 
+export interface MenuItemOption {
+  id: string;
+  nameAr: string;
+  extraPrice: number;
+  isDefault: boolean;
+  sortOrder: number;
+}
+
+export interface MenuItemOptionGroup {
+  id: string;
+  nameAr: string;
+  sortOrder: number;
+  options: MenuItemOption[];
+}
+
 export interface MenuItem {
   id: string;
   restaurantId: string;
@@ -62,6 +77,7 @@ export interface MenuItem {
   isAvailable?: boolean;
   isDeal?: boolean;
   dealPrice?: number | null;
+  optionGroups?: MenuItemOptionGroup[];
 }
 
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
@@ -73,6 +89,11 @@ export const OrderStatus = {
   delivered: "delivered",
 } as const;
 
+export interface OrderItemOption {
+  nameAr: string;
+  extraPrice: number;
+}
+
 export interface OrderItem {
   id: string;
   orderId: string;
@@ -81,6 +102,8 @@ export interface OrderItem {
   unitPrice: number;
   qty: number;
   lineTotal: number;
+  note?: string | null;
+  options?: OrderItemOption[];
 }
 
 export interface Order {
@@ -100,9 +123,15 @@ export interface Order {
   items?: OrderItem[];
 }
 
+export interface CreateOrderItemOption {
+  optionId: string;
+}
+
 export interface CreateOrderItem {
   menuItemId: string;
   qty: number;
+  note?: string;
+  selectedOptions?: CreateOrderItemOption[];
 }
 
 export interface CreateOrderRequest {
@@ -116,6 +145,7 @@ export interface CreateOrderRequest {
   restaurantId?: string;
   totalPrice?: number;
   usePoints?: boolean;
+  restaurantNote?: string;
   items?: CreateOrderItem[];
 }
 
