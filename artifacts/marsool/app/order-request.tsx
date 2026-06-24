@@ -20,8 +20,9 @@ import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import { useOrders } from "@/context/OrderContext";
 import { useAddresses } from "@/context/AddressContext";
-import { useCart } from "@/context/CartContext";
+import { useCart, type CartItem } from "@/context/CartContext";
 import { customFetch } from "@workspace/api-client-react";
+import ItemNoteModal from "@/components/ItemNoteModal";
 
 type FlashDealInfo = {
   id: string;
@@ -81,6 +82,7 @@ export default function OrderRequestScreen() {
   const cartEntries = cart.entries;
   const subtotal = cart.subtotal;
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editNoteItem, setEditNoteItem] = useState<CartItem | null>(null);
   const [promoCode, setPromoCode] = useState("");
   const [promoStatus, setPromoStatus] = useState<PromoStatus>("idle");
   const [promoResult, setPromoResult] = useState<PromoResult | null>(null);
@@ -348,10 +350,28 @@ export default function OrderRequestScreen() {
                     {item.nameAr}
                   </Text>
                   {item.note ? (
-                    <Text style={[styles.itemNote, { color: colors.mutedForeground }]} numberOfLines={2}>
-                      {item.note}
-                    </Text>
-                  ) : null}
+                    <TouchableOpacity
+                      style={styles.noteEditRow}
+                      onPress={() => setEditNoteItem(item)}
+                      hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.itemNote, { color: colors.mutedForeground, flex: 1 }]} numberOfLines={2}>
+                        {item.note}
+                      </Text>
+                      <MaterialIcons name="edit" size={13} color={colors.mutedForeground} style={{ marginTop: 1 }} />
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => setEditNoteItem(item)}
+                      hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.addNoteLink, { color: colors.primary }]}>
+                        + {t("menu.note.addNoteLink")}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                   <Text style={[styles.itemUnit, { color: colors.mutedForeground }]}>
                     {item.price.toLocaleString()} ل.س
                   </Text>
@@ -643,6 +663,21 @@ export default function OrderRequestScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      <ItemNoteModal
+        visible={editNoteItem != null}
+        item={editNoteItem}
+        initialNote={editNoteItem?.note ?? ""}
+        initialQty={editNoteItem?.qty ?? 1}
+        isEdit
+        onClose={() => setEditNoteItem(null)}
+        onAdd={(note) => {
+          if (editNoteItem) {
+            cart.setItemNote(editNoteItem.menuItemId, note);
+          }
+          setEditNoteItem(null);
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -785,6 +820,8 @@ const styles = StyleSheet.create({
   itemInfo: { flex: 1, gap: 2 },
   itemName: { fontSize: 14, fontWeight: "700" },
   itemNote: { fontSize: 11, lineHeight: 15, fontStyle: "italic" },
+  noteEditRow: { flexDirection: "row", alignItems: "flex-start", gap: 4 },
+  addNoteLink: { fontSize: 11, fontWeight: "600" },
   itemUnit: { fontSize: 12 },
   stepper: { flexDirection: "row", alignItems: "center", gap: 8 },
   stepBtn: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
