@@ -4,7 +4,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   Platform,
   Animated,
   ActivityIndicator,
@@ -13,6 +12,7 @@ import {
   type NativeScrollEvent,
   type LayoutChangeEvent,
 } from "react-native";
+import { Image } from "expo-image";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -321,7 +321,7 @@ export default function RestaurantScreen() {
       >
         {/* [0] Hero */}
         <View style={styles.heroContainer}>
-          <Image source={{ uri: buildImageUrl(restaurant.image) }} style={styles.heroImage} resizeMode="cover" />
+          <Image source={{ uri: buildImageUrl(restaurant.image) }} style={styles.heroImage} contentFit="cover" />
           <View style={[styles.heroOverlay, { paddingTop: topPadding + 8 }]}>
             <TouchableOpacity
               style={[styles.backBtn, { backgroundColor: "rgba(255,255,255,0.9)" }]}
@@ -472,7 +472,7 @@ export default function RestaurantScreen() {
                     onPress={canAdd && !cart[item.id]?.qty ? () => addToCart(item.id, item.nameAr, dealPrice, item.price !== dealPrice ? item.price : undefined) : undefined}
                     activeOpacity={canAdd && !cart[item.id]?.qty ? 0.85 : 1}
                   >
-                    <Image source={{ uri: buildImageUrl(item.image) }} style={styles.popularImage} resizeMode="cover" />
+                    <Image source={{ uri: buildImageUrl(item.image) }} style={styles.popularImage} contentFit="cover" />
                     <View style={styles.dealBadge}>
                       {getDealPercent(item as MenuItemWithDeal) != null ? (
                         <Text style={styles.dealBadgeText}>خصم {getDealPercent(item as MenuItemWithDeal)}%</Text>
@@ -532,7 +532,7 @@ export default function RestaurantScreen() {
                     onPress={canAdd && !cart[item.id]?.qty ? () => addToCart(item.id, item.nameAr, effectivePrice, itemIsDeal && effectivePrice !== item.price ? item.price : undefined) : undefined}
                     activeOpacity={canAdd && !cart[item.id]?.qty ? 0.85 : 1}
                   >
-                    <Image source={{ uri: buildImageUrl(item.image) }} style={styles.popularImage} resizeMode="cover" />
+                    <Image source={{ uri: buildImageUrl(item.image) }} style={styles.popularImage} contentFit="cover" />
                     {itemIsDeal && (
                       <View style={styles.dealBadge}>
                         {getDealPercent(item as MenuItemWithDeal) != null ? (
