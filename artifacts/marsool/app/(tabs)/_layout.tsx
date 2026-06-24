@@ -1,7 +1,5 @@
 import { BlurView } from "expo-blur";
-import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Tabs, useRouter } from "expo-router";
-import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { SymbolView } from "expo-symbols";
 import { Feather } from "@expo/vector-icons";
 import React, { useMemo } from "react";
@@ -70,33 +68,6 @@ async function fetchTabBarConfig(): Promise<TabBarItem[]> {
   } catch {
     return DEFAULT_TAB_BAR;
   }
-}
-
-function NativeTabLayout({ config }: { config: TabBarItem[] }) {
-  const { t } = useTranslation();
-  const { activeOrder } = useOrders();
-
-  const labelFor = (item: TabBarItem) => {
-    if (item.labelAr && item.labelAr.trim()) return item.labelAr;
-    const translated = t(`tabs.${item.type}` as any);
-    return translated && !translated.startsWith("tabs.") ? translated : item.type;
-  };
-
-  return (
-    <NativeTabs>
-      {config.map((item) => {
-        const def = TAB_DEF[item.type];
-        const name = TAB_SCREEN_NAME[item.type];
-        const badge = item.type === "orders" ? (activeOrder ? "!" : undefined) : undefined;
-        return (
-          <NativeTabs.Trigger key={item.type} name={name} badge={badge}>
-            <Icon sf={{ default: def.sfDefault, selected: def.sfSelected }} />
-            <Label>{labelFor(item)}</Label>
-          </NativeTabs.Trigger>
-        );
-      })}
-    </NativeTabs>
-  );
 }
 
 function ClassicTabLayout({ config }: { config: TabBarItem[] }) {
@@ -227,8 +198,5 @@ export default function TabLayout() {
     placeholderData: DEFAULT_TAB_BAR,
   });
 
-  if (isLiquidGlassAvailable()) {
-    return <NativeTabLayout config={tabConfig} />;
-  }
   return <ClassicTabLayout config={tabConfig} />;
 }
