@@ -7,6 +7,7 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  TextInput,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -17,7 +18,6 @@ import { useTypography } from "@/hooks/useTypography";
 import { useAuth } from "@/context/AuthContext";
 import { customFetch } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getApiBaseUrl } from "@/lib/apiConfig";
 
 type SubRequest = {
   id: string;
@@ -43,25 +43,35 @@ const VEHICLE_LABELS: Record<string, string> = {
   car: "سيارة",
 };
 
-async function uploadReceipt(imageUri: string): Promise<string> {
-  const base = getApiBaseUrl();
-  const urlRes = await fetch(`${base}/api/storage/uploads/request-url`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ contentType: "image/jpeg" }),
-  });
-  if (!urlRes.ok) throw new Error("فشل الحصول على رابط الرفع");
-  const { uploadUrl, key } = await urlRes.json();
+async function uploadReceiptToStorage(imageUri: string): Promise<string> {
+  const filename = imageUri.split("/").pop() ?? "receipt.jpg";
+  const match = /\.(\w+)$/.exec(filename);
+  const ext = match ? match[1].toLowerCase() : "jpg";
+  const contentType = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
 
-  const blob = await fetch(imageUri).then((r) => r.blob());
-  const putRes = await fetch(uploadUrl, {
+  const blob = await (await fetch(imageUri)).blob();
+  const size = blob.size > 0 ? blob.size : 1;
+
+  const urlRes = await customFetch<{ uploadURL: string; objectPath: string }>(
+    "/api/storage/uploads/request-url",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: filename, size, contentType }),
+    }
+  );
+
+  const uploadResponse = await fetch(urlRes.uploadURL, {
     method: "PUT",
+    headers: { "Content-Type": contentType },
     body: blob,
-    headers: { "Content-Type": "image/jpeg" },
   });
-  if (!putRes.ok) throw new Error("فشل رفع الصورة");
 
-  return key;
+  if (!uploadResponse.ok) {
+    throw new Error("فشل رفع صورة الوصل");
+  }
+
+  return urlRes.objectPath;
 }
 
 export default function CourierSubscribeScreen() {
@@ -73,6 +83,7 @@ export default function CourierSubscribeScreen() {
 
   const [step, setStep] = useState<"plan" | "payment">("plan");
   const [receiptImageUri, setReceiptImageUri] = useState<string | null>(null);
+  const [paidAmountText, setPaidAmountText] = useState("");
   const [uploading, setUploading] = useState(false);
 
   const { data: subStatus, isLoading: loadingStatus } = useQuery<SubStatus>({
@@ -93,20 +104,30 @@ export default function CourierSubscribeScreen() {
   const submitMutation = useMutation({
     mutationFn: async () => {
       if (!subStatus) throw new Error("بيانات الاشتراك غير متاحة");
-      let receiptUrl: string | undefined;
-      if (receiptImageUri) {
-        setUploading(true);
-        try {
-          receiptUrl = await uploadReceipt(receiptImageUri);
-        } finally {
-          setUploading(false);
-        }
+
+      const paidAmount = parseInt(paidAmountText.replace(/[^0-9]/g, ""), 10);
+      if (!paidAmountText || isNaN(paidAmount) || paidAmount <= 0) {
+        throw new Error("يرجى إدخال المبلغ المدفوع");
       }
+
+      if (!receiptImageUri) {
+        throw new Error("يرجى رفع صورة وصل الدفع");
+      }
+
+      setUploading(true);
+      let receiptUrl: string;
+      try {
+        receiptUrl = await uploadReceiptToStorage(receiptImageUri);
+      } finally {
+        setUploading(false);
+      }
+
       return customFetch("/api/courier/subscription/request", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           vehicleType: subStatus.vehicleType,
-          paidAmount: subStatus.monthlyPrice,
+          paidAmount,
           receiptUrl,
         }),
       });
@@ -154,6 +175,7 @@ export default function CourierSubscribeScreen() {
     qc.invalidateQueries({ queryKey: ["courier", "subscription", "request", "status"] });
     setStep("plan");
     setReceiptImageUri(null);
+    setPaidAmountText("");
   };
 
   if (loadingStatus || loadingRequest) {
@@ -282,13 +304,31 @@ export default function CourierSubscribeScreen() {
         <View style={styles.infoRowView}>
           <MaterialIcons name="payments" size={18} color={colors.primary} />
           <Text style={[styles.infoText, { color: colors.foreground, fontFamily: fontBold }]}>
-            المبلغ: {(subStatus?.monthlyPrice ?? 0).toLocaleString("ar-SY")} ل.س
+            المبلغ المطلوب: {(subStatus?.monthlyPrice ?? 0).toLocaleString("ar-SY")} ل.س
           </Text>
         </View>
       </View>
 
       <Text style={[styles.sectionLabel, { color: colors.foreground, fontFamily: fontBold }]}>
-        صورة الوصل (اختياري)
+        المبلغ المدفوع <Text style={{ color: "#dc2626" }}>*</Text>
+      </Text>
+      <TextInput
+        style={[styles.amountInput, {
+          borderColor: colors.border,
+          backgroundColor: colors.card,
+          color: colors.foreground,
+          fontFamily: fontMedium,
+        }]}
+        placeholder={`مثلاً: ${(subStatus?.monthlyPrice ?? 0).toLocaleString("ar-SY")}`}
+        placeholderTextColor={colors.mutedForeground}
+        keyboardType="numeric"
+        value={paidAmountText}
+        onChangeText={setPaidAmountText}
+        returnKeyType="done"
+      />
+
+      <Text style={[styles.sectionLabel, { color: colors.foreground, fontFamily: fontBold }]}>
+        صورة وصل الدفع <Text style={{ color: "#dc2626" }}>*</Text>
       </Text>
 
       {receiptImageUri ? (
@@ -355,7 +395,17 @@ const styles = StyleSheet.create({
   infoRow: { fontSize: 14, lineHeight: 22 },
   infoRowView: { flexDirection: "row", alignItems: "center", gap: 8 },
   infoText: { fontSize: 14 },
-  sectionLabel: { alignSelf: "flex-start", fontSize: 15, marginBottom: 12 },
+  sectionLabel: { alignSelf: "flex-start", fontSize: 15, marginBottom: 10 },
+  amountInput: {
+    width: "100%",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    marginBottom: 20,
+    textAlign: "right",
+  },
   uploadRow: { flexDirection: "row", gap: 12, width: "100%", marginBottom: 20 },
   uploadBtn: { flex: 1, borderWidth: 1, borderRadius: 12, paddingVertical: 14, alignItems: "center", gap: 6 },
   uploadBtnText: { fontSize: 13 },
