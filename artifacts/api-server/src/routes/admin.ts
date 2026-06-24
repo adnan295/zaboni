@@ -2267,20 +2267,19 @@ router.post("/admin/courier-subscriptions", async (req, res) => {
   const pricePerMonth = plan?.monthlyPrice ?? 0;
   const totalAmount = pricePerMonth * months;
 
-  await db
-    .update(courierSubscriptionsTable)
-    .set({ isActive: false })
-    .where(and(
-      eq(courierSubscriptionsTable.courierId, courierId),
-      eq(courierSubscriptionsTable.isActive, true),
-    ));
-
   const now = new Date();
   const endsAt = new Date(now);
   endsAt.setMonth(endsAt.getMonth() + months);
   const id = `csub_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
 
   if (gifted) {
+    await db
+      .update(courierSubscriptionsTable)
+      .set({ isActive: false })
+      .where(and(
+        eq(courierSubscriptionsTable.courierId, courierId),
+        eq(courierSubscriptionsTable.isActive, true),
+      ));
     const [row] = await db
       .insert(courierSubscriptionsTable)
       .values({
@@ -2302,7 +2301,7 @@ router.post("/admin/courier-subscriptions", async (req, res) => {
   }
 
   let savedRow: typeof courierSubscriptionsTable.$inferSelect | undefined;
-  let walletDeducted = false;
+  let insufficientBalance = false;
 
   await db.transaction(async (trx) => {
     if (totalAmount > 0) {
@@ -2311,22 +2310,30 @@ router.post("/admin/courier-subscriptions", async (req, res) => {
         .set({ walletBalance: sql`wallet_balance - ${totalAmount}` })
         .where(and(eq(usersTable.id, courierId), sql`wallet_balance >= ${totalAmount}`))
         .returning({ newBalance: usersTable.walletBalance });
-      walletDeducted = updated.length > 0;
 
-      if (walletDeducted) {
-        const dedId = `wded_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
-        await trx.insert(courierWalletTransactionsTable).values({
-          id: dedId,
-          courierId,
-          amount: -totalAmount,
-          type: "subscription_deduction",
-          status: "approved",
-          note: `اشتراك شهري ${months} شهر`,
-        });
+      if (updated.length === 0) {
+        insufficientBalance = true;
+        return;
       }
-    } else {
-      walletDeducted = true;
+
+      const dedId = `wded_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+      await trx.insert(courierWalletTransactionsTable).values({
+        id: dedId,
+        courierId,
+        amount: -totalAmount,
+        type: "subscription_deduction",
+        status: "approved",
+        note: `اشتراك شهري ${months} شهر`,
+      });
     }
+
+    await trx
+      .update(courierSubscriptionsTable)
+      .set({ isActive: false })
+      .where(and(
+        eq(courierSubscriptionsTable.courierId, courierId),
+        eq(courierSubscriptionsTable.isActive, true),
+      ));
 
     const [row] = await trx
       .insert(courierSubscriptionsTable)
@@ -2337,7 +2344,7 @@ router.post("/admin/courier-subscriptions", async (req, res) => {
         startsAt: now,
         endsAt,
         amount: totalAmount,
-        status: walletDeducted ? "paid" : "pending",
+        status: "paid",
         isActive: true,
         gifted: false,
         createdByAdmin: true,
@@ -2346,6 +2353,11 @@ router.post("/admin/courier-subscriptions", async (req, res) => {
       .returning();
     savedRow = row;
   });
+
+  if (insufficientBalance) {
+    res.status(402).json({ error: "insufficient_balance", required: totalAmount });
+    return;
+  }
 
   res.status(201).json(savedRow);
 });

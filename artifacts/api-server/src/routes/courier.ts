@@ -986,6 +986,7 @@ router.post("/courier/subscription/renew", requireCourier, async (req, res) => {
 
   const now = new Date();
   const base = currentSub && currentSub.endsAt > now ? currentSub.endsAt : now;
+  const startsAt = base;
   const endsAt = new Date(base);
   endsAt.setMonth(endsAt.getMonth() + 1);
   const id = `csub_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
@@ -1029,7 +1030,7 @@ router.post("/courier/subscription/renew", requireCourier, async (req, res) => {
 
       const [row] = await trx
         .insert(courierSubscriptionsTable)
-        .values({ id, courierId, vehicleType, startsAt: now, endsAt, amount: price, status: "paid", isActive: true, gifted: false, createdByAdmin: false })
+        .values({ id, courierId, vehicleType, startsAt, endsAt, amount: price, status: "paid", isActive: true, gifted: false, createdByAdmin: false })
         .returning();
       savedRow = row;
     });
@@ -1050,7 +1051,7 @@ router.post("/courier/subscription/renew", requireCourier, async (req, res) => {
       ));
     const [row] = await db
       .insert(courierSubscriptionsTable)
-      .values({ id, courierId, vehicleType, startsAt: now, endsAt, amount: 0, status: "paid", isActive: true, gifted: false, createdByAdmin: false })
+      .values({ id, courierId, vehicleType, startsAt, endsAt, amount: 0, status: "paid", isActive: true, gifted: false, createdByAdmin: false })
       .returning();
     res.status(201).json({ subscription: row, newBalance: 0 });
   }
