@@ -36,7 +36,7 @@ import {
   courierSubscriptionRequestsTable,
 } from "@workspace/db";
 import bcrypt from "bcryptjs";
-import { eq, count, sum, desc, gte, lte, getTableColumns, and, sql, avg, asc, lt } from "drizzle-orm";
+import { eq, count, sum, desc, gte, lte, getTableColumns, and, sql, avg, asc, lt, inArray } from "drizzle-orm";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
 import { sendPushToAllCustomers, isFlashDealImminent } from "../lib/push";
 import { sendSmsViaGateway, isSmsGatewayConfigured } from "../lib/sms";
@@ -54,6 +54,21 @@ const ORDER_STATUSES = [
 ] as const;
 
 const router = Router();
+
+router.get("/public/payment-info", async (_req, res) => {
+  const rows = await db
+    .select()
+    .from(systemSettingsTable)
+    .where(
+      inArray(systemSettingsTable.key, ["payment_account_image", "payment_qr_image"])
+    );
+  const map: Record<string, string> = {};
+  for (const r of rows) map[r.key] = r.value;
+  res.json({
+    accountImage: map["payment_account_image"] ?? null,
+    qrImage: map["payment_qr_image"] ?? null,
+  });
+});
 
 router.use("/admin", requireAdmin);
 

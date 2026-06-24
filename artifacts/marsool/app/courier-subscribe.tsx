@@ -38,6 +38,11 @@ type SubStatus = {
   monthlyPrice: number;
 };
 
+type PaymentInfo = {
+  accountImage: string | null;
+  qrImage: string | null;
+};
+
 const VEHICLE_LABELS: Record<string, string> = {
   bicycle: "دراجة هوائية",
   motorcycle: "دراجة نارية",
@@ -94,6 +99,17 @@ export default function CourierSubscribeScreen() {
     enabled: !!user,
     staleTime: 15_000,
     refetchInterval: 20_000,
+  });
+
+  const { data: paymentInfo } = useQuery<PaymentInfo>({
+    queryKey: ["public", "payment-info"],
+    queryFn: async () => {
+      const apiHost = process.env.EXPO_PUBLIC_API_HOST ?? "";
+      const res = await fetch(`${apiHost}/api/public/payment-info`);
+      if (!res.ok) throw new Error("failed");
+      return res.json();
+    },
+    staleTime: 60_000,
   });
 
   const { data: latestRequest, isLoading: loadingRequest } = useQuery<SubRequest | null>({
@@ -371,18 +387,34 @@ export default function CourierSubscribeScreen() {
 
       <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={styles.infoRowView}>
-          <MaterialIcons name="location-on" size={18} color={colors.primary} />
-          <Text style={[styles.infoText, { color: colors.foreground, fontFamily: fontMedium }]}>
-            مكتب زبوني — دمشق
-          </Text>
-        </View>
-        <View style={styles.infoRowView}>
           <MaterialIcons name="payments" size={18} color={colors.primary} />
           <Text style={[styles.infoText, { color: colors.foreground, fontFamily: fontBold }]}>
             المبلغ المطلوب: {(subStatus?.monthlyPrice ?? 0).toLocaleString("ar-SY")} ل.س
           </Text>
         </View>
       </View>
+
+      {(paymentInfo?.accountImage || paymentInfo?.qrImage) && (
+        <View style={{ width: "100%", marginBottom: 20, gap: 12 }}>
+          <Text style={[styles.sectionLabel, { color: colors.foreground, fontFamily: fontBold, marginBottom: 4 }]}>
+            معلومات التحويل
+          </Text>
+          {paymentInfo.accountImage ? (
+            <Image
+              source={{ uri: paymentInfo.accountImage }}
+              style={styles.paymentInfoImage}
+              resizeMode="contain"
+            />
+          ) : null}
+          {paymentInfo.qrImage ? (
+            <Image
+              source={{ uri: paymentInfo.qrImage }}
+              style={styles.paymentQrImage}
+              resizeMode="contain"
+            />
+          ) : null}
+        </View>
+      )}
 
       <Text style={[styles.sectionLabel, { color: colors.foreground, fontFamily: fontBold }]}>
         المبلغ المدفوع <Text style={{ color: "#dc2626" }}>*</Text>
@@ -491,4 +523,6 @@ const styles = StyleSheet.create({
   backBtn: { alignSelf: "flex-start", marginBottom: 16 },
   outlineBtn: { width: "100%", borderRadius: 12, borderWidth: 1.5, paddingVertical: 13, alignItems: "center", marginTop: 8 },
   outlineBtnText: { fontSize: 15 },
+  paymentInfoImage: { width: "100%", height: 160, borderRadius: 10 },
+  paymentQrImage: { width: 160, height: 160, alignSelf: "center", borderRadius: 10 },
 });
