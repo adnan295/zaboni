@@ -29,6 +29,7 @@ interface CartState {
   restaurantId: string | null;
   restaurantName: string | null;
   items: Record<string, CartItem>;
+  restaurantNote: string;
 }
 
 interface CartContextValue extends CartState {
@@ -53,11 +54,12 @@ interface CartContextValue extends CartState {
     restaurantName: string,
     items: CartItem[],
   ) => void;
+  setRestaurantNote: (note: string) => void;
   clear: () => void;
 }
 
 const STORAGE_KEY = "marsool_cart_v1";
-const EMPTY: CartState = { restaurantId: null, restaurantName: null, items: {} };
+const EMPTY: CartState = { restaurantId: null, restaurantName: null, items: {}, restaurantNote: "" };
 
 const CartContext = createContext<CartContextValue | null>(null);
 
@@ -72,7 +74,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           try {
             const parsed = JSON.parse(raw) as CartState;
             if (parsed && typeof parsed === "object" && parsed.items) {
-              setState(parsed);
+              setState({ ...EMPTY, ...parsed, restaurantNote: parsed.restaurantNote ?? "" });
             }
           } catch {
             // ignore corrupted cart
@@ -98,6 +100,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return {
           restaurantId,
           restaurantName,
+          restaurantNote: sameRestaurant ? prev.restaurantNote : "",
           items: {
             ...base,
             [item.menuItemId]: {
@@ -130,6 +133,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return {
       restaurantId: empty ? null : prev.restaurantId,
       restaurantName: empty ? null : prev.restaurantName,
+      restaurantNote: empty ? "" : prev.restaurantNote,
       items: next,
     };
   }, []);
@@ -202,10 +206,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         if (!it.menuItemId) continue;
         map[it.menuItemId] = { ...it, qty: Math.max(1, it.qty) };
       }
-      setState({ restaurantId, restaurantName, items: map });
+      setState((prev) => ({ restaurantId, restaurantName, restaurantNote: prev.restaurantNote, items: map }));
     },
     [],
   );
+
+  const setRestaurantNote = useCallback((note: string) => {
+    setState((prev) => ({ ...prev, restaurantNote: note }));
+  }, []);
 
   const clear = useCallback(() => setState(EMPTY), []);
 
@@ -227,6 +235,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         setItemNote,
         updateItem,
         replaceCart,
+        setRestaurantNote,
         clear,
       }}
     >
