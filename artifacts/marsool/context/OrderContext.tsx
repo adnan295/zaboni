@@ -175,7 +175,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
 
   const placeOrder = useCallback(
     async (input: PlaceOrderInput): Promise<Order> => {
-      const { items, orderText, restaurantName, address, promoCode, lat, lon, restaurantId, usePoints, useWallet, flashDealId, orderType, placeName } = input;
+      const { items, orderText, restaurantName, address, promoCode, lat, lon, restaurantId, usePoints, useWallet, flashDealId, orderType, placeName, restaurantNote } = input;
       const result = await customFetch("/api/orders", {
         method: "POST",
         body: JSON.stringify({
@@ -192,6 +192,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
           ...(flashDealId ? { flashDealId } : {}),
           ...(orderType ? { orderType } : {}),
           ...(placeName ? { placeName } : {}),
+          ...(restaurantNote ? { restaurantNote } : {}),
         }),
       });
       const newOrder = apiOrderToLocal(result as Parameters<typeof apiOrderToLocal>[0]);

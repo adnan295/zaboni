@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { db, ordersTable, orderItemsTable, menuItemsTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable, promoCodesTable, promoUsesTable, usersTable, flashDealsTable, loyaltyTransactionsTable, customerWalletTransactionsTable, menuItemOptionsTable, orderItemOptionsTable } from "@workspace/db";
+import { db, ordersTable, orderItemsTable, menuItemsTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable, promoCodesTable, promoUsesTable, usersTable, flashDealsTable, loyaltyTransactionsTable, customerWalletTransactionsTable, menuItemOptionsTable, menuItemOptionGroupsTable, orderItemOptionsTable } from "@workspace/db";
 import { and, count, desc, eq, gt, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { notifyOrderUpdate, notifyNearbyCouriers, notifyRestaurantNewOrder } from "../orders/server";
@@ -325,16 +325,23 @@ router.post("/orders", async (req, res) => {
       .where(inArray(menuItemsTable.id, menuIds));
     const byId = new Map(menuRows.map((m) => [m.id, m]));
 
-    // Pre-fetch all requested option prices in one query
+    // Pre-fetch all requested option prices, joined with groups for ownership verification
     const allOptionIds = body.data.items
       .flatMap((i) => i.selectedOptions?.map((o) => o.optionId) ?? []);
-    const optionsById = new Map<string, { nameAr: string; extraPrice: number }>();
+    const optionsById = new Map<string, { nameAr: string; extraPrice: number; groupId: string; menuItemId: string }>();
     if (allOptionIds.length > 0) {
       const optionRows = await db
-        .select({ id: menuItemOptionsTable.id, nameAr: menuItemOptionsTable.nameAr, extraPrice: menuItemOptionsTable.extraPrice })
+        .select({
+          id: menuItemOptionsTable.id,
+          nameAr: menuItemOptionsTable.nameAr,
+          extraPrice: menuItemOptionsTable.extraPrice,
+          groupId: menuItemOptionsTable.groupId,
+          menuItemId: menuItemOptionGroupsTable.menuItemId,
+        })
         .from(menuItemOptionsTable)
+        .innerJoin(menuItemOptionGroupsTable, eq(menuItemOptionsTable.groupId, menuItemOptionGroupsTable.id))
         .where(inArray(menuItemOptionsTable.id, allOptionIds));
-      for (const o of optionRows) optionsById.set(o.id, { nameAr: o.nameAr, extraPrice: o.extraPrice });
+      for (const o of optionRows) optionsById.set(o.id, { nameAr: o.nameAr, extraPrice: o.extraPrice, groupId: o.groupId, menuItemId: o.menuItemId });
     }
 
     let total = 0;
@@ -364,14 +371,27 @@ router.post("/orders", async (req, res) => {
         menuItem.isDeal && menuItem.dealPrice != null ? menuItem.dealPrice : menuItem.price,
       );
       // Compute extra price from selected options (server-side lookup)
+      // Validate: option must belong to this menu item; enforce at most one per group
       let optionsExtra = 0;
       const itemIdx = computedOrderItems.length;
+      const seenGroups = new Set<string>();
       for (const sel of it.selectedOptions ?? []) {
         const opt = optionsById.get(sel.optionId);
-        if (opt) {
-          optionsExtra += opt.extraPrice;
-          pendingItemOptions.push({ itemIdx, optionId: sel.optionId, nameAr: opt.nameAr, extraPrice: opt.extraPrice });
+        if (!opt) {
+          res.status(400).json({ error: "invalid_option", optionId: sel.optionId });
+          return;
         }
+        if (opt.menuItemId !== it.menuItemId) {
+          res.status(400).json({ error: "option_wrong_item", optionId: sel.optionId });
+          return;
+        }
+        if (seenGroups.has(opt.groupId)) {
+          res.status(400).json({ error: "duplicate_option_group", groupId: opt.groupId });
+          return;
+        }
+        seenGroups.add(opt.groupId);
+        optionsExtra += opt.extraPrice;
+        pendingItemOptions.push({ itemIdx, optionId: sel.optionId, nameAr: opt.nameAr, extraPrice: opt.extraPrice });
       }
       const unitPrice = baseUnitPrice + optionsExtra;
       const lineTotal = unitPrice * it.qty;
