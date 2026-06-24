@@ -1,5 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
-import { db, restaurantUsersTable, restaurantsTable, menuItemsTable, restaurantHoursTable, ordersTable, orderItemsTable, orderItemOptionsTable, otpCodesTable, orderRatingsTable, promoCodesTable, promoUsesTable, flashDealsTable, menuItemOptionGroupsTable, menuItemOptionsTable } from "@workspace/db";
+import { db, restaurantUsersTable, restaurantsTable, menuItemsTable, restaurantHoursTable, ordersTable, orderItemsTable, orderItemOptionsTable, otpCodesTable, orderRatingsTable, promoCodesTable, promoUsesTable, flashDealsTable, menuItemOptionGroupsTable, menuItemOptionsTable, restaurantPushSubscriptionsTable } from "@workspace/db";
+import { getVapidPublicKey } from "../lib/webPush";
 import { eq, desc, and, gte, inArray, count, sum, sql } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
@@ -1054,6 +1055,62 @@ router.get("/restaurant-portal/promo-images", requireRestaurantAuth, async (req,
   }));
   res.json(items);
 });
+
+router.get("/restaurant-portal/vapid-public-key", (_req, res) => {
+  const publicKey = getVapidPublicKey();
+  if (!publicKey) {
+    res.status(503).json({ error: "Web push not configured" });
+    return;
+  }
+  res.json({ publicKey });
+});
+
+router.post(
+  "/restaurant-portal/push-subscription",
+  requireRestaurantAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    const auth = (req as Request & { restaurantAuth?: RestaurantPortalPayload }).restaurantAuth!;
+    const schema = z.object({
+      endpoint: z.string().url(),
+      p256dh: z.string().min(1),
+      auth: z.string().min(1),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid subscription data" });
+      return;
+    }
+    const { endpoint, p256dh, auth: authKey } = parsed.data;
+    await db
+      .delete(restaurantPushSubscriptionsTable)
+      .where(eq(restaurantPushSubscriptionsTable.endpoint, endpoint));
+    await db.insert(restaurantPushSubscriptionsTable).values({
+      id: randomUUID(),
+      restaurantId: auth.restaurantId,
+      endpoint,
+      p256dh,
+      auth: authKey,
+    });
+    res.json({ ok: true });
+  },
+);
+
+router.delete(
+  "/restaurant-portal/push-subscription",
+  requireRestaurantAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    const schema = z.object({ endpoint: z.string() });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "endpoint required" });
+      return;
+    }
+    await db
+      .delete(restaurantPushSubscriptionsTable)
+      .where(eq(restaurantPushSubscriptionsTable.endpoint, parsed.data.endpoint));
+    res.json({ ok: true });
+  },
+);
 
 export default router;
 

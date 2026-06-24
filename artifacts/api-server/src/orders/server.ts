@@ -4,6 +4,7 @@ import { db, usersTable, ordersTable } from "@workspace/db";
 import { and, eq, isNotNull, ne, notInArray, or } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { sendPushToTokens, sendPushToUsers } from "../lib/push";
+import { sendWebPushToRestaurant } from "../lib/webPush";
 import type { AuthPayload } from "../middleware/auth";
 
 const NEARBY_RADIUS_KM = 30;
@@ -49,6 +50,11 @@ export function notifyRestaurantNewOrder(restaurantId: string, order: unknown): 
   if (!_ordersNs) return;
   _ordersNs.to(`restaurant:${restaurantId}`).emit("new_restaurant_order", order);
   logger.debug({ restaurantId }, "Emitted new_restaurant_order to restaurant room");
+  const o = order as { orderText?: string } | null;
+  void sendWebPushToRestaurant(restaurantId, {
+    title: "🔔 طلب جديد!",
+    body: o?.orderText ? o.orderText.slice(0, 80) : "وصل طلب جديد للمطعم",
+  }).catch(() => {});
 }
 
 export function notifySupportMessage(userId: string, message: unknown): void {

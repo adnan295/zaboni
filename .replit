@@ -59,6 +59,9 @@ externalPort = 4200
 [userenv]
 
 [userenv.shared]
+VAPID_PUBLIC_KEY = "BDXAJrqFXqMynlwJ19C9MpSmcIvX2yWjQ8MDGF3S7yWaR1y172HMl3L68QzED7V26enoMr7hPz0j3zYbPcWaRtU"
+VAPID_PRIVATE_KEY = "CpHepAuBb4mzet83B6vyt2k44X-l6Q8HCuMAoUfL0C8"
+VAPID_CONTACT = "mailto:admin@zaboni.com"
 
 [userenv.development]
 

@@ -19,7 +19,11 @@ import {
   ChevronLeft,
   Volume2,
   VolumeX,
+  Bell,
+  BellOff,
+  BellRing,
 } from "lucide-react";
+import type { PushPermission } from "@/hooks/useWebPush";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -29,6 +33,10 @@ interface LayoutProps {
   onOrdersViewed?: () => void;
   soundEnabled?: boolean;
   onToggleSound?: () => void;
+  pushPermission?: PushPermission;
+  pushEnabled?: boolean;
+  onRequestPush?: () => void;
+  onDisablePush?: () => void;
 }
 
 const navItems = [
@@ -44,7 +52,7 @@ const navItems = [
   { href: "/settings", label: "إعدادات المطعم", icon: Settings },
 ];
 
-export default function Layout({ children, onLogout, restaurantName, newOrderCount = 0, onOrdersViewed, soundEnabled = true, onToggleSound }: LayoutProps) {
+export default function Layout({ children, onLogout, restaurantName, newOrderCount = 0, onOrdersViewed, soundEnabled = true, onToggleSound, pushPermission = "default", pushEnabled = false, onRequestPush, onDisablePush }: LayoutProps) {
   const [location] = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -149,6 +157,45 @@ export default function Layout({ children, onLogout, restaurantName, newOrderCou
         </nav>
 
         <div className="border-t border-sidebar-border p-2 space-y-0.5">
+          {pushPermission !== "unsupported" && (
+            <button
+              onClick={pushEnabled ? onDisablePush : onRequestPush}
+              title={
+                pushPermission === "denied"
+                  ? "تنبيهات المتصفح محظورة — افتح إعدادات المتصفح للسماح"
+                  : pushEnabled
+                  ? "إيقاف تنبيهات المتصفح"
+                  : "تفعيل تنبيهات المتصفح (يعمل حتى بدون فتح الصفحة)"
+              }
+              disabled={pushPermission === "denied"}
+              className={cn(
+                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                pushEnabled
+                  ? "text-green-400 hover:bg-green-500/10 hover:text-green-400"
+                  : pushPermission === "denied"
+                  ? "text-sidebar-foreground/30"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                collapsed && "justify-center"
+              )}
+            >
+              {pushEnabled ? (
+                <BellRing size={18} />
+              ) : pushPermission === "denied" ? (
+                <BellOff size={18} />
+              ) : (
+                <Bell size={18} />
+              )}
+              {!collapsed && (
+                <span>
+                  {pushEnabled
+                    ? "تنبيهات مفعّلة ✓"
+                    : pushPermission === "denied"
+                    ? "تنبيهات محظورة"
+                    : "فعّل التنبيهات"}
+                </span>
+              )}
+            </button>
+          )}
           {onToggleSound && (
             <button
               onClick={onToggleSound}
