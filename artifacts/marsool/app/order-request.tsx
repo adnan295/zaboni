@@ -81,6 +81,7 @@ export default function OrderRequestScreen() {
   const restaurantName = paramRestaurantName ?? cart.restaurantName ?? undefined;
   const cartEntries = cart.entries;
   const subtotal = cart.subtotal;
+  const { restaurantNote, setRestaurantNote } = cart;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editNoteItem, setEditNoteItem] = useState<CartItem | null>(null);
   const [promoCode, setPromoCode] = useState("");
@@ -114,7 +115,6 @@ export default function OrderRequestScreen() {
   const [usePoints, setUsePoints] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [useWallet, setUseWallet] = useState(false);
-  const [restaurantNote, setRestaurantNote] = useState("");
 
   useEffect(() => {
     customFetch("/api/users/me/loyalty")
