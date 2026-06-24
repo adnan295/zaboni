@@ -478,38 +478,41 @@ export const ORDER_STATUSES = [
   "cancelled",
 ] as const;
 
-export type CourierSubscriptionRow = {
+export type CourierSubRow = {
   courierId: string;
   name: string;
   phone: string;
-  date: string;
+  vehicleType: "bicycle" | "motorcycle" | "car";
   subscriptionId: string | null;
+  isActive: boolean;
   status: "paid" | "waived" | "pending";
   amount: number;
+  gifted: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+  daysLeft: number | null;
   note: string | null;
 };
 
-export type SubscriptionDay = {
-  date: string;
-  defaultFee: number;
-  couriers: CourierSubscriptionRow[];
+export type CourierSubRecord = {
+  id: string;
+  courierId: string;
+  vehicleType: "bicycle" | "motorcycle" | "car";
+  startsAt: string;
+  endsAt: string;
+  amount: number;
+  status: "paid" | "waived" | "pending";
+  isActive: boolean;
+  gifted: boolean;
+  createdByAdmin: boolean;
+  note: string | null;
+  createdAt: string;
 };
 
-export type SubscriptionReport = {
-  month: string;
-  totalPaid: number;
-  totalWaived: number;
-  totalRevenue: number;
-  totalWaivedAmount: number;
-  entries: {
-    id: string;
-    courierId: string;
-    date: string;
-    amount: number;
-    status: "paid" | "waived" | "pending";
-    note: string | null;
-    createdAt: string;
-  }[];
+export type CourierSubPlans = {
+  bicycle: number;
+  motorcycle: number;
+  car: number;
 };
 
 export type SystemSettings = Record<string, string>;
@@ -807,27 +810,36 @@ export const api = {
       body: JSON.stringify({ url }),
     }),
 
-  getSubscriptions: (date?: string) => {
-    const qs = date ? `?date=${date}` : "";
-    return apiFetch<SubscriptionDay>(`/admin/subscriptions${qs}`);
-  },
-  saveSubscription: (data: {
+  getCourierSubscriptions: () => apiFetch<CourierSubRow[]>("/admin/courier-subscriptions"),
+  createCourierSubscription: (data: {
     courierId: string;
-    date: string;
-    status: "paid" | "waived" | "pending";
-    amount: number;
-    note: string | null;
+    vehicleType?: "bicycle" | "motorcycle" | "car";
+    months: number;
+    gifted: boolean;
+    note?: string | null;
   }) =>
-    apiFetch<CourierSubscriptionRow>("/admin/subscriptions", {
+    apiFetch<CourierSubRecord>("/admin/courier-subscriptions", {
       method: "POST",
       body: JSON.stringify(data),
     }),
+  extendCourierSubscription: (
+    id: string,
+    data: { months?: number; note?: string | null; status?: "paid" | "waived" | "pending" }
+  ) =>
+    apiFetch<CourierSubRecord>(`/admin/courier-subscriptions/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  cancelCourierSubscription: (id: string) =>
+    apiFetch<void>(`/admin/courier-subscriptions/${id}`, { method: "DELETE" }),
   getCourierSubscriptionHistory: (courierId: string) =>
-    apiFetch<SubscriptionReport["entries"]>(`/admin/subscriptions/history/${courierId}`),
-  getSubscriptionReport: (month?: string) => {
-    const qs = month ? `?month=${month}` : "";
-    return apiFetch<SubscriptionReport>(`/admin/subscriptions/report${qs}`);
-  },
+    apiFetch<CourierSubRecord[]>(`/admin/subscriptions/history/${courierId}`),
+  getCourierSubPlans: () => apiFetch<CourierSubPlans>("/admin/courier-subscription-plans"),
+  updateCourierSubPlans: (data: CourierSubPlans) =>
+    apiFetch<CourierSubPlans>("/admin/courier-subscription-plans", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
 
   getWalletDepositRequests: () =>
     apiFetch<WalletDepositRequest[]>("/admin/wallet/deposit-requests"),

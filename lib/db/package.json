@@ -27,7 +27,8 @@
     "./migrations/add-support-messages": "./src/migrations/add-support-messages.ts",
     "./migrations/add-support-tickets": "./src/migrations/add-support-tickets.ts",
     "./migrations/add-referral-system": "./src/migrations/add-referral-system.ts",
-    "./migrations/add-errand-orders": "./src/migrations/add-errand-orders.ts"
+    "./migrations/add-errand-orders": "./src/migrations/add-errand-orders.ts",
+    "./migrations/add-courier-monthly-subscriptions": "./src/migrations/add-courier-monthly-subscriptions.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",

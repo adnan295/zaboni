@@ -37,6 +37,24 @@ interface WalletData {
   transactions: WalletTransaction[];
 }
 
+interface SubStatus {
+  isActive: boolean;
+  daysLeft?: number;
+  vehicleType: string;
+  monthlyPrice: number;
+  subscription?: {
+    endsAt: string;
+    startsAt: string;
+    gifted: boolean;
+  } | null;
+}
+
+const VEHICLE_LABEL: Record<string, string> = {
+  bicycle: "دراجة هوائية",
+  motorcycle: "دراجة نارية",
+  car: "سيارة",
+};
+
 function formatDate(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString("ar-SY", { year: "numeric", month: "short", day: "numeric" });
@@ -81,7 +99,7 @@ function TxRow({ tx }: { tx: WalletTransaction }) {
       ? "طلب إيداع"
       : tx.type === "deposit_approved"
       ? "إيداع مؤكد"
-      : "اشتراك يومي";
+      : "اشتراك شهري";
 
   const statusLabel =
     tx.status === "pending"
@@ -122,8 +140,10 @@ export default function WalletScreen() {
   const router = useRouter();
 
   const [walletData, setWalletData] = useState<WalletData | null>(null);
+  const [subStatus, setSubStatus] = useState<SubStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [renewingSubscription, setRenewingSubscription] = useState(false);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [depositAmount, setDepositAmount] = useState("");
@@ -135,8 +155,12 @@ export default function WalletScreen() {
 
   const fetchWallet = useCallback(async () => {
     try {
-      const data = await customFetch("/api/courier/wallet") as WalletData;
-      setWalletData(data);
+      const [walletRes, subRes] = await Promise.allSettled([
+        customFetch("/api/courier/wallet") as Promise<WalletData>,
+        customFetch("/api/courier/subscription/status") as Promise<SubStatus>,
+      ]);
+      if (walletRes.status === "fulfilled") setWalletData(walletRes.value);
+      if (subRes.status === "fulfilled") setSubStatus(subRes.value);
     } catch {
       setWalletData(null);
     } finally {
@@ -144,6 +168,30 @@ export default function WalletScreen() {
       setRefreshing(false);
     }
   }, []);
+
+  const handleRenewSubscription = async () => {
+    if (!subStatus) return;
+    const price = subStatus.monthlyPrice;
+    const balance = walletData?.balance ?? 0;
+    if (price > balance) {
+      Alert.alert(
+        "رصيد غير كافٍ",
+        `سعر الاشتراك الشهري ${price.toLocaleString("ar-SY")} ل.س ورصيدك ${balance.toLocaleString("ar-SY")} ل.س`
+      );
+      return;
+    }
+    setRenewingSubscription(true);
+    try {
+      await customFetch("/api/courier/subscription/renew", { method: "POST" });
+      await fetchWallet();
+      Alert.alert("تم التجديد", "تم تجديد الاشتراك الشهري بنجاح");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "حدث خطأ";
+      Alert.alert("خطأ", msg);
+    } finally {
+      setRenewingSubscription(false);
+    }
+  };
 
   React.useEffect(() => {
     fetchWallet();
@@ -215,6 +263,66 @@ export default function WalletScreen() {
               <Text style={[styles.depositBtnText, { color: colors.primary }]}>طلب إيداع رصيد</Text>
             </TouchableOpacity>
           </View>
+
+          {subStatus && (
+            <View
+              style={[
+                styles.subCard,
+                {
+                  backgroundColor: subStatus.isActive ? "#f0fdf4" : "#fff7ed",
+                  borderColor: subStatus.isActive
+                    ? (subStatus.daysLeft ?? 99) <= 5 ? "#fca5a5" : "#bbf7d0"
+                    : "#fed7aa",
+                },
+              ]}
+            >
+              <View style={styles.subCardRow}>
+                <MaterialIcons
+                  name={subStatus.isActive ? "check-circle" : "warning"}
+                  size={22}
+                  color={subStatus.isActive ? (subStatus.daysLeft ?? 99) <= 5 ? "#dc2626" : "#16a34a" : "#ea580c"}
+                />
+                <View style={styles.subCardInfo}>
+                  <Text style={[styles.subCardTitle, { color: subStatus.isActive ? "#166534" : "#9a3412" }]}>
+                    {subStatus.isActive
+                      ? `اشتراك نشط — ${VEHICLE_LABEL[subStatus.vehicleType] ?? subStatus.vehicleType}`
+                      : `لا يوجد اشتراك نشط — ${VEHICLE_LABEL[subStatus.vehicleType] ?? subStatus.vehicleType}`}
+                  </Text>
+                  {subStatus.isActive && subStatus.subscription ? (
+                    <Text style={[styles.subCardDetail, { color: "#166534" }]}>
+                      ينتهي في {formatDate(subStatus.subscription.endsAt)} · متبقٍ {subStatus.daysLeft ?? 0} يوم
+                    </Text>
+                  ) : (
+                    <Text style={[styles.subCardDetail, { color: "#9a3412" }]}>
+                      سعر التجديد: {subStatus.monthlyPrice.toLocaleString("ar-SY")} ل.س / شهر
+                    </Text>
+                  )}
+                </View>
+              </View>
+              {subStatus.monthlyPrice > 0 && (!subStatus.isActive || (subStatus.daysLeft ?? 99) <= 7) && (
+                <TouchableOpacity
+                  style={[
+                    styles.renewBtn,
+                    {
+                      backgroundColor: subStatus.isActive ? "#16a34a" : "#ea580c",
+                      opacity: renewingSubscription ? 0.7 : 1,
+                    },
+                  ]}
+                  onPress={handleRenewSubscription}
+                  disabled={renewingSubscription}
+                  activeOpacity={0.8}
+                >
+                  {renewingSubscription ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.renewBtnText}>
+                      {subStatus.isActive ? "تجديد الاشتراك" : "اشتراك الآن"}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
 
           <View style={[styles.txSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.txHeader}>
@@ -370,6 +478,25 @@ const styles = StyleSheet.create({
   txCurrency: { fontSize: 11, fontWeight: "600" },
   emptyTx: { alignItems: "center", paddingVertical: 32, gap: 8 },
   emptyTxText: { fontSize: 14 },
+  subCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    gap: 12,
+  },
+  subCardRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  subCardInfo: { flex: 1, gap: 4 },
+  subCardTitle: { fontSize: 14, fontWeight: "700" },
+  subCardDetail: { fontSize: 12 },
+  renewBtn: {
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  renewBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
   infoCard: {
     flexDirection: "row",
     alignItems: "flex-start",
