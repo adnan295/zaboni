@@ -12,6 +12,7 @@ export interface WebPushResult {
 }
 
 const BASE = import.meta.env.BASE_URL as string;
+const PUSH_PROMPTED_KEY = "restaurant_portal_push_prompted_v1";
 
 function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -46,7 +47,26 @@ export function useWebPush(authed: boolean): WebPushResult {
         setSwReady(true);
         const sub = await reg.pushManager.getSubscription();
         setPushEnabled(!!sub);
-        setPushPermission(Notification.permission as PushPermission);
+        const perm = Notification.permission as PushPermission;
+        setPushPermission(perm);
+
+        // Auto-prompt on first login if not already prompted/granted/denied
+        if (!sub && perm === "default") {
+          const alreadyPrompted = localStorage.getItem(PUSH_PROMPTED_KEY);
+          if (!alreadyPrompted) {
+            localStorage.setItem(PUSH_PROMPTED_KEY, "1");
+            // Small delay so the portal has fully rendered before showing the browser dialog
+            setTimeout(() => {
+              regRef.current &&
+                void (async () => {
+                  const permission = await Notification.requestPermission();
+                  setPushPermission(permission as PushPermission);
+                  if (permission !== "granted") return;
+                  await subscribeWithReg(reg);
+                })();
+            }, 1500);
+          }
+        }
       })
       .catch(() => {
         setPushPermission("unsupported");
