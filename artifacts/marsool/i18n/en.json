@@ -401,6 +401,14 @@
       "error": "Failed to load earnings"
     }
   },
+  "menu": {
+    "note": {
+      "title": "Notes for the restaurant",
+      "placeholder": "e.g. extra salt, no lettuce...",
+      "addBtn": "Add {{total}} SYP",
+      "qtyLabel": "Quantity"
+    }
+  },
   "restaurant": {
     "notFound": "Restaurant not found",
     "deliveryTime": "Delivery Time",
