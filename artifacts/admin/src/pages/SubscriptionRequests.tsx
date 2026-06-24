@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, getAdminToken } from "@/lib/api";
 import type { CourierSubscriptionRequest } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,26 @@ const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secon
   rejected: { label: "مرفوض", variant: "destructive" },
 };
 
+const API_BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+async function openReceiptInTab(objectPath: string) {
+  const token = getAdminToken();
+  const url = `${API_BASE}/api/storage/objects/${objectPath}`;
+  const res = await fetch(url, token ? { headers: { Authorization: `Bearer ${token}` } } : {});
+  if (!res.ok) {
+    alert("تعذّر فتح الوصل. تحقق من الرابط.");
+    return;
+  }
+  const blob = await res.blob();
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = blobUrl;
+  a.target = "_blank";
+  a.rel = "noopener noreferrer";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 10_000);
+}
+
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString("ar-SY", {
     year: "numeric",
@@ -41,6 +61,12 @@ export default function SubscriptionRequests() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending");
   const [rejectNote, setRejectNote] = useState<Record<string, string>>({});
+
+  const handleOpenReceipt = useCallback((objectPath: string) => {
+    openReceiptInTab(objectPath).catch(() => {
+      toast({ title: "خطأ", description: "تعذّر فتح الوصل", variant: "destructive" });
+    });
+  }, [toast]);
 
   const { data: requests = [], isLoading } = useQuery({
     queryKey: ["admin", "subscription-requests"],
@@ -149,14 +175,12 @@ export default function SubscriptionRequests() {
                     </TableCell>
                     <TableCell>
                       {req.receiptUrl ? (
-                        <a
-                          href={`/api/storage/objects/${req.receiptUrl}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary underline text-sm"
+                        <button
+                          onClick={() => handleOpenReceipt(req.receiptUrl!)}
+                          className="text-primary underline text-sm hover:opacity-80 transition-opacity"
                         >
                           عرض الوصل
-                        </a>
+                        </button>
                       ) : (
                         <span className="text-muted-foreground text-sm">—</span>
                       )}
