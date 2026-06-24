@@ -24,9 +24,9 @@ const queryClient = new QueryClient({
 });
 
 function Router({ restaurantName, onLogout }: { restaurantName: string; onLogout: () => void }) {
-  const { newOrderCount, clearNewOrderCount } = useRestaurantSocket(true);
+  const { newOrderCount, clearNewOrderCount, soundEnabled, toggleSound } = useRestaurantSocket(true);
   return (
-    <Layout restaurantName={restaurantName} onLogout={onLogout} newOrderCount={newOrderCount} onOrdersViewed={clearNewOrderCount}>
+    <Layout restaurantName={restaurantName} onLogout={onLogout} newOrderCount={newOrderCount} onOrdersViewed={clearNewOrderCount} soundEnabled={soundEnabled} onToggleSound={toggleSound}>
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/menu" component={Menu} />

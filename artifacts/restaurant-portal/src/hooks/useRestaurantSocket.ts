@@ -4,6 +4,8 @@ import { io, Socket } from "socket.io-client";
 import { useToast } from "@/hooks/use-toast";
 import { getToken } from "@/lib/api";
 
+const SOUND_PREF_KEY = "restaurant_portal_sound_enabled";
+
 function playNotificationSound(): void {
   try {
     const ctx = new AudioContext();
@@ -25,6 +27,8 @@ function playNotificationSound(): void {
 export interface RestaurantSocketResult {
   newOrderCount: number;
   clearNewOrderCount: () => void;
+  soundEnabled: boolean;
+  toggleSound: () => void;
 }
 
 export function useRestaurantSocket(enabled: boolean): RestaurantSocketResult {
@@ -32,9 +36,31 @@ export function useRestaurantSocket(enabled: boolean): RestaurantSocketResult {
   const { toast } = useToast();
   const socketRef = useRef<Socket | null>(null);
   const [newOrderCount, setNewOrderCount] = useState(0);
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem(SOUND_PREF_KEY);
+      return stored === null ? true : stored === "true";
+    } catch {
+      return true;
+    }
+  });
+
+  const soundEnabledRef = useRef(soundEnabled);
+  soundEnabledRef.current = soundEnabled;
 
   const clearNewOrderCount = useCallback(() => {
     setNewOrderCount(0);
+  }, []);
+
+  const toggleSound = useCallback(() => {
+    setSoundEnabled(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem(SOUND_PREF_KEY, String(next));
+      } catch {
+      }
+      return next;
+    });
   }, []);
 
   useEffect(() => {
@@ -54,7 +80,9 @@ export function useRestaurantSocket(enabled: boolean): RestaurantSocketResult {
     socketRef.current = socket;
 
     socket.on("new_restaurant_order", (order: { orderText?: string; id?: string }) => {
-      playNotificationSound();
+      if (soundEnabledRef.current) {
+        playNotificationSound();
+      }
       toast({
         title: "🔔 طلب جديد!",
         description: order.orderText
@@ -73,5 +101,5 @@ export function useRestaurantSocket(enabled: boolean): RestaurantSocketResult {
     };
   }, [enabled, queryClient, toast]);
 
-  return { newOrderCount, clearNewOrderCount };
+  return { newOrderCount, clearNewOrderCount, soundEnabled, toggleSound };
 }
