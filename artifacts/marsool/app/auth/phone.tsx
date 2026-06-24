@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
   },
   prefixFlag: { fontSize: 20 },
   prefixText: { fontSize: 15, fontWeight: "600" },
-  input: { flex: 1, paddingHorizontal: 14, fontSize: 18, fontWeight: "600", letterSpacing: 1 },
+  input: { flex: 1, paddingHorizontal: 14, fontSize: 18, fontWeight: "600", letterSpacing: 1, height: "100%", textAlignVertical: "center" },
   pickerCard: {
     width: "100%", borderRadius: 14, borderWidth: 1, marginBottom: 12, overflow: "hidden",
   },
