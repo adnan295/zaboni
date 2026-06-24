@@ -14,6 +14,7 @@ export * from "./restaurant_hours";
 export * from "./notification_logs";
 export * from "./delivery_zones";
 export * from "./courier_subscriptions";
+export * from "./courier_subscription_plans";
 export * from "./system_settings";
 export * from "./courier_customer_ratings";
 export * from "./courier_wallet_transactions";

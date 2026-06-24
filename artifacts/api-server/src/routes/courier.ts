@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { db, usersTable, ordersTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, systemSettingsTable, courierCustomerRatingsTable, courierWalletTransactionsTable, courierApplicationsTable, referralsTable } from "@workspace/db";
+import { db, usersTable, ordersTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, courierSubscriptionPlansTable, systemSettingsTable, courierCustomerRatingsTable, courierWalletTransactionsTable, courierApplicationsTable, referralsTable } from "@workspace/db";
 import { and, eq, ne, notInArray, avg, count, sql, desc, getTableColumns } from "drizzle-orm";
 import { haversineKm as _haversineKm } from "../lib/deliveryZones";
 import { z } from "zod";
@@ -746,8 +746,10 @@ router.get("/courier/earnings", requireCourier, async (req, res) => {
       .from(courierSubscriptionsTable)
       .where(and(
         eq(courierSubscriptionsTable.courierId, courierId),
-        eq(courierSubscriptionsTable.date, new Date().toISOString().slice(0, 10)),
+        eq(courierSubscriptionsTable.isActive, true),
+        sql`${courierSubscriptionsTable.endsAt} > NOW()`,
       ))
+      .orderBy(desc(courierSubscriptionsTable.endsAt))
       .limit(1),
     db
       .select()
@@ -809,8 +811,10 @@ router.get("/courier/subscription/today", requireCourier, async (req, res) => {
       .from(courierSubscriptionsTable)
       .where(and(
         eq(courierSubscriptionsTable.courierId, courierId),
-        eq(courierSubscriptionsTable.date, today),
+        eq(courierSubscriptionsTable.isActive, true),
+        sql`${courierSubscriptionsTable.endsAt} > NOW()`,
       ))
+      .orderBy(desc(courierSubscriptionsTable.endsAt))
       .limit(1),
     db
       .select()
@@ -894,15 +898,147 @@ router.post("/courier/orders/:orderId/rate-customer", requireCourier, async (req
 
 router.get("/courier/subscription/history", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
-
   const rows = await db
     .select()
     .from(courierSubscriptionsTable)
     .where(eq(courierSubscriptionsTable.courierId, courierId))
-    .orderBy(sql`${courierSubscriptionsTable.date} DESC`)
+    .orderBy(desc(courierSubscriptionsTable.createdAt))
     .limit(60);
-
   res.json(rows);
+});
+
+router.get("/courier/subscription/status", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+  const now = new Date();
+
+  const [activeSub] = await db
+    .select()
+    .from(courierSubscriptionsTable)
+    .where(and(
+      eq(courierSubscriptionsTable.courierId, courierId),
+      eq(courierSubscriptionsTable.isActive, true),
+      sql`${courierSubscriptionsTable.endsAt} > NOW()`,
+    ))
+    .orderBy(desc(courierSubscriptionsTable.endsAt))
+    .limit(1);
+
+  const [app] = await db
+    .select({ vehicleType: courierApplicationsTable.vehicleType })
+    .from(courierApplicationsTable)
+    .where(and(
+      eq(courierApplicationsTable.userId, courierId),
+      eq(courierApplicationsTable.status, "approved"),
+    ))
+    .limit(1);
+  const vehicleType = app?.vehicleType ?? "motorcycle";
+
+  if (!activeSub) {
+    const [plan] = await db
+      .select({ monthlyPrice: courierSubscriptionPlansTable.monthlyPrice })
+      .from(courierSubscriptionPlansTable)
+      .where(eq(courierSubscriptionPlansTable.vehicleType, vehicleType))
+      .limit(1);
+    res.json({ isActive: false, subscription: null, vehicleType, monthlyPrice: plan?.monthlyPrice ?? 0 });
+    return;
+  }
+
+  const daysLeft = Math.max(0, Math.ceil((activeSub.endsAt.getTime() - now.getTime()) / 86_400_000));
+
+  const [plan] = await db
+    .select({ monthlyPrice: courierSubscriptionPlansTable.monthlyPrice })
+    .from(courierSubscriptionPlansTable)
+    .where(eq(courierSubscriptionPlansTable.vehicleType, vehicleType))
+    .limit(1);
+
+  res.json({ isActive: true, subscription: activeSub, daysLeft, vehicleType, monthlyPrice: plan?.monthlyPrice ?? 0 });
+});
+
+router.post("/courier/subscription/renew", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+
+  const [app] = await db
+    .select({ vehicleType: courierApplicationsTable.vehicleType })
+    .from(courierApplicationsTable)
+    .where(and(
+      eq(courierApplicationsTable.userId, courierId),
+      eq(courierApplicationsTable.status, "approved"),
+    ))
+    .limit(1);
+  const vehicleType = app?.vehicleType ?? "motorcycle";
+
+  const [plan] = await db
+    .select({ monthlyPrice: courierSubscriptionPlansTable.monthlyPrice })
+    .from(courierSubscriptionPlansTable)
+    .where(eq(courierSubscriptionPlansTable.vehicleType, vehicleType))
+    .limit(1);
+  const price = plan?.monthlyPrice ?? 0;
+
+  const [currentSub] = await db
+    .select()
+    .from(courierSubscriptionsTable)
+    .where(and(
+      eq(courierSubscriptionsTable.courierId, courierId),
+      eq(courierSubscriptionsTable.isActive, true),
+      sql`${courierSubscriptionsTable.endsAt} > NOW()`,
+    ))
+    .orderBy(desc(courierSubscriptionsTable.endsAt))
+    .limit(1);
+
+  const now = new Date();
+  const base = currentSub && currentSub.endsAt > now ? currentSub.endsAt : now;
+  const endsAt = new Date(base);
+  endsAt.setMonth(endsAt.getMonth() + 1);
+  const id = `csub_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+
+  let savedRow: typeof courierSubscriptionsTable.$inferSelect | undefined;
+
+  if (price > 0) {
+    let insufficientBalance = false;
+    let newBalance = 0;
+
+    await db.transaction(async (trx) => {
+      const updated = await trx
+        .update(usersTable)
+        .set({ walletBalance: sql`wallet_balance - ${price}` })
+        .where(and(eq(usersTable.id, courierId), sql`wallet_balance >= ${price}`))
+        .returning({ newBalance: usersTable.walletBalance });
+
+      if (updated.length === 0) {
+        insufficientBalance = true;
+        return;
+      }
+      newBalance = updated[0]!.newBalance;
+
+      const dedId = `wded_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+      await trx.insert(courierWalletTransactionsTable).values({
+        id: dedId,
+        courierId,
+        amount: -price,
+        type: "subscription_deduction",
+        status: "approved",
+        note: "تجديد اشتراك شهري",
+      });
+
+      const [row] = await trx
+        .insert(courierSubscriptionsTable)
+        .values({ id, courierId, vehicleType, startsAt: now, endsAt, amount: price, status: "paid", isActive: true, gifted: false, createdByAdmin: false })
+        .returning();
+      savedRow = row;
+    });
+
+    if (insufficientBalance) {
+      res.status(402).json({ error: "insufficient_balance", required: price });
+      return;
+    }
+
+    res.status(201).json({ subscription: savedRow, newBalance });
+  } else {
+    const [row] = await db
+      .insert(courierSubscriptionsTable)
+      .values({ id, courierId, vehicleType, startsAt: now, endsAt, amount: 0, status: "paid", isActive: true, gifted: false, createdByAdmin: false })
+      .returning();
+    res.status(201).json({ subscription: row, newBalance: 0 });
+  }
 });
 
 router.get("/courier/orders/history", requireCourier, async (req, res) => {

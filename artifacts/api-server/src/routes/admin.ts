@@ -12,6 +12,7 @@ import {
   restaurantHoursTable,
   deliveryZonesTable,
   courierSubscriptionsTable,
+  courierSubscriptionPlansTable,
   systemSettingsTable,
   courierWalletTransactionsTable,
   courierApplicationsTable,
@@ -2131,58 +2132,114 @@ router.post("/admin/webhook/test", async (req, res) => {
   }
 });
 
-router.get("/admin/subscriptions", async (req, res) => {
-  const date = String(req.query["date"] ?? new Date().toISOString().slice(0, 10));
-  const defaultFee = await getDailySubscriptionFee();
+router.get("/admin/courier-subscription-plans", async (_req, res) => {
+  const rows = await db.select().from(courierSubscriptionPlansTable);
+  const plans: Record<string, number> = { bicycle: 0, motorcycle: 0, car: 0 };
+  for (const r of rows) {
+    plans[r.vehicleType] = r.monthlyPrice;
+  }
+  res.json(plans);
+});
 
+router.put("/admin/courier-subscription-plans", async (req, res) => {
+  const body = z.object({
+    bicycle: z.number().int().min(0),
+    motorcycle: z.number().int().min(0),
+    car: z.number().int().min(0),
+  }).safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+  const now = new Date();
+  for (const [vt, price] of Object.entries(body.data) as [string, number][]) {
+    await db
+      .insert(courierSubscriptionPlansTable)
+      .values({ vehicleType: vt as "bicycle" | "motorcycle" | "car", monthlyPrice: price, updatedAt: now })
+      .onConflictDoUpdate({
+        target: courierSubscriptionPlansTable.vehicleType,
+        set: { monthlyPrice: price, updatedAt: now },
+      });
+  }
+  res.json(body.data);
+});
+
+router.get("/admin/courier-subscriptions", async (_req, res) => {
+  const now = new Date();
   const couriers = await db
-    .select({ id: usersTable.id, name: usersTable.name, phone: usersTable.phone })
+    .select({
+      id: usersTable.id,
+      name: usersTable.name,
+      phone: usersTable.phone,
+      vehicleType: courierApplicationsTable.vehicleType,
+    })
     .from(usersTable)
+    .leftJoin(
+      courierApplicationsTable,
+      and(
+        eq(courierApplicationsTable.userId, usersTable.id),
+        eq(courierApplicationsTable.status, "approved"),
+      ),
+    )
     .where(eq(usersTable.role, "courier"))
     .orderBy(usersTable.name);
 
-  const subs = await db
+  const activeSubs = await db
     .select()
     .from(courierSubscriptionsTable)
-    .where(eq(courierSubscriptionsTable.date, date));
+    .where(
+      and(
+        eq(courierSubscriptionsTable.isActive, true),
+        sql`${courierSubscriptionsTable.endsAt} > NOW()`,
+      ),
+    );
 
-  const subMap = new Map(subs.map((s) => [s.courierId, s]));
+  const subMap = new Map(activeSubs.map((s) => [s.courierId, s]));
 
   const result = couriers.map((c) => {
     const sub = subMap.get(c.id);
+    const endsAt = sub?.endsAt ?? null;
+    const daysLeft = endsAt
+      ? Math.max(0, Math.ceil((endsAt.getTime() - now.getTime()) / 86_400_000))
+      : null;
     return {
       courierId: c.id,
       name: c.name,
       phone: c.phone,
-      date,
+      vehicleType: c.vehicleType ?? "motorcycle",
       subscriptionId: sub?.id ?? null,
+      isActive: !!sub,
       status: sub?.status ?? "pending",
-      amount: sub?.amount ?? defaultFee,
+      amount: sub?.amount ?? 0,
+      gifted: sub?.gifted ?? false,
+      startsAt: sub?.startsAt ?? null,
+      endsAt,
+      daysLeft,
       note: sub?.note ?? null,
     };
   });
 
-  res.json({ date, defaultFee, couriers: result });
+  res.json(result);
 });
 
-const subscriptionBodySchema = z.object({
+const courierSubCreateSchema = z.object({
   courierId: z.string().min(1),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  amount: z.number().int().min(0),
-  status: z.enum(["paid", "waived", "pending"]),
+  vehicleType: z.enum(["bicycle", "motorcycle", "car"]).optional(),
+  months: z.number().int().min(1).max(12).default(1),
+  gifted: z.boolean().default(false),
   note: z.string().nullable().optional(),
 });
 
-router.post("/admin/subscriptions", async (req, res) => {
-  const parsed = subscriptionBodySchema.safeParse(req.body);
+router.post("/admin/courier-subscriptions", async (req, res) => {
+  const parsed = courierSubCreateSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { courierId, date, amount, status, note } = parsed.data;
+  const { courierId, months, gifted, note } = parsed.data;
 
   const courierCheck = await db
-    .select({ id: usersTable.id })
+    .select({ id: usersTable.id, walletBalance: usersTable.walletBalance })
     .from(usersTable)
     .where(and(eq(usersTable.id, courierId), eq(usersTable.role, "courier")))
     .limit(1);
@@ -2191,99 +2248,172 @@ router.post("/admin/subscriptions", async (req, res) => {
     return;
   }
 
-  const existing = await db
-    .select()
-    .from(courierSubscriptionsTable)
+  const [app] = await db
+    .select({ vehicleType: courierApplicationsTable.vehicleType })
+    .from(courierApplicationsTable)
     .where(and(
-      eq(courierSubscriptionsTable.courierId, courierId),
-      eq(courierSubscriptionsTable.date, date),
+      eq(courierApplicationsTable.userId, courierId),
+      eq(courierApplicationsTable.status, "approved"),
     ))
     .limit(1);
 
-  const tryDeductFromWallet = async (trx: Parameters<Parameters<(typeof db)["transaction"]>[0]>[0]): Promise<boolean> => {
-    const [courierUser] = await trx
-      .select({ walletBalance: usersTable.walletBalance })
-      .from(usersTable)
-      .where(eq(usersTable.id, courierId))
-      .limit(1);
+  const vehicleType = parsed.data.vehicleType ?? app?.vehicleType ?? "motorcycle";
 
-    const balance = courierUser?.walletBalance ?? 0;
-    if (balance < amount) return false;
+  const [plan] = await db
+    .select({ monthlyPrice: courierSubscriptionPlansTable.monthlyPrice })
+    .from(courierSubscriptionPlansTable)
+    .where(eq(courierSubscriptionPlansTable.vehicleType, vehicleType))
+    .limit(1);
+  const pricePerMonth = plan?.monthlyPrice ?? 0;
+  const totalAmount = pricePerMonth * months;
 
-    await trx
-      .update(usersTable)
-      .set({ walletBalance: sql`wallet_balance - ${amount}` })
-      .where(eq(usersTable.id, courierId));
+  await db
+    .update(courierSubscriptionsTable)
+    .set({ isActive: false })
+    .where(and(
+      eq(courierSubscriptionsTable.courierId, courierId),
+      eq(courierSubscriptionsTable.isActive, true),
+    ));
 
-    const deductionId = `wded_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
-    await trx
-      .insert(courierWalletTransactionsTable)
+  const now = new Date();
+  const endsAt = new Date(now);
+  endsAt.setMonth(endsAt.getMonth() + months);
+  const id = `csub_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+
+  if (gifted) {
+    const [row] = await db
+      .insert(courierSubscriptionsTable)
       .values({
-        id: deductionId,
+        id,
         courierId,
-        amount: -amount,
-        type: "subscription_deduction",
-        status: "approved",
-        note: `اشتراك ${date}`,
-      });
-
-    return true;
-  };
-
-  if (existing.length > 0) {
-    const subId = existing[0]!.id;
-    const existingStatus = existing[0]!.status;
-
-    let savedRow;
-
-    if (status === "paid" && existingStatus !== "paid") {
-      let walletDeducted = false;
-      await db.transaction(async (trx) => {
-        walletDeducted = await tryDeductFromWallet(trx);
-        const finalStatus = walletDeducted ? "paid" : "pending";
-        await trx
-          .update(courierSubscriptionsTable)
-          .set({ amount, status: finalStatus, note: note ?? null })
-          .where(eq(courierSubscriptionsTable.id, subId));
-      });
-
-      const [row] = await db.select().from(courierSubscriptionsTable).where(eq(courierSubscriptionsTable.id, subId)).limit(1);
-      savedRow = row;
-    } else {
-      const [row] = await db
-        .update(courierSubscriptionsTable)
-        .set({ amount, status, note: note ?? null })
-        .where(eq(courierSubscriptionsTable.id, subId))
-        .returning();
-      savedRow = row;
-    }
-
-    res.json(savedRow);
+        vehicleType,
+        startsAt: now,
+        endsAt,
+        amount: 0,
+        status: "waived",
+        isActive: true,
+        gifted: true,
+        createdByAdmin: true,
+        note: note ?? null,
+      })
+      .returning();
+    res.status(201).json(row);
     return;
   }
 
-  const id = `sub_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+  let savedRow: typeof courierSubscriptionsTable.$inferSelect | undefined;
+  let walletDeducted = false;
 
-  if (status === "paid") {
-    let walletDeducted = false;
-    await db.transaction(async (trx) => {
-      walletDeducted = await tryDeductFromWallet(trx);
-      const finalStatus = walletDeducted ? "paid" : "pending";
-      await trx
-        .insert(courierSubscriptionsTable)
-        .values({ id, courierId, date, amount, status: finalStatus, note: note ?? null });
-    });
+  await db.transaction(async (trx) => {
+    if (totalAmount > 0) {
+      const updated = await trx
+        .update(usersTable)
+        .set({ walletBalance: sql`wallet_balance - ${totalAmount}` })
+        .where(and(eq(usersTable.id, courierId), sql`wallet_balance >= ${totalAmount}`))
+        .returning({ newBalance: usersTable.walletBalance });
+      walletDeducted = updated.length > 0;
 
-    const [savedRow] = await db.select().from(courierSubscriptionsTable).where(eq(courierSubscriptionsTable.id, id)).limit(1);
-    res.status(201).json(savedRow);
+      if (walletDeducted) {
+        const dedId = `wded_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+        await trx.insert(courierWalletTransactionsTable).values({
+          id: dedId,
+          courierId,
+          amount: -totalAmount,
+          type: "subscription_deduction",
+          status: "approved",
+          note: `اشتراك شهري ${months} شهر`,
+        });
+      }
+    } else {
+      walletDeducted = true;
+    }
+
+    const [row] = await trx
+      .insert(courierSubscriptionsTable)
+      .values({
+        id,
+        courierId,
+        vehicleType,
+        startsAt: now,
+        endsAt,
+        amount: totalAmount,
+        status: walletDeducted ? "paid" : "pending",
+        isActive: true,
+        gifted: false,
+        createdByAdmin: true,
+        note: note ?? null,
+      })
+      .returning();
+    savedRow = row;
+  });
+
+  res.status(201).json(savedRow);
+});
+
+router.patch("/admin/courier-subscriptions/:id", async (req, res) => {
+  const id = String(req.params["id"]);
+  const body = z.object({
+    months: z.number().int().min(1).max(12).optional(),
+    note: z.string().nullable().optional(),
+    status: z.enum(["paid", "waived", "pending"]).optional(),
+  }).safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
     return;
+  }
+
+  const [existing] = await db
+    .select()
+    .from(courierSubscriptionsTable)
+    .where(eq(courierSubscriptionsTable.id, id))
+    .limit(1);
+
+  if (!existing) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+
+  const updates: Partial<typeof courierSubscriptionsTable.$inferInsert> = {};
+  if (body.data.note !== undefined) updates.note = body.data.note;
+  if (body.data.status !== undefined) updates.status = body.data.status;
+
+  if (body.data.months) {
+    const base = existing.endsAt > new Date() ? existing.endsAt : new Date();
+    const newEnd = new Date(base);
+    newEnd.setMonth(newEnd.getMonth() + body.data.months);
+    updates.endsAt = newEnd;
+    updates.isActive = true;
   }
 
   const [row] = await db
-    .insert(courierSubscriptionsTable)
-    .values({ id, courierId, date, amount, status, note: note ?? null })
+    .update(courierSubscriptionsTable)
+    .set(updates)
+    .where(eq(courierSubscriptionsTable.id, id))
     .returning();
-  res.status(201).json(row);
+
+  res.json(row);
+});
+
+router.delete("/admin/courier-subscriptions/:id", async (req, res) => {
+  const id = String(req.params["id"]);
+
+  const [existing] = await db
+    .select({ id: courierSubscriptionsTable.id })
+    .from(courierSubscriptionsTable)
+    .where(eq(courierSubscriptionsTable.id, id))
+    .limit(1);
+
+  if (!existing) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+
+  await db
+    .update(courierSubscriptionsTable)
+    .set({ isActive: false })
+    .where(eq(courierSubscriptionsTable.id, id));
+
+  res.status(204).end();
 });
 
 router.get("/admin/subscriptions/history/:courierId", async (req, res) => {
@@ -2292,38 +2422,8 @@ router.get("/admin/subscriptions/history/:courierId", async (req, res) => {
     .select()
     .from(courierSubscriptionsTable)
     .where(eq(courierSubscriptionsTable.courierId, courierId))
-    .orderBy(desc(courierSubscriptionsTable.date));
+    .orderBy(desc(courierSubscriptionsTable.createdAt));
   res.json(rows);
-});
-
-router.get("/admin/subscriptions/report", async (req, res) => {
-  const monthRaw = String(req.query["month"] ?? new Date().toISOString().slice(0, 7));
-  const monthStart = `${monthRaw}-01`;
-  const [year, month] = monthRaw.split("-").map(Number) as [number, number];
-  const nextMonthDate = new Date(year, month, 1);
-  const monthEnd = nextMonthDate.toISOString().slice(0, 10);
-
-  const rows = await db
-    .select()
-    .from(courierSubscriptionsTable)
-    .where(and(
-      gte(courierSubscriptionsTable.date, monthStart),
-      lt(courierSubscriptionsTable.date, monthEnd),
-    ));
-
-  const paidRows = rows.filter((r) => r.status === "paid");
-  const waivedRows = rows.filter((r) => r.status === "waived");
-  const totalRevenue = paidRows.reduce((sum, r) => sum + r.amount, 0);
-  const totalWaivedAmount = waivedRows.reduce((sum, r) => sum + r.amount, 0);
-
-  res.json({
-    month: monthRaw,
-    totalPaid: paidRows.length,
-    totalWaived: waivedRows.length,
-    totalRevenue,
-    totalWaivedAmount,
-    entries: rows,
-  });
 });
 
 router.get("/admin/wallet/deposit-requests", async (_req, res) => {

@@ -17,9 +17,13 @@ import { customFetch } from "@workspace/api-client-react";
 interface SubscriptionRecord {
   id: string;
   courierId: string;
-  date: string;
+  vehicleType: "bicycle" | "motorcycle" | "car";
+  startsAt: string;
+  endsAt: string;
   amount: number;
   status: "paid" | "waived" | "pending";
+  isActive: boolean;
+  gifted: boolean;
   note: string | null;
   createdAt: string;
 }
@@ -30,8 +34,14 @@ const STATUS_CONFIG = {
   pending: { label: "غير مدفوع", color: "#ea580c", bg: "#fff7ed", border: "#fed7aa", icon: "warning" as const },
 };
 
-function fmt(dateStr: string) {
-  const d = new Date(dateStr);
+const VEHICLE_LABEL: Record<string, string> = {
+  bicycle: "دراجة هوائية",
+  motorcycle: "دراجة نارية",
+  car: "سيارة",
+};
+
+function fmtDate(iso: string) {
+  const d = new Date(iso);
   return d.toLocaleDateString("ar-SY", { year: "numeric", month: "short", day: "numeric" });
 }
 
@@ -51,7 +61,7 @@ export default function SubscriptionHistoryScreen() {
       try {
         const data = await customFetch("/api/courier/subscription/history") as SubscriptionRecord[];
         setRecords(data);
-      } catch (err: unknown) {
+      } catch {
         setError("تعذّر تحميل السجل");
       } finally {
         setLoading(false);
@@ -60,8 +70,8 @@ export default function SubscriptionHistoryScreen() {
   }, []);
 
   const totalPaid = records.filter((r) => r.status === "paid").reduce((s, r) => s + r.amount, 0);
-  const paidCount = records.filter((r) => r.status === "paid").length;
-  const pendingCount = records.filter((r) => r.status === "pending").length;
+  const activeCount = records.filter((r) => r.isActive).length;
+  const giftedCount = records.filter((r) => r.gifted).length;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -95,13 +105,13 @@ export default function SubscriptionHistoryScreen() {
                 <Text style={[styles.summaryLabel, { color: "#166534" }]}>إجمالي المدفوع</Text>
               </View>
               <View style={[styles.summaryCard, { backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" }]}>
-                <Text style={[styles.summaryValue, { color: "#16a34a" }]}>{paidCount}</Text>
-                <Text style={[styles.summaryLabel, { color: "#166534" }]}>أيام مدفوعة</Text>
+                <Text style={[styles.summaryValue, { color: "#16a34a" }]}>{activeCount}</Text>
+                <Text style={[styles.summaryLabel, { color: "#166534" }]}>اشتراك نشط</Text>
               </View>
-              {pendingCount > 0 && (
-                <View style={[styles.summaryCard, { backgroundColor: "#fff7ed", borderColor: "#fed7aa" }]}>
-                  <Text style={[styles.summaryValue, { color: "#ea580c" }]}>{pendingCount}</Text>
-                  <Text style={[styles.summaryLabel, { color: "#9a3412" }]}>أيام غير مدفوعة</Text>
+              {giftedCount > 0 && (
+                <View style={[styles.summaryCard, { backgroundColor: "#eff6ff", borderColor: "#bfdbfe" }]}>
+                  <Text style={[styles.summaryValue, { color: "#2563eb" }]}>{giftedCount}</Text>
+                  <Text style={[styles.summaryLabel, { color: "#1e40af" }]}>هدية</Text>
                 </View>
               )}
             </View>
@@ -115,25 +125,23 @@ export default function SubscriptionHistoryScreen() {
           renderItem={({ item }) => {
             const cfg = STATUS_CONFIG[item.status];
             return (
-              <View
-                style={[
-                  styles.row,
-                  {
-                    backgroundColor: cfg.bg,
-                    borderColor: cfg.border,
-                  },
-                ]}
-              >
+              <View style={[styles.row, { backgroundColor: cfg.bg, borderColor: cfg.border }]}>
                 <View style={[styles.iconWrap, { backgroundColor: cfg.color + "20" }]}>
                   <MaterialIcons name={cfg.icon} size={22} color={cfg.color} />
                 </View>
                 <View style={styles.rowContent}>
                   <View style={styles.rowTop}>
-                    <Text style={[styles.dateText, { color: colors.foreground }]}>{fmt(item.date)}</Text>
+                    <Text style={[styles.vehicleText, { color: colors.foreground }]}>
+                      {VEHICLE_LABEL[item.vehicleType] ?? item.vehicleType}
+                      {item.gifted ? " — هدية" : ""}
+                    </Text>
                     <View style={[styles.badge, { backgroundColor: cfg.color + "18", borderColor: cfg.color + "40" }]}>
                       <Text style={[styles.badgeText, { color: cfg.color }]}>{cfg.label}</Text>
                     </View>
                   </View>
+                  <Text style={[styles.dateRange, { color: colors.mutedForeground }]}>
+                    {fmtDate(item.startsAt)} → {fmtDate(item.endsAt)}
+                  </Text>
                   <Text style={[styles.amountText, { color: cfg.color }]}>
                     {item.amount.toLocaleString("ar-SY")} ل.س
                   </Text>
@@ -200,7 +208,7 @@ const styles = StyleSheet.create({
   },
   rowContent: { flex: 1, gap: 4 },
   rowTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  dateText: { fontSize: 14, fontWeight: "600" },
+  vehicleText: { fontSize: 14, fontWeight: "600" },
   badge: {
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -208,6 +216,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   badgeText: { fontSize: 11, fontWeight: "700" },
+  dateRange: { fontSize: 12, marginTop: 2 },
   amountText: { fontSize: 16, fontWeight: "800" },
   noteText: { fontSize: 12, marginTop: 2 },
 });
