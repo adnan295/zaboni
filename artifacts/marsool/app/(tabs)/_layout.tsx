@@ -1,7 +1,7 @@
 import { BlurView } from "expo-blur";
 import { Tabs, useRouter } from "expo-router";
 import { SymbolView } from "expo-symbols";
-import { Feather } from "@expo/vector-icons";
+import { MaterialIcons } from "@expo/vector-icons";
 import React, { useMemo } from "react";
 import { I18nManager, Platform, StyleSheet, TouchableOpacity, View, useColorScheme } from "react-native";
 import { useTranslation } from "react-i18next";
@@ -41,19 +41,20 @@ const TAB_SCREEN_NAME: Record<TabType, string> = {
 };
 
 type TabDef = {
-  sfDefault:  string;
-  sfSelected: string;
-  feather:    string;
+  sfDefault:       string;
+  sfSelected:      string;
+  materialDefault: keyof typeof MaterialIcons.glyphMap;
+  materialFocused: keyof typeof MaterialIcons.glyphMap;
 };
 
 const TAB_DEF: Record<TabType, TabDef> = {
-  home:      { sfDefault: "house",             sfSelected: "house.fill",              feather: "home"          },
-  favorites: { sfDefault: "heart",             sfSelected: "heart.fill",              feather: "heart"         },
-  orders:    { sfDefault: "bag",               sfSelected: "bag.fill",                feather: "package"       },
-  profile:   { sfDefault: "person",            sfSelected: "person.fill",             feather: "user"          },
-  offers:    { sfDefault: "tag",               sfSelected: "tag.fill",                feather: "tag"           },
-  search:    { sfDefault: "magnifyingglass",   sfSelected: "magnifyingglass",         feather: "search"        },
-  errand:    { sfDefault: "bag.badge.plus",    sfSelected: "bag.badge.plus",          feather: "shopping-bag"  },
+  home:      { sfDefault: "house",           sfSelected: "house.fill",          materialDefault: "home",            materialFocused: "home"            },
+  favorites: { sfDefault: "heart",           sfSelected: "heart.fill",          materialDefault: "favorite-border", materialFocused: "favorite"        },
+  orders:    { sfDefault: "bag",             sfSelected: "bag.fill",            materialDefault: "shopping-bag",    materialFocused: "shopping-bag"    },
+  profile:   { sfDefault: "person",          sfSelected: "person.fill",         materialDefault: "person-outline",  materialFocused: "person"          },
+  offers:    { sfDefault: "tag",             sfSelected: "tag.fill",            materialDefault: "local-offer",     materialFocused: "local-offer"     },
+  search:    { sfDefault: "magnifyingglass", sfSelected: "magnifyingglass",     materialDefault: "search",          materialFocused: "search"          },
+  errand:    { sfDefault: "bag.badge.plus",  sfSelected: "bag.badge.plus",      materialDefault: "add-shopping-cart", materialFocused: "add-shopping-cart" },
 };
 
 const ALL_TAB_TYPES: TabType[] = ["home", "favorites", "orders", "profile", "offers", "search", "errand"];
@@ -149,7 +150,7 @@ function ClassicTabLayout({ config }: { config: TabBarItem[] }) {
                   : undefined,
               tabBarIcon: ({ color, focused }) =>
                 isErrand ? (
-                  <Feather name="shopping-bag" size={22} color="#ea580c" />
+                  <MaterialIcons name="add-shopping-cart" size={22} color="#ea580c" />
                 ) : isIOS ? (
                   <SymbolView
                     name={focused ? def.sfSelected : def.sfDefault}
@@ -157,7 +158,7 @@ function ClassicTabLayout({ config }: { config: TabBarItem[] }) {
                     size={24}
                   />
                 ) : (
-                  <Feather name={def.feather as any} size={22} color={color} />
+                  <MaterialIcons name={focused ? def.materialFocused : def.materialDefault} size={22} color={color} />
                 ),
               tabBarActiveTintColor: isErrand ? "#ea580c" : undefined,
               ...(isErrand
