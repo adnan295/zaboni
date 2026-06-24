@@ -200,12 +200,16 @@ function ClassicTabLayout({ config }: { config: TabBarItem[] }) {
         );
       })}
 
-      {/* Hidden screens — still navigable but not in tab bar */}
+      {/* Hidden screens — navigable but completely removed from tab bar */}
       {hiddenTypes.map((tp) => (
         <Tabs.Screen
           key={`hidden-${tp}`}
           name={TAB_SCREEN_NAME[tp]}
-          options={{ tabBarButton: () => null, title: "" }}
+          options={{
+            href: null,
+            tabBarItemStyle: { display: "none", width: 0, overflow: "hidden" },
+            title: "",
+          }}
         />
       ))}
     </Tabs>
