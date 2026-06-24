@@ -16,6 +16,10 @@ function OptionGroupsDialog({ item, open, onClose }: { item: MenuItem | null; op
   const { toast } = useToast();
   const [newGroupName, setNewGroupName] = useState("");
   const [newOpts, setNewOpts] = useState<Record<string, { nameAr: string; extraPrice: string }>>({});
+  const [editGroupId, setEditGroupId] = useState<string | null>(null);
+  const [editGroupName, setEditGroupName] = useState("");
+  const [editOptId, setEditOptId] = useState<string | null>(null);
+  const [editOptFields, setEditOptFields] = useState<{ nameAr: string; extraPrice: string }>({ nameAr: "", extraPrice: "" });
 
   const { data: groups = [], isLoading } = useQuery<OptionGroup[]>({
     queryKey: ["option-groups", item?.id],
@@ -27,6 +31,13 @@ function OptionGroupsDialog({ item, open, onClose }: { item: MenuItem | null; op
     mutationFn: (nameAr: string) => api.createOptionGroup(item!.id, { nameAr }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["option-groups", item?.id] }); setNewGroupName(""); },
     onError: () => toast({ variant: "destructive", title: "فشل إضافة المجموعة" }),
+  });
+
+  const updateGroupMut = useMutation({
+    mutationFn: ({ groupId, nameAr }: { groupId: string; nameAr: string }) =>
+      api.updateOptionGroup(item!.id, groupId, { nameAr }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["option-groups", item?.id] }); setEditGroupId(null); },
+    onError: () => toast({ variant: "destructive", title: "فشل تعديل المجموعة" }),
   });
 
   const delGroupMut = useMutation({
@@ -43,6 +54,13 @@ function OptionGroupsDialog({ item, open, onClose }: { item: MenuItem | null; op
       setNewOpts(prev => { const n = { ...prev }; delete n[groupId]; return n; });
     },
     onError: () => toast({ variant: "destructive", title: "فشل إضافة الخيار" }),
+  });
+
+  const updateOptMut = useMutation({
+    mutationFn: ({ groupId, optionId, nameAr, extraPrice }: { groupId: string; optionId: string; nameAr: string; extraPrice: number }) =>
+      api.updateOption(item!.id, groupId, optionId, { nameAr, extraPrice }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["option-groups", item?.id] }); setEditOptId(null); },
+    onError: () => toast({ variant: "destructive", title: "فشل تعديل الخيار" }),
   });
 
   const delOptMut = useMutation({
@@ -71,36 +89,92 @@ function OptionGroupsDialog({ item, open, onClose }: { item: MenuItem | null; op
 
             {groups.map((group) => {
               const newOpt = newOpts[group.id] ?? { nameAr: "", extraPrice: "" };
+              const isEditingGroup = editGroupId === group.id;
               return (
                 <div key={group.id} className="border border-border rounded-lg p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="font-semibold text-sm">{group.nameAr}</p>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7 text-destructive hover:text-destructive"
-                      onClick={() => delGroupMut.mutate(group.id)}
-                      disabled={delGroupMut.isPending}
-                    >
-                      <Trash2 size={14} />
-                    </Button>
+                  <div className="flex items-center gap-2">
+                    {isEditingGroup ? (
+                      <>
+                        <Input
+                          className="h-7 text-sm flex-1 font-semibold"
+                          value={editGroupName}
+                          onChange={(e) => setEditGroupName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && editGroupName.trim()) updateGroupMut.mutate({ groupId: group.id, nameAr: editGroupName.trim() });
+                            if (e.key === "Escape") setEditGroupId(null);
+                          }}
+                          autoFocus
+                        />
+                        <Button size="sm" className="h-7 px-2" disabled={!editGroupName.trim() || updateGroupMut.isPending}
+                          onClick={() => updateGroupMut.mutate({ groupId: group.id, nameAr: editGroupName.trim() })}>
+                          حفظ
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setEditGroupId(null)}>إلغاء</Button>
+                      </>
+                    ) : (
+                      <>
+                        <p
+                          className="font-semibold text-sm flex-1 cursor-pointer hover:text-primary"
+                          onClick={() => { setEditGroupId(group.id); setEditGroupName(group.nameAr); }}
+                          title="انقر للتعديل"
+                        >
+                          {group.nameAr}
+                        </p>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => delGroupMut.mutate(group.id)} disabled={delGroupMut.isPending}>
+                          <Trash2 size={14} />
+                        </Button>
+                      </>
+                    )}
                   </div>
 
                   <div className="space-y-1 pr-2">
-                    {group.options.map((opt) => (
-                      <div key={opt.id} className="flex items-center justify-between text-sm">
-                        <span>{opt.nameAr}{opt.extraPrice > 0 ? ` (+${opt.extraPrice} ل.س)` : ""}</span>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                          onClick={() => delOptMut.mutate({ groupId: group.id, optionId: opt.id })}
-                          disabled={delOptMut.isPending}
-                        >
-                          <Trash2 size={12} />
-                        </Button>
-                      </div>
-                    ))}
+                    {group.options.map((opt) => {
+                      const isEditingOpt = editOptId === opt.id;
+                      return (
+                        <div key={opt.id}>
+                          {isEditingOpt ? (
+                            <div className="flex gap-2 items-center">
+                              <Input
+                                className="h-7 text-sm flex-1"
+                                value={editOptFields.nameAr}
+                                onChange={(e) => setEditOptFields(p => ({ ...p, nameAr: e.target.value }))}
+                                autoFocus
+                              />
+                              <Input
+                                type="number"
+                                min="0"
+                                className="h-7 text-sm w-24"
+                                value={editOptFields.extraPrice}
+                                onChange={(e) => setEditOptFields(p => ({ ...p, extraPrice: e.target.value }))}
+                              />
+                              <Button size="sm" className="h-7 px-2 shrink-0"
+                                disabled={!editOptFields.nameAr.trim() || updateOptMut.isPending}
+                                onClick={() => updateOptMut.mutate({ groupId: group.id, optionId: opt.id, nameAr: editOptFields.nameAr.trim(), extraPrice: parseFloat(editOptFields.extraPrice) || 0 })}>
+                                حفظ
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 px-2 shrink-0" onClick={() => setEditOptId(null)}>إلغاء</Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between text-sm group/opt">
+                              <span
+                                className="flex-1 cursor-pointer hover:text-primary"
+                                onClick={() => { setEditOptId(opt.id); setEditOptFields({ nameAr: opt.nameAr, extraPrice: String(opt.extraPrice) }); }}
+                                title="انقر للتعديل"
+                              >
+                                {opt.nameAr}{opt.extraPrice > 0 ? ` (+${opt.extraPrice} ل.س)` : ""}
+                              </span>
+                              <Button size="icon" variant="ghost"
+                                className="h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover/opt:opacity-100"
+                                onClick={() => delOptMut.mutate({ groupId: group.id, optionId: opt.id })}
+                                disabled={delOptMut.isPending}>
+                                <Trash2 size={12} />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
 
                   <div className="flex gap-2 items-center pt-1">

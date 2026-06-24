@@ -73,11 +73,17 @@ export const api = {
   createOptionGroup: (itemId: string, data: { nameAr: string; sortOrder?: number }) =>
     apiFetch<OptionGroup>(`/restaurant-portal/menu/${itemId}/option-groups`, { method: "POST", body: JSON.stringify(data) }),
 
+  updateOptionGroup: (itemId: string, groupId: string, data: { nameAr: string }) =>
+    apiFetch<OptionGroup>(`/restaurant-portal/menu/${itemId}/option-groups/${groupId}`, { method: "PUT", body: JSON.stringify(data) }),
+
   deleteOptionGroup: (itemId: string, groupId: string) =>
     apiFetch<void>(`/restaurant-portal/menu/${itemId}/option-groups/${groupId}`, { method: "DELETE" }),
 
   createOption: (itemId: string, groupId: string, data: { nameAr: string; extraPrice?: number; isDefault?: boolean; sortOrder?: number }) =>
     apiFetch<OptionItem>(`/restaurant-portal/menu/${itemId}/option-groups/${groupId}/options`, { method: "POST", body: JSON.stringify(data) }),
+
+  updateOption: (itemId: string, groupId: string, optionId: string, data: { nameAr?: string; extraPrice?: number }) =>
+    apiFetch<OptionItem>(`/restaurant-portal/menu/${itemId}/option-groups/${groupId}/options/${optionId}`, { method: "PUT", body: JSON.stringify(data) }),
 
   deleteOption: (itemId: string, groupId: string, optionId: string) =>
     apiFetch<void>(`/restaurant-portal/menu/${itemId}/option-groups/${groupId}/options/${optionId}`, { method: "DELETE" }),
