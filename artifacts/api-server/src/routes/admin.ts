@@ -2001,26 +2001,11 @@ router.delete("/admin/delivery-zones/:id", async (req, res) => {
   res.status(204).end();
 });
 
-const DEFAULT_DAILY_SUBSCRIPTION_FEE = 5000;
-
-async function getDailySubscriptionFee(): Promise<number> {
-  const rows = await db
-    .select()
-    .from(systemSettingsTable)
-    .where(eq(systemSettingsTable.key, "daily_subscription_fee"))
-    .limit(1);
-  if (rows.length === 0) return DEFAULT_DAILY_SUBSCRIPTION_FEE;
-  return parseInt(rows[0]!.value, 10) || DEFAULT_DAILY_SUBSCRIPTION_FEE;
-}
-
 router.get("/admin/settings", async (_req, res) => {
   const rows = await db.select().from(systemSettingsTable);
   const map: Record<string, string> = {};
   for (const r of rows) {
     map[r.key] = r.value;
-  }
-  if (!("daily_subscription_fee" in map)) {
-    map["daily_subscription_fee"] = String(DEFAULT_DAILY_SUBSCRIPTION_FEE);
   }
   res.json(map);
 });

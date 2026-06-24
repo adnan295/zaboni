@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { db, usersTable, ordersTable, orderItemsTable, orderItemOptionsTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, courierSubscriptionPlansTable, systemSettingsTable, courierCustomerRatingsTable, courierWalletTransactionsTable, courierApplicationsTable, referralsTable, courierSubscriptionRequestsTable } from "@workspace/db";
+import { db, usersTable, ordersTable, orderItemsTable, orderItemOptionsTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, courierSubscriptionPlansTable, courierCustomerRatingsTable, courierWalletTransactionsTable, courierApplicationsTable, referralsTable, courierSubscriptionRequestsTable } from "@workspace/db";
 import { and, eq, ne, inArray, notInArray, avg, count, sql, desc, getTableColumns } from "drizzle-orm";
 import { haversineKm as _haversineKm } from "../lib/deliveryZones";
 import { z } from "zod";
@@ -705,8 +705,6 @@ router.post("/courier/orders/:orderId/cancel", requireCourier, async (req, res) 
   res.json({ success: true });
 });
 
-const DEFAULT_DAILY_FEE = 5000;
-
 router.get("/courier/earnings", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
   const periodParam = (req.query.period as string) || "today";
@@ -737,7 +735,7 @@ router.get("/courier/earnings", requireCourier, async (req, res) => {
   type AggRow = { totalEarnings: string | null; totalCount: string | null };
   type RecentRow = { id: string; restaurantName: string; address: string; updatedAt: Date; deliveryFee: number };
 
-  const [aggResult, recentResult, todayAggResult, subRow, settingRow] = await Promise.all([
+  const [aggResult, recentResult, todayAggResult] = await Promise.all([
     periodStart
       ? db.execute(sql`
           SELECT
@@ -795,21 +793,6 @@ router.get("/courier/earnings", requireCourier, async (req, res) => {
             AND o.updated_at >= ${todayStart.toISOString()}
         `)
       : Promise.resolve(null),
-    db
-      .select()
-      .from(courierSubscriptionsTable)
-      .where(and(
-        eq(courierSubscriptionsTable.courierId, courierId),
-        eq(courierSubscriptionsTable.isActive, true),
-        sql`${courierSubscriptionsTable.endsAt} > NOW()`,
-      ))
-      .orderBy(desc(courierSubscriptionsTable.endsAt))
-      .limit(1),
-    db
-      .select()
-      .from(systemSettingsTable)
-      .where(eq(systemSettingsTable.key, "daily_subscription_fee"))
-      .limit(1),
   ]);
 
   const aggRow = aggResult.rows[0] as AggRow;
@@ -835,22 +818,12 @@ router.get("/courier/earnings", requireCourier, async (req, res) => {
     todayDeliveriesCount = Number(todayAgg?.totalCount ?? 0);
   }
 
-  const defaultFee = settingRow[0]?.value ? parseInt(settingRow[0].value, 10) || DEFAULT_DAILY_FEE : DEFAULT_DAILY_FEE;
-  const todaySubscriptionStatus = subRow[0]?.status ?? "pending";
-  const todaySubscriptionFee = subRow[0]?.amount ?? defaultFee;
-  const todayNetEarnings = todaySubscriptionStatus === "paid"
-    ? todayEarnings - todaySubscriptionFee
-    : todayEarnings;
-
   res.json({
     period: normalizedPeriod,
     periodEarnings,
     periodDeliveries: periodDeliveriesCount,
     todayEarnings,
     todayDeliveries: todayDeliveriesCount,
-    todaySubscriptionFee,
-    todaySubscriptionStatus,
-    todayNetEarnings,
     recentDeliveries,
   });
 });
@@ -859,35 +832,23 @@ router.get("/courier/subscription/today", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
   const today = new Date().toISOString().slice(0, 10);
 
-  const [subRow, settingRow] = await Promise.all([
-    db
-      .select()
-      .from(courierSubscriptionsTable)
-      .where(and(
-        eq(courierSubscriptionsTable.courierId, courierId),
-        eq(courierSubscriptionsTable.isActive, true),
-        sql`${courierSubscriptionsTable.endsAt} > NOW()`,
-      ))
-      .orderBy(desc(courierSubscriptionsTable.endsAt))
-      .limit(1),
-    db
-      .select()
-      .from(systemSettingsTable)
-      .where(eq(systemSettingsTable.key, "daily_subscription_fee"))
-      .limit(1),
-  ]);
+  const [activeSub] = await db
+    .select({ id: courierSubscriptionsTable.id, status: courierSubscriptionsTable.status })
+    .from(courierSubscriptionsTable)
+    .where(and(
+      eq(courierSubscriptionsTable.courierId, courierId),
+      eq(courierSubscriptionsTable.isActive, true),
+      sql`${courierSubscriptionsTable.endsAt} > NOW()`,
+    ))
+    .orderBy(desc(courierSubscriptionsTable.endsAt))
+    .limit(1);
 
-  const defaultAmount = settingRow[0]?.value
-    ? parseInt(settingRow[0].value, 10) || DEFAULT_DAILY_FEE
-    : DEFAULT_DAILY_FEE;
-
-  if (subRow.length === 0) {
-    res.json({ status: "pending", amount: defaultAmount, date: today });
+  if (!activeSub) {
+    res.json({ status: "no_subscription", amount: 0, date: today, isMonthlySubscriber: false });
     return;
   }
 
-  const sub = subRow[0]!;
-  res.json({ status: sub.status, amount: sub.amount, date: today, note: sub.note });
+  res.json({ status: "active", amount: 0, date: today, isMonthlySubscriber: true });
 });
 
 const rateCustomerSchema = z.object({
