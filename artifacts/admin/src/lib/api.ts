@@ -874,8 +874,8 @@ export const api = {
       body: JSON.stringify({ adminNote }),
     }),
   getPendingSubscriptionRequestsCount: () =>
-    apiFetch<{ count: number }>("/admin/subscription-requests?status=pending").then(
-      (list) => ({ count: (list as unknown as CourierSubscriptionRequest[]).length })
+    apiFetch<CourierSubscriptionRequest[]>("/admin/subscription-requests?status=pending").then(
+      (list) => ({ count: list.length })
     ),
 
   getWaVerifyHealth: async (): Promise<WaVerifyHealth> => {
