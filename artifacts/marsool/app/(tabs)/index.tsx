@@ -426,7 +426,7 @@ export default function HomeScreen() {
         {/* White search bar */}
         <TouchableOpacity
           style={[styles.searchBar, { backgroundColor: "#fff" }]}
-          onPress={() => router.push("/search")}
+          onPress={() => router.navigate("/search" as any)}
           activeOpacity={0.9}
         >
           <MaterialIcons name="search" size={20} color={colors.mutedForeground} />
@@ -659,7 +659,7 @@ export default function HomeScreen() {
               {" "}({filteredRestaurants.length})
             </Text>
           </Text>
-          <TouchableOpacity onPress={() => router.push("/search")}>
+          <TouchableOpacity onPress={() => router.navigate("/search" as any)}>
             <MaterialIcons name="search" size={22} color={colors.primary} />
           </TouchableOpacity>
         </View>

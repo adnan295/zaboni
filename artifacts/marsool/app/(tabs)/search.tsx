@@ -15,7 +15,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
-import { useRouter } from "expo-router";
+import { useRouter, useNavigation } from "expo-router";
 import RestaurantCard from "@/components/RestaurantCard";
 import { customFetch } from "@workspace/api-client-react";
 
@@ -69,6 +69,8 @@ export default function SearchTabScreen() {
   const insets = useSafeAreaInsets();
   const { t, i18n } = useTranslation();
   const router = useRouter();
+  const navigation = useNavigation();
+  const canGoBack = navigation.canGoBack();
   const isAr = i18n.language === "ar";
 
   const [query, setQuery] = useState("");
@@ -161,6 +163,19 @@ export default function SearchTabScreen() {
 
       {/* ─── Header ─── */}
       <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.primary }]}>
+        {canGoBack && (
+          <TouchableOpacity
+            onPress={() => router.back()}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={styles.backBtn}
+          >
+            <MaterialIcons
+              name={isAr ? "chevron-right" : "chevron-left"}
+              size={28}
+              color="#fff"
+            />
+          </TouchableOpacity>
+        )}
         <View style={[styles.searchBox, { backgroundColor: colors.card }]}>
           <MaterialIcons name="search" size={20} color={colors.mutedForeground} />
           <TextInput
@@ -350,6 +365,7 @@ const styles = StyleSheet.create({
 
   /* Header */
   header: { paddingHorizontal: 16, paddingBottom: 14 },
+  backBtn: { marginBottom: 10 },
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
