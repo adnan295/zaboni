@@ -12,6 +12,11 @@ export function clearAdminToken(): void {
   localStorage.removeItem("marsool_admin_token");
 }
 
+export type PaymentInfo = {
+  accountImage: string | null;
+  qrImage: string | null;
+};
+
 async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
@@ -779,6 +784,19 @@ export const api = {
     apiFetch<{ ok: boolean }>("/admin/settings", {
       method: "PUT",
       body: JSON.stringify(data),
+    }),
+
+  getPaymentInfo: () => apiFetch<PaymentInfo>("/admin/settings").then(s => ({
+    accountImage: (s as Record<string, string>)["payment_account_image"] ?? null,
+    qrImage: (s as Record<string, string>)["payment_qr_image"] ?? null,
+  })),
+  updatePaymentInfo: (data: { accountImage: string | null; qrImage: string | null }) =>
+    apiFetch<{ ok: boolean }>("/admin/settings", {
+      method: "PUT",
+      body: JSON.stringify({
+        ...(data.accountImage !== null ? { payment_account_image: data.accountImage } : {}),
+        ...(data.qrImage !== null ? { payment_qr_image: data.qrImage } : {}),
+      }),
     }),
 
   getHomeFilters: () => apiFetch<HomeFilter[]>("/config/home-filters"),

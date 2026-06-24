@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import type { CourierSubRow, CourierSubRecord, CourierSubPlans } from "@/lib/api";
+import type { CourierSubRow, CourierSubRecord, CourierSubPlans, PaymentInfo } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { ImageUpload } from "@/components/ImageUpload";
 
 const STATUS_LABEL: Record<string, string> = {
   paid: "مدفوع",
@@ -349,6 +350,76 @@ function HistoryDialog({
   );
 }
 
+function PaymentInfoCard() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [accountImage, setAccountImage] = useState("");
+  const [qrImage, setQrImage] = useState("");
+  const [dirty, setDirty] = useState(false);
+
+  const { data, isLoading } = useQuery<PaymentInfo>({
+    queryKey: ["admin", "payment-info"],
+    queryFn: api.getPaymentInfo,
+  });
+
+  useEffect(() => {
+    if (data) {
+      setAccountImage(data.accountImage ?? "");
+      setQrImage(data.qrImage ?? "");
+      setDirty(false);
+    }
+  }, [data]);
+
+  const mut = useMutation({
+    mutationFn: () =>
+      api.updatePaymentInfo({
+        accountImage: accountImage || null,
+        qrImage: qrImage || null,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "payment-info"] });
+      setDirty(false);
+      toast({ title: "تم حفظ معلومات الدفع" });
+    },
+    onError: (err: Error) =>
+      toast({ title: "خطأ", description: err.message, variant: "destructive" }),
+  });
+
+  if (isLoading) return null;
+
+  return (
+    <div className="bg-card border rounded-xl p-5 space-y-4" dir="rtl">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-semibold text-base">معلومات حساب الدفع</h2>
+          <p className="text-muted-foreground text-xs mt-0.5">
+            تظهر هذه الصور للسائق على شاشة الدفع لمعرفة وين يحوّل المبلغ
+          </p>
+        </div>
+        <Button
+          size="sm"
+          onClick={() => mut.mutate()}
+          disabled={mut.isPending || !dirty}
+        >
+          {mut.isPending ? "جاري الحفظ..." : "حفظ"}
+        </Button>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <ImageUpload
+          label="صورة تفاصيل الحساب البنكي / المحفظة"
+          value={accountImage}
+          onChange={(v) => { setAccountImage(v); setDirty(true); }}
+        />
+        <ImageUpload
+          label="صورة QR Code للدفع"
+          value={qrImage}
+          onChange={(v) => { setQrImage(v); setDirty(true); }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function Subscriptions() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -394,6 +465,8 @@ export default function Subscriptions() {
           💰 أسعار الاشتراك
         </Button>
       </div>
+
+      <PaymentInfoCard />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="bg-card border rounded-xl p-4 text-right">
