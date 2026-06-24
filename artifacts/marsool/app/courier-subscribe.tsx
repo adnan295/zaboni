@@ -103,12 +103,7 @@ export default function CourierSubscribeScreen() {
 
   const { data: paymentInfo } = useQuery<PaymentInfo>({
     queryKey: ["public", "payment-info"],
-    queryFn: async () => {
-      const apiHost = process.env.EXPO_PUBLIC_API_HOST ?? "";
-      const res = await fetch(`${apiHost}/api/public/payment-info`);
-      if (!res.ok) throw new Error("failed");
-      return res.json();
-    },
+    queryFn: () => customFetch<PaymentInfo>("/api/public/payment-info"),
     staleTime: 60_000,
   });
 
