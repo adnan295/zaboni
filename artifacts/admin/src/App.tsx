@@ -38,6 +38,7 @@ import Loyalty from "@/pages/Loyalty";
 import CustomerSubscriptions from "@/pages/CustomerSubscriptions";
 import CustomerSupport from "@/pages/CustomerSupport";
 import Referrals from "@/pages/Referrals";
+import SubscriptionRequests from "@/pages/SubscriptionRequests";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -84,6 +85,7 @@ function Router({ onLogout }: { onLogout: () => void }) {
         <Route path="/customer-subscriptions" component={CustomerSubscriptions} />
         <Route path="/customer-support" component={CustomerSupport} />
         <Route path="/referrals" component={Referrals} />
+        <Route path="/subscription-requests" component={SubscriptionRequests} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

@@ -864,6 +864,20 @@ export const api = {
       body: JSON.stringify({ adminNote }),
     }),
 
+  getSubscriptionRequests: () =>
+    apiFetch<CourierSubscriptionRequest[]>("/admin/subscription-requests"),
+  approveSubscriptionRequest: (id: string) =>
+    apiFetch<{ ok: boolean }>(`/admin/subscription-requests/${id}/approve`, { method: "POST" }),
+  rejectSubscriptionRequest: (id: string, adminNote: string) =>
+    apiFetch<{ ok: boolean }>(`/admin/subscription-requests/${id}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ adminNote }),
+    }),
+  getPendingSubscriptionRequestsCount: () =>
+    apiFetch<{ count: number }>("/admin/subscription-requests?status=pending").then(
+      (list) => ({ count: (list as unknown as CourierSubscriptionRequest[]).length })
+    ),
+
   getWaVerifyHealth: async (): Promise<WaVerifyHealth> => {
     const token = getAdminToken();
     const res = await fetch(`${API_BASE}/auth/waverify-health`, {
@@ -1168,4 +1182,19 @@ export type TabBarItem = {
 export type AvailableTabType = {
   type: "home" | "favorites" | "orders" | "profile" | "offers" | "search" | "errand";
   labelAr: string;
+};
+
+export type CourierSubscriptionRequest = {
+  id: string;
+  courierId: string;
+  vehicleType: string;
+  planAmount: number;
+  paidAmount: number;
+  receiptUrl: string | null;
+  status: "pending" | "approved" | "rejected";
+  adminNote: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+  courierName: string | null;
+  courierPhone: string | null;
 };
