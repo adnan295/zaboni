@@ -124,10 +124,10 @@ export default function SearchTabScreen() {
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
   const SORT_OPTIONS: { key: SortOption; label: string }[] = [
-    { key: "priority", label: t("search.sortDefault") },
-    { key: "rating",   label: t("search.sortRating") },
-    { key: "fastest",  label: t("search.sortFastest") },
-    { key: "delivery_fee", label: t("search.sortFee") },
+    { key: "priority", label: t("search.sort.recommended") },
+    { key: "rating",   label: t("search.sort.rating") },
+    { key: "fastest",  label: t("search.sort.fastest") },
+    { key: "delivery_fee", label: t("search.sort.fee") },
   ];
 
   return (
