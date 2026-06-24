@@ -128,6 +128,7 @@ export const GetOrdersResponseItem = zod.object({
   estimatedMinutes: zod.number(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
+  restaurantNote: zod.string().nullish(),
   items: zod
     .array(
       zod.object({
@@ -207,6 +208,7 @@ export const GetOrderResponse = zod.object({
   estimatedMinutes: zod.number(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
+  restaurantNote: zod.string().nullish(),
   items: zod
     .array(
       zod.object({
@@ -256,6 +258,7 @@ export const UpdateOrderStatusResponse = zod.object({
   estimatedMinutes: zod.number(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
+  restaurantNote: zod.string().nullish(),
   items: zod
     .array(
       zod.object({
