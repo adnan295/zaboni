@@ -16,8 +16,22 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { buildImageUrl } from "@/lib/apiConfig";
+import type { SelectedOption } from "@/context/CartContext";
 
 const NOTE_MAX = 200;
+
+export interface OptionGroupItem {
+  id: string;
+  nameAr: string;
+  extraPrice: number;
+  isDefault?: boolean;
+}
+
+export interface OptionGroup {
+  id: string;
+  nameAr: string;
+  options: OptionGroupItem[];
+}
 
 interface ItemLike {
   image?: string | null;
@@ -33,9 +47,11 @@ interface Props {
   effectivePrice?: number;
   initialNote?: string;
   initialQty?: number;
+  initialSelectedOptions?: SelectedOption[];
+  optionGroups?: OptionGroup[];
   isEdit?: boolean;
   onClose: () => void;
-  onAdd: (note: string, qty: number) => void;
+  onAdd: (note: string, qty: number, selectedOptions: SelectedOption[]) => void;
 }
 
 export default function ItemNoteModal({
@@ -45,6 +61,8 @@ export default function ItemNoteModal({
   effectivePrice,
   initialNote = "",
   initialQty = 1,
+  initialSelectedOptions,
+  optionGroups,
   isEdit = false,
   onClose,
   onAdd,
@@ -53,23 +71,73 @@ export default function ItemNoteModal({
   const colors = useColors();
   const [note, setNote] = useState(initialNote);
   const [qty, setQty] = useState(initialQty);
+  const [selectedByGroup, setSelectedByGroup] = useState<Record<string, string>>({});
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
-    if (visible) {
-      setNote(initialNote);
-      setQty(initialQty);
+    if (!visible) return;
+    setNote(initialNote);
+    setQty(initialQty);
+
+    // Initialise selection from initialSelectedOptions or defaults
+    const initial: Record<string, string> = {};
+    if (initialSelectedOptions && initialSelectedOptions.length > 0 && optionGroups) {
+      for (const sel of initialSelectedOptions) {
+        for (const g of optionGroups) {
+          if (g.options.some((o) => o.id === sel.optionId)) {
+            initial[g.id] = sel.optionId;
+            break;
+          }
+        }
+      }
+    } else if (optionGroups) {
+      for (const g of optionGroups) {
+        const def = g.options.find((o) => o.isDefault);
+        if (def) initial[g.id] = def.id;
+      }
     }
-  }, [visible, initialNote, initialQty]);
+    setSelectedByGroup(initial);
+  }, [visible, initialNote, initialQty, initialSelectedOptions, optionGroups]);
 
   if (!item) return null;
 
-  const displayPrice = isDeal && effectivePrice != null ? effectivePrice : item.price;
-  const lineTotal = displayPrice * qty;
+  const basePrice = isDeal && effectivePrice != null ? effectivePrice : item.price;
+
+  const optionsExtra = optionGroups
+    ? optionGroups.reduce((sum, g) => {
+        const selId = selectedByGroup[g.id];
+        const opt = selId ? g.options.find((o) => o.id === selId) : undefined;
+        return sum + (opt?.extraPrice ?? 0);
+      }, 0)
+    : 0;
+
+  const unitPrice = basePrice + optionsExtra;
+  const lineTotal = unitPrice * qty;
 
   const handleAdd = () => {
-    onAdd(note.trim(), qty);
+    const selOptions: SelectedOption[] = [];
+    if (optionGroups) {
+      for (const g of optionGroups) {
+        const selId = selectedByGroup[g.id];
+        if (selId) {
+          const opt = g.options.find((o) => o.id === selId);
+          if (opt) selOptions.push({ optionId: opt.id, nameAr: opt.nameAr, extraPrice: opt.extraPrice });
+        }
+      }
+    }
+    onAdd(note.trim(), qty, selOptions);
     onClose();
+  };
+
+  const toggleOption = (groupId: string, optionId: string) => {
+    setSelectedByGroup((prev) => {
+      if (prev[groupId] === optionId) {
+        const next = { ...prev };
+        delete next[groupId];
+        return next;
+      }
+      return { ...prev, [groupId]: optionId };
+    });
   };
 
   return (
@@ -113,11 +181,46 @@ export default function ItemNoteModal({
                 ) : null}
                 <View style={[styles.priceBadge, { backgroundColor: colors.secondary }]}>
                   <Text style={[styles.priceText, { color: colors.primary }]}>
-                    {displayPrice.toLocaleString()} ل.س
+                    {basePrice.toLocaleString()} ل.س
                   </Text>
                 </View>
               </View>
             </View>
+
+            {optionGroups && optionGroups.length > 0 && optionGroups.map((group) => (
+              <View key={group.id} style={[styles.optionGroupSection, { borderColor: colors.border }]}>
+                <Text style={[styles.optionGroupLabel, { color: colors.foreground }]}>
+                  {group.nameAr}
+                </Text>
+                <View style={styles.optionsList}>
+                  {group.options.map((opt) => {
+                    const isSelected = selectedByGroup[group.id] === opt.id;
+                    return (
+                      <TouchableOpacity
+                        key={opt.id}
+                        style={[
+                          styles.optionRow,
+                          { borderColor: isSelected ? colors.primary : colors.border },
+                          isSelected && { backgroundColor: colors.secondary },
+                        ]}
+                        onPress={() => toggleOption(group.id, opt.id)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.radioOuter, { borderColor: isSelected ? colors.primary : colors.mutedForeground }]}>
+                          {isSelected && <View style={[styles.radioInner, { backgroundColor: colors.primary }]} />}
+                        </View>
+                        <Text style={[styles.optionName, { color: colors.foreground }]}>{opt.nameAr}</Text>
+                        {opt.extraPrice > 0 && (
+                          <Text style={[styles.optionPrice, { color: colors.primary }]}>
+                            +{opt.extraPrice.toLocaleString()} ل.س
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
 
             <View style={[styles.noteSection, { borderColor: colors.border }]}>
               <Text style={[styles.noteLabel, { color: colors.foreground }]}>
@@ -156,7 +259,7 @@ export default function ItemNoteModal({
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
                     <MaterialIcons
-                      name={qty <= 1 ? "remove" : "remove"}
+                      name="remove"
                       size={18}
                       color={qty <= 1 ? colors.mutedForeground : colors.foreground}
                     />
@@ -209,7 +312,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingHorizontal: 20,
     paddingBottom: 0,
-    maxHeight: "85%",
+    maxHeight: "90%",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.12,
@@ -234,7 +337,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   scrollContent: {
-    gap: 20,
+    gap: 16,
     paddingBottom: 8,
   },
   itemRow: {
@@ -270,10 +373,53 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
   },
+  optionGroupSection: {
+    gap: 10,
+    borderTopWidth: 1,
+    paddingTop: 14,
+  },
+  optionGroupLabel: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  optionsList: {
+    gap: 8,
+  },
+  optionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1.5,
+  },
+  radioOuter: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  radioInner: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+  },
+  optionName: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  optionPrice: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
   noteSection: {
     gap: 10,
     borderTopWidth: 1,
-    paddingTop: 16,
+    paddingTop: 14,
   },
   noteLabel: {
     fontSize: 14,

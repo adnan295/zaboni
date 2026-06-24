@@ -8,6 +8,12 @@ import React, {
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+export interface SelectedOption {
+  optionId: string;
+  nameAr: string;
+  extraPrice: number;
+}
+
 export interface CartItem {
   menuItemId: string;
   nameAr: string;
@@ -16,6 +22,7 @@ export interface CartItem {
   qty: number;
   image?: string;
   note?: string;
+  selectedOptions?: SelectedOption[];
 }
 
 interface CartState {
@@ -37,6 +44,10 @@ interface CartContextValue extends CartState {
   decItem: (menuItemId: string) => void;
   removeItem: (menuItemId: string) => void;
   setItemNote: (menuItemId: string, note: string) => void;
+  updateItem: (
+    menuItemId: string,
+    updates: { note?: string; selectedOptions?: SelectedOption[]; price?: number },
+  ) => void;
   replaceCart: (
     restaurantId: string,
     restaurantName: string,
@@ -156,6 +167,34 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const updateItem = useCallback(
+    (
+      menuItemId: string,
+      updates: { note?: string; selectedOptions?: SelectedOption[]; price?: number },
+    ) => {
+      setState((prev) => {
+        const ex = prev.items[menuItemId];
+        if (!ex) return prev;
+        return {
+          ...prev,
+          items: {
+            ...prev.items,
+            [menuItemId]: {
+              ...ex,
+              note: updates.note !== undefined ? (updates.note.trim() || undefined) : ex.note,
+              selectedOptions:
+                updates.selectedOptions !== undefined
+                  ? (updates.selectedOptions.length > 0 ? updates.selectedOptions : undefined)
+                  : ex.selectedOptions,
+              price: updates.price !== undefined ? updates.price : ex.price,
+            },
+          },
+        };
+      });
+    },
+    [],
+  );
+
   const replaceCart = useCallback(
     (restaurantId: string, restaurantName: string, items: CartItem[]) => {
       const map: Record<string, CartItem> = {};
@@ -186,6 +225,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         decItem,
         removeItem,
         setItemNote,
+        updateItem,
         replaceCart,
         clear,
       }}

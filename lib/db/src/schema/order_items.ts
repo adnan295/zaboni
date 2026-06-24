@@ -12,6 +12,7 @@ export const orderItemsTable = pgTable("order_items", {
   unitPrice: integer("unit_price").notNull(),
   qty: integer("qty").notNull(),
   lineTotal: integer("line_total").notNull(),
+  note: text("note"),
 });
 
 export const insertOrderItemSchema = createInsertSchema(orderItemsTable);

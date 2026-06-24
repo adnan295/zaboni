@@ -20,7 +20,7 @@ export interface OrderItem {
 }
 
 export interface PlaceOrderInput {
-  items?: { menuItemId: string; qty: number }[];
+  items?: { menuItemId: string; qty: number; note?: string | null; selectedOptions?: { optionId: string }[] }[];
   orderText?: string;
   restaurantName: string;
   address: string;
@@ -33,6 +33,7 @@ export interface PlaceOrderInput {
   flashDealId?: string;
   orderType?: "restaurant" | "errand";
   placeName?: string;
+  restaurantNote?: string;
 }
 
 export interface Order {

@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { db, usersTable, ordersTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, courierSubscriptionPlansTable, systemSettingsTable, courierCustomerRatingsTable, courierWalletTransactionsTable, courierApplicationsTable, referralsTable, courierSubscriptionRequestsTable } from "@workspace/db";
-import { and, eq, ne, notInArray, avg, count, sql, desc, getTableColumns } from "drizzle-orm";
+import { db, usersTable, ordersTable, orderItemsTable, orderItemOptionsTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, courierSubscriptionPlansTable, systemSettingsTable, courierCustomerRatingsTable, courierWalletTransactionsTable, courierApplicationsTable, referralsTable, courierSubscriptionRequestsTable } from "@workspace/db";
+import { and, eq, ne, inArray, notInArray, avg, count, sql, desc, getTableColumns } from "drizzle-orm";
 import { haversineKm as _haversineKm } from "../lib/deliveryZones";
 import { z } from "zod";
 import { notifyOrderUpdate, sendOrderPush, notifyCouriersOrderTaken } from "../orders/server";
@@ -330,12 +330,50 @@ router.get("/courier/orders/active", requireCourier, async (req, res) => {
 
   const active = rows.filter((o) => o.status !== "delivered" && o.status !== "searching");
 
+  // Fetch structured items + options for active orders
+  const activeIds = active.map((o) => o.id);
+  let itemsByOrderId = new Map<string, { id: string; nameAr: string; qty: number; unitPrice: number; lineTotal: number; note: string | null; options: { nameAr: string; extraPrice: number }[] }[]>();
+  if (activeIds.length > 0) {
+    const itemRows = await db
+      .select({
+        id: orderItemsTable.id,
+        orderId: orderItemsTable.orderId,
+        nameAr: orderItemsTable.nameAr,
+        qty: orderItemsTable.qty,
+        unitPrice: orderItemsTable.unitPrice,
+        lineTotal: orderItemsTable.lineTotal,
+        note: orderItemsTable.note,
+        optNameAr: orderItemOptionsTable.nameAr,
+        optExtraPrice: orderItemOptionsTable.extraPrice,
+      })
+      .from(orderItemsTable)
+      .leftJoin(orderItemOptionsTable, eq(orderItemOptionsTable.orderItemId, orderItemsTable.id))
+      .where(inArray(orderItemsTable.orderId, activeIds));
+
+    type ItemAcc = { id: string; nameAr: string; qty: number; unitPrice: number; lineTotal: number; note: string | null; options: { nameAr: string; extraPrice: number }[] };
+    const itemMap = new Map<string, Map<string, ItemAcc>>();
+    for (const row of itemRows) {
+      if (!itemMap.has(row.orderId)) itemMap.set(row.orderId, new Map());
+      const orderItems = itemMap.get(row.orderId)!;
+      if (!orderItems.has(row.id)) {
+        orderItems.set(row.id, { id: row.id, nameAr: row.nameAr, qty: row.qty, unitPrice: row.unitPrice, lineTotal: row.lineTotal, note: row.note, options: [] });
+      }
+      if (row.optNameAr) {
+        orderItems.get(row.id)!.options.push({ nameAr: row.optNameAr, extraPrice: row.optExtraPrice ?? 0 });
+      }
+    }
+    for (const [orderId, orderItemMap] of itemMap.entries()) {
+      itemsByOrderId.set(orderId, Array.from(orderItemMap.values()));
+    }
+  }
+
   const masked = active.map((o) => {
     const contactRevealed = CUSTOMER_CONTACT_STATUSES.includes(o.status);
     return {
       ...o,
       customerName: contactRevealed ? o.customerName : null,
       customerPhone: contactRevealed ? o.customerPhone : null,
+      items: itemsByOrderId.get(o.id) ?? [],
     };
   });
 

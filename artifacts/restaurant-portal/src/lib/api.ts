@@ -68,6 +68,20 @@ export const api = {
   updateItemDeal: (id: string, isDeal: boolean, dealPrice?: number | null, dealExpiresAt?: string | null, dealDiscountPercent?: number | null) =>
     apiFetch<MenuItem>(`/restaurant-portal/menu/${id}/deal`, { method: "PATCH", body: JSON.stringify({ isDeal, dealPrice: isDeal ? dealPrice : null, dealDiscountPercent: isDeal ? (dealDiscountPercent ?? null) : null, dealExpiresAt: isDeal ? (dealExpiresAt ?? null) : null }) }),
 
+  getOptionGroups: (itemId: string) => apiFetch<OptionGroup[]>(`/restaurant-portal/menu/${itemId}/option-groups`),
+
+  createOptionGroup: (itemId: string, data: { nameAr: string; sortOrder?: number }) =>
+    apiFetch<OptionGroup>(`/restaurant-portal/menu/${itemId}/option-groups`, { method: "POST", body: JSON.stringify(data) }),
+
+  deleteOptionGroup: (itemId: string, groupId: string) =>
+    apiFetch<void>(`/restaurant-portal/menu/${itemId}/option-groups/${groupId}`, { method: "DELETE" }),
+
+  createOption: (itemId: string, groupId: string, data: { nameAr: string; extraPrice?: number; isDefault?: boolean; sortOrder?: number }) =>
+    apiFetch<OptionItem>(`/restaurant-portal/menu/${itemId}/option-groups/${groupId}/options`, { method: "POST", body: JSON.stringify(data) }),
+
+  deleteOption: (itemId: string, groupId: string, optionId: string) =>
+    apiFetch<void>(`/restaurant-portal/menu/${itemId}/option-groups/${groupId}/options/${optionId}`, { method: "DELETE" }),
+
   getHours: () => apiFetch<RestaurantHour[]>("/restaurant-portal/hours"),
 
   updateHours: (hours: RestaurantHour[]) =>
@@ -178,11 +192,44 @@ export type RestaurantHour = {
   isClosed: boolean;
 };
 
+export type OptionItem = {
+  id: string;
+  groupId: string;
+  nameAr: string;
+  extraPrice: number;
+  isDefault: boolean;
+  sortOrder: number;
+};
+
+export type OptionGroup = {
+  id: string;
+  menuItemId: string;
+  nameAr: string;
+  sortOrder: number;
+  options: OptionItem[];
+};
+
+export type OrderItemOption = {
+  nameAr: string;
+  extraPrice: number;
+};
+
+export type OrderItem = {
+  id: string;
+  nameAr: string;
+  qty: number;
+  unitPrice: number;
+  lineTotal: number;
+  note: string | null;
+  options: OrderItemOption[];
+};
+
 export type Order = {
   id: string;
   userId: string;
   orderText: string;
   restaurantName: string;
+  restaurantNote: string | null;
   status: string;
   courierName: string | null;
   courierPhone: string | null;
@@ -192,6 +239,7 @@ export type Order = {
   updatedAt: string;
   deliveryFee: number | null;
   totalAmount: number | null;
+  items: OrderItem[];
 };
 
 export type PromoTemplate = {

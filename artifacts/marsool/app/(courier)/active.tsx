@@ -393,17 +393,58 @@ export default function ActiveOrderScreen() {
 
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-            <View style={styles.infoRow}>
-              <MaterialIcons name="notes" size={18} color={colors.primary} />
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>
-                  {t("courier.active.orderText")}
-                </Text>
-                <Text style={[styles.infoValue, { color: colors.foreground }]}>
-                  {order.orderText}
-                </Text>
-              </View>
-            </View>
+            {(() => {
+              const typedOrder = order as typeof order & { items?: { id: string; nameAr: string; qty: number; unitPrice: number; lineTotal: number; note?: string | null; options?: { nameAr: string; extraPrice: number }[] }[]; restaurantNote?: string | null };
+              const structuredItems = typedOrder.items ?? [];
+              if (structuredItems.length > 0) {
+                return (
+                  <View style={styles.infoRow}>
+                    <MaterialIcons name="receipt-long" size={18} color={colors.primary} />
+                    <View style={[styles.infoContent, { gap: 6 }]}>
+                      <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>تفاصيل الطلب</Text>
+                      {structuredItems.map((it) => (
+                        <View key={it.id}>
+                          <Text style={[styles.infoValue, { color: colors.foreground }]}>
+                            {it.nameAr} × {it.qty}
+                            {"  "}
+                            <Text style={{ color: colors.primary, fontWeight: "700" }}>{it.lineTotal.toLocaleString()} ل.س</Text>
+                          </Text>
+                          {(it.options ?? []).map((opt, i) => (
+                            <Text key={i} style={[{ color: colors.mutedForeground, fontSize: 12, paddingRight: 12 }]}>
+                              ↳ {opt.nameAr}{opt.extraPrice > 0 ? ` (+${opt.extraPrice.toLocaleString()})` : ""}
+                            </Text>
+                          ))}
+                          {it.note ? (
+                            <Text style={[{ color: colors.mutedForeground, fontSize: 12, paddingRight: 12 }]}>
+                              📝 {it.note}
+                            </Text>
+                          ) : null}
+                        </View>
+                      ))}
+                      {typedOrder.restaurantNote ? (
+                        <View style={[{ backgroundColor: colors.secondary, borderRadius: 8, padding: 8, marginTop: 4 }]}>
+                          <Text style={[{ color: colors.mutedForeground, fontSize: 12, fontWeight: "700" }]}>ملاحظة للمطعم:</Text>
+                          <Text style={[{ color: colors.foreground, fontSize: 13 }]}>{typedOrder.restaurantNote}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </View>
+                );
+              }
+              return (
+                <View style={styles.infoRow}>
+                  <MaterialIcons name="notes" size={18} color={colors.primary} />
+                  <View style={styles.infoContent}>
+                    <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>
+                      {t("courier.active.orderText")}
+                    </Text>
+                    <Text style={[styles.infoValue, { color: colors.foreground }]}>
+                      {order.orderText}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })()}
 
             {order.address ? (
               <>

@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { db, restaurantsTable, menuItemsTable, restaurantHoursTable, promoBannersTable, restaurantCategoriesTable, restaurantCategorySortOrdersTable, homeSectionItemsTable, categoryRestaurantExclusionsTable, flashDealsTable } from "@workspace/db";
+import { db, restaurantsTable, menuItemsTable, restaurantHoursTable, promoBannersTable, restaurantCategoriesTable, restaurantCategorySortOrdersTable, homeSectionItemsTable, categoryRestaurantExclusionsTable, flashDealsTable, menuItemOptionGroupsTable, menuItemOptionsTable } from "@workspace/db";
 import { and, asc, desc, eq, gt, inArray, isNull, lt, lte, notInArray, or, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -312,7 +312,61 @@ router.get("/restaurants/:id/menu", async (req, res) => {
     .select()
     .from(menuItemsTable)
     .where(eq(menuItemsTable.restaurantId, id));
-  res.json(items);
+
+  if (items.length === 0) {
+    res.json([]);
+    return;
+  }
+
+  const itemIds = items.map((i) => i.id);
+  const groupRows = await db
+    .select({
+      groupId: menuItemOptionGroupsTable.id,
+      groupNameAr: menuItemOptionGroupsTable.nameAr,
+      groupSortOrder: menuItemOptionGroupsTable.sortOrder,
+      menuItemId: menuItemOptionGroupsTable.menuItemId,
+      optionId: menuItemOptionsTable.id,
+      optionNameAr: menuItemOptionsTable.nameAr,
+      optionExtraPrice: menuItemOptionsTable.extraPrice,
+      optionIsDefault: menuItemOptionsTable.isDefault,
+      optionSortOrder: menuItemOptionsTable.sortOrder,
+    })
+    .from(menuItemOptionGroupsTable)
+    .leftJoin(menuItemOptionsTable, eq(menuItemOptionsTable.groupId, menuItemOptionGroupsTable.id))
+    .where(inArray(menuItemOptionGroupsTable.menuItemId, itemIds))
+    .orderBy(menuItemOptionGroupsTable.sortOrder, menuItemOptionsTable.sortOrder);
+
+  type OptionGroup = {
+    id: string;
+    nameAr: string;
+    sortOrder: number;
+    options: { id: string; nameAr: string; extraPrice: number; isDefault: boolean; sortOrder: number }[];
+  };
+  const groupsByItemId = new Map<string, Map<string, OptionGroup>>();
+  for (const row of groupRows) {
+    if (!groupsByItemId.has(row.menuItemId)) groupsByItemId.set(row.menuItemId, new Map());
+    const groupMap = groupsByItemId.get(row.menuItemId)!;
+    if (!groupMap.has(row.groupId)) {
+      groupMap.set(row.groupId, { id: row.groupId, nameAr: row.groupNameAr, sortOrder: row.groupSortOrder, options: [] });
+    }
+    if (row.optionId) {
+      groupMap.get(row.groupId)!.options.push({
+        id: row.optionId,
+        nameAr: row.optionNameAr!,
+        extraPrice: row.optionExtraPrice!,
+        isDefault: row.optionIsDefault!,
+        sortOrder: row.optionSortOrder!,
+      });
+    }
+  }
+
+  const result = items.map((item) => {
+    const groupMap = groupsByItemId.get(item.id);
+    const optionGroups = groupMap ? Array.from(groupMap.values()) : [];
+    return { ...item, optionGroups };
+  });
+
+  res.json(result);
 });
 
 

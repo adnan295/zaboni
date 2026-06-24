@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { db, ordersTable, orderItemsTable, menuItemsTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable, promoCodesTable, promoUsesTable, usersTable, flashDealsTable, loyaltyTransactionsTable, customerWalletTransactionsTable } from "@workspace/db";
+import { db, ordersTable, orderItemsTable, menuItemsTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable, promoCodesTable, promoUsesTable, usersTable, flashDealsTable, loyaltyTransactionsTable, customerWalletTransactionsTable, menuItemOptionsTable, orderItemOptionsTable } from "@workspace/db";
 import { and, count, desc, eq, gt, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { notifyOrderUpdate, notifyNearbyCouriers, notifyRestaurantNewOrder } from "../orders/server";
@@ -14,6 +14,7 @@ const orderItemInputSchema = z.object({
   menuItemId: z.string().min(1),
   qty: z.number().int().positive().max(99),
   note: z.string().max(200).optional(),
+  selectedOptions: z.array(z.object({ optionId: z.string().min(1) })).optional(),
 });
 
 const createOrderSchema = z
@@ -31,6 +32,7 @@ const createOrderSchema = z
     flashDealId: z.string().optional(),
     orderType: z.enum(["restaurant", "errand"]).default("restaurant"),
     placeName: z.string().max(200).optional(),
+    restaurantNote: z.string().max(500).optional(),
   })
   .refine(
     (d) =>
@@ -302,6 +304,14 @@ router.post("/orders", async (req, res) => {
     unitPrice: number;
     qty: number;
     lineTotal: number;
+    note: string | null;
+  }[] = [];
+  // Options to insert after order items are saved
+  const pendingItemOptions: {
+    itemIdx: number;
+    optionId: string;
+    nameAr: string;
+    extraPrice: number;
   }[] = [];
   let itemsTotal: number | null = null;
   let itemsRestaurantId: string | null = null;
@@ -314,6 +324,18 @@ router.post("/orders", async (req, res) => {
       .from(menuItemsTable)
       .where(inArray(menuItemsTable.id, menuIds));
     const byId = new Map(menuRows.map((m) => [m.id, m]));
+
+    // Pre-fetch all requested option prices in one query
+    const allOptionIds = body.data.items
+      .flatMap((i) => i.selectedOptions?.map((o) => o.optionId) ?? []);
+    const optionsById = new Map<string, { nameAr: string; extraPrice: number }>();
+    if (allOptionIds.length > 0) {
+      const optionRows = await db
+        .select({ id: menuItemOptionsTable.id, nameAr: menuItemOptionsTable.nameAr, extraPrice: menuItemOptionsTable.extraPrice })
+        .from(menuItemOptionsTable)
+        .where(inArray(menuItemOptionsTable.id, allOptionIds));
+      for (const o of optionRows) optionsById.set(o.id, { nameAr: o.nameAr, extraPrice: o.extraPrice });
+    }
 
     let total = 0;
     for (const it of body.data.items) {
@@ -338,28 +360,38 @@ router.post("/orders", async (req, res) => {
         res.status(409).json({ error: "item_unavailable", menuItemId: it.menuItemId });
         return;
       }
-      const unitPrice = Math.round(
+      const baseUnitPrice = Math.round(
         menuItem.isDeal && menuItem.dealPrice != null ? menuItem.dealPrice : menuItem.price,
       );
+      // Compute extra price from selected options (server-side lookup)
+      let optionsExtra = 0;
+      const itemIdx = computedOrderItems.length;
+      for (const sel of it.selectedOptions ?? []) {
+        const opt = optionsById.get(sel.optionId);
+        if (opt) {
+          optionsExtra += opt.extraPrice;
+          pendingItemOptions.push({ itemIdx, optionId: sel.optionId, nameAr: opt.nameAr, extraPrice: opt.extraPrice });
+        }
+      }
+      const unitPrice = baseUnitPrice + optionsExtra;
       const lineTotal = unitPrice * it.qty;
       total += lineTotal;
       computedOrderItems.push({
-        id: `oi_${id}_${computedOrderItems.length}`,
+        id: `oi_${id}_${itemIdx}`,
         orderId: id,
         menuItemId: menuItem.id,
         nameAr: menuItem.nameAr,
         unitPrice,
         qty: it.qty,
         lineTotal,
+        note: it.note ?? null,
       });
     }
     itemsTotal = total;
-    const itemNotesMap = new Map(body.data.items.map((i) => [i.menuItemId, i.note ?? ""]));
     const summary = computedOrderItems
       .map((ci) => {
-        const note = itemNotesMap.get(ci.menuItemId);
         const base = ci.qty > 1 ? `${ci.nameAr} × ${ci.qty}` : ci.nameAr;
-        return note ? `${base} (${note})` : base;
+        return ci.note ? `${base} (${ci.note})` : base;
       })
       .join("، ");
     resolvedOrderText = body.data.restaurantName
@@ -465,6 +497,7 @@ router.post("/orders", async (req, res) => {
     estimatedMinutes,
     orderType: "restaurant",
     placeName: null as string | null,
+    restaurantNote: body.data.restaurantNote ?? null,
   };
 
   let walletDeductData: { deductAmount: number } | null = null;
@@ -574,6 +607,16 @@ router.post("/orders", async (req, res) => {
     const inserted = await tx.insert(ordersTable).values(newOrder).returning();
     if (computedOrderItems.length > 0) {
       await tx.insert(orderItemsTable).values(computedOrderItems);
+      if (pendingItemOptions.length > 0) {
+        const optionRows = pendingItemOptions.map((p) => ({
+          id: `oio_${id}_${p.itemIdx}_${p.optionId}`,
+          orderItemId: computedOrderItems[p.itemIdx]!.id,
+          optionId: p.optionId,
+          nameAr: p.nameAr,
+          extraPrice: p.extraPrice,
+        }));
+        await tx.insert(orderItemOptionsTable).values(optionRows);
+      }
     }
     await tx.insert(orderStatusHistoryTable).values({
       id: `${id}_searching`,

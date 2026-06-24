@@ -114,6 +114,7 @@ export default function OrderRequestScreen() {
   const [usePoints, setUsePoints] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [useWallet, setUseWallet] = useState(false);
+  const [restaurantNote, setRestaurantNote] = useState("");
 
   useEffect(() => {
     customFetch("/api/users/me/loyalty")
@@ -256,7 +257,12 @@ export default function OrderRequestScreen() {
     const appliedPromo = promoStatus === "valid" && promoCode.trim() ? promoCode.trim() : undefined;
     const lat = defaultAddress.latitude ?? undefined;
     const lon = defaultAddress.longitude ?? undefined;
-    const items = cartEntries.map((e) => ({ menuItemId: e.menuItemId, qty: e.qty, note: e.note }));
+    const items = cartEntries.map((e) => ({
+      menuItemId: e.menuItemId,
+      qty: e.qty,
+      note: e.note,
+      selectedOptions: (e.selectedOptions ?? []).map((o) => ({ optionId: o.optionId })),
+    }));
     try {
       const order = await placeOrder({
         items,
@@ -269,6 +275,7 @@ export default function OrderRequestScreen() {
         usePoints,
         useWallet,
         flashDealId: flashDeal?.id ?? undefined,
+        restaurantNote: restaurantNote.trim() || undefined,
       });
       cart.clear();
       router.replace({
@@ -418,6 +425,25 @@ export default function OrderRequestScreen() {
                 <Text style={styles.emptyCartBtnText}>{t("orderRequest.browseMenu")}</Text>
               </TouchableOpacity>
             ) : null}
+          </View>
+        )}
+
+        {hasItems && (
+          <View style={[styles.addressRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <MaterialIcons name="chat-bubble-outline" size={20} color={colors.primary} />
+            <View style={styles.addrInfo}>
+              <Text style={[styles.addrLabel, { color: colors.mutedForeground }]}>ملاحظة للمطعم</Text>
+              <TextInput
+                style={[styles.noteInputInline, { color: colors.foreground }]}
+                placeholder="مثال: بدون بصل، تحضير سريع…"
+                placeholderTextColor={colors.mutedForeground}
+                value={restaurantNote}
+                onChangeText={setRestaurantNote}
+                maxLength={300}
+                multiline
+                textAlignVertical="top"
+              />
+            </View>
           </View>
         )}
 
@@ -671,7 +697,7 @@ export default function OrderRequestScreen() {
         initialQty={editNoteItem?.qty ?? 1}
         isEdit
         onClose={() => setEditNoteItem(null)}
-        onAdd={(note) => {
+        onAdd={(note, _qty, _opts) => {
           if (editNoteItem) {
             cart.setItemNote(editNoteItem.menuItemId, note);
           }
@@ -736,6 +762,12 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     padding: 14,
+  },
+  noteInputInline: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 2,
+    minHeight: 40,
   },
   estimatedCard: {
     flexDirection: "row",
