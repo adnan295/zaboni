@@ -1,7 +1,7 @@
 import { Server as SocketServer, Namespace, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
-import { db, usersTable } from "@workspace/db";
-import { and, eq, isNotNull, or } from "drizzle-orm";
+import { db, usersTable, ordersTable } from "@workspace/db";
+import { and, eq, isNotNull, ne, notInArray, or } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { sendPushToTokens, sendPushToUsers } from "../lib/push";
 import type { AuthPayload } from "../middleware/auth";
@@ -94,14 +94,27 @@ export async function sendOrderPush(
   }
 }
 
-export async function notifyNearbyCouriers(
-  destLat: number,
-  destLon: number,
-  restaurantName: string,
-  deliveryFee: number,
-): Promise<void> {
-  try {
-    const couriers = await db
+const DAMASCUS_LAT = 33.5138;
+const DAMASCUS_LON = 36.2765;
+
+async function queryOrderStatus(orderId: string): Promise<string | null> {
+  const rows = await db
+    .select({ status: ordersTable.status })
+    .from(ordersTable)
+    .where(eq(ordersTable.id, orderId))
+    .limit(1);
+  return rows[0]?.status ?? null;
+}
+
+async function getSortedFreeCouriers(destLat: number, destLon: number): Promise<Array<{
+  id: string;
+  pushToken: string | null;
+  fcmToken: string | null;
+  apnToken: string | null;
+  dist: number;
+}>> {
+  const [couriers, busyRows] = await Promise.all([
+    db
       .select({
         id: usersTable.id,
         pushToken: usersTable.pushToken,
@@ -121,37 +134,113 @@ export async function notifyNearbyCouriers(
             isNotNull(usersTable.apnToken),
           ),
         ),
-      );
+      ),
+    db
+      .selectDistinct({ courierId: ordersTable.courierId })
+      .from(ordersTable)
+      .where(
+        and(
+          notInArray(ordersTable.status, ["delivered", "cancelled", "searching"]),
+          ne(ordersTable.courierId, ""),
+        ),
+      ),
+  ]);
 
-    const DAMASCUS_LAT = 33.5138;
-    const DAMASCUS_LON = 36.2765;
+  const busyIds = new Set(busyRows.map((r) => r.courierId));
 
-    const tokens = { expo: [] as string[], fcm: [] as string[], apns: [] as string[] };
+  return couriers
+    .filter((c) => !busyIds.has(c.id))
+    .map((c) => ({
+      id: c.id,
+      pushToken: c.pushToken,
+      fcmToken: c.fcmToken,
+      apnToken: c.apnToken,
+      dist: haversineKm(c.courierLat ?? DAMASCUS_LAT, c.courierLon ?? DAMASCUS_LON, destLat, destLon),
+    }))
+    .filter((c) => c.dist <= NEARBY_RADIUS_KM)
+    .sort((a, b) => a.dist - b.dist);
+}
 
-    for (const courier of couriers) {
-      const lat = courier.courierLat ?? DAMASCUS_LAT;
-      const lon = courier.courierLon ?? DAMASCUS_LON;
-      const dist = haversineKm(lat, lon, destLat, destLon);
-      if (dist > NEARBY_RADIUS_KM) continue;
-
-      if (courier.pushToken) tokens.expo.push(courier.pushToken);
-      if (courier.fcmToken) tokens.fcm.push(courier.fcmToken);
-      if (courier.apnToken) tokens.apns.push(courier.apnToken);
-    }
-
-    const total = tokens.expo.length + tokens.fcm.length + tokens.apns.length;
-    if (total === 0) return;
-
-    const title = "🛵 طلب جديد قريب منك!";
-    const body = restaurantName
-      ? `طلب من ${restaurantName} — رسوم التوصيل: ${deliveryFee.toLocaleString("ar-SY")} ل.س`
-      : `طلب جديد — رسوم التوصيل: ${deliveryFee.toLocaleString("ar-SY")} ل.س`;
-
-    const totals = await sendPushToTokens(tokens, title, body, { type: "new_order" });
-    logger.info({ totals }, "Sent new-order push to nearby couriers");
-  } catch (err) {
-    logger.warn({ err }, "Failed to notify nearby couriers");
+function extractTokens(couriers: Array<{ pushToken: string | null; fcmToken: string | null; apnToken: string | null }>) {
+  const tokens = { expo: [] as string[], fcm: [] as string[], apns: [] as string[] };
+  for (const c of couriers) {
+    if (c.pushToken) tokens.expo.push(c.pushToken);
+    if (c.fcmToken) tokens.fcm.push(c.fcmToken);
+    if (c.apnToken) tokens.apns.push(c.apnToken);
   }
+  return tokens;
+}
+
+export async function notifyNearbyCouriers(
+  orderId: string,
+  destLat: number,
+  destLon: number,
+  restaurantName: string,
+  deliveryFee: number,
+): Promise<void> {
+  const title = "🛵 طلب جديد قريب منك!";
+  const body = restaurantName
+    ? `طلب من ${restaurantName} — رسوم التوصيل: ${deliveryFee.toLocaleString("ar-SY")} ل.س`
+    : `طلب جديد — رسوم التوصيل: ${deliveryFee.toLocaleString("ar-SY")} ل.س`;
+  const data = { type: "new_order" };
+
+  const notifiedIds = new Set<string>();
+
+  try {
+    const sorted = await getSortedFreeCouriers(destLat, destLon);
+    const phase1 = sorted.slice(0, 5);
+    if (phase1.length > 0) {
+      const tokens = extractTokens(phase1);
+      const totals = await sendPushToTokens(tokens, title, body, data);
+      for (const c of phase1) notifiedIds.add(c.id);
+      logger.info({ count: phase1.length, orderId, totals }, "Tiered dispatch phase 1: notified closest couriers");
+    } else {
+      logger.info({ orderId }, "Tiered dispatch phase 1: no free nearby couriers");
+    }
+  } catch (err) {
+    logger.warn({ err, orderId }, "Failed to notify nearby couriers phase 1");
+  }
+
+  setTimeout(() => {
+    void (async () => {
+      try {
+        const status = await queryOrderStatus(orderId);
+        if (status !== "searching") return;
+        const sorted = await getSortedFreeCouriers(destLat, destLon);
+        const phase2 = sorted.filter((c) => !notifiedIds.has(c.id)).slice(0, 10);
+        if (phase2.length === 0) return;
+        const tokens = extractTokens(phase2);
+        const totals = await sendPushToTokens(tokens, title, body, data);
+        for (const c of phase2) notifiedIds.add(c.id);
+        logger.info({ count: phase2.length, orderId, totals }, "Tiered dispatch phase 2: expanded to more couriers");
+      } catch (err) {
+        logger.warn({ err, orderId }, "Failed to notify nearby couriers phase 2");
+      }
+    })();
+  }, 90_000);
+
+  setTimeout(() => {
+    void (async () => {
+      try {
+        const status = await queryOrderStatus(orderId);
+        if (status !== "searching") return;
+        const sorted = await getSortedFreeCouriers(destLat, destLon);
+        const phase3 = sorted.filter((c) => !notifiedIds.has(c.id));
+        if (phase3.length === 0) return;
+        const tokens = extractTokens(phase3);
+        const totals = await sendPushToTokens(tokens, title, body, data);
+        logger.info({ count: phase3.length, orderId, totals }, "Tiered dispatch phase 3: broadcast to all remaining couriers");
+      } catch (err) {
+        logger.warn({ err, orderId }, "Failed to notify nearby couriers phase 3");
+      }
+    })();
+  }, 3 * 60_000);
+}
+
+export function notifyCouriersOrderTaken(orderId: string): void {
+  if (!_ordersNs) return;
+  _ordersNs.to("role:couriers").emit("order_taken", { orderId });
+  logger.info({ orderId }, "Emitted order_taken to courier room");
 }
 
 export function setupOrdersNamespace(io: SocketServer): void {

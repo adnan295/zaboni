@@ -3,7 +3,7 @@ import { db, usersTable, ordersTable, orderStatusHistoryTable, orderRatingsTable
 import { and, eq, ne, notInArray, avg, count, sql, desc, getTableColumns } from "drizzle-orm";
 import { haversineKm as _haversineKm } from "../lib/deliveryZones";
 import { z } from "zod";
-import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
+import { notifyOrderUpdate, sendOrderPush, notifyCouriersOrderTaken } from "../orders/server";
 import { getLoyaltySettings, awardPointsInTx } from "../lib/loyalty";
 import { checkAndAwardAchievements } from "../lib/achievements";
 import { awardReferralCommissionInTx } from "../lib/referral";
@@ -450,6 +450,7 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   });
 
   notifyOrderUpdate(order.userId, updated[0]);
+  notifyCouriersOrderTaken(orderId);
   await sendOrderPush(order.userId, `${courierName} قبل طلبك وهو في الطريق لاستلامه!`, orderId);
 
   res.json(updated[0]);
