@@ -23,8 +23,7 @@ export default function ZaboniLogo({ size = "large", showName = false, nameColor
   const s = SIZE_MAP[size];
   return (
     <View style={[styles.wrapper, style]}>
-      <Image
-        source={ICON}
+      <View
         style={{
           width: s.box,
           height: s.box,
@@ -35,8 +34,17 @@ export default function ZaboniLogo({ size = "large", showName = false, nameColor
           shadowRadius: s.shadow,
           elevation: 8,
         }}
-        resizeMode="cover"
-      />
+      >
+        <Image
+          source={ICON}
+          style={{
+            width: s.box,
+            height: s.box,
+            borderRadius: s.radius,
+          }}
+          resizeMode="cover"
+        />
+      </View>
       {showName && (
         <Text
           weight="extrabold"

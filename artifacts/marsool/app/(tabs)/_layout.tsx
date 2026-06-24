@@ -155,7 +155,7 @@ function ClassicTabLayout({ config }: { config: TabBarItem[] }) {
                     <Feather name="shopping-bag" size={22} color="#ea580c" />
                   ) : (
                     <SymbolView
-                      name={focused ? def.sfSelected : def.sfDefault}
+                      name={(focused ? def.sfSelected : def.sfDefault) as any}
                       tintColor={color}
                       size={24}
                     />
