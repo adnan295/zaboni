@@ -7,6 +7,8 @@ import { I18nManager, Platform, StyleSheet, TouchableOpacity, View, useColorSche
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { useColors } from "@/hooks/useColors";
 import { useTypography } from "@/hooks/useTypography";
 import { useOrders } from "@/context/OrderContext";
@@ -82,6 +84,7 @@ function ClassicTabLayout({ config }: { config: TabBarItem[] }) {
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
+  const insets = useSafeAreaInsets();
 
   const activeTypes = useMemo(
     () => new Set(config.map((x) => x.type)),
@@ -109,6 +112,10 @@ function ClassicTabLayout({ config }: { config: TabBarItem[] }) {
           borderTopColor: colors.border,
           elevation: 0,
           flexDirection: I18nManager.isRTL ? "row-reverse" : "row",
+          ...(Platform.OS === "android" ? {
+            height: 56 + insets.bottom,
+            paddingBottom: insets.bottom,
+          } : {}),
           ...(isWeb ? { height: 84 } : {}),
         },
         tabBarBackground: () =>
