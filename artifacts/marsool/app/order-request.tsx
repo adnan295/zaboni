@@ -356,6 +356,17 @@ export default function OrderRequestScreen() {
                   <Text style={[styles.itemName, { color: colors.foreground }]} numberOfLines={2}>
                     {item.nameAr}
                   </Text>
+                  {(item.selectedOptions ?? []).length > 0 && (
+                    <View style={styles.optionChips}>
+                      {(item.selectedOptions ?? []).map((opt, i) => (
+                        <View key={i} style={[styles.optionChip, { backgroundColor: colors.secondary }]}>
+                          <Text style={[styles.optionChipText, { color: colors.primary }]}>
+                            {opt.nameAr}{opt.extraPrice > 0 ? ` +${opt.extraPrice.toLocaleString()}` : ""}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                   {item.note ? (
                     <TouchableOpacity
                       style={styles.noteEditRow}
@@ -768,6 +779,21 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginTop: 2,
     minHeight: 40,
+  },
+  optionChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+    marginTop: 4,
+  },
+  optionChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  optionChipText: {
+    fontSize: 11,
+    fontWeight: "700",
   },
   estimatedCard: {
     flexDirection: "row",

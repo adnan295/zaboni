@@ -425,6 +425,8 @@ router.put("/restaurant-portal/menu/:itemId/option-groups/:groupId/options/:opti
   const optionId = String(req.params["optionId"]);
   const [item] = await db.select({ id: menuItemsTable.id }).from(menuItemsTable).where(and(eq(menuItemsTable.id, itemId), eq(menuItemsTable.restaurantId, restaurantId))).limit(1);
   if (!item) { res.status(404).json({ error: "الصنف غير موجود" }); return; }
+  const [group] = await db.select({ id: menuItemOptionGroupsTable.id }).from(menuItemOptionGroupsTable).where(and(eq(menuItemOptionGroupsTable.id, groupId), eq(menuItemOptionGroupsTable.menuItemId, itemId))).limit(1);
+  if (!group) { res.status(404).json({ error: "المجموعة غير موجودة" }); return; }
   const parsed = z.object({ nameAr: z.string().min(1).optional(), extraPrice: z.number().int().min(0).optional(), isDefault: z.boolean().optional(), sortOrder: z.number().int().optional() }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const [updated] = await db.update(menuItemOptionsTable).set(parsed.data).where(and(eq(menuItemOptionsTable.id, optionId), eq(menuItemOptionsTable.groupId, groupId))).returning();
@@ -439,6 +441,8 @@ router.delete("/restaurant-portal/menu/:itemId/option-groups/:groupId/options/:o
   const optionId = String(req.params["optionId"]);
   const [item] = await db.select({ id: menuItemsTable.id }).from(menuItemsTable).where(and(eq(menuItemsTable.id, itemId), eq(menuItemsTable.restaurantId, restaurantId))).limit(1);
   if (!item) { res.status(404).json({ error: "الصنف غير موجود" }); return; }
+  const [group] = await db.select({ id: menuItemOptionGroupsTable.id }).from(menuItemOptionGroupsTable).where(and(eq(menuItemOptionGroupsTable.id, groupId), eq(menuItemOptionGroupsTable.menuItemId, itemId))).limit(1);
+  if (!group) { res.status(404).json({ error: "المجموعة غير موجودة" }); return; }
   await db.delete(menuItemOptionsTable).where(and(eq(menuItemOptionsTable.id, optionId), eq(menuItemOptionsTable.groupId, groupId)));
   res.status(204).end();
 });
