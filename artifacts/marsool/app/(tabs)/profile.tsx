@@ -415,34 +415,6 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Customer info card */}
-        {customerStats !== null && (
-          <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.infoRow}>
-              <MaterialIcons name="account-balance-wallet" size={18} color={colors.primary} />
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>{t("profile.stats.deliveryFees")}</Text>
-                <Text style={[styles.infoValue, { color: colors.foreground }]}>
-                  {customerStats.totalDeliveryFees.toLocaleString("ar-SY")} ل.س
-                </Text>
-              </View>
-            </View>
-            {customerStats.memberSince && (
-              <>
-                <View style={[styles.infoDivider, { backgroundColor: colors.border }]} />
-                <View style={styles.infoRow}>
-                  <MaterialIcons name="calendar-today" size={18} color={colors.primary} />
-                  <View style={styles.infoContent}>
-                    <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>{t("profile.stats.memberSince")}</Text>
-                    <Text style={[styles.infoValue, { color: colors.foreground }]}>
-                      {formatDate(customerStats.memberSince)}
-                    </Text>
-                  </View>
-                </View>
-              </>
-            )}
-          </View>
-        )}
 
         {/* Loyalty card */}
         {!isCourier && loyaltyData !== null && (
