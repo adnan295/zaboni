@@ -177,7 +177,7 @@ const locationSchema = z.object({
 
 const MAX_SPEED_KMH = 150;
 const MAX_SINGLE_JUMP_KM = 50;
-const LOCATION_FRESHNESS_MINUTES = 5;
+const LOCATION_FRESHNESS_MINUTES = 15;
 const SERVICE_AREA_MAX_KM = 100;
 
 router.patch("/courier/location", requireCourier, async (req, res) => {

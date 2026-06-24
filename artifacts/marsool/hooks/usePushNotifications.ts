@@ -292,6 +292,10 @@ export function usePushNotifications(
     const receivedSub = Notifications.addNotificationReceivedListener(
       (notification) => {
         addToInbox(notification, notification.request.identifier);
+        const data = getNotificationData(notification);
+        if ((data?.type as string | undefined) === "new_order") {
+          onNewOrderTapRef.current?.();
+        }
       },
     );
 
