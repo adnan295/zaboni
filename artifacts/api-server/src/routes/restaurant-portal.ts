@@ -1105,9 +1105,15 @@ router.delete(
       res.status(400).json({ error: "endpoint required" });
       return;
     }
+    const auth = (req as Request & { restaurantAuth?: RestaurantPortalPayload }).restaurantAuth!;
     await db
       .delete(restaurantPushSubscriptionsTable)
-      .where(eq(restaurantPushSubscriptionsTable.endpoint, parsed.data.endpoint));
+      .where(
+        and(
+          eq(restaurantPushSubscriptionsTable.endpoint, parsed.data.endpoint),
+          eq(restaurantPushSubscriptionsTable.restaurantId, auth.restaurantId),
+        ),
+      );
     res.json({ ok: true });
   },
 );
