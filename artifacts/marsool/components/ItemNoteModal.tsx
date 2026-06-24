@@ -16,17 +16,24 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { buildImageUrl } from "@/lib/apiConfig";
-import type { MenuItem } from "@workspace/api-client-react";
 
 const NOTE_MAX = 200;
 
+interface ItemLike {
+  image?: string | null;
+  nameAr: string;
+  descriptionAr?: string | null;
+  price: number;
+}
+
 interface Props {
   visible: boolean;
-  item: MenuItem | null;
+  item: ItemLike | null;
   isDeal?: boolean;
   effectivePrice?: number;
   initialNote?: string;
   initialQty?: number;
+  isEdit?: boolean;
   onClose: () => void;
   onAdd: (note: string, qty: number) => void;
 }
@@ -38,6 +45,7 @@ export default function ItemNoteModal({
   effectivePrice,
   initialNote = "",
   initialQty = 1,
+  isEdit = false,
   onClose,
   onAdd,
 }: Props) {
@@ -92,7 +100,7 @@ export default function ItemNoteModal({
           >
             <View style={styles.itemRow}>
               <Image
-                source={{ uri: buildImageUrl(item.image) }}
+                source={{ uri: buildImageUrl(item.image ?? undefined) }}
                 style={styles.itemImage}
                 contentFit="cover"
               />
@@ -128,6 +136,7 @@ export default function ItemNoteModal({
                   maxLength={NOTE_MAX}
                   returnKeyType="done"
                   blurOnSubmit
+                  autoFocus={isEdit}
                 />
                 <Text style={[styles.charCount, { color: colors.mutedForeground }]}>
                   {note.length}/{NOTE_MAX}
@@ -135,32 +144,34 @@ export default function ItemNoteModal({
               </View>
             </View>
 
-            <View style={styles.qtyRow}>
-              <Text style={[styles.qtyLabel, { color: colors.foreground }]}>
-                {t("menu.note.qtyLabel")}
-              </Text>
-              <View style={[styles.qtyStepper, { backgroundColor: colors.secondary }]}>
-                <TouchableOpacity
-                  style={styles.qtyBtn}
-                  onPress={() => setQty((q) => Math.max(1, q - 1))}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <MaterialIcons
-                    name={qty <= 1 ? "remove" : "remove"}
-                    size={18}
-                    color={qty <= 1 ? colors.mutedForeground : colors.foreground}
-                  />
-                </TouchableOpacity>
-                <Text style={[styles.qtyNum, { color: colors.foreground }]}>{qty}</Text>
-                <TouchableOpacity
-                  style={styles.qtyBtn}
-                  onPress={() => setQty((q) => Math.min(99, q + 1))}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <MaterialIcons name="add" size={18} color={colors.foreground} />
-                </TouchableOpacity>
+            {!isEdit && (
+              <View style={styles.qtyRow}>
+                <Text style={[styles.qtyLabel, { color: colors.foreground }]}>
+                  {t("menu.note.qtyLabel")}
+                </Text>
+                <View style={[styles.qtyStepper, { backgroundColor: colors.secondary }]}>
+                  <TouchableOpacity
+                    style={styles.qtyBtn}
+                    onPress={() => setQty((q) => Math.max(1, q - 1))}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <MaterialIcons
+                      name={qty <= 1 ? "remove" : "remove"}
+                      size={18}
+                      color={qty <= 1 ? colors.mutedForeground : colors.foreground}
+                    />
+                  </TouchableOpacity>
+                  <Text style={[styles.qtyNum, { color: colors.foreground }]}>{qty}</Text>
+                  <TouchableOpacity
+                    style={styles.qtyBtn}
+                    onPress={() => setQty((q) => Math.min(99, q + 1))}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <MaterialIcons name="add" size={18} color={colors.foreground} />
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
+            )}
           </ScrollView>
 
           <View style={[styles.footer, { borderTopColor: colors.border }]}>
@@ -169,9 +180,11 @@ export default function ItemNoteModal({
               onPress={handleAdd}
               activeOpacity={0.85}
             >
-              <MaterialIcons name="add-shopping-cart" size={20} color="#fff" />
+              <MaterialIcons name={isEdit ? "check" : "add-shopping-cart"} size={20} color="#fff" />
               <Text style={styles.addBtnText}>
-                {t("menu.note.addBtn", { total: lineTotal.toLocaleString() })}
+                {isEdit
+                  ? t("menu.note.saveBtn")
+                  : t("menu.note.addBtn", { total: lineTotal.toLocaleString() })}
               </Text>
             </TouchableOpacity>
           </View>
