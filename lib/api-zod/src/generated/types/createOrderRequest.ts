@@ -18,5 +18,6 @@ export interface CreateOrderRequest {
   restaurantId?: string;
   totalPrice?: number;
   usePoints?: boolean;
+  restaurantNote?: string;
   items?: CreateOrderItem[];
 }

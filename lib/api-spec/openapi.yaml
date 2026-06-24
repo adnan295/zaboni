@@ -438,6 +438,36 @@ components:
           type: string
           nullable: true
 
+    MenuItemOption:
+      type: object
+      required: [id, nameAr, extraPrice, isDefault, sortOrder]
+      properties:
+        id:
+          type: string
+        nameAr:
+          type: string
+        extraPrice:
+          type: integer
+        isDefault:
+          type: boolean
+        sortOrder:
+          type: integer
+
+    MenuItemOptionGroup:
+      type: object
+      required: [id, nameAr, sortOrder, options]
+      properties:
+        id:
+          type: string
+        nameAr:
+          type: string
+        sortOrder:
+          type: integer
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/MenuItemOption'
+
     MenuItem:
       type: object
       required:
@@ -486,6 +516,10 @@ components:
         dealPrice:
           type: number
           nullable: true
+        optionGroups:
+          type: array
+          items:
+            $ref: '#/components/schemas/MenuItemOptionGroup'
 
     Order:
       type: object
@@ -538,6 +572,15 @@ components:
           items:
             $ref: '#/components/schemas/OrderItem'
 
+    OrderItemOption:
+      type: object
+      required: [nameAr, extraPrice]
+      properties:
+        nameAr:
+          type: string
+        extraPrice:
+          type: integer
+
     OrderItem:
       type: object
       required: [id, orderId, nameAr, unitPrice, qty, lineTotal]
@@ -557,6 +600,20 @@ components:
           type: integer
         lineTotal:
           type: integer
+        note:
+          type: string
+          nullable: true
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItemOption'
+
+    CreateOrderItemOption:
+      type: object
+      required: [optionId]
+      properties:
+        optionId:
+          type: string
 
     CreateOrderItem:
       type: object
@@ -566,6 +623,12 @@ components:
           type: string
         qty:
           type: integer
+        note:
+          type: string
+        selectedOptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateOrderItemOption'
 
     CreateOrderRequest:
       type: object
@@ -590,6 +653,8 @@ components:
           type: integer
         usePoints:
           type: boolean
+        restaurantNote:
+          type: string
         items:
           type: array
           items:

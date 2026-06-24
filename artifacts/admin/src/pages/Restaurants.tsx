@@ -229,8 +229,8 @@ function RestaurantFormDialog({
             />
           </div>
           <LocationPicker
-            lat={form.lat}
-            lon={form.lon}
+            lat={form.lat ?? null}
+            lon={form.lon ?? null}
             onChange={(lat, lon) => { set("lat", lat); set("lon", lon); }}
           />
           <div className="col-span-2 space-y-1">

@@ -84,6 +84,24 @@ export const GetRestaurantMenuResponseItem = zod.object({
   isAvailable: zod.boolean().optional(),
   isDeal: zod.boolean().optional(),
   dealPrice: zod.number().nullish(),
+  optionGroups: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        nameAr: zod.string(),
+        sortOrder: zod.number(),
+        options: zod.array(
+          zod.object({
+            id: zod.string(),
+            nameAr: zod.string(),
+            extraPrice: zod.number(),
+            isDefault: zod.boolean(),
+            sortOrder: zod.number(),
+          }),
+        ),
+      }),
+    )
+    .optional(),
 });
 export const GetRestaurantMenuResponse = zod.array(
   GetRestaurantMenuResponseItem,
@@ -120,6 +138,15 @@ export const GetOrdersResponseItem = zod.object({
         unitPrice: zod.number(),
         qty: zod.number(),
         lineTotal: zod.number(),
+        note: zod.string().nullish(),
+        options: zod
+          .array(
+            zod.object({
+              nameAr: zod.string(),
+              extraPrice: zod.number(),
+            }),
+          )
+          .optional(),
       }),
     )
     .optional(),
@@ -140,11 +167,20 @@ export const CreateOrderBody = zod.object({
   restaurantId: zod.string().optional(),
   totalPrice: zod.number().optional(),
   usePoints: zod.boolean().optional(),
+  restaurantNote: zod.string().optional(),
   items: zod
     .array(
       zod.object({
         menuItemId: zod.string(),
         qty: zod.number(),
+        note: zod.string().optional(),
+        selectedOptions: zod
+          .array(
+            zod.object({
+              optionId: zod.string(),
+            }),
+          )
+          .optional(),
       }),
     )
     .optional(),
@@ -181,6 +217,15 @@ export const GetOrderResponse = zod.object({
         unitPrice: zod.number(),
         qty: zod.number(),
         lineTotal: zod.number(),
+        note: zod.string().nullish(),
+        options: zod
+          .array(
+            zod.object({
+              nameAr: zod.string(),
+              extraPrice: zod.number(),
+            }),
+          )
+          .optional(),
       }),
     )
     .optional(),
@@ -221,6 +266,15 @@ export const UpdateOrderStatusResponse = zod.object({
         unitPrice: zod.number(),
         qty: zod.number(),
         lineTotal: zod.number(),
+        note: zod.string().nullish(),
+        options: zod
+          .array(
+            zod.object({
+              nameAr: zod.string(),
+              extraPrice: zod.number(),
+            }),
+          )
+          .optional(),
       }),
     )
     .optional(),

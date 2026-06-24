@@ -5,6 +5,7 @@
  * Marsool delivery app API
  * OpenAPI spec version: 0.1.0
  */
+import type { OrderItemOption } from "./orderItemOption";
 
 export interface OrderItem {
   id: string;
@@ -14,4 +15,6 @@ export interface OrderItem {
   unitPrice: number;
   qty: number;
   lineTotal: number;
+  note?: string | null;
+  options?: OrderItemOption[];
 }
