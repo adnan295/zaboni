@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -79,8 +79,19 @@ export default function SearchTabScreen() {
   const [freeDelivery, setFreeDelivery] = useState(false);
   const [topRated, setTopRated] = useState(false);
 
+  const [popular, setPopular] = useState<RestaurantItem[]>([]);
+  const [popularLoading, setPopularLoading] = useState(true);
+
   const inputRef = useRef<TextInput>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Fetch popular restaurants on mount (used in empty state)
+  useEffect(() => {
+    customFetch<RestaurantItem[]>("/api/restaurants?sortBy=rating&limit=6")
+      .then((data) => setPopular(data ?? []))
+      .catch(() => setPopular([]))
+      .finally(() => setPopularLoading(false));
+  }, []);
 
   const doSearch = useCallback(async (q: string, opts?: {
     sort?: SortOption;
@@ -164,7 +175,14 @@ export default function SearchTabScreen() {
             textAlign={isAr ? "right" : "left"}
           />
           {query.length > 0 && (
-            <TouchableOpacity onPress={() => { setQuery(""); setResults([]); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity
+              onPress={() => {
+                if (debounceRef.current) clearTimeout(debounceRef.current);
+                setQuery("");
+                setResults([]);
+              }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
               <MaterialIcons name="close" size={18} color={colors.mutedForeground} />
             </TouchableOpacity>
           )}
@@ -221,17 +239,18 @@ export default function SearchTabScreen() {
         </ScrollView>
       )}
 
-      {/* ─── Loading ─── */}
+      {/* ─── Loading (search results) ─── */}
       {loading && (
         <View style={styles.center}>
           <ActivityIndicator color={colors.primary} size="large" />
         </View>
       )}
 
-      {/* ─── Empty state: categories grid ─── */}
+      {/* ─── Empty state: categories + popular restaurants ─── */}
       {!loading && !isSearching && (
         <ScrollView contentContainerStyle={styles.emptyState} showsVerticalScrollIndicator={false}>
-          <Text style={[styles.browseTitle, { color: colors.foreground }]}>
+          {/* Category grid */}
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
             {isAr ? "تصفّح حسب الفئة" : "Browse by Category"}
           </Text>
           <View style={styles.grid}>
@@ -250,7 +269,24 @@ export default function SearchTabScreen() {
             ))}
           </View>
 
-          <Text style={[styles.suggestionsTitle, { color: colors.mutedForeground }]}>
+          {/* Popular restaurants */}
+          <Text style={[styles.sectionTitle, { color: colors.foreground, marginTop: 28 }]}>
+            {t("home.popular")}
+          </Text>
+          {popularLoading ? (
+            <ActivityIndicator color={colors.primary} style={{ marginTop: 16 }} />
+          ) : (
+            popular.map((item) => (
+              <RestaurantCard
+                key={item.id}
+                restaurant={item}
+                onPress={() => router.push(`/restaurant/${item.id}` as any)}
+              />
+            ))
+          )}
+
+          {/* Quick suggestions */}
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground, marginTop: 24, fontSize: 14 }]}>
             {t("search.suggestions")}
           </Text>
           <View style={styles.suggestionsRow}>
@@ -342,7 +378,7 @@ const styles = StyleSheet.create({
 
   /* Empty state */
   emptyState: { paddingHorizontal: CARD_H_PAD, paddingTop: 24, paddingBottom: 120 },
-  browseTitle: { fontSize: 17, fontWeight: "700", marginBottom: 14 },
+  sectionTitle: { fontSize: 17, fontWeight: "700", marginBottom: 14 },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -354,12 +390,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    marginBottom: 0,
   },
   catLabel: { fontSize: 13, fontWeight: "700" },
 
   /* Suggestions */
-  suggestionsTitle: { fontSize: 14, fontWeight: "600", marginTop: 28, marginBottom: 10 },
   suggestionsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "flex-start" },
   suggChip: {
     paddingHorizontal: 14,
