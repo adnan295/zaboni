@@ -74,11 +74,16 @@ export default function SubscriptionRequests() {
     refetchInterval: 15_000,
   });
 
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: ["admin", "subscription-requests"] });
+    queryClient.invalidateQueries({ queryKey: ["admin", "pending-sub-requests"] });
+  };
+
   const approveMutation = useMutation({
     mutationFn: (id: string) => api.approveSubscriptionRequest(id),
     onSuccess: () => {
       toast({ title: "تمت الموافقة", description: "تم تفعيل الاشتراك للسائق" });
-      queryClient.invalidateQueries({ queryKey: ["admin", "subscription-requests"] });
+      invalidateAll();
     },
     onError: (e: Error) => {
       toast({ title: "خطأ", description: e.message, variant: "destructive" });
@@ -90,7 +95,7 @@ export default function SubscriptionRequests() {
       api.rejectSubscriptionRequest(id, adminNote),
     onSuccess: () => {
       toast({ title: "تم الرفض" });
-      queryClient.invalidateQueries({ queryKey: ["admin", "subscription-requests"] });
+      invalidateAll();
     },
     onError: (e: Error) => {
       toast({ title: "خطأ", description: e.message, variant: "destructive" });

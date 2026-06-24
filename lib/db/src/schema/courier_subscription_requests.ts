@@ -10,7 +10,7 @@ export const courierSubscriptionRequestsTable = pgTable("courier_subscription_re
   planAmount: integer("plan_amount").notNull(),
   paidAmount: integer("paid_amount").notNull(),
   receiptUrl: text("receipt_url"),
-  status: text("status", { enum: ["pending", "approved", "rejected"] }).notNull().default("pending"),
+  status: text("status", { enum: ["pending", "approved", "rejected", "cancelled"] }).notNull().default("pending"),
   adminNote: text("admin_note"),
   reviewedBy: text("reviewed_by"),
   reviewedAt: timestamp("reviewed_at", { withTimezone: true }),

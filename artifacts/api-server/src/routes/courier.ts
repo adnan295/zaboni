@@ -1350,4 +1350,43 @@ router.get("/courier/subscription/request/status", requireCourier, async (req, r
   res.json(latest ?? null);
 });
 
+router.delete("/courier/subscription/request", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+
+  const [pending] = await db
+    .select()
+    .from(courierSubscriptionRequestsTable)
+    .where(and(
+      eq(courierSubscriptionRequestsTable.courierId, courierId),
+      eq(courierSubscriptionRequestsTable.status, "pending"),
+    ))
+    .orderBy(desc(courierSubscriptionRequestsTable.createdAt))
+    .limit(1);
+
+  if (!pending) {
+    res.status(404).json({ error: "No pending request found" });
+    return;
+  }
+
+  const ageMs = Date.now() - new Date(pending.createdAt).getTime();
+  const tenMinutes = 10 * 60 * 1000;
+  if (ageMs < tenMinutes) {
+    const remainingMs = tenMinutes - ageMs;
+    const remainingMin = Math.ceil(remainingMs / 60_000);
+    res.status(409).json({
+      error: "too_soon",
+      message: `يمكنك إلغاء الطلب بعد ${remainingMin} دقيقة`,
+      remainingMs,
+    });
+    return;
+  }
+
+  await db
+    .update(courierSubscriptionRequestsTable)
+    .set({ status: "cancelled" })
+    .where(eq(courierSubscriptionRequestsTable.id, pending.id));
+
+  res.json({ ok: true });
+});
+
 export default router;

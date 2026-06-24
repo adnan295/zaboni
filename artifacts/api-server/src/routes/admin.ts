@@ -3335,7 +3335,7 @@ router.post("/admin/subscription-requests/:id/approve", async (req, res) => {
   await db.transaction(async (tx) => {
     await tx
       .update(courierSubscriptionRequestsTable)
-      .set({ status: "approved", reviewedAt: now })
+      .set({ status: "approved", reviewedAt: now, reviewedBy: "admin" })
       .where(eq(courierSubscriptionRequestsTable.id, id));
 
     await tx
