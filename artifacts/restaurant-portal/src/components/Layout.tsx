@@ -17,6 +17,8 @@ import {
   Menu,
   ChevronRight,
   ChevronLeft,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 
 interface LayoutProps {
@@ -25,6 +27,8 @@ interface LayoutProps {
   restaurantName: string;
   newOrderCount?: number;
   onOrdersViewed?: () => void;
+  soundEnabled?: boolean;
+  onToggleSound?: () => void;
 }
 
 const navItems = [
@@ -40,7 +44,7 @@ const navItems = [
   { href: "/settings", label: "إعدادات المطعم", icon: Settings },
 ];
 
-export default function Layout({ children, onLogout, restaurantName, newOrderCount = 0, onOrdersViewed }: LayoutProps) {
+export default function Layout({ children, onLogout, restaurantName, newOrderCount = 0, onOrdersViewed, soundEnabled = true, onToggleSound }: LayoutProps) {
   const [location] = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -144,7 +148,25 @@ export default function Layout({ children, onLogout, restaurantName, newOrderCou
           })}
         </nav>
 
-        <div className="border-t border-sidebar-border p-2">
+        <div className="border-t border-sidebar-border p-2 space-y-0.5">
+          {onToggleSound && (
+            <button
+              onClick={onToggleSound}
+              title={soundEnabled ? "كتم صوت التنبيه" : "تفعيل صوت التنبيه"}
+              className={cn(
+                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
+                soundEnabled
+                  ? "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  : "text-amber-400 hover:bg-amber-500/10 hover:text-amber-400",
+                collapsed && "justify-center"
+              )}
+            >
+              {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+              {!collapsed && (
+                <span>{soundEnabled ? "الصوت مفعّل" : "الصوت مكتوم"}</span>
+              )}
+            </button>
+          )}
           <button
             onClick={handleLogout}
             className={cn(
