@@ -1019,6 +1019,14 @@ router.post("/courier/subscription/renew", requireCourier, async (req, res) => {
         note: "تجديد اشتراك شهري",
       });
 
+      await trx
+        .update(courierSubscriptionsTable)
+        .set({ isActive: false })
+        .where(and(
+          eq(courierSubscriptionsTable.courierId, courierId),
+          eq(courierSubscriptionsTable.isActive, true),
+        ));
+
       const [row] = await trx
         .insert(courierSubscriptionsTable)
         .values({ id, courierId, vehicleType, startsAt: now, endsAt, amount: price, status: "paid", isActive: true, gifted: false, createdByAdmin: false })
@@ -1033,6 +1041,13 @@ router.post("/courier/subscription/renew", requireCourier, async (req, res) => {
 
     res.status(201).json({ subscription: savedRow, newBalance });
   } else {
+    await db
+      .update(courierSubscriptionsTable)
+      .set({ isActive: false })
+      .where(and(
+        eq(courierSubscriptionsTable.courierId, courierId),
+        eq(courierSubscriptionsTable.isActive, true),
+      ));
     const [row] = await db
       .insert(courierSubscriptionsTable)
       .values({ id, courierId, vehicleType, startsAt: now, endsAt, amount: 0, status: "paid", isActive: true, gifted: false, createdByAdmin: false })
