@@ -15,6 +15,7 @@ import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { buildImageUrl } from "@/lib/apiConfig";
 import type { SelectedOption } from "@/context/CartContext";
 
@@ -69,6 +70,7 @@ export default function ItemNoteModal({
 }: Props) {
   const { t } = useTranslation();
   const colors = useColors();
+  const insets = useSafeAreaInsets();
   const [note, setNote] = useState(initialNote);
   const [qty, setQty] = useState(initialQty);
   const [selectedByGroup, setSelectedByGroup] = useState<Record<string, string>>({});
@@ -277,7 +279,7 @@ export default function ItemNoteModal({
             )}
           </ScrollView>
 
-          <View style={[styles.footer, { borderTopColor: colors.border }]}>
+          <View style={[styles.footer, { borderTopColor: colors.border, paddingBottom: (insets.bottom || 0) + 14 }]}>
             <TouchableOpacity
               style={[styles.addBtn, { backgroundColor: colors.primary }]}
               onPress={handleAdd}
@@ -473,7 +475,6 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingTop: 14,
-    paddingBottom: Platform.OS === "ios" ? 32 : 20,
     borderTopWidth: 1,
   },
   addBtn: {
