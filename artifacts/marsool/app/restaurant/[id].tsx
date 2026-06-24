@@ -499,7 +499,7 @@ export default function RestaurantScreen() {
                         opacity: itemAvailable ? 1 : 0.5,
                       },
                     ]}
-                    onPress={canAdd && !cart[item.id]?.qty ? () => addToCart(item.id, item.nameAr, dealPrice, item.price !== dealPrice ? item.price : undefined) : undefined}
+                    onPress={canAdd && !cart[item.id]?.qty ? () => openNoteModal(item as MenuItemWithDeal, dealPrice, item.price !== dealPrice ? item.price : undefined) : undefined}
                     activeOpacity={canAdd && !cart[item.id]?.qty ? 0.85 : 1}
                   >
                     <Image source={{ uri: buildImageUrl(item.image) }} style={styles.popularImage} contentFit="cover" />
@@ -559,7 +559,7 @@ export default function RestaurantScreen() {
                         opacity: itemAvailable ? 1 : 0.5,
                       },
                     ]}
-                    onPress={canAdd && !cart[item.id]?.qty ? () => addToCart(item.id, item.nameAr, effectivePrice, itemIsDeal && effectivePrice !== item.price ? item.price : undefined) : undefined}
+                    onPress={canAdd && !cart[item.id]?.qty ? () => openNoteModal(item as MenuItemWithDeal, effectivePrice, itemIsDeal && effectivePrice !== item.price ? item.price : undefined) : undefined}
                     activeOpacity={canAdd && !cart[item.id]?.qty ? 0.85 : 1}
                   >
                     <Image source={{ uri: buildImageUrl(item.image) }} style={styles.popularImage} contentFit="cover" />
