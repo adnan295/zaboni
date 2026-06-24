@@ -686,12 +686,16 @@ router.post("/orders", async (req, res) => {
 
   res.status(201).json({
     ...rows.inserted[0],
-    items: computedOrderItems.map((ci) => ({
+    items: computedOrderItems.map((ci, idx) => ({
       menuItemId: ci.menuItemId,
       nameAr: ci.nameAr,
       unitPrice: ci.unitPrice,
       qty: ci.qty,
       lineTotal: ci.lineTotal,
+      note: ci.note ?? null,
+      options: pendingItemOptions
+        .filter((p) => p.itemIdx === idx)
+        .map((p) => ({ optionId: p.optionId, nameAr: p.nameAr, extraPrice: p.extraPrice })),
     })),
     appliedPromo: promoUseData ? true : false,
     appliedFlashDeal: flashDealData ? true : false,
