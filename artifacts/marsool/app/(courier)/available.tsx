@@ -176,6 +176,10 @@ export default function AvailableOrdersScreen() {
 
   const hasActiveOrder = activeOrders.length > 0;
   const locationWatcher = useRef<Location.LocationSubscription | null>(null);
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastCoordsRef = useRef<{ lat: number; lon: number } | null>(null);
+
+  const LOCATION_HEARTBEAT_MS = 3 * 60 * 1000;
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
@@ -189,13 +193,17 @@ export default function AvailableOrdersScreen() {
         if (status !== "granted" || !active) return;
         const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         if (active) {
+          lastCoordsRef.current = { lat: loc.coords.latitude, lon: loc.coords.longitude };
           await updateLocation(loc.coords.latitude, loc.coords.longitude);
           await refreshAvailableOrders();
         }
         const watcher = await Location.watchPositionAsync(
-          { accuracy: Location.Accuracy.Balanced, distanceInterval: 50, timeInterval: 15000 },
+          { accuracy: Location.Accuracy.Balanced, distanceInterval: 20, timeInterval: 30000 },
           (position) => {
-            if (active) updateLocation(position.coords.latitude, position.coords.longitude);
+            if (active) {
+              lastCoordsRef.current = { lat: position.coords.latitude, lon: position.coords.longitude };
+              updateLocation(position.coords.latitude, position.coords.longitude);
+            }
           }
         );
         if (active) {
@@ -206,10 +214,28 @@ export default function AvailableOrdersScreen() {
       } catch {
       }
     })();
+
+    heartbeatRef.current = setInterval(async () => {
+      if (!lastCoordsRef.current) return;
+      try {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        lastCoordsRef.current = { lat: loc.coords.latitude, lon: loc.coords.longitude };
+        await updateLocation(loc.coords.latitude, loc.coords.longitude);
+      } catch {
+        if (lastCoordsRef.current) {
+          await updateLocation(lastCoordsRef.current.lat, lastCoordsRef.current.lon).catch(() => {});
+        }
+      }
+    }, LOCATION_HEARTBEAT_MS);
+
     return () => {
       active = false;
       locationWatcher.current?.remove();
       locationWatcher.current = null;
+      if (heartbeatRef.current) {
+        clearInterval(heartbeatRef.current);
+        heartbeatRef.current = null;
+      }
     };
   }, []);
 
