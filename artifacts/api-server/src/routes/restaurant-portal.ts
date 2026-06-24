@@ -1056,14 +1056,17 @@ router.get("/restaurant-portal/promo-images", requireRestaurantAuth, async (req,
   res.json(items);
 });
 
-router.get("/restaurant-portal/vapid-public-key", (_req, res) => {
+function vapidPublicKeyHandler(_req: Request, res: Response) {
   const publicKey = getVapidPublicKey();
   if (!publicKey) {
     res.status(503).json({ error: "Web push not configured" });
     return;
   }
   res.json({ publicKey });
-});
+}
+
+router.get("/restaurant-portal/vapid-public-key", vapidPublicKeyHandler);
+router.get("/push/vapid-public-key", vapidPublicKeyHandler);
 
 router.post(
   "/restaurant-portal/push-subscription",
