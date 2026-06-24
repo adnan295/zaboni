@@ -848,7 +848,7 @@ router.get("/courier/subscription/today", requireCourier, async (req, res) => {
     return;
   }
 
-  res.json({ status: "active", amount: 0, date: today, isMonthlySubscriber: true });
+  res.json({ status: "paid", amount: 0, date: today, isMonthlySubscriber: true });
 });
 
 const rateCustomerSchema = z.object({
