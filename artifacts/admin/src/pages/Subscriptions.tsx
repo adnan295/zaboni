@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { CourierSubRow, CourierSubRecord, CourierSubPlans } from "@/lib/api";
@@ -60,6 +60,14 @@ function PricingDialog({
   const [bicycle, setBicycle] = useState(String(plans?.bicycle ?? 0));
   const [motorcycle, setMotorcycle] = useState(String(plans?.motorcycle ?? 0));
   const [car, setCar] = useState(String(plans?.car ?? 0));
+
+  useEffect(() => {
+    if (open) {
+      setBicycle(String(plans?.bicycle ?? 0));
+      setMotorcycle(String(plans?.motorcycle ?? 0));
+      setCar(String(plans?.car ?? 0));
+    }
+  }, [open, plans]);
 
   const mut = useMutation({
     mutationFn: api.updateCourierSubPlans,
