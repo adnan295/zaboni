@@ -18,6 +18,7 @@ import Promos from "@/pages/Promos";
 import FlashDeals from "@/pages/FlashDeals";
 import NotFound from "@/pages/not-found";
 import { useRestaurantSocket } from "@/hooks/useRestaurantSocket";
+import { useWebPush } from "@/hooks/useWebPush";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 10_000 } },
@@ -25,8 +26,20 @@ const queryClient = new QueryClient({
 
 function Router({ restaurantName, onLogout }: { restaurantName: string; onLogout: () => void }) {
   const { newOrderCount, clearNewOrderCount, soundEnabled, toggleSound } = useRestaurantSocket(true);
+  const { pushPermission, pushEnabled, requestPush, disablePush } = useWebPush(true);
   return (
-    <Layout restaurantName={restaurantName} onLogout={onLogout} newOrderCount={newOrderCount} onOrdersViewed={clearNewOrderCount} soundEnabled={soundEnabled} onToggleSound={toggleSound}>
+    <Layout
+      restaurantName={restaurantName}
+      onLogout={onLogout}
+      newOrderCount={newOrderCount}
+      onOrdersViewed={clearNewOrderCount}
+      soundEnabled={soundEnabled}
+      onToggleSound={toggleSound}
+      pushPermission={pushPermission}
+      pushEnabled={pushEnabled}
+      onRequestPush={requestPush}
+      onDisablePush={disablePush}
+    >
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/menu" component={Menu} />
