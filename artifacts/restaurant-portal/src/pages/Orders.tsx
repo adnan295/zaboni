@@ -18,6 +18,75 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 const ACTIVE = ["searching", "accepted", "on_way"];
 
+type ParsedItem = { base: string; note: string | null };
+
+function parseItem(part: string): ParsedItem {
+  const s = part.trim();
+
+  // Format A (current server): "name × qty (note)" — quantity then note at end
+  const fmtA = s.match(/^(.+?)\s*×\s*(\d+)\s+\((.+)\)$/u);
+  if (fmtA) {
+    return { base: `${fmtA[1].trim()} × ${fmtA[2]}`, note: fmtA[3].trim() };
+  }
+
+  // Format B (task-documented): "name (note) × qty" — note before quantity
+  const fmtB = s.match(/^(.+?)\s+\((.+)\)\s*×\s*(\d+)$/u);
+  if (fmtB) {
+    return { base: `${fmtB[1].trim()} × ${fmtB[3]}`, note: fmtB[2].trim() };
+  }
+
+  // Format C: qty=1 with note — "name (note)" with a required space before "("
+  // The mandatory leading space avoids false-positives on names that inherently
+  // contain parentheses as part of the item name (e.g. "كبدة(مشوي)").
+  const fmtC = s.match(/^(.+?)\s+\((.+)\)$/u);
+  if (fmtC) {
+    return { base: fmtC[1].trim(), note: fmtC[2].trim() };
+  }
+
+  return { base: s, note: null };
+}
+
+function parseOrderText(orderText: string): { prefix: string | null; items: ParsedItem[] } {
+  let text = orderText;
+  let prefix: string | null = null;
+
+  const colonIdx = text.indexOf(": ");
+  if (colonIdx !== -1) {
+    prefix = text.slice(0, colonIdx);
+    text = text.slice(colonIdx + 2);
+  }
+
+  const items = text.split("، ").map(parseItem);
+  return { prefix, items };
+}
+
+function OrderTextDisplay({ orderText }: { orderText: string }) {
+  const { prefix, items } = parseOrderText(orderText);
+  const hasNotes = items.some((i) => i.note !== null);
+
+  if (!hasNotes) {
+    return <p className="font-medium text-sm text-foreground line-clamp-2 leading-snug">{orderText}</p>;
+  }
+
+  return (
+    <div className="space-y-0.5">
+      {prefix && (
+        <p className="text-xs text-muted-foreground font-medium mb-1">{prefix}</p>
+      )}
+      {items.map((item, idx) => (
+        <div key={idx} className="text-sm leading-snug">
+          <span className="font-medium text-foreground">{item.base}</span>
+          {item.note && (
+            <span className="mr-1.5 text-xs font-normal text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+              {item.note}
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Orders() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -90,7 +159,7 @@ export default function Orders() {
                   <CardContent className="py-4 px-5">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0 space-y-1.5">
-                        <p className="font-medium text-sm text-foreground line-clamp-2 leading-snug">{order.orderText}</p>
+                        <OrderTextDisplay orderText={order.orderText} />
                         {order.address && (
                           <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
                             <MapPin size={11} className="mt-0.5 shrink-0" />
