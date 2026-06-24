@@ -22,6 +22,7 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import MenuItemCard from "@/components/MenuItemCard";
+import ItemNoteModal from "@/components/ItemNoteModal";
 import { useFavorites } from "@/context/FavoritesContext";
 import { useAddresses } from "@/context/AddressContext";
 import { useCart } from "@/context/CartContext";
@@ -116,6 +117,11 @@ export default function RestaurantScreen() {
   const [activeCategory, setActiveCategory] = useState<string | null>(allTabs[0] ?? null);
   const [flashDeal, setFlashDeal] = useState<FlashDeal | null>(null);
   const [flashCountdown, setFlashCountdown] = useState<string>("");
+  const [noteModalData, setNoteModalData] = useState<{
+    item: MenuItemWithDeal;
+    effectivePrice: number;
+    originalPrice?: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -146,6 +152,11 @@ export default function RestaurantScreen() {
 
   const addToCart = (itemId: string, nameAr: string, price: number, originalPrice?: number) => {
     if (!restaurant) return;
+    cartCtx.addItem(restaurant.id, restaurant.nameAr, { menuItemId: itemId, nameAr, price, originalPrice });
+  };
+
+  const openNoteModal = (item: MenuItemWithDeal, effectivePrice: number, originalPrice?: number) => {
+    if (!restaurant) return;
     if (
       cartCtx.restaurantId &&
       cartCtx.restaurantId !== restaurant.id &&
@@ -159,16 +170,32 @@ export default function RestaurantScreen() {
           {
             text: t("cart.switchConfirm"),
             style: "destructive",
-            onPress: () =>
-              cartCtx.replaceCart(restaurant.id, restaurant.nameAr, [
-                { menuItemId: itemId, nameAr, price, originalPrice, qty: 1 },
-              ]),
+            onPress: () => {
+              cartCtx.replaceCart(restaurant.id, restaurant.nameAr, []);
+              setNoteModalData({ item, effectivePrice, originalPrice });
+            },
           },
         ]
       );
       return;
     }
-    cartCtx.addItem(restaurant.id, restaurant.nameAr, { menuItemId: itemId, nameAr, price, originalPrice });
+    setNoteModalData({ item, effectivePrice, originalPrice });
+  };
+
+  const handleModalAdd = (note: string, qty: number) => {
+    if (!restaurant || !noteModalData) return;
+    const { item, effectivePrice, originalPrice } = noteModalData;
+    cartCtx.addItem(restaurant.id, restaurant.nameAr, {
+      menuItemId: item.id,
+      nameAr: item.nameAr,
+      price: effectivePrice,
+      originalPrice,
+      note: note || undefined,
+    });
+    for (let i = 1; i < qty; i++) {
+      cartCtx.incItem(item.id);
+    }
+    setNoteModalData(null);
   };
 
   const removeFromCart = (itemId: string, _nameAr?: string, _price?: number) => {
@@ -603,7 +630,14 @@ export default function RestaurantScreen() {
                     <MenuItemCard
                       item={item}
                       quantity={cart[item.id]?.qty ?? 0}
-                      onAdd={isOpen && available ? () => addToCart(item.id, item.nameAr, effectivePrice, itemIsDeal && effectivePrice !== item.price ? item.price : undefined) : undefined}
+                      onAdd={isOpen && available ? () => {
+                        const currentQty = cart[item.id]?.qty ?? 0;
+                        if (currentQty === 0) {
+                          openNoteModal(typedItem, effectivePrice, itemIsDeal && effectivePrice !== item.price ? item.price : undefined);
+                        } else {
+                          addToCart(item.id, item.nameAr, effectivePrice, itemIsDeal && effectivePrice !== item.price ? item.price : undefined);
+                        }
+                      } : undefined}
                       onRemove={isOpen && available ? () => removeFromCart(item.id, item.nameAr, effectivePrice) : undefined}
                       isDeal={itemIsDeal}
                       dealPrice={itemDealPrice}
@@ -616,6 +650,17 @@ export default function RestaurantScreen() {
           );
         })}
       </ScrollView>
+
+      <ItemNoteModal
+        visible={noteModalData !== null}
+        item={noteModalData?.item ?? null}
+        isDeal={noteModalData?.item?.isDeal}
+        effectivePrice={noteModalData?.effectivePrice}
+        initialNote={(noteModalData?.item ? (cartCtx.items[noteModalData.item.id]?.note ?? "") : "")}
+        initialQty={1}
+        onClose={() => setNoteModalData(null)}
+        onAdd={handleModalAdd}
+      />
 
       {/* Order footer */}
       <View

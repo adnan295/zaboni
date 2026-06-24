@@ -401,6 +401,14 @@
       "error": "تعذّر تحميل الأرباح"
     }
   },
+  "menu": {
+    "note": {
+      "title": "ملاحظات للمطعم",
+      "placeholder": "مثال: ملح زيادة، بدون خس...",
+      "addBtn": "إضافة {{total}} ل.س",
+      "qtyLabel": "الكمية"
+    }
+  },
   "restaurant": {
     "notFound": "المطعم غير موجود",
     "deliveryTime": "وقت التوصيل",

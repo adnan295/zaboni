@@ -254,7 +254,7 @@ export default function OrderRequestScreen() {
     const appliedPromo = promoStatus === "valid" && promoCode.trim() ? promoCode.trim() : undefined;
     const lat = defaultAddress.latitude ?? undefined;
     const lon = defaultAddress.longitude ?? undefined;
-    const items = cartEntries.map((e) => ({ menuItemId: e.menuItemId, qty: e.qty }));
+    const items = cartEntries.map((e) => ({ menuItemId: e.menuItemId, qty: e.qty, note: e.note }));
     try {
       const order = await placeOrder({
         items,
@@ -347,6 +347,11 @@ export default function OrderRequestScreen() {
                   <Text style={[styles.itemName, { color: colors.foreground }]} numberOfLines={2}>
                     {item.nameAr}
                   </Text>
+                  {item.note ? (
+                    <Text style={[styles.itemNote, { color: colors.mutedForeground }]} numberOfLines={2}>
+                      {item.note}
+                    </Text>
+                  ) : null}
                   <Text style={[styles.itemUnit, { color: colors.mutedForeground }]}>
                     {item.price.toLocaleString()} ل.س
                   </Text>
@@ -779,6 +784,7 @@ const styles = StyleSheet.create({
   itemRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 12 },
   itemInfo: { flex: 1, gap: 2 },
   itemName: { fontSize: 14, fontWeight: "700" },
+  itemNote: { fontSize: 11, lineHeight: 15, fontStyle: "italic" },
   itemUnit: { fontSize: 12 },
   stepper: { flexDirection: "row", alignItems: "center", gap: 8 },
   stepBtn: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },

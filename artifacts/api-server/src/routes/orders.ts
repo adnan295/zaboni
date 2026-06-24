@@ -13,6 +13,7 @@ const router: IRouter = Router();
 const orderItemInputSchema = z.object({
   menuItemId: z.string().min(1),
   qty: z.number().int().positive().max(99),
+  note: z.string().max(200).optional(),
 });
 
 const createOrderSchema = z
@@ -353,8 +354,13 @@ router.post("/orders", async (req, res) => {
       });
     }
     itemsTotal = total;
+    const itemNotesMap = new Map(body.data.items.map((i) => [i.menuItemId, i.note ?? ""]));
     const summary = computedOrderItems
-      .map((ci) => (ci.qty > 1 ? `${ci.nameAr} × ${ci.qty}` : ci.nameAr))
+      .map((ci) => {
+        const note = itemNotesMap.get(ci.menuItemId);
+        const base = ci.qty > 1 ? `${ci.nameAr} × ${ci.qty}` : ci.nameAr;
+        return note ? `${base} (${note})` : base;
+      })
       .join("، ");
     resolvedOrderText = body.data.restaurantName
       ? `${body.data.restaurantName}: ${summary}`

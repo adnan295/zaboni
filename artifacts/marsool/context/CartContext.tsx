@@ -15,6 +15,7 @@ export interface CartItem {
   originalPrice?: number;
   qty: number;
   image?: string;
+  note?: string;
 }
 
 interface CartState {
@@ -35,6 +36,7 @@ interface CartContextValue extends CartState {
   incItem: (menuItemId: string) => void;
   decItem: (menuItemId: string) => void;
   removeItem: (menuItemId: string) => void;
+  setItemNote: (menuItemId: string, note: string) => void;
   replaceCart: (
     restaurantId: string,
     restaurantName: string,
@@ -143,6 +145,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     [dropItem],
   );
 
+  const setItemNote = useCallback((menuItemId: string, note: string) => {
+    setState((prev) => {
+      const ex = prev.items[menuItemId];
+      if (!ex) return prev;
+      return {
+        ...prev,
+        items: { ...prev.items, [menuItemId]: { ...ex, note: note.trim() || undefined } },
+      };
+    });
+  }, []);
+
   const replaceCart = useCallback(
     (restaurantId: string, restaurantName: string, items: CartItem[]) => {
       const map: Record<string, CartItem> = {};
@@ -172,6 +185,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         incItem,
         decItem,
         removeItem,
+        setItemNote,
         replaceCart,
         clear,
       }}
