@@ -101,6 +101,20 @@ export default function CourierSubscribeScreen() {
     refetchInterval: 20_000,
   });
 
+  const cancelMutation = useMutation({
+    mutationFn: () =>
+      customFetch("/api/courier/subscription/request", { method: "DELETE" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["courier", "subscription", "request", "status"] });
+      setStep("plan");
+      setReceiptImageUri(null);
+      setPaidAmountText("");
+    },
+    onError: (err: Error) => {
+      Alert.alert("لا يمكن الإلغاء الآن", err.message || "يرجى المحاولة لاحقاً");
+    },
+  });
+
   const submitMutation = useMutation({
     mutationFn: async () => {
       if (!subStatus) throw new Error("بيانات الاشتراك غير متاحة");
@@ -187,8 +201,14 @@ export default function CourierSubscribeScreen() {
   }
 
   if (latestRequest?.status === "pending") {
+    const createdAt = new Date(latestRequest.createdAt).getTime();
+    const ageMs = Date.now() - createdAt;
+    const tenMinutes = 10 * 60 * 1000;
+    const canCancel = ageMs >= tenMinutes;
+    const remainingMin = canCancel ? 0 : Math.ceil((tenMinutes - ageMs) / 60_000);
+
     return (
-      <View style={[styles.center, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      <View style={[styles.center, { backgroundColor: colors.background, paddingTop: insets.top, paddingHorizontal: 24 }]}>
         <MaterialIcons name="hourglass-empty" size={64} color={colors.primary} />
         <Text style={[styles.bigTitle, { color: colors.foreground, fontFamily: fontBold }]}>
           طلبك قيد المراجعة
@@ -196,7 +216,7 @@ export default function CourierSubscribeScreen() {
         <Text style={[styles.subtitle, { color: colors.mutedForeground, fontFamily: fontMedium }]}>
           سيتم إشعارك فور الموافقة على طلب الاشتراك
         </Text>
-        <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border, width: "100%" }]}>
           <Text style={[styles.infoRow, { color: colors.foreground, fontFamily: fontMedium }]}>
             الباقة: {VEHICLE_LABELS[latestRequest.vehicleType] ?? latestRequest.vehicleType}
           </Text>
@@ -204,6 +224,37 @@ export default function CourierSubscribeScreen() {
             المبلغ المدفوع: {latestRequest.paidAmount.toLocaleString("ar-SY")} ل.س
           </Text>
         </View>
+
+        {canCancel ? (
+          <TouchableOpacity
+            style={[styles.outlineBtn, { borderColor: "#dc2626" }]}
+            onPress={() => {
+              Alert.alert(
+                "إلغاء الطلب",
+                "هل تريد إلغاء طلب الاشتراك وإعادة الإرسال؟",
+                [
+                  { text: "لا", style: "cancel" },
+                  { text: "نعم، إلغاء", style: "destructive", onPress: () => cancelMutation.mutate() },
+                ]
+              );
+            }}
+            disabled={cancelMutation.isPending}
+          >
+            {cancelMutation.isPending ? (
+              <ActivityIndicator color="#dc2626" />
+            ) : (
+              <Text style={[styles.outlineBtnText, { color: "#dc2626", fontFamily: fontBold }]}>
+                إلغاء وإعادة الإرسال
+              </Text>
+            )}
+          </TouchableOpacity>
+        ) : (
+          <View style={[styles.infoCard, { backgroundColor: "#fef9c3", borderColor: "#fde047", width: "100%" }]}>
+            <Text style={[styles.infoRow, { color: "#854d0e", fontFamily: fontMedium, textAlign: "center" }]}>
+              يمكنك إلغاء الطلب وإعادة الإرسال بعد {remainingMin} دقيقة
+            </Text>
+          </View>
+        )}
       </View>
     );
   }
@@ -414,4 +465,6 @@ const styles = StyleSheet.create({
   removeImg: { position: "absolute", top: 8, left: 8, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 12, padding: 4 },
   note: { fontSize: 12, textAlign: "center", lineHeight: 20, marginTop: 4 },
   backBtn: { alignSelf: "flex-start", marginBottom: 16 },
+  outlineBtn: { width: "100%", borderRadius: 12, borderWidth: 1.5, paddingVertical: 13, alignItems: "center", marginTop: 8 },
+  outlineBtnText: { fontSize: 15 },
 });

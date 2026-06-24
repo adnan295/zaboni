@@ -2,7 +2,8 @@ import { BlurView } from "expo-blur";
 import { Tabs, useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
-import { Platform, StyleSheet, View, useColorScheme, ActivityIndicator } from "react-native";
+import { Platform, StyleSheet, View, useColorScheme, ActivityIndicator, TouchableOpacity } from "react-native";
+import { default as Text } from "@/components/AppText";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useTypography } from "@/hooks/useTypography";
@@ -10,16 +11,22 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/context/AuthContext";
 import { getApiBaseUrl } from "@/lib/apiConfig";
 
-async function fetchCourierSubStatus(token: string): Promise<{ isActive: boolean } | null> {
+type SubStatusResult =
+  | { state: "active" }
+  | { state: "inactive" }
+  | { state: "error" };
+
+async function checkCourierSubStatus(token: string): Promise<SubStatusResult> {
   try {
     const base = getApiBaseUrl();
     const res = await fetch(`${base}/api/courier/subscription/status`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!res.ok) return null;
-    return res.json();
+    if (!res.ok) return { state: "error" };
+    const body = await res.json();
+    return body?.isActive === true ? { state: "active" } : { state: "inactive" };
   } catch {
-    return null;
+    return { state: "error" };
   }
 }
 
@@ -27,7 +34,7 @@ export default function CourierTabLayout() {
   const colors = useColors();
   const colorScheme = useColorScheme();
   const { t } = useTranslation();
-  const { fontMedium } = useTypography();
+  const { fontMedium, fontBold } = useTypography();
   const insets = useSafeAreaInsets();
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
@@ -35,22 +42,54 @@ export default function CourierTabLayout() {
   const isWeb = Platform.OS === "web";
   const router = useRouter();
   const { token } = useAuth();
-  const [subChecked, setSubChecked] = useState(false);
+
+  const [gateState, setGateState] = useState<"loading" | "allowed" | "blocked" | "error">("loading");
+
+  const checkSub = () => {
+    if (!token) {
+      setGateState("blocked");
+      return;
+    }
+    setGateState("loading");
+    checkCourierSubStatus(token).then((result) => {
+      if (result.state === "active") {
+        setGateState("allowed");
+      } else if (result.state === "inactive") {
+        router.replace("/courier-subscribe" as never);
+      } else {
+        setGateState("error");
+      }
+    });
+  };
 
   useEffect(() => {
-    if (!token) return;
-    fetchCourierSubStatus(token).then((status) => {
-      if (status && !status.isActive) {
-        router.replace("/courier-subscribe" as never);
-      }
-      setSubChecked(true);
-    });
-  }, [token, router]);
+    checkSub();
+  }, [token]);
 
-  if (!subChecked) {
+  if (gateState === "loading") {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
         <ActivityIndicator color={colors.primary} size="large" />
+      </View>
+    );
+  }
+
+  if (gateState === "error") {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background, padding: 32 }}>
+        <MaterialIcons name="wifi-off" size={56} color={colors.mutedForeground} />
+        <Text style={{ color: colors.foreground, fontFamily: fontBold, fontSize: 18, textAlign: "center", marginTop: 16, marginBottom: 8 }}>
+          تعذّر التحقق من الاشتراك
+        </Text>
+        <Text style={{ color: colors.mutedForeground, fontFamily: fontMedium, fontSize: 14, textAlign: "center", marginBottom: 24 }}>
+          تأكد من اتصالك بالإنترنت ثم حاول مجدداً
+        </Text>
+        <TouchableOpacity
+          onPress={checkSub}
+          style={{ backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 28, paddingVertical: 12 }}
+        >
+          <Text style={{ color: "#fff", fontFamily: fontBold, fontSize: 15 }}>إعادة المحاولة</Text>
+        </TouchableOpacity>
       </View>
     );
   }
