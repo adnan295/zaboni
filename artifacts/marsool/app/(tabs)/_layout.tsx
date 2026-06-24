@@ -150,24 +150,29 @@ function ClassicTabLayout({ config }: { config: TabBarItem[] }) {
                   ? { backgroundColor: BADGE_RED, fontSize: 10, minWidth: 16, height: 16 }
                   : undefined,
               tabBarIcon: ({ color, focused }) =>
-                isErrand ? (
-                  isIOS ? (
-                    <SymbolView name={def.sfSelected} tintColor="#ea580c" size={24} />
-                  ) : isWeb ? (
+                isIOS ? (
+                  isErrand ? (
                     <Feather name="shopping-bag" size={22} color="#ea580c" />
                   ) : (
-                    <MaterialIcons name="add-shopping-cart" size={22} color="#ea580c" />
+                    <SymbolView
+                      name={focused ? def.sfSelected : def.sfDefault}
+                      tintColor={color}
+                      size={24}
+                    />
                   )
-                ) : isIOS ? (
-                  <SymbolView
-                    name={focused ? def.sfSelected : def.sfDefault}
-                    tintColor={color}
-                    size={24}
-                  />
                 ) : isWeb ? (
-                  <Feather name={def.feather as any} size={22} color={color} />
+                  <Feather
+                    name={isErrand ? "shopping-bag" : (def.feather as any)}
+                    size={22}
+                    color={isErrand ? "#ea580c" : color}
+                  />
                 ) : (
-                  <MaterialIcons name={focused ? def.materialFocused : def.materialDefault} size={22} color={color} />
+                  /* Android — MaterialIcons fixes garbled Feather font on Android */
+                  isErrand ? (
+                    <MaterialIcons name="add-shopping-cart" size={22} color="#ea580c" />
+                  ) : (
+                    <MaterialIcons name={focused ? def.materialFocused : def.materialDefault} size={22} color={color} />
+                  )
                 ),
               tabBarActiveTintColor: isErrand ? "#ea580c" : undefined,
               ...(isErrand
