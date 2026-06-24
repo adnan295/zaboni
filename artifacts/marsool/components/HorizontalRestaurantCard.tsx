@@ -3,8 +3,8 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
-  Image,
 } from "react-native";
+import { Image } from "expo-image";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -116,7 +116,7 @@ export default function HorizontalRestaurantCard({ restaurant, onPress, variant 
         <Image
           source={{ uri: buildImageUrl(restaurant.image) }}
           style={restaurant.isLogo ? styles.logoImage : styles.image}
-          resizeMode={restaurant.isLogo ? "contain" : "cover"}
+          contentFit={restaurant.isLogo ? "contain" : "cover"}
         />
         {!restaurant.isOpen && (
           <View style={styles.closedOverlay}>

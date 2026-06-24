@@ -3,10 +3,10 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
-  Image,
   Animated,
   GestureResponderEvent,
 } from "react-native";
+import { Image } from "expo-image";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -71,7 +71,7 @@ export default function RestaurantCard({ restaurant, onPress }: Props) {
         <Image
           source={{ uri: buildImageUrl(restaurant.image) }}
           style={(restaurant as any).isLogo ? [styles.image, styles.logoImage] : styles.image}
-          resizeMode={(restaurant as any).isLogo ? "contain" : "cover"}
+          contentFit={(restaurant as any).isLogo ? "contain" : "cover"}
         />
         {!restaurant.isOpen && (
           <View style={styles.closedOverlay}>
