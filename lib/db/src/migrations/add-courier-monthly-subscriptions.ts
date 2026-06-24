@@ -7,7 +7,7 @@ export async function addCourierMonthlySubscriptions() {
       ADD COLUMN IF NOT EXISTS vehicle_type TEXT NOT NULL DEFAULT 'motorcycle',
       ADD COLUMN IF NOT EXISTS starts_at TIMESTAMPTZ,
       ADD COLUMN IF NOT EXISTS ends_at TIMESTAMPTZ,
-      ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT FALSE,
       ADD COLUMN IF NOT EXISTS gifted BOOLEAN NOT NULL DEFAULT FALSE,
       ADD COLUMN IF NOT EXISTS created_by_admin BOOLEAN NOT NULL DEFAULT FALSE
   `);
@@ -16,7 +16,7 @@ export async function addCourierMonthlySubscriptions() {
     UPDATE courier_subscriptions
     SET
       starts_at = date::DATE::TIMESTAMPTZ,
-      ends_at   = (date::DATE + INTERVAL '30 days')::TIMESTAMPTZ
+      ends_at   = (date::DATE + INTERVAL '1 day')::TIMESTAMPTZ
     WHERE starts_at IS NULL AND date IS NOT NULL
   `);
 
@@ -24,7 +24,7 @@ export async function addCourierMonthlySubscriptions() {
     UPDATE courier_subscriptions
     SET
       starts_at = NOW(),
-      ends_at   = NOW() + INTERVAL '30 days'
+      ends_at   = NOW() + INTERVAL '1 day'
     WHERE starts_at IS NULL
   `);
 
@@ -32,6 +32,22 @@ export async function addCourierMonthlySubscriptions() {
     ALTER TABLE courier_subscriptions
       ALTER COLUMN starts_at SET NOT NULL,
       ALTER COLUMN ends_at SET NOT NULL
+  `);
+
+  await db.execute(sql`
+    UPDATE courier_subscriptions SET is_active = FALSE WHERE date IS NOT NULL
+  `);
+
+  await db.execute(sql`
+    UPDATE courier_subscriptions
+    SET is_active = FALSE
+    WHERE is_active = TRUE
+      AND id NOT IN (
+        SELECT DISTINCT ON (courier_id) id
+        FROM courier_subscriptions
+        WHERE is_active = TRUE
+        ORDER BY courier_id, ends_at DESC
+      )
   `);
 
   await db.execute(sql`
