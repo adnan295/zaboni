@@ -156,7 +156,7 @@ export default function SearchTabScreen() {
 
       {/* Sort / Filter row */}
       {query.trim().length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortRowWrap} contentContainerStyle={styles.sortRow}>
           {SORT_OPTIONS.map((opt) => (
             <TouchableOpacity
               key={opt.key}
@@ -210,7 +210,12 @@ export default function SearchTabScreen() {
       {!loading && query.trim() !== "" && results.length === 0 && (
         <View style={styles.center}>
           <MaterialIcons name="search-off" size={48} color={colors.mutedForeground} />
-          <Text style={[styles.noResult, { color: colors.mutedForeground }]}>{t("search.noResults")}</Text>
+          <Text style={[styles.noResult, { color: colors.mutedForeground }]}>
+            {t("search.noResults")} «{query.trim()}»
+          </Text>
+          <Text style={[styles.noResultSub, { color: colors.mutedForeground }]}>
+            {t("search.noResultsSub")}
+          </Text>
         </View>
       )}
 
@@ -243,6 +248,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   input: { flex: 1, fontSize: 15, padding: 0 },
+  sortRowWrap: { flexGrow: 0 },
   sortRow: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
   sortChip: {
     paddingHorizontal: 14,
@@ -254,7 +260,8 @@ const styles = StyleSheet.create({
   },
   sortChipText: { fontSize: 13, fontWeight: "600" },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
-  noResult: { fontSize: 15 },
+  noResult: { fontSize: 15, textAlign: "center" },
+  noResultSub: { fontSize: 13, textAlign: "center", opacity: 0.7 },
   historyWrap: { paddingHorizontal: 16, paddingTop: 16 },
   historyTitle: { fontSize: 13, marginBottom: 8 },
   historyRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 10 },

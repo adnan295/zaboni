@@ -406,7 +406,10 @@
       "title": "Notes for the restaurant",
       "placeholder": "e.g. extra salt, no lettuce...",
       "addBtn": "Add {{total}} SYP",
-      "qtyLabel": "Quantity"
+      "qtyLabel": "Quantity",
+      "saveBtn": "Save Note",
+      "addNoteLink": "Add note",
+      "editNoteLabel": "Edit note"
     }
   },
   "restaurant": {
