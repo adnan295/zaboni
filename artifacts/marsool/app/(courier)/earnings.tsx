@@ -34,6 +34,11 @@ interface EarningsData {
   recentDeliveries: RecentDelivery[];
 }
 
+interface SubStatus {
+  status: "paid" | "no_subscription";
+  isMonthlySubscriber: boolean;
+}
+
 type Period = "today" | "week" | "month" | "total";
 
 const PERIODS: { key: Period; label: string }[] = [
@@ -55,6 +60,7 @@ export default function CourierEarningsScreen() {
   const backIcon = useBackIcon();
 
   const [data, setData] = useState<EarningsData | null>(null);
+  const [subStatus, setSubStatus] = useState<SubStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
@@ -67,8 +73,12 @@ export default function CourierEarningsScreen() {
     if (!silent) setLoading(true);
     setError(false);
     try {
-      const res = await customFetch(`/api/courier/earnings?period=${p}`) as EarningsData;
-      setData(res);
+      const [earningsRes, subRes] = await Promise.all([
+        customFetch(`/api/courier/earnings?period=${p}`) as Promise<EarningsData>,
+        customFetch("/api/courier/subscription/today") as Promise<SubStatus>,
+      ]);
+      setData(earningsRes);
+      setSubStatus(subRes);
     } catch {
       setError(true);
     } finally {
@@ -172,6 +182,26 @@ export default function CourierEarningsScreen() {
             <Text style={styles.heroCurrency}>ل.س</Text>
             <Text style={styles.heroSub}>{data!.periodDeliveries} توصيلة</Text>
           </View>
+
+          {/* Monthly subscription status badge */}
+          {subStatus !== null && (
+            <View style={[
+              styles.subBadge,
+              { backgroundColor: subStatus.isMonthlySubscriber ? "#f0fdf4" : "#fff7ed",
+                borderColor: subStatus.isMonthlySubscriber ? "#bbf7d0" : "#fed7aa" }
+            ]}>
+              <MaterialIcons
+                name={subStatus.isMonthlySubscriber ? "verified" : "warning-amber"}
+                size={16}
+                color={subStatus.isMonthlySubscriber ? "#16a34a" : "#ea580c"}
+              />
+              <Text style={[styles.subBadgeText, {
+                color: subStatus.isMonthlySubscriber ? "#15803d" : "#c2410c"
+              }]}>
+                {subStatus.isMonthlySubscriber ? "مشترك شهري ✓" : "لا يوجد اشتراك شهري"}
+              </Text>
+            </View>
+          )}
 
           {/* Summary stats for non-today periods */}
           {period !== "today" && (
@@ -295,6 +325,18 @@ const styles = StyleSheet.create({
   heroAmount: { color: "#fff", fontSize: 44, fontWeight: "900" },
   heroCurrency: { color: "rgba(255,255,255,0.85)", fontSize: 16, fontWeight: "700", marginTop: -8 },
   heroSub: { color: "rgba(255,255,255,0.7)", fontSize: 13, marginTop: 4 },
+  subBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  subBadgeText: { fontSize: 13, fontWeight: "700" },
   statsGrid: {
     flexDirection: "row",
     gap: 12,
