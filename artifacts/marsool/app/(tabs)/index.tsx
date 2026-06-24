@@ -3,14 +3,15 @@ import {
   View,
   StyleSheet,
   ScrollView,
+  FlatList,
   TouchableOpacity,
   Platform,
   RefreshControl,
   Dimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
-  Image,
 } from "react-native";
+import { Image } from "expo-image";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -314,7 +315,7 @@ export default function HomeScreen() {
     staleTime: 2 * 60 * 1000,
   });
 
-  const mainScrollRef = useRef<ScrollView>(null);
+  const mainListRef = useRef<FlatList<RestaurantItem>>(null);
   const popularSectionY = useRef<number>(0);
   const dealsSectionY = useRef<number>(0);
 
@@ -395,10 +396,306 @@ export default function HomeScreen() {
     return f.labelAr;
   }, [t]);
 
+  const isListLoading = isLoading || (isCategoryFiltered && isCategoryLoading);
+
+  const listHeader = (
+    <>
+      {/* ===== Colored Header ===== */}
+      <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.primary }]}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity style={styles.locationRow} onPress={() => router.push("/addresses")}>
+            <MaterialIcons name="location-on" size={16} color="rgba(255,255,255,0.9)" />
+            <Text style={styles.locationText} numberOfLines={1}>
+              {defaultAddress ? defaultAddress.label : t("home.addAddress")}
+            </Text>
+            <MaterialIcons name="keyboard-arrow-down" size={16} color="rgba(255,255,255,0.9)" />
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => router.push("/notifications")} style={styles.notifWrap}>
+            <MaterialIcons name="notifications-none" size={24} color="#fff" />
+            {unreadCount > 0 && (
+              <View style={[styles.notifBadge, { backgroundColor: "#fff" }]}>
+                <Text style={[styles.notifBadgeText, { color: colors.primary }]}>
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* White search bar */}
+        <TouchableOpacity
+          style={[styles.searchBar, { backgroundColor: "#fff" }]}
+          onPress={() => router.push("/search")}
+          activeOpacity={0.9}
+        >
+          <MaterialIcons name="search" size={20} color={colors.mutedForeground} />
+          <Text style={[styles.searchPlaceholder, { color: colors.mutedForeground }]}>
+            {t("home.searchPlaceholder")}
+          </Text>
+          <MaterialIcons name="tune" size={17} color={colors.primary} />
+        </TouchableOpacity>
+      </View>
+
+      {/* ===== Full-width Banner Carousel ===== */}
+      {apiBanners.length > 0 && (
+        <ScrollView
+          ref={bannerScrollRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          decelerationRate="fast"
+          onMomentumScrollEnd={handleBannerScroll}
+          scrollEventThrottle={16}
+        >
+          {apiBanners.map((banner) => (
+            <TouchableOpacity
+              key={banner.id}
+              activeOpacity={banner.restaurantId ? 0.88 : 1}
+              onPress={() => {
+                if (banner.restaurantId) router.push(`/restaurant/${banner.restaurantId}` as any);
+              }}
+              style={styles.bannerSlide}
+            >
+              {banner.image ? (
+                <Image
+                  source={{ uri: buildImageUrl(banner.image) }}
+                  style={styles.bannerImage}
+                  contentFit="cover"
+                />
+              ) : (
+                <View
+                  style={[
+                    styles.bannerImage,
+                    { backgroundColor: banner.bgColor || colors.primary, alignItems: "center", justifyContent: "center" },
+                  ]}
+                >
+                  <MaterialIcons
+                    name={(banner.iconName as keyof typeof MaterialIcons.glyphMap) ?? "local-offer"}
+                    size={64}
+                    color="#fff"
+                  />
+                </View>
+              )}
+              {!!(banner.titleAr || banner.titleEn) && (
+                <View style={styles.bannerOverlay} pointerEvents="none">
+                  <Text style={[styles.bannerTitle, { textAlign: isAr ? "left" : "right" }]} numberOfLines={2}>
+                    {isAr ? (banner.titleAr || banner.titleEn) : (banner.titleEn || banner.titleAr)}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+
+      {/* ===== Visual Category Tiles ===== */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.categoriesScroll}
+        style={styles.categoriesContainer}
+      >
+        {displayCategories.map((cat) => {
+          const isSelected = selectedCategory === cat.id;
+          return (
+            <TouchableOpacity
+              key={cat.id}
+              style={styles.categoryTile}
+              onPress={() => setSelectedCategory(cat.id)}
+              activeOpacity={0.8}
+            >
+              <View
+                style={[
+                  styles.categoryTileIcon,
+                  { borderColor: isSelected ? colors.primary : "transparent" },
+                ]}
+              >
+                <Image
+                  source={{ uri: buildImageUrl((cat as any).imageUrl) || CATEGORY_IMAGES[(cat as any).code ?? cat.id] || CATEGORY_IMAGES.all }}
+                  style={styles.categoryTileImg}
+                  contentFit="cover"
+                />
+              </View>
+              <Text
+                style={[
+                  styles.categoryTileLabel,
+                  { color: isSelected ? colors.primary : colors.mutedForeground, fontWeight: isSelected ? "700" : "600" },
+                ]}
+                numberOfLines={1}
+              >
+                {isAr ? cat.nameAr : cat.nameEn}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      {/* ===== Active Order Banner ===== */}
+      {activeOrder && (
+        <TouchableOpacity
+          style={[styles.orderBanner, { backgroundColor: colors.secondary }]}
+          onPress={() =>
+            router.push({ pathname: "/order-tracking/[id]", params: { id: activeOrder.id } })
+          }
+        >
+          <View style={[styles.orderDot, { backgroundColor: colors.primary }]} />
+          <View style={styles.orderInfo}>
+            <Text style={[styles.orderStatus, { color: colors.primary }]}>{getOrderStatusText()}</Text>
+            <Text style={[styles.orderRestaurant, { color: colors.mutedForeground }]} numberOfLines={1}>
+              {activeOrder.restaurantName}
+            </Text>
+          </View>
+          <MaterialIcons name="chevron-right" size={20} color={colors.primary} />
+        </TouchableOpacity>
+      )}
+
+      {/* ===== Popular Section ===== */}
+      {!isCategoryFiltered && (isPopularLoading || popularRestaurants.length > 0) && (
+        <View
+          style={styles.sectionWrap}
+          onLayout={(e) => { popularSectionY.current = e.nativeEvent.layout.y; }}
+        >
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("home.popular")}</Text>
+            <MaterialIcons name="star" size={16} color="#FFB800" />
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.hListContent}
+          >
+            {isPopularLoading
+              ? [0, 1, 2, 3].map((i) => <HorizontalRestaurantCardSkeleton key={i} />)
+              : popularRestaurants.map((r) => (
+                  <HorizontalRestaurantCard
+                    key={r.id}
+                    restaurant={r}
+                    onPress={() => router.push(`/restaurant/${r.id}` as any)}
+                  />
+                ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* ===== Exclusive Deals Section ===== */}
+      {!isCategoryFiltered && (isDealsLoading || dealRestaurants.length > 0) && (
+        <View
+          style={styles.sectionWrap}
+          onLayout={(e) => { dealsSectionY.current = e.nativeEvent.layout.y; }}
+        >
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("home.exclusiveDeals")}</Text>
+            <MaterialIcons name="local-offer" size={16} color={colors.primary} />
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.hListContent}
+          >
+            {isDealsLoading
+              ? [0, 1, 2, 3].map((i) => <HorizontalRestaurantCardSkeleton key={i} />)
+              : dealRestaurants.map((r) => (
+                  <HorizontalRestaurantCard
+                    key={r.id}
+                    restaurant={r}
+                    onPress={() => router.push(`/restaurant/${r.id}` as any)}
+                    variant="deal"
+                  />
+                ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* ===== Filter Bar ===== */}
+      {showFilterBar && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterScroll}
+          style={styles.filterContainer}
+        >
+          {enabledFilters.map((f) => {
+            const isSort = f.key !== "openNow";
+            const isActive = isSort ? sortBy === f.key : openOnly;
+            return (
+              <TouchableOpacity
+                key={f.key}
+                style={[
+                  styles.filterChip,
+                  {
+                    backgroundColor: isActive ? colors.primary : colors.card,
+                    borderColor: isActive ? colors.primary : colors.border,
+                    flexDirection: f.key === "openNow" ? "row" : undefined,
+                    gap: f.key === "openNow" ? 4 : undefined,
+                  },
+                ]}
+                onPress={() => {
+                  if (isSort) {
+                    setSortBy(isActive ? "default" : (f.key as SortBy));
+                  } else {
+                    setOpenOnly((p) => !p);
+                  }
+                }}
+              >
+                {f.key === "openNow" && (
+                  <MaterialIcons name="store" size={13} color={isActive ? "#fff" : colors.foreground} />
+                )}
+                <Text style={[styles.filterChipText, { color: isActive ? "#fff" : colors.foreground }]}>
+                  {filterLabel(f)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
+
+      {/* ===== Explore All — Section Header ===== */}
+      <View style={styles.exploreSectionHeader}>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+            {t("home.exploreAll")}
+            <Text style={[styles.count, { color: colors.mutedForeground }]}>
+              {" "}({filteredRestaurants.length})
+            </Text>
+          </Text>
+          <TouchableOpacity onPress={() => router.push("/search")}>
+            <MaterialIcons name="search" size={22} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </>
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView
-        ref={mainScrollRef}
+      <FlatList
+        ref={mainListRef}
+        data={isListLoading ? [] : filteredRestaurants}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <View style={styles.restaurantCardWrap}>
+            <RestaurantCard
+              restaurant={item as any}
+              onPress={() => router.push(`/restaurant/${item.id}` as any)}
+            />
+          </View>
+        )}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={
+          isListLoading ? (
+            <View style={styles.restaurantCardWrap}>
+              <RestaurantCardSkeleton />
+              <RestaurantCardSkeleton />
+              <RestaurantCardSkeleton />
+            </View>
+          ) : (
+            <View style={styles.emptyWrap}>
+              <MaterialIcons name="search-off" size={48} color={colors.mutedForeground} />
+              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>{t("home.noResults")}</Text>
+            </View>
+          )
+        }
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
         refreshControl={
@@ -409,288 +706,11 @@ export default function HomeScreen() {
             tintColor="#DC2626"
           />
         }
-      >
-        {/* ===== Colored Header ===== */}
-        <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.primary }]}>
-          <View style={styles.headerRow}>
-            <TouchableOpacity style={styles.locationRow} onPress={() => router.push("/addresses")}>
-              <MaterialIcons name="location-on" size={16} color="rgba(255,255,255,0.9)" />
-              <Text style={styles.locationText} numberOfLines={1}>
-                {defaultAddress ? defaultAddress.label : t("home.addAddress")}
-              </Text>
-              <MaterialIcons name="keyboard-arrow-down" size={16} color="rgba(255,255,255,0.9)" />
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => router.push("/notifications")} style={styles.notifWrap}>
-              <MaterialIcons name="notifications-none" size={24} color="#fff" />
-              {unreadCount > 0 && (
-                <View style={[styles.notifBadge, { backgroundColor: "#fff" }]}>
-                  <Text style={[styles.notifBadgeText, { color: colors.primary }]}>
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {/* White search bar */}
-          <TouchableOpacity
-            style={[styles.searchBar, { backgroundColor: "#fff" }]}
-            onPress={() => router.push("/search")}
-            activeOpacity={0.9}
-          >
-            <MaterialIcons name="search" size={20} color={colors.mutedForeground} />
-            <Text style={[styles.searchPlaceholder, { color: colors.mutedForeground }]}>
-              {t("home.searchPlaceholder")}
-            </Text>
-            <MaterialIcons name="tune" size={17} color={colors.primary} />
-          </TouchableOpacity>
-        </View>
-
-        {/* ===== Full-width Banner Carousel ===== */}
-        {apiBanners.length > 0 && (
-          <ScrollView
-            ref={bannerScrollRef}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            decelerationRate="fast"
-            onMomentumScrollEnd={handleBannerScroll}
-            scrollEventThrottle={16}
-          >
-            {apiBanners.map((banner) => (
-              <TouchableOpacity
-                key={banner.id}
-                activeOpacity={banner.restaurantId ? 0.88 : 1}
-                onPress={() => {
-                  if (banner.restaurantId) router.push(`/restaurant/${banner.restaurantId}` as any);
-                }}
-                style={styles.bannerSlide}
-              >
-                {banner.image ? (
-                  <Image
-                    source={{ uri: buildImageUrl(banner.image) }}
-                    style={styles.bannerImage}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View
-                    style={[
-                      styles.bannerImage,
-                      { backgroundColor: banner.bgColor || colors.primary, alignItems: "center", justifyContent: "center" },
-                    ]}
-                  >
-                    <MaterialIcons
-                      name={(banner.iconName as keyof typeof MaterialIcons.glyphMap) ?? "local-offer"}
-                      size={64}
-                      color="#fff"
-                    />
-                  </View>
-                )}
-                {!!(banner.titleAr || banner.titleEn) && (
-                  <View style={styles.bannerOverlay} pointerEvents="none">
-                    <Text style={[styles.bannerTitle, { textAlign: isAr ? "left" : "right" }]} numberOfLines={2}>
-                      {isAr ? (banner.titleAr || banner.titleEn) : (banner.titleEn || banner.titleAr)}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        )}
-
-        {/* ===== Visual Category Tiles ===== */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoriesScroll}
-          style={styles.categoriesContainer}
-        >
-          {displayCategories.map((cat) => {
-            const isSelected = selectedCategory === cat.id;
-            return (
-              <TouchableOpacity
-                key={cat.id}
-                style={styles.categoryTile}
-                onPress={() => setSelectedCategory(cat.id)}
-                activeOpacity={0.8}
-              >
-                <View
-                  style={[
-                    styles.categoryTileIcon,
-                    { borderColor: isSelected ? colors.primary : "transparent" },
-                  ]}
-                >
-                  <Image
-                    source={{ uri: buildImageUrl((cat as any).imageUrl) || CATEGORY_IMAGES[cat.code ?? cat.id] || CATEGORY_IMAGES.all }}
-                    style={styles.categoryTileImg}
-                  />
-                </View>
-                <Text
-                  style={[
-                    styles.categoryTileLabel,
-                    { color: isSelected ? colors.primary : colors.mutedForeground, fontWeight: isSelected ? "700" : "600" },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {isAr ? cat.nameAr : cat.nameEn}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        {/* ===== Active Order Banner ===== */}
-        {activeOrder && (
-          <TouchableOpacity
-            style={[styles.orderBanner, { backgroundColor: colors.secondary }]}
-            onPress={() =>
-              router.push({ pathname: "/order-tracking/[id]", params: { id: activeOrder.id } })
-            }
-          >
-            <View style={[styles.orderDot, { backgroundColor: colors.primary }]} />
-            <View style={styles.orderInfo}>
-              <Text style={[styles.orderStatus, { color: colors.primary }]}>{getOrderStatusText()}</Text>
-              <Text style={[styles.orderRestaurant, { color: colors.mutedForeground }]} numberOfLines={1}>
-                {activeOrder.restaurantName}
-              </Text>
-            </View>
-            <MaterialIcons name="chevron-right" size={20} color={colors.primary} />
-          </TouchableOpacity>
-        )}
-
-        {/* ===== Popular Section ===== */}
-        {!isCategoryFiltered && (isPopularLoading || popularRestaurants.length > 0) && (
-          <View
-            style={styles.sectionWrap}
-            onLayout={(e) => { popularSectionY.current = e.nativeEvent.layout.y; }}
-          >
-            <View style={styles.sectionHeaderRow}>
-              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("home.popular")}</Text>
-              <MaterialIcons name="star" size={16} color="#FFB800" />
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.hListContent}
-            >
-              {isPopularLoading
-                ? [0, 1, 2, 3].map((i) => <HorizontalRestaurantCardSkeleton key={i} />)
-                : popularRestaurants.map((r) => (
-                    <HorizontalRestaurantCard
-                      key={r.id}
-                      restaurant={r}
-                      onPress={() => router.push(`/restaurant/${r.id}` as any)}
-                    />
-                  ))}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* ===== Exclusive Deals Section ===== */}
-        {!isCategoryFiltered && (isDealsLoading || dealRestaurants.length > 0) && (
-          <View
-            style={styles.sectionWrap}
-            onLayout={(e) => { dealsSectionY.current = e.nativeEvent.layout.y; }}
-          >
-            <View style={styles.sectionHeaderRow}>
-              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("home.exclusiveDeals")}</Text>
-              <MaterialIcons name="local-offer" size={16} color={colors.primary} />
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.hListContent}
-            >
-              {isDealsLoading
-                ? [0, 1, 2, 3].map((i) => <HorizontalRestaurantCardSkeleton key={i} />)
-                : dealRestaurants.map((r) => (
-                    <HorizontalRestaurantCard
-                      key={r.id}
-                      restaurant={r}
-                      onPress={() => router.push(`/restaurant/${r.id}` as any)}
-                      variant="deal"
-                    />
-                  ))}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* ===== Filter Bar ===== */}
-        {showFilterBar && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterScroll}
-            style={styles.filterContainer}
-          >
-            {enabledFilters.map((f) => {
-              const isSort = f.key !== "openNow";
-              const isActive = isSort ? sortBy === f.key : openOnly;
-              return (
-                <TouchableOpacity
-                  key={f.key}
-                  style={[
-                    styles.filterChip,
-                    {
-                      backgroundColor: isActive ? colors.primary : colors.card,
-                      borderColor: isActive ? colors.primary : colors.border,
-                      flexDirection: f.key === "openNow" ? "row" : undefined,
-                      gap: f.key === "openNow" ? 4 : undefined,
-                    },
-                  ]}
-                  onPress={() => {
-                    if (isSort) {
-                      setSortBy(isActive ? "default" : (f.key as SortBy));
-                    } else {
-                      setOpenOnly((p) => !p);
-                    }
-                  }}
-                >
-                  {f.key === "openNow" && (
-                    <MaterialIcons name="store" size={13} color={isActive ? "#fff" : colors.foreground} />
-                  )}
-                  <Text style={[styles.filterChipText, { color: isActive ? "#fff" : colors.foreground }]}>
-                    {filterLabel(f)}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        )}
-
-        {/* ===== Explore All Section ===== */}
-        <View style={styles.exploreSection}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-              {t("home.exploreAll")}
-              <Text style={[styles.count, { color: colors.mutedForeground }]}>
-                {" "}({filteredRestaurants.length})
-              </Text>
-            </Text>
-            <TouchableOpacity onPress={() => router.push("/search")}>
-              <MaterialIcons name="search" size={22} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
-
-          {(isLoading || (isCategoryFiltered && isCategoryLoading)) ? (
-            [0, 1, 2].map((i) => <RestaurantCardSkeleton key={i} />)
-          ) : filteredRestaurants.length === 0 ? (
-            <View style={styles.emptyWrap}>
-              <MaterialIcons name="search-off" size={48} color={colors.mutedForeground} />
-              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>{t("home.noResults")}</Text>
-            </View>
-          ) : (
-            filteredRestaurants.map((restaurant) => (
-              <RestaurantCard
-                key={restaurant.id}
-                restaurant={restaurant as any}
-                onPress={() => router.push(`/restaurant/${restaurant.id}` as any)}
-              />
-            ))
-          )}
-        </View>
-      </ScrollView>
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={6}
+        windowSize={10}
+        initialNumToRender={5}
+      />
     </View>
   );
 }
@@ -813,7 +833,8 @@ const styles = StyleSheet.create({
   filterChipText: { fontSize: 13, fontWeight: "600" },
 
   // Explore section
-  exploreSection: { marginTop: 18, paddingHorizontal: 16 },
+  exploreSectionHeader: { marginTop: 18 },
+  restaurantCardWrap: { paddingHorizontal: 16 },
   loadingWrap: { alignItems: "center", paddingVertical: 40 },
   emptyWrap: { alignItems: "center", paddingVertical: 40, gap: 8 },
   emptyText: { fontSize: 15 },
