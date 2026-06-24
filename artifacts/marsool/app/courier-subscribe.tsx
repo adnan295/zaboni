@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   ScrollView,
@@ -16,6 +16,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useColors } from "@/hooks/useColors";
 import { useTypography } from "@/hooks/useTypography";
 import { useAuth } from "@/context/AuthContext";
+import { useRouter } from "expo-router";
 import { customFetch } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -79,6 +80,7 @@ export default function CourierSubscribeScreen() {
   const { fontMedium, fontBold } = useTypography();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const router = useRouter();
   const qc = useQueryClient();
 
   const [step, setStep] = useState<"plan" | "payment">("plan");
@@ -90,7 +92,8 @@ export default function CourierSubscribeScreen() {
     queryKey: ["courier", "subscription", "status"],
     queryFn: () => customFetch("/api/courier/subscription/status"),
     enabled: !!user,
-    staleTime: 30_000,
+    staleTime: 15_000,
+    refetchInterval: 20_000,
   });
 
   const { data: latestRequest, isLoading: loadingRequest } = useQuery<SubRequest | null>({
@@ -100,6 +103,12 @@ export default function CourierSubscribeScreen() {
     staleTime: 15_000,
     refetchInterval: 20_000,
   });
+
+  useEffect(() => {
+    if (subStatus?.isActive === true) {
+      router.replace("/(courier)/available" as never);
+    }
+  }, [subStatus?.isActive, router]);
 
   const cancelMutation = useMutation({
     mutationFn: () =>
@@ -255,6 +264,21 @@ export default function CourierSubscribeScreen() {
             </Text>
           </View>
         )}
+      </View>
+    );
+  }
+
+  if (latestRequest?.status === "approved") {
+    return (
+      <View style={[styles.center, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+        <MaterialIcons name="check-circle" size={64} color="#16a34a" />
+        <Text style={[styles.bigTitle, { color: colors.foreground, fontFamily: fontBold }]}>
+          تمت الموافقة على اشتراكك!
+        </Text>
+        <Text style={[styles.subtitle, { color: colors.mutedForeground, fontFamily: fontMedium }]}>
+          يمكنك الآن استلام الطلبات. جاري تحديث حالة الاشتراك…
+        </Text>
+        <ActivityIndicator color={colors.primary} />
       </View>
     );
   }
