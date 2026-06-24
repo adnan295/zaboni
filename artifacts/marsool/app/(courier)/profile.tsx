@@ -439,7 +439,7 @@ export default function CourierProfileScreen() {
               <View style={styles.supportInfo}>
                 <Text style={[styles.menuText, { color: colors.foreground }]}>كيف يعمل التطبيق</Text>
                 <Text style={[styles.supportSub, { color: colors.mutedForeground }]}>
-                  اشتراك يومي — احتفظ بكامل رسوم التوصيل
+                  اشتراك شهري — احتفظ بكامل رسوم التوصيل
                 </Text>
               </View>
               <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
@@ -480,9 +480,9 @@ export default function CourierProfileScreen() {
                   <MaterialIcons name="credit-card" size={24} color="#DC2626" />
                 </View>
                 <View style={styles.howText}>
-                  <Text style={[styles.howTitle, { color: colors.foreground }]}>الاشتراك اليومي</Text>
+                  <Text style={[styles.howTitle, { color: colors.foreground }]}>الاشتراك الشهري</Text>
                   <Text style={[styles.howBody, { color: colors.mutedForeground }]}>
-                    تدفع رسوم اشتراك يومية للمنصة. يمكنك الدفع مسبقاً عبر المحفظة أو التسوية مع الإدارة.
+                    تدفع رسوم اشتراك شهرية للمنصة. يمكنك الدفع مسبقاً عبر المحفظة أو التسوية مع الإدارة.
                   </Text>
                 </View>
               </View>
@@ -506,7 +506,7 @@ export default function CourierProfileScreen() {
                 <View style={styles.howText}>
                   <Text style={[styles.howTitle, { color: colors.foreground }]}>المحفظة</Text>
                   <Text style={[styles.howBody, { color: colors.mutedForeground }]}>
-                    ادفع رصيداً في مكتب الإدارة وأودعه في محفظتك. يُستقطع منها الاشتراك اليومي تلقائياً.
+                    ادفع رصيداً في مكتب الإدارة وأودعه في محفظتك. يُستخدم لتسديد رسوم الاشتراك الشهري.
                   </Text>
                 </View>
               </View>
