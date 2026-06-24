@@ -33,6 +33,7 @@ import {
   referralsTable,
   referralCodesTable,
   customerWalletTransactionsTable,
+  courierSubscriptionRequestsTable,
 } from "@workspace/db";
 import bcrypt from "bcryptjs";
 import { eq, count, sum, desc, gte, lte, getTableColumns, and, sql, avg, asc, lt } from "drizzle-orm";
@@ -3275,6 +3276,119 @@ router.delete("/admin/whatsapp/accounts/:id", async (req, res) => {
   const id = String(req.params["id"]);
   await whatsappManager.disconnect(id);
   res.status(204).end();
+});
+
+router.get("/admin/subscription-requests", async (req, res) => {
+  const statusFilter = typeof req.query["status"] === "string" ? req.query["status"] : null;
+
+  const rows = await db.execute(sql`
+    SELECT
+      r.id,
+      r.courier_id AS "courierId",
+      r.vehicle_type AS "vehicleType",
+      r.plan_amount AS "planAmount",
+      r.paid_amount AS "paidAmount",
+      r.receipt_url AS "receiptUrl",
+      r.status,
+      r.admin_note AS "adminNote",
+      r.reviewed_at AS "reviewedAt",
+      r.created_at AS "createdAt",
+      u.name AS "courierName",
+      u.phone AS "courierPhone"
+    FROM courier_subscription_requests r
+    LEFT JOIN users u ON u.id = r.courier_id
+    ${statusFilter ? sql`WHERE r.status = ${statusFilter}` : sql``}
+    ORDER BY r.created_at DESC
+  `);
+
+  res.json(rows.rows.map((r: Record<string, unknown>) => ({
+    ...r,
+    planAmount: Number(r["planAmount"]),
+    paidAmount: Number(r["paidAmount"]),
+  })));
+});
+
+router.post("/admin/subscription-requests/:id/approve", async (req, res) => {
+  const id = String(req.params["id"]);
+
+  const [request] = await db
+    .select()
+    .from(courierSubscriptionRequestsTable)
+    .where(eq(courierSubscriptionRequestsTable.id, id))
+    .limit(1);
+
+  if (!request) {
+    res.status(404).json({ error: "Request not found" });
+    return;
+  }
+
+  if (request.status !== "pending") {
+    res.status(409).json({ error: "Request is not pending" });
+    return;
+  }
+
+  const now = new Date();
+  const endsAt = new Date(now);
+  endsAt.setMonth(endsAt.getMonth() + 1);
+  const subId = crypto.randomUUID();
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(courierSubscriptionRequestsTable)
+      .set({ status: "approved", reviewedAt: now })
+      .where(eq(courierSubscriptionRequestsTable.id, id));
+
+    await tx
+      .update(courierSubscriptionsTable)
+      .set({ isActive: false })
+      .where(and(
+        eq(courierSubscriptionsTable.courierId, request.courierId),
+        eq(courierSubscriptionsTable.isActive, true),
+      ));
+
+    await tx.insert(courierSubscriptionsTable).values({
+      id: subId,
+      courierId: request.courierId,
+      vehicleType: request.vehicleType as "bicycle" | "motorcycle" | "car",
+      startsAt: now,
+      endsAt,
+      amount: request.paidAmount,
+      status: "paid",
+      isActive: true,
+      gifted: false,
+      createdByAdmin: true,
+    });
+  });
+
+  res.json({ ok: true, subscriptionId: subId });
+});
+
+router.post("/admin/subscription-requests/:id/reject", async (req, res) => {
+  const id = String(req.params["id"]);
+  const adminNote = typeof req.body?.adminNote === "string" ? req.body.adminNote : "";
+
+  const [request] = await db
+    .select({ id: courierSubscriptionRequestsTable.id, status: courierSubscriptionRequestsTable.status })
+    .from(courierSubscriptionRequestsTable)
+    .where(eq(courierSubscriptionRequestsTable.id, id))
+    .limit(1);
+
+  if (!request) {
+    res.status(404).json({ error: "Request not found" });
+    return;
+  }
+
+  if (request.status !== "pending") {
+    res.status(409).json({ error: "Request is not pending" });
+    return;
+  }
+
+  await db
+    .update(courierSubscriptionRequestsTable)
+    .set({ status: "rejected", adminNote, reviewedAt: new Date() })
+    .where(eq(courierSubscriptionRequestsTable.id, id));
+
+  res.json({ ok: true });
 });
 
 export default router;

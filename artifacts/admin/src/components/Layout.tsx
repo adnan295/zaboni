@@ -25,6 +25,7 @@ const navItems = [
   { href: "/customer-support", label: "دعم العملاء", icon: "🎧" },
   { href: "/content", label: "المحتوى", icon: "🖼️" },
   { href: "/courier-applications", label: "طلبات الانضمام", icon: "📋" },
+  { href: "/subscription-requests", label: "طلبات الاشتراك", icon: "💳" },
   { href: "/users", label: "المستخدمون", icon: "👤" },
   { href: "/restaurant-performance", label: "أداء المطاعم", icon: "📈" },
   { href: "/churn", label: "العملاء الغائبون", icon: "💤" },
@@ -93,6 +94,13 @@ export default function Layout({ children, onLogout }: LayoutProps) {
     refetchInterval: 15_000,
   });
   const supportUnreadCount = supportUnread?.count ?? 0;
+
+  const { data: pendingSubRequests } = useQuery({
+    queryKey: ["admin", "pending-sub-requests"],
+    queryFn: api.getPendingSubscriptionRequestsCount,
+    refetchInterval: 30_000,
+  });
+  const pendingSubCount = pendingSubRequests?.count ?? 0;
 
   const activeOrders =
     stats?.ordersByStatus
@@ -189,6 +197,7 @@ export default function Layout({ children, onLogout }: LayoutProps) {
             const showOrdersBadge = item.href === "/orders" && activeOrders > 0;
             const showSlaBadge = item.href === "/" && slaAlertCount > 0;
             const showSupportBadge = item.href === "/customer-support" && supportUnreadCount > 0;
+            const showSubRequestsBadge = item.href === "/subscription-requests" && pendingSubCount > 0;
             return (
               <Link
                 key={item.href}
@@ -213,6 +222,9 @@ export default function Layout({ children, onLogout }: LayoutProps) {
                   )}
                   {showSupportBadge && collapsed && (
                     <span className="absolute -top-1 -left-1 w-2 h-2 bg-orange-500 rounded-full" />
+                  )}
+                  {showSubRequestsBadge && collapsed && (
+                    <span className="absolute -top-1 -left-1 w-2 h-2 bg-yellow-500 rounded-full" />
                   )}
                 </span>
                 {!collapsed && (
@@ -243,6 +255,11 @@ export default function Layout({ children, onLogout }: LayoutProps) {
                           <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
                         </span>
                         {supportUnreadCount}
+                      </span>
+                    )}
+                    {showSubRequestsBadge && (
+                      <span className="flex items-center gap-1 text-xs font-bold bg-yellow-500 text-white rounded-full px-1.5 py-0.5 leading-none">
+                        {pendingSubCount}
                       </span>
                     )}
                   </>

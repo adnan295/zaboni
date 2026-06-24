@@ -1,20 +1,61 @@
 import { BlurView } from "expo-blur";
-import { Tabs } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
-import React from "react";
-import { Platform, StyleSheet, View, useColorScheme } from "react-native";
+import React, { useEffect, useState } from "react";
+import { Platform, StyleSheet, View, useColorScheme, ActivityIndicator } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useTypography } from "@/hooks/useTypography";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "@/context/AuthContext";
+import { getApiBaseUrl } from "@/lib/apiConfig";
+
+async function fetchCourierSubStatus(token: string): Promise<{ isActive: boolean } | null> {
+  try {
+    const base = getApiBaseUrl();
+    const res = await fetch(`${base}/api/courier/subscription/status`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
 
 export default function CourierTabLayout() {
   const colors = useColors();
   const colorScheme = useColorScheme();
   const { t } = useTranslation();
   const { fontMedium } = useTypography();
+  const insets = useSafeAreaInsets();
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
+  const isAndroid = Platform.OS === "android";
   const isWeb = Platform.OS === "web";
+  const router = useRouter();
+  const { token } = useAuth();
+  const [subChecked, setSubChecked] = useState(false);
+
+  useEffect(() => {
+    if (!token) return;
+    fetchCourierSubStatus(token).then((status) => {
+      if (status && !status.isActive) {
+        router.replace("/courier-subscribe" as never);
+      }
+      setSubChecked(true);
+    });
+  }, [token, router]);
+
+  if (!subChecked) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
+        <ActivityIndicator color={colors.primary} size="large" />
+      </View>
+    );
+  }
+
+  const tabBarHeight = isAndroid ? 56 + insets.bottom : undefined;
 
   return (
     <Tabs
@@ -29,6 +70,7 @@ export default function CourierTabLayout() {
           borderTopColor: colors.border,
           elevation: 0,
           ...(isWeb ? { height: 84 } : {}),
+          ...(isAndroid ? { height: tabBarHeight, paddingBottom: insets.bottom } : {}),
         },
         tabBarBackground: () =>
           isIOS ? (

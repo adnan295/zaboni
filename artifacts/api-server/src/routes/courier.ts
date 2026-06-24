@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { db, usersTable, ordersTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, courierSubscriptionPlansTable, systemSettingsTable, courierCustomerRatingsTable, courierWalletTransactionsTable, courierApplicationsTable, referralsTable } from "@workspace/db";
+import { db, usersTable, ordersTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, courierSubscriptionPlansTable, systemSettingsTable, courierCustomerRatingsTable, courierWalletTransactionsTable, courierApplicationsTable, referralsTable, courierSubscriptionRequestsTable } from "@workspace/db";
 import { and, eq, ne, notInArray, avg, count, sql, desc, getTableColumns } from "drizzle-orm";
 import { haversineKm as _haversineKm } from "../lib/deliveryZones";
 import { z } from "zod";
@@ -388,6 +388,21 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
 
   if (!courierUsers[0]?.isOnline) {
     res.status(409).json({ error: "You must be online to accept orders" });
+    return;
+  }
+
+  const [activeSub] = await db
+    .select({ id: courierSubscriptionsTable.id })
+    .from(courierSubscriptionsTable)
+    .where(and(
+      eq(courierSubscriptionsTable.courierId, courierId),
+      eq(courierSubscriptionsTable.isActive, true),
+      sql`${courierSubscriptionsTable.endsAt} > NOW()`,
+    ))
+    .limit(1);
+
+  if (!activeSub) {
+    res.status(403).json({ error: "subscription_expired", message: "اشتراكك منتهٍ. يرجى تجديد الاشتراك من صفحة الاشتراك." });
     return;
   }
 
@@ -1251,6 +1266,88 @@ router.patch("/courier/profile", requireCourier, async (req, res) => {
   }
 
   res.json(rows[0]);
+});
+
+const subscriptionRequestSchema = z.object({
+  vehicleType: z.enum(["bicycle", "motorcycle", "car"]),
+  paidAmount: z.number().int().positive(),
+  receiptUrl: z.string().optional(),
+});
+
+router.post("/courier/subscription/request", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+
+  const body = subscriptionRequestSchema.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "Invalid payload", details: body.error.issues });
+    return;
+  }
+
+  const [activeSub] = await db
+    .select({ id: courierSubscriptionsTable.id })
+    .from(courierSubscriptionsTable)
+    .where(and(
+      eq(courierSubscriptionsTable.courierId, courierId),
+      eq(courierSubscriptionsTable.isActive, true),
+      sql`${courierSubscriptionsTable.endsAt} > NOW()`,
+    ))
+    .limit(1);
+
+  if (activeSub) {
+    res.status(409).json({ error: "already_subscribed", message: "لديك اشتراك نشط بالفعل." });
+    return;
+  }
+
+  const [existing] = await db
+    .select({ id: courierSubscriptionRequestsTable.id, status: courierSubscriptionRequestsTable.status })
+    .from(courierSubscriptionRequestsTable)
+    .where(and(
+      eq(courierSubscriptionRequestsTable.courierId, courierId),
+      eq(courierSubscriptionRequestsTable.status, "pending"),
+    ))
+    .limit(1);
+
+  if (existing) {
+    res.status(409).json({ error: "request_pending", message: "لديك طلب اشتراك قيد المراجعة بالفعل." });
+    return;
+  }
+
+  const [plan] = await db
+    .select({ monthlyPrice: courierSubscriptionPlansTable.monthlyPrice })
+    .from(courierSubscriptionPlansTable)
+    .where(eq(courierSubscriptionPlansTable.vehicleType, body.data.vehicleType))
+    .limit(1);
+
+  const planAmount = plan?.monthlyPrice ?? 0;
+  const id = crypto.randomUUID();
+
+  const [created] = await db
+    .insert(courierSubscriptionRequestsTable)
+    .values({
+      id,
+      courierId,
+      vehicleType: body.data.vehicleType,
+      planAmount,
+      paidAmount: body.data.paidAmount,
+      receiptUrl: body.data.receiptUrl ?? null,
+      status: "pending",
+    })
+    .returning();
+
+  res.status(201).json(created);
+});
+
+router.get("/courier/subscription/request/status", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+
+  const [latest] = await db
+    .select()
+    .from(courierSubscriptionRequestsTable)
+    .where(eq(courierSubscriptionRequestsTable.courierId, courierId))
+    .orderBy(desc(courierSubscriptionRequestsTable.createdAt))
+    .limit(1);
+
+  res.json(latest ?? null);
 });
 
 export default router;
