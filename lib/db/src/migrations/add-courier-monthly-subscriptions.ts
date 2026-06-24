@@ -15,8 +15,8 @@ export async function addCourierMonthlySubscriptions() {
   await db.execute(sql`
     UPDATE courier_subscriptions
     SET
-      starts_at = (date || 'T00:00:00+00:00')::TIMESTAMPTZ,
-      ends_at   = ((date::DATE + INTERVAL '30 days') || 'T00:00:00+00:00')::TIMESTAMPTZ
+      starts_at = date::DATE::TIMESTAMPTZ,
+      ends_at   = (date::DATE + INTERVAL '30 days')::TIMESTAMPTZ
     WHERE starts_at IS NULL AND date IS NOT NULL
   `);
 
