@@ -17,10 +17,22 @@ function CourierPushSetup() {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === "granted") {
-          const loc = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-          await updateLocation(loc.coords.latitude, loc.coords.longitude);
+          try {
+            const loc = await Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.Balanced,
+            });
+            await updateLocation(loc.coords.latitude, loc.coords.longitude);
+          } catch {
+            const last = await Location.getLastKnownPositionAsync();
+            if (last) {
+              await updateLocation(last.coords.latitude, last.coords.longitude);
+            }
+          }
+        } else {
+          const last = await Location.getLastKnownPositionAsync();
+          if (last) {
+            await updateLocation(last.coords.latitude, last.coords.longitude);
+          }
         }
       } catch {
       }
