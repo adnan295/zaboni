@@ -8,11 +8,12 @@ import { z } from "zod";
 import { sendSmsViaGateway } from "../lib/sms";
 import { sendPushToAllCustomers, isFlashDealImminent } from "../lib/push";
 import { whatsappManager } from "../lib/whatsapp";
-import { objectStorageClient } from "../lib/objectStorage";
+import { ObjectStorageService } from "../lib/objectStorage";
 import { composeBannerByTemplate, listPublicTemplates, getPreviewBuffer, ensurePreviewsExist } from "../lib/promoBannerComposer";
 import { randomUUID } from "crypto";
 
 const router = Router();
+const objectStorageService = new ObjectStorageService();
 
 const SEND_OTP_LIMIT = 3;
 const SEND_OTP_WINDOW_MS = 5 * 60 * 1000;
@@ -684,40 +685,17 @@ router.get("/restaurant-portal/stats", requireRestaurantAuth, async (req, res) =
   });
 });
 
-function parseStoragePath(path: string): { bucketName: string; objectName: string } {
-  if (!path.startsWith("/")) path = `/${path}`;
-  const parts = path.split("/");
-  if (parts.length < 3) throw new Error("Invalid storage path: must contain at least a bucket name");
-  return { bucketName: parts[1]!, objectName: parts.slice(2).join("/") };
-}
-
-function getPublicStorageBase(): string {
-  const paths = (process.env["PUBLIC_OBJECT_SEARCH_PATHS"] ?? "").split(",").map(p => p.trim()).filter(Boolean);
-  if (!paths[0]) throw new Error("PUBLIC_OBJECT_SEARCH_PATHS not configured");
-  return paths[0];
-}
-
 async function readFoodImageFromStorage(foodObjectPath: string): Promise<{ buffer: Buffer; contentType: string }> {
-  const base = getPublicStorageBase();
-  const fullPath = `${base}/${foodObjectPath}`;
-  const { bucketName, objectName } = parseStoragePath(fullPath);
-  const file = objectStorageClient.bucket(bucketName).file(objectName);
-  const [exists] = await file.exists();
-  if (!exists) throw new Error("صورة الوجبة غير موجودة في المستودع");
-  const [buffer] = await file.download();
-  const [meta] = await file.getMetadata();
-  const contentType = (meta.contentType as string | undefined) ?? "image/jpeg";
-  return { buffer, contentType };
+  try {
+    return await objectStorageService.readPublicFile(foodObjectPath);
+  } catch {
+    throw new Error("صورة الوجبة غير موجودة في المستودع");
+  }
 }
 
 async function uploadBannerToPublicStorage(buffer: Buffer, restaurantId: string, filename: string): Promise<string> {
-  const base = getPublicStorageBase();
   const relPath = `promo-banners/${restaurantId}/${filename}`;
-  const fullPath = `${base}/${relPath}`;
-  const { bucketName, objectName } = parseStoragePath(fullPath);
-  const file = objectStorageClient.bucket(bucketName).file(objectName);
-  await file.save(buffer, { contentType: "image/png", resumable: false });
-  return `/api/storage/public-objects/${relPath}`;
+  return objectStorageService.writePublicFile(relPath, buffer, "image/png");
 }
 
 

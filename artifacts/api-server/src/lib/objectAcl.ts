@@ -1,4 +1,5 @@
 import { File } from "@google-cloud/storage";
+import { readLocalObjectMeta, writeLocalObjectMeta } from "./localStorageMeta";
 
 const ACL_POLICY_METADATA_KEY = "custom:aclPolicy";
 
@@ -12,16 +13,32 @@ export interface ObjectAclPolicy {
   visibility: "public" | "private";
 }
 
+/**
+ * A handle to a stored object that abstracts over the two supported backends:
+ * - "gcs": a Google Cloud Storage `File` (Replit Object Storage sidecar, or a real GCS bucket)
+ * - "local": a file on the VPS's local disk, with a sidecar `.meta.json` for ACL/content-type
+ */
+export type StorageObjectHandle =
+  | { kind: "gcs"; file: File }
+  | { kind: "local"; absolutePath: string; relativePath: string };
+
 export async function setObjectAclPolicy(
-  objectFile: File,
+  handle: StorageObjectHandle,
   aclPolicy: ObjectAclPolicy,
 ): Promise<void> {
-  const [exists] = await objectFile.exists();
-  if (!exists) {
-    throw new Error(`Object not found: ${objectFile.name}`);
+  if (handle.kind === "local") {
+    const meta = await readLocalObjectMeta(handle.absolutePath);
+    meta.acl = aclPolicy;
+    await writeLocalObjectMeta(handle.absolutePath, meta);
+    return;
   }
 
-  await objectFile.setMetadata({
+  const [exists] = await handle.file.exists();
+  if (!exists) {
+    throw new Error(`Object not found: ${handle.file.name}`);
+  }
+
+  await handle.file.setMetadata({
     metadata: {
       [ACL_POLICY_METADATA_KEY]: JSON.stringify(aclPolicy),
     },
@@ -29,9 +46,14 @@ export async function setObjectAclPolicy(
 }
 
 export async function getObjectAclPolicy(
-  objectFile: File,
+  handle: StorageObjectHandle,
 ): Promise<ObjectAclPolicy | null> {
-  const [metadata] = await objectFile.getMetadata();
+  if (handle.kind === "local") {
+    const meta = await readLocalObjectMeta(handle.absolutePath);
+    return meta.acl ?? null;
+  }
+
+  const [metadata] = await handle.file.getMetadata();
   const raw = metadata?.metadata?.[ACL_POLICY_METADATA_KEY];
   if (!raw) return null;
   return JSON.parse(raw as string);
@@ -43,7 +65,7 @@ export async function canAccessObject({
   requestedPermission,
 }: {
   userId?: string;
-  objectFile: File;
+  objectFile: StorageObjectHandle;
   requestedPermission: ObjectPermission;
 }): Promise<boolean> {
   const policy = await getObjectAclPolicy(objectFile);

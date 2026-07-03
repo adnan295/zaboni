@@ -6,7 +6,17 @@ import {
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
 } from "@workspace/api-zod";
-import { ObjectStorageService, ObjectNotFoundError, MAX_PUBLIC_UPLOAD_SIZE_BYTES } from "../lib/objectStorage";
+import { createWriteStream } from "fs";
+import { mkdir, rm } from "fs/promises";
+import path from "path";
+import {
+  ObjectStorageService,
+  ObjectNotFoundError,
+  MAX_PUBLIC_UPLOAD_SIZE_BYTES,
+  isLocalStorageMode,
+  consumePendingLocalUpload,
+} from "../lib/objectStorage";
+import { writeLocalObjectMeta } from "../lib/localStorageMeta";
 import { ObjectPermission } from "../lib/objectAcl";
 
 const router: IRouter = Router();
@@ -131,9 +141,16 @@ router.post("/storage/uploads/request-url", requireUploadAuth, uploadRateLimit, 
   try {
     const { uploadURL, objectPath } = await objectStorageService.getPublicObjectUploadURL(contentType);
 
+    // Local-disk upload URLs are server-relative paths. Web clients can fetch()
+    // a relative URL fine (resolved against the page origin), but the Expo/React
+    // Native client has no page origin, so it needs an absolute URL.
+    const absoluteUploadURL = isLocalStorageMode
+      ? `${req.protocol}://${req.get("host")}${uploadURL}`
+      : uploadURL;
+
     res.json(
       RequestUploadUrlResponse.parse({
-        uploadURL,
+        uploadURL: absoluteUploadURL,
         objectPath,
         metadata: { name, size, contentType },
       }),
@@ -237,6 +254,74 @@ router.get("/storage/objects/*path", requireUploadAuth, async (req: Request, res
     }
     req.log.error({ err: error }, "Error serving object");
     res.status(500).json({ error: "Failed to serve object" });
+  }
+});
+
+/**
+ * PUT /storage/local-upload/:token
+ *
+ * Only active when STORAGE_MODE=local. Receives the raw file bytes for a
+ * pending upload token minted by getPublicObjectUploadURL /
+ * getObjectEntityUploadURL, and streams them directly to local disk.
+ * This replaces the GCS presigned-URL PUT step used in the default mode.
+ */
+router.put("/storage/local-upload/:token", async (req: Request, res: Response) => {
+  if (!isLocalStorageMode) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  const token = req.params["token"] as string;
+  const entry = consumePendingLocalUpload(token);
+  if (!entry) {
+    res.status(410).json({ error: "Upload link expired or invalid" });
+    return;
+  }
+
+  const declaredLength = Number(req.headers["content-length"] ?? 0);
+  if (declaredLength > entry.maxSizeBytes) {
+    res.status(413).json({ error: "File too large" });
+    return;
+  }
+
+  try {
+    await mkdir(path.dirname(entry.absolutePath), { recursive: true });
+
+    let bytesWritten = 0;
+    let tooLarge = false;
+
+    await new Promise<void>((resolve, reject) => {
+      const writeStream = createWriteStream(entry.absolutePath);
+
+      req.on("data", (chunk: Buffer) => {
+        bytesWritten += chunk.length;
+        if (bytesWritten > entry.maxSizeBytes && !tooLarge) {
+          tooLarge = true;
+          writeStream.destroy();
+          req.destroy();
+        }
+      });
+
+      writeStream.on("finish", resolve);
+      writeStream.on("error", reject);
+      req.on("error", reject);
+      req.on("aborted", () => reject(new Error("aborted")));
+
+      req.pipe(writeStream);
+    });
+
+    if (tooLarge) {
+      await rm(entry.absolutePath, { force: true });
+      res.status(413).json({ error: "File too large" });
+      return;
+    }
+
+    await writeLocalObjectMeta(entry.absolutePath, { contentType: entry.contentType });
+    res.status(200).json({ ok: true });
+  } catch (error) {
+    await rm(entry.absolutePath, { force: true }).catch(() => {});
+    req.log.error({ err: error }, "Error writing local upload");
+    res.status(500).json({ error: "Failed to save file" });
   }
 });
 
