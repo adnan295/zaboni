@@ -65,3 +65,9 @@ id = "6hSMEwt6QCZrULVlmzKKs"
 uri = "file://.local/backups/production_backup_20260703_143411.tar.gz"
 type = "unspecified"
 title = "Production database backup (pg_dump)"
+
+[[outputs]]
+id = "A5wiM5LyGFy68Mu1DHoO1"
+uri = "file://zaboni-images-export.tar.gz"
+type = "unspecified"
+title = "Zaboni Images Export (2962 files, for VPS migration)"
