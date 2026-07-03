@@ -59,3 +59,9 @@ id = "pQPJb8agn_hMCEA_VlwdD"
 uri = "file://promo-result.png"
 type = "image"
 title = "البوستر الترويجي — أرز بالدجاج الشهي 🩷"
+
+[[outputs]]
+id = "6hSMEwt6QCZrULVlmzKKs"
+uri = "file://.local/backups/production_backup_20260703_143411.tar.gz"
+type = "unspecified"
+title = "Production database backup (pg_dump)"
