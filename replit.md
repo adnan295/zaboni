@@ -60,6 +60,18 @@ Admin panel uses `ImageUpload` component (`artifacts/admin/src/components/ImageU
 Library: `lib/object-storage-web/` — `useUpload` hook and `ObjectUploader` component (Uppy-based).
 Server: `artifacts/api-server/src/lib/objectStorage.ts` — `ObjectStorageService` class.
 
+### STORAGE_MODE (local-disk backend for self-hosted VPS deployments)
+
+`ObjectStorageService` supports two backends, selected by the `STORAGE_MODE` env var:
+- `STORAGE_MODE` unset or `gcs` (default) — Replit Object Storage sidecar. Unchanged Replit dev/prod behavior.
+- `STORAGE_MODE=local` — stores files on local disk under `LOCAL_STORAGE_PUBLIC_DIR` / `LOCAL_STORAGE_PRIVATE_DIR` (both required in this mode). Intended for VPS deployments (e.g. Hostinger/aaPanel) that don't have the Replit sidecar available.
+
+In local mode there is no presigned-URL equivalent, so uploads go through the app server itself: the request-url endpoint mints a short-lived (15 min) in-memory token and returns `/api/storage/local-upload/:token`; the client's PUT streams raw bytes to `artifacts/api-server/src/routes/storage.ts`, which writes them to disk. ACL/content-type per object is tracked in a sidecar `<file>.meta.json` (see `artifacts/api-server/src/lib/localStorageMeta.ts`) since local disk has no GCS-style object metadata.
+
+The mobile app's `fetch(uploadURL)` requires an absolute URL (no page origin in React Native), so in local mode the request-url response builds the URL from the incoming request's host; web clients receive/consume the same absolute URL transparently.
+
+`restaurant-portal.ts`'s promo-banner compositing (`readFoodImageFromStorage`/`uploadBannerToPublicStorage`) goes through `ObjectStorageService.readPublicFile`/`writePublicFile`, which also branch on `STORAGE_MODE` — no direct GCS client usage remains outside `objectStorage.ts`.
+
 ## API Endpoints (`artifacts/api-server/`)
 
 - `GET /api/restaurants` — list all restaurants (sorted by rating)
