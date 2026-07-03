@@ -6,9 +6,11 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "db:sync-from-prod": "tsx ./src/sync-dev-from-prod.ts",
+    "export-images-for-vps": "tsx ./src/export-images-for-vps.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@google-cloud/storage": "^7.19.0",
     "@workspace/db": "workspace:*"
   },
   "devDependencies": {
