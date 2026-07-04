@@ -1,0 +1,209 @@
+lsof -p 563679 -i -P -n
+COMMAND      PID     USER   FD      TYPE  DEVICE  SIZE/OFF    NODE NAME
+systemd        1     root  140u     IPv4    6383       0t0     TCP *:22 (LISTEN)
+systemd        1     root  141u     IPv6    6385       0t0     TCP *:22 (LISTEN)
+dovecot      765     root   22u     IPv4    7554       0t0     TCP *:110 (LISTEN)
+dovecot      765     root   23u     IPv6    7555       0t0     TCP *:110 (LISTEN)
+dovecot      765     root   24u     IPv4    7556       0t0     TCP *:995 (LISTEN)
+dovecot      765     root   25u     IPv6    7557       0t0     TCP *:995 (LISTEN)
+dovecot      765     root   40u     IPv4    7570       0t0     TCP *:143 (LISTEN)
+dovecot      765     root   41u     IPv6    7571       0t0     TCP *:143 (LISTEN)
+dovecot      765     root   42u     IPv4    7572       0t0     TCP *:993 (LISTEN)
+dovecot      765     root   43u     IPv6    7573       0t0     TCP *:993 (LISTEN)
+httpd        864     root    4u     IPv6    6747       0t0     TCP *:8288 (LISTEN)
+httpd        864     root    6u     IPv6    6751       0t0     TCP *:8290 (LISTEN)
+httpd        864     root    8u     IPv6    6759       0t0     TCP *:8289 (LISTEN)
+rspamd       874  _rspamd   69u     IPv4   10674       0t0     TCP 127.0.0.1:11332 (LISTEN)
+rspamd       874  _rspamd   70u     IPv6   10675       0t0     TCP [::1]:11332 (LISTEN)
+rspamd       874  _rspamd   72u     IPv4   10680       0t0     TCP 127.0.0.1:11334 (LISTEN)
+rspamd       874  _rspamd   74u     IPv6   10681       0t0     TCP [::1]:11334 (LISTEN)
+rspamd       874  _rspamd   76u     IPv4   10686       0t0     TCP 127.0.0.1:11333 (LISTEN)
+rspamd       874  _rspamd   78u     IPv6   10687       0t0     TCP [::1]:11333 (LISTEN)
+httpd        994      www    4u     IPv6    6747       0t0     TCP *:8288 (LISTEN)
+httpd        994      www    6u     IPv6    6751       0t0     TCP *:8290 (LISTEN)
+httpd        994      www    8u     IPv6    6759       0t0     TCP *:8289 (LISTEN)
+httpd        996      www    4u     IPv6    6747       0t0     TCP *:8288 (LISTEN)
+httpd        996      www    6u     IPv6    6751       0t0     TCP *:8290 (LISTEN)
+httpd        996      www    8u     IPv6    6759       0t0     TCP *:8289 (LISTEN)
+httpd        997      www    4u     IPv6    6747       0t0     TCP *:8288 (LISTEN)
+httpd        997      www    6u     IPv6    6751       0t0     TCP *:8290 (LISTEN)
+httpd        997      www    8u     IPv6    6759       0t0     TCP *:8289 (LISTEN)
+pure-ftpd   1043     root    4u     IPv4    9153       0t0     TCP *:21 (LISTEN)
+pure-ftpd   1043     root    5u     IPv6    9154       0t0     TCP *:21 (LISTEN)
+redis-ser   1230    redis    8u     IPv4    9222       0t0     TCP 127.0.0.1:6379 (LISTEN)
+master      1908     root   13u     IPv4   10536       0t0     TCP *:25 (LISTEN)
+master      1908     root   14u     IPv6   10537       0t0     TCP *:25 (LISTEN)
+rspamd      1922  _rspamd   69u     IPv4   10674       0t0     TCP 127.0.0.1:11332 (LISTEN)
+rspamd      1922  _rspamd   70u     IPv6   10675       0t0     TCP [::1]:11332 (LISTEN)
+rspamd      1922  _rspamd   71u     IPv4   11507       0t0     UDP 72.60.23.28:37332->8.8.8.8:53 
+rspamd      1922  _rspamd   73u     IPv4   11508       0t0     UDP 72.60.23.28:38737->8.8.8.8:53 
+rspamd      1922  _rspamd   75u     IPv4   11509       0t0     UDP 72.60.23.28:59863->8.8.8.8:53 
+rspamd      1922  _rspamd   76u     IPv4   11510       0t0     UDP 72.60.23.28:34362->8.8.8.8:53 
+rspamd      1922  _rspamd   77u     IPv4   11511       0t0     UDP 72.60.23.28:55222->8.8.8.8:53 
+rspamd      1922  _rspamd   78u     IPv4   11512       0t0     UDP 72.60.23.28:49001->8.8.8.8:53 
+rspamd      1922  _rspamd   79u     IPv4   11513       0t0     UDP 72.60.23.28:54049->8.8.8.8:53 
+rspamd      1922  _rspamd   80u     IPv4   11514       0t0     UDP 72.60.23.28:45276->8.8.8.8:53 
+rspamd      1922  _rspamd   81u     IPv4   11515       0t0     UDP 72.60.23.28:53982->8.8.8.8:53 
+rspamd      1922  _rspamd   82u     IPv4   11516       0t0     UDP 72.60.23.28:51980->8.8.8.8:53 
+rspamd      1922  _rspamd   83u     IPv4   11517       0t0     UDP 72.60.23.28:40296->8.8.8.8:53 
+rspamd      1922  _rspamd   84u     IPv4   11518       0t0     UDP 72.60.23.28:58271->8.8.8.8:53 
+rspamd      1922  _rspamd   85u     IPv4   11519       0t0     UDP 72.60.23.28:43595->8.8.8.8:53 
+rspamd      1922  _rspamd   86u     IPv4   11520       0t0     UDP 72.60.23.28:37271->8.8.8.8:53 
+rspamd      1922  _rspamd   87u     IPv4   11521       0t0     UDP 72.60.23.28:53792->8.8.8.8:53 
+rspamd      1922  _rspamd   88u     IPv4   11522       0t0     UDP 72.60.23.28:58897->8.8.8.8:53 
+rspamd      1923  _rspamd   69u     IPv4   11543       0t0     UDP 72.60.23.28:36428->8.8.8.8:53 
+rspamd      1923  _rspamd   70u     IPv4   11544       0t0     UDP 72.60.23.28:43154->8.8.8.8:53 
+rspamd      1923  _rspamd   72u     IPv4   10680       0t0     TCP 127.0.0.1:11334 (LISTEN)
+rspamd      1923  _rspamd   74u     IPv6   10681       0t0     TCP [::1]:11334 (LISTEN)
+rspamd      1923  _rspamd   75u     IPv4   11545       0t0     UDP 72.60.23.28:41730->8.8.8.8:53 
+rspamd      1923  _rspamd   77u     IPv4   11546       0t0     UDP 72.60.23.28:54678->8.8.8.8:53 
+rspamd      1923  _rspamd   79u     IPv4   11547       0t0     UDP 72.60.23.28:35486->8.8.8.8:53 
+rspamd      1923  _rspamd   80u     IPv4   11548       0t0     UDP 72.60.23.28:58751->8.8.8.8:53 
+rspamd      1923  _rspamd   81u     IPv4   11549       0t0     UDP 72.60.23.28:35932->8.8.8.8:53 
+rspamd      1923  _rspamd   82u     IPv4   11550       0t0     UDP 72.60.23.28:39552->8.8.8.8:53 
+rspamd      1923  _rspamd   83u     IPv4   11551       0t0     UDP 72.60.23.28:57012->8.8.8.8:53 
+rspamd      1923  _rspamd   84u     IPv4   11552       0t0     UDP 72.60.23.28:48882->8.8.8.8:53 
+rspamd      1923  _rspamd   85u     IPv4   11553       0t0     UDP 72.60.23.28:52110->8.8.8.8:53 
+rspamd      1923  _rspamd   86u     IPv4   11554       0t0     UDP 72.60.23.28:43634->8.8.8.8:53 
+rspamd      1923  _rspamd   87u     IPv4   11555       0t0     UDP 72.60.23.28:35513->8.8.8.8:53 
+rspamd      1923  _rspamd   88u     IPv4   11556       0t0     UDP 72.60.23.28:52130->8.8.8.8:53 
+rspamd      1923  _rspamd   89u     IPv4   11557       0t0     UDP 72.60.23.28:34162->8.8.8.8:53 
+rspamd      1923  _rspamd   90u     IPv4   11558       0t0     UDP 72.60.23.28:48878->8.8.8.8:53 
+rspamd      1924  _rspamd   69u     IPv4   11525       0t0     UDP 72.60.23.28:50337->8.8.8.8:53 
+rspamd      1924  _rspamd   70u     IPv4   11526       0t0     UDP 72.60.23.28:58655->8.8.8.8:53 
+rspamd      1924  _rspamd   72u     IPv4   11527       0t0     UDP 72.60.23.28:35283->8.8.8.8:53 
+rspamd      1924  _rspamd   74u     IPv4   11528       0t0     UDP 72.60.23.28:57634->8.8.8.8:53 
+rspamd      1924  _rspamd   76u     IPv4   10686       0t0     TCP 127.0.0.1:11333 (LISTEN)
+rspamd      1924  _rspamd   78u     IPv6   10687       0t0     TCP [::1]:11333 (LISTEN)
+rspamd      1924  _rspamd   79u     IPv4   11529       0t0     UDP 72.60.23.28:42870->8.8.8.8:53 
+rspamd      1924  _rspamd   81u     IPv4   11530       0t0     UDP 72.60.23.28:38401->8.8.8.8:53 
+rspamd      1924  _rspamd   83u     IPv4   11531       0t0     UDP 72.60.23.28:35665->8.8.8.8:53 
+rspamd      1924  _rspamd   84u     IPv4   11532       0t0     UDP 72.60.23.28:39625->8.8.8.8:53 
+rspamd      1924  _rspamd   85u     IPv4   11533       0t0     UDP 72.60.23.28:46718->8.8.8.8:53 
+rspamd      1924  _rspamd   86u     IPv4   11534       0t0     UDP 72.60.23.28:56783->8.8.8.8:53 
+rspamd      1924  _rspamd   87u     IPv4   11535       0t0     UDP 72.60.23.28:46124->8.8.8.8:53 
+rspamd      1924  _rspamd   88u     IPv4   11536       0t0     UDP 72.60.23.28:58178->8.8.8.8:53 
+rspamd      1924  _rspamd   89u     IPv4   11537       0t0     UDP 72.60.23.28:38328->8.8.8.8:53 
+rspamd      1924  _rspamd   90u     IPv4   11538       0t0     UDP 72.60.23.28:35032->8.8.8.8:53 
+rspamd      1924  _rspamd   91u     IPv4   11539       0t0     UDP 72.60.23.28:43546->8.8.8.8:53 
+rspamd      1924  _rspamd   92u     IPv4   11540       0t0     UDP 72.60.23.28:39957->8.8.8.8:53 
+pdns_serv   1968     pdns    5u     IPv4   10869       0t0     UDP *:53 
+pdns_serv   1968     pdns    6u     IPv6   10870       0t0     UDP *:53 
+pdns_serv   1968     pdns    7u     IPv4   10871       0t0     TCP *:53 (LISTEN)
+pdns_serv   1968     pdns    8u     IPv6   10872       0t0     TCP *:53 (LISTEN)
+sshd        2314     root    3u     IPv4    6383       0t0     TCP *:22 (LISTEN)
+sshd        2314     root    4u     IPv6    6385       0t0     TCP *:22 (LISTEN)
+postgres   41210 postgres    6u     IPv6  390057       0t0     TCP [::1]:5433 (LISTEN)
+postgres   41210 postgres    7u     IPv4  390058       0t0     TCP 127.0.0.1:5433 (LISTEN)
+webserver 129899     root    7u     IPv4  993264       0t0     UDP *:14891 
+webserver 129899     root    8u     IPv4  993265       0t0     TCP *:14891 (LISTEN)
+webserver 129899     root    9u     IPv6  993266       0t0     TCP *:14891 (LISTEN)
+webserver 129899     root   10u     IPv6  993267       0t0     UDP *:14891 
+webserver 129900      www    7u     IPv4  993264       0t0     UDP *:14891 
+webserver 129900      www    8u     IPv4  993265       0t0     TCP *:14891 (LISTEN)
+webserver 129900      www    9u     IPv6  993266       0t0     TCP *:14891 (LISTEN)
+webserver 129900      www   10u     IPv6  993267       0t0     UDP *:14891 
+webserver 129900      www   17u     IPv4 4043099       0t0     TCP 72.60.23.28:14891->89.38.99.102:27514 (ESTABLISHED)
+nginx     363842     root    5u     IPv4 2701012       0t0     TCP *:80 (LISTEN)
+nginx     363842     root    6u     IPv6 2701013       0t0     TCP *:443 (LISTEN)
+nginx     363842     root    7u     IPv4 2701014       0t0     TCP *:443 (LISTEN)
+nginx     363842     root    8u     IPv6 2701015       0t0     TCP *:80 (LISTEN)
+httpd     433900      www    4u     IPv6    6747       0t0     TCP *:8288 (LISTEN)
+httpd     433900      www    6u     IPv6    6751       0t0     TCP *:8290 (LISTEN)
+httpd     433900      www    8u     IPv6    6759       0t0     TCP *:8289 (LISTEN)
+node      462160     root   18u     IPv6 4065244       0t0     TCP [::1]:40748->[::1]:5433 (ESTABLISHED)
+node      462160     root   19u     IPv6 4065241       0t0     TCP [::1]:40712->[::1]:5433 (ESTABLISHED)
+node      462160     root   20u     IPv4 3511649       0t0     TCP *:5000 (LISTEN)
+node      462160     root   21u     IPv6 4065242       0t0     TCP [::1]:40726->[::1]:5433 (ESTABLISHED)
+node      462160     root   22u     IPv6 4065243       0t0     TCP [::1]:40732->[::1]:5433 (ESTABLISHED)
+node      462160     root   23u     IPv6 4065245       0t0     TCP [::1]:40754->[::1]:5433 (ESTABLISHED)
+node      462160     root   24u     IPv6 4065246       0t0     TCP [::1]:40758->[::1]:5433 (ESTABLISHED)
+node      462160     root   25u     IPv6 4065249       0t0     TCP [::1]:40774->[::1]:5433 (ESTABLISHED)
+node      462160     root   26u     IPv6 4065250       0t0     TCP [::1]:40782->[::1]:5433 (ESTABLISHED)
+node      462160     root   27u     IPv6 4065251       0t0     TCP [::1]:40796->[::1]:5433 (ESTABLISHED)
+node      489412     root   20u     IPv4 3689626       0t0     TCP *:5001 (LISTEN)
+mysqld    507873    mysql   19u     IPv6 3801822       0t0     TCP *:33060 (LISTEN)
+mysqld    507873    mysql   22u     IPv6 3800719       0t0     TCP *:3306 (LISTEN)
+postgres  518497 postgres    7u     IPv6 3818141       0t0     TCP [::1]:5432 (LISTEN)
+postgres  518497 postgres    8u     IPv4 3818142       0t0     TCP 127.0.0.1:5432 (LISTEN)
+nginx     555821 www-data    5u     IPv4 2701012       0t0     TCP *:80 (LISTEN)
+nginx     555821 www-data    6u     IPv6 2701013       0t0     TCP *:443 (LISTEN)
+nginx     555821 www-data    7u     IPv4 2701014       0t0     TCP *:443 (LISTEN)
+nginx     555821 www-data    8u     IPv6 2701015       0t0     TCP *:80 (LISTEN)
+nginx     555823 www-data    5u     IPv4 2701012       0t0     TCP *:80 (LISTEN)
+nginx     555823 www-data    6u     IPv6 2701013       0t0     TCP *:443 (LISTEN)
+nginx     555823 www-data    7u     IPv4 2701014       0t0     TCP *:443 (LISTEN)
+nginx     555823 www-data    8u     IPv6 2701015       0t0     TCP *:80 (LISTEN)
+nginx     555823 www-data   11u     IPv4 4052523       0t0     TCP 72.60.23.28:443->51.89.7.37:65530 (ESTABLISHED)
+nginx     555823 www-data   13u     IPv4 4052545       0t0     TCP 127.0.0.1:40406->127.0.0.1:8080 (ESTABLISHED)
+nginx     555823 www-data   14u     IPv4 4052546       0t0     TCP 72.60.23.28:443->51.89.7.37:1030 (ESTABLISHED)
+nginx     555823 www-data   15u     IPv4 4052547       0t0     TCP 127.0.0.1:40422->127.0.0.1:8080 (ESTABLISHED)
+litespeed 558695     root    8u     IPv4  998646       0t0     TCP *:8188 (LISTEN)
+litespeed 558695     root    9u     IPv4  998647       0t0     TCP *:8188 (LISTEN)
+litespeed 558695     root   10u     IPv4  998644       0t0     TCP *:7080 (LISTEN)
+litespeed 558695     root   11u     IPv4  998645       0t0     UDP *:7080 
+litespeed 558695     root   12u     IPv4 3860443       0t0     TCP 127.0.0.1:999 (LISTEN)
+litespeed 558695     root   13u     IPv4 3860444       0t0     TCP 127.0.0.1:999 (LISTEN)
+litespeed 558699      www    8u     IPv4  998646       0t0     TCP *:8188 (LISTEN)
+litespeed 558699      www   10u     IPv4  998644       0t0     TCP *:7080 (LISTEN)
+litespeed 558699      www   11u     IPv4  998645       0t0     UDP *:7080 
+litespeed 558699      www   12u     IPv4 3860443       0t0     TCP 127.0.0.1:999 (LISTEN)
+litespeed 558700      www    9u     IPv4  998647       0t0     TCP *:8188 (LISTEN)
+litespeed 558700      www   13u     IPv4 3860444       0t0     TCP 127.0.0.1:999 (LISTEN)
+sshd      562195     root    4u     IPv4 4042121       0t0     TCP 72.60.23.28:22->169.254.0.1:53662 (ESTABLISHED)
+node-Main 563679      www  cwd       DIR     8,1      4096 6554037 /www/wwwroot/zaboni
+node-Main 563679      www  rtd       DIR     8,1      4096       2 /
+node-Main 563679      www  txt       REG     8,1 147947264 6291487 /www/server/nodejs/v26.4.0/bin/node
+node-Main 563679      www  mem       REG     8,1  16645008 2442931 /www/wwwroot/zaboni/node_modules/.pnpm/@img+sharp-libvips-linux-x64@1.2.4/node_modules/@img/sharp-libvips-linux-x64/lib/libvips-cpp.so.8.17.3
+node-Main 563679      www  mem       REG     8,1   2125328    4039 /usr/lib/x86_64-linux-gnu/libc.so.6
+node-Main 563679      www  mem       REG     8,1    410952 2394549 /www/wwwroot/zaboni/node_modules/.pnpm/@img+sharp-linux-x64@0.34.5/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node
+node-Main 563679      www  mem       REG     8,1     68104    4052 /usr/lib/x86_64-linux-gnu/libresolv.so.2
+node-Main 563679      www  mem       REG    0,15           4052524 anon_inode:[io_uring] (stat: No such file or directory)
+node-Main 563679      www  mem       REG    0,15           4051652 anon_inode:[io_uring] (stat: No such file or directory)
+node-Main 563679      www  mem       REG     8,1   2592224    7931 /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33
+node-Main 563679      www  mem       REG    0,15           4052521 anon_inode:[io_uring] (stat: No such file or directory)
+node-Main 563679      www  mem       REG     8,1     14408    4051 /usr/lib/x86_64-linux-gnu/libpthread.so.0
+node-Main 563679      www  mem       REG     8,1    183024    8253 /usr/lib/x86_64-linux-gnu/libgcc_s.so.1
+node-Main 563679      www  mem       REG     8,1    952616    4042 /usr/lib/x86_64-linux-gnu/libm.so.6
+node-Main 563679      www  mem       REG     8,1     14408    4041 /usr/lib/x86_64-linux-gnu/libdl.so.2
+node-Main 563679      www  mem       REG     8,1     35120    8234 /usr/lib/x86_64-linux-gnu/libatomic.so.1.2.0
+node-Main 563679      www  mem       REG    0,15           4051649 anon_inode:[io_uring] (stat: No such file or directory)
+node-Main 563679      www  mem       REG     8,1    236616    4036 /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+node-Main 563679      www    0r      CHR     1,3       0t0       5 /dev/null
+node-Main 563679      www    1w      REG     8,1     42062 6558224 /www/wwwlogs/nodejs/zaboni.log
+node-Main 563679      www    2w      REG     8,1     42062 6558224 /www/wwwlogs/nodejs/zaboni.log
+node-Main 563679      www    3u  a_inode    0,15         0      58 [eventpoll]
+node-Main 563679      www    4u  a_inode    0,15         0 4051649 [io_uring]
+node-Main 563679      www    5r     FIFO    0,14       0t0 4051650 pipe
+node-Main 563679      www    6w     FIFO    0,14       0t0 4051650 pipe
+node-Main 563679      www    7r     FIFO    0,14       0t0 4051651 pipe
+node-Main 563679      www    8w     FIFO    0,14       0t0 4051651 pipe
+node-Main 563679      www    9u  a_inode    0,15         0      58 [eventfd:11]
+node-Main 563679      www   10u  a_inode    0,15         0      58 [eventpoll:12,14]
+node-Main 563679      www   11u  a_inode    0,15         0 4052521 [io_uring]
+node-Main 563679      www   12r     FIFO    0,14       0t0 4052522 pipe
+node-Main 563679      www   13w     FIFO    0,14       0t0 4052522 pipe
+node-Main 563679      www   14u  a_inode    0,15         0      58 [eventfd:33]
+node-Main 563679      www   15u  a_inode    0,15         0      58 [eventpoll:17,19,26,30,37]
+node-Main 563679      www   16u  a_inode    0,15         0 4051652 [io_uring]
+node-Main 563679      www   17r     FIFO    0,14       0t0 4051653 pipe
+node-Main 563679      www   18w     FIFO    0,14       0t0 4051653 pipe
+node-Main 563679      www   19u  a_inode    0,15         0      58 [eventfd:34]
+node-Main 563679      www   20u  a_inode    0,15         0      58 [eventpoll:22,24]
+node-Main 563679      www   21u  a_inode    0,15         0 4052524 [io_uring]
+node-Main 563679      www   22r     FIFO    0,14       0t0 4052525 pipe
+node-Main 563679      www   23w     FIFO    0,14       0t0 4052525 pipe
+node-Main 563679      www   24u  a_inode    0,15         0      58 [eventfd:38]
+node-Main 563679      www   25r      CHR     1,3       0t0       5 /dev/null
+node-Main 563679      www   26u     IPv6 4051658       0t0     TCP *:8080 (LISTEN)
+node-Main 563679      www   30u     IPv6 4051769       0t0     TCP 127.0.0.1:8080->127.0.0.1:40406 (ESTABLISHED)
+node-Main 563679      www   37u     IPv6 4051770       0t0     TCP 127.0.0.1:8080->127.0.0.1:40422 (ESTABLISHED)
+postgres  566539 postgres   10u     IPv6 4065774       0t0     TCP [::1]:5433->[::1]:40712 (ESTABLISHED)
+postgres  566540 postgres   10u     IPv6 4065775       0t0     TCP [::1]:5433->[::1]:40726 (ESTABLISHED)
+postgres  566541 postgres   10u     IPv6 4065785       0t0     TCP [::1]:5433->[::1]:40732 (ESTABLISHED)
+postgres  566542 postgres   10u     IPv6 4065786       0t0     TCP [::1]:5433->[::1]:40748 (ESTABLISHED)
+postgres  566543 postgres   10u     IPv6 4065793       0t0     TCP [::1]:5433->[::1]:40754 (ESTABLISHED)
+postgres  566544 postgres   10u     IPv6 4065794       0t0     TCP [::1]:5433->[::1]:40758 (ESTABLISHED)
+postgres  566545 postgres   10u     IPv6 4065795       0t0     TCP [::1]:5433->[::1]:40774 (ESTABLISHED)
+postgres  566546 postgres   10u     IPv6 4065796       0t0     TCP [::1]:5433->[::1]:40782 (ESTABLISHED)
+postgres  566547 postgres   10u     IPv6 4065797       0t0     TCP [::1]:5433->[::1]:40796 (ESTABLISHED)
