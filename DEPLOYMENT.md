@@ -252,6 +252,65 @@ docker compose up -d
 `docker compose up -d` recreates only the containers whose image actually
 changed, so this is safe to run after every deploy.
 
+## 8. Shipping a new feature / build
+
+This is the day-to-day workflow once the app is live — every time you push
+a code change (new feature, bug fix, config tweak) that should go live on
+the VPS:
+
+```bash
+cd /www/wwwroot/zaboni
+git pull
+docker compose build
+docker compose up -d
+```
+
+What each step does:
+
+1. **`git pull`** brings the latest committed source onto the VPS. Nothing
+   is live yet at this point — the running containers are still on the old
+   code.
+2. **`docker compose build`** rebuilds the Docker images from that new
+   source: a fresh `pnpm install` plus the TypeScript/esbuild build for
+   `api-server` and the Vite builds for `admin` / `zaboni-web` /
+   `restaurant-portal`, baked into new images. The old images and running
+   containers are untouched during this step, so the site stays up.
+3. **`docker compose up -d`** swaps in the new images. Compose only
+   recreates containers whose image actually changed — e.g. a
+   frontend-only change rebuilds just the `web` container and leaves
+   `api-server` and `postgres` running uninterrupted.
+
+If the update includes a database schema change, run the schema push once
+the containers are back up:
+
+```bash
+docker compose exec api-server pnpm --filter @workspace/db run push
+```
+
+**Never substitute `docker compose restart` for this.** Restart just
+re-runs the existing image's startup command — it does not pick up new
+source code, which is exactly the stale-bundle bug described in the
+Troubleshooting section below.
+
+**Verifying you're on the new code:**
+
+```bash
+docker compose exec api-server cat /repo/.git/HEAD   # only works if .git wasn't excluded from the build context
+# or compare `docker images` creation timestamps against `git log -1`
+```
+
+**If this VPS also runs a second, non-Docker (PM2) project:** `docker
+compose` only ever affects the containers defined in the
+`docker-compose.yml` in your current directory — it has no visibility into
+processes managed by PM2, and PM2 commands (`pm2 kill`, `pm2 restart`,
+etc.) have no visibility into Docker containers. The two are fully isolated
+at the OS level. The only things to double-check are that each project
+listens on a different host port (this project's `web` container is
+published on `127.0.0.1:8090` only) and that aaPanel's site-level nginx
+routes each domain/subdomain to the correct project. Always run the
+`docker compose` commands above from inside this project's directory so
+you don't accidentally target the wrong `docker-compose.yml`.
+
 ## Troubleshooting
 
 **Symptom: after deploying new code, the app still 401s / behaves like the
