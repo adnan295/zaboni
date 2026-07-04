@@ -59,15 +59,26 @@ function OrderCard({
 
   const age = ageMinutes(order.createdAt);
   const isOld = age > 20;
+  const isErrand = order.orderType === "errand";
 
   return (
     <View style={[
       styles.card,
-      { backgroundColor: colors.card, borderColor: isOld ? "#fca5a5" : colors.border },
+      { backgroundColor: colors.card, borderColor: isErrand ? "#fed7aa" : isOld ? "#fca5a5" : colors.border },
     ]}>
       <View style={styles.cardHeader}>
         <View style={styles.row}>
-          {order.restaurantName ? (
+          {isErrand ? (
+            <>
+              <MaterialIcons name="shopping-bag" size={15} color="#ea580c" />
+              <Text style={[styles.restaurant, { color: "#ea580c" }]}>
+                {order.placeName ?? t("errand.badge")}
+              </Text>
+              <View style={styles.errandBadge}>
+                <Text style={styles.errandBadgeText}>{t("errand.badge")}</Text>
+              </View>
+            </>
+          ) : order.restaurantName ? (
             <>
               <MaterialIcons name="restaurant" size={15} color={colors.primary} />
               <Text style={[styles.restaurant, { color: colors.primary }]}>{order.restaurantName}</Text>
@@ -165,6 +176,10 @@ export default function AvailableOrdersScreen() {
 
   const hasActiveOrder = activeOrders.length > 0;
   const locationWatcher = useRef<Location.LocationSubscription | null>(null);
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastCoordsRef = useRef<{ lat: number; lon: number } | null>(null);
+
+  const LOCATION_HEARTBEAT_MS = 3 * 60 * 1000;
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
@@ -178,13 +193,17 @@ export default function AvailableOrdersScreen() {
         if (status !== "granted" || !active) return;
         const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         if (active) {
+          lastCoordsRef.current = { lat: loc.coords.latitude, lon: loc.coords.longitude };
           await updateLocation(loc.coords.latitude, loc.coords.longitude);
           await refreshAvailableOrders();
         }
         const watcher = await Location.watchPositionAsync(
-          { accuracy: Location.Accuracy.Balanced, distanceInterval: 50, timeInterval: 15000 },
+          { accuracy: Location.Accuracy.Balanced, distanceInterval: 20, timeInterval: 30000 },
           (position) => {
-            if (active) updateLocation(position.coords.latitude, position.coords.longitude);
+            if (active) {
+              lastCoordsRef.current = { lat: position.coords.latitude, lon: position.coords.longitude };
+              updateLocation(position.coords.latitude, position.coords.longitude);
+            }
           }
         );
         if (active) {
@@ -195,10 +214,28 @@ export default function AvailableOrdersScreen() {
       } catch {
       }
     })();
+
+    heartbeatRef.current = setInterval(async () => {
+      if (!lastCoordsRef.current) return;
+      try {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        lastCoordsRef.current = { lat: loc.coords.latitude, lon: loc.coords.longitude };
+        await updateLocation(loc.coords.latitude, loc.coords.longitude);
+      } catch {
+        if (lastCoordsRef.current) {
+          await updateLocation(lastCoordsRef.current.lat, lastCoordsRef.current.lon).catch(() => {});
+        }
+      }
+    }, LOCATION_HEARTBEAT_MS);
+
     return () => {
       active = false;
       locationWatcher.current?.remove();
       locationWatcher.current = null;
+      if (heartbeatRef.current) {
+        clearInterval(heartbeatRef.current);
+        heartbeatRef.current = null;
+      }
     };
   }, []);
 
@@ -430,6 +467,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#fee2e2",
   },
   oldBadgeText: { fontSize: 11, fontWeight: "700", color: "#dc2626" },
+  errandBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: "#fff3e0",
+  },
+  errandBadgeText: { fontSize: 10, fontWeight: "700", color: "#ea580c" },
   timeAgo: { fontSize: 12 },
   detailRow: {
     flexDirection: "row",

@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, type HomeFilter, type TabBarItem, type AvailableTabType } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { ImageUpload } from "@/components/ImageUpload";
 import {
   Select,
   SelectContent,
@@ -48,6 +49,8 @@ export default function Settings() {
   const [webhookTestResult, setWebhookTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [webhookTestLoading, setWebhookTestLoading] = useState(false);
 
+  const [paymentQrUrl, setPaymentQrUrl] = useState("");
+
   useEffect(() => {
     if (settings) {
       setGatewayUrl(settings["sms_gateway_url"] ?? "");
@@ -55,6 +58,7 @@ export default function Settings() {
       setSender(settings["sms_gateway_sender"] ?? "");
       setMethod((settings["sms_gateway_method"] as "GET" | "POST") ?? "POST");
       setAlertWebhookUrl(settings["alert_webhook_url"] ?? "");
+      setPaymentQrUrl(settings["payment_qr_url"] ?? "");
     }
   }, [settings]);
 
@@ -92,6 +96,26 @@ export default function Settings() {
 
   function handleWebhookSave() {
     webhookSaveMutation.mutate({ alert_webhook_url: alertWebhookUrl.trim() });
+  }
+
+  const qrSaveMutation = useMutation({
+    mutationFn: (data: Record<string, string>) => api.updateSettings(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "settings"] });
+      toast({ title: "تم الحفظ", description: "تم حفظ QR الدفع بنجاح" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "خطأ", description: err.message, variant: "destructive" });
+    },
+  });
+
+  function handleQrSave() {
+    qrSaveMutation.mutate({ payment_qr_url: paymentQrUrl });
+  }
+
+  function handleQrDelete() {
+    setPaymentQrUrl("");
+    qrSaveMutation.mutate({ payment_qr_url: "" });
   }
 
   async function handleWebhookTest() {
@@ -418,6 +442,331 @@ export default function Settings() {
           )}
         </CardContent>
       </Card>
+
+      {/* Payment QR Code Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">📲</span>
+            <div>
+              <CardTitle>QR كود الدفع</CardTitle>
+              <CardDescription>
+                ارفع صورة QR لحساب الدفع (سيريتل كاش / MTN) — ستظهر للسائق في شاشة المحفظة
+              </CardDescription>
+            </div>
+            <div className="mr-auto">
+              {paymentQrUrl ? (
+                <Badge variant="default" className="bg-green-600">مُعدَّل ✓</Badge>
+              ) : (
+                <Badge variant="secondary">غير مُعدَّل</Badge>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <ImageUpload
+            label="صورة QR الدفع"
+            value={paymentQrUrl}
+            onChange={setPaymentQrUrl}
+          />
+          <div className="flex gap-3">
+            <Button
+              onClick={handleQrSave}
+              disabled={qrSaveMutation.isPending}
+              className="flex-1 bg-orange-500 hover:bg-orange-600"
+            >
+              {qrSaveMutation.isPending ? "جاري الحفظ..." : "حفظ QR الدفع"}
+            </Button>
+            {paymentQrUrl && (
+              <Button
+                onClick={handleQrDelete}
+                disabled={qrSaveMutation.isPending}
+                variant="outline"
+                className="shrink-0 text-destructive border-destructive hover:bg-destructive/10"
+              >
+                حذف QR
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            الصورة ستظهر للسائق في شاشة "محفظتي" تحت سجل المعاملات — فقط إذا كانت مرفوعة
+          </p>
+        </CardContent>
+      </Card>
+
+      <HomeFiltersCard />
+      <TabBarCard />
     </div>
+  );
+}
+
+function HomeFiltersCard() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: filters, isLoading } = useQuery<HomeFilter[]>({
+    queryKey: ["admin", "home-filters"],
+    queryFn: api.getHomeFilters,
+  });
+
+  const [localFilters, setLocalFilters] = useState<HomeFilter[]>([]);
+
+  useEffect(() => {
+    if (filters) setLocalFilters(filters);
+  }, [filters]);
+
+  const saveMutation = useMutation({
+    mutationFn: api.saveHomeFilters,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "home-filters"] });
+      toast({ title: "تم حفظ الفلاتر بنجاح ✓" });
+    },
+    onError: () => {
+      toast({ title: "فشل الحفظ", variant: "destructive" });
+    },
+  });
+
+  const toggle = (idx: number) => {
+    setLocalFilters((prev) =>
+      prev.map((f, i) => (i === idx ? { ...f, enabled: !f.enabled } : f))
+    );
+  };
+
+  const move = (idx: number, dir: -1 | 1) => {
+    const next = idx + dir;
+    if (next < 0 || next >= localFilters.length) return;
+    setLocalFilters((prev) => {
+      const copy = [...prev];
+      [copy[idx], copy[next]] = [copy[next], copy[idx]];
+      return copy.map((f, i) => ({ ...f, order: i }));
+    });
+  };
+
+  const labelFor = (key: string) => {
+    const map: Record<string, string> = {
+      rating: "تقييم",
+      time: "وقت التوصيل",
+      fee: "سعر التوصيل",
+      openNow: "مفتوح الآن",
+    };
+    return map[key] ?? key;
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>فلاتر الصفحة الرئيسية</CardTitle>
+        <CardDescription>
+          تحكم بالفلاتر التي تظهر للمستخدمين في الشاشة الرئيسية للتطبيق. رتّبها حسب الأولوية.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">جارٍ التحميل…</p>
+        ) : (
+          localFilters.map((f, idx) => (
+            <div key={f.key} className="flex items-center justify-between p-3 rounded-md border">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => toggle(idx)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                    f.enabled ? "bg-primary" : "bg-muted"
+                  }`}
+                  aria-label={f.enabled ? "تعطيل" : "تفعيل"}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                      f.enabled ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+                <span className="font-medium text-sm">{labelFor(f.key)}</span>
+                {f.enabled && (
+                  <Badge variant="default" className="bg-green-600 text-xs">مفعّل</Badge>
+                )}
+              </div>
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => move(idx, -1)}
+                  disabled={idx === 0}
+                  className="h-7 w-7 p-0"
+                  aria-label="تحريك للأعلى"
+                >
+                  ↑
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => move(idx, 1)}
+                  disabled={idx === localFilters.length - 1}
+                  className="h-7 w-7 p-0"
+                  aria-label="تحريك للأسفل"
+                >
+                  ↓
+                </Button>
+              </div>
+            </div>
+          ))
+        )}
+
+        {!isLoading && localFilters.filter((f) => f.enabled).length === 0 && (
+          <p className="text-xs text-muted-foreground">
+            لا توجد فلاتر مفعّلة — لن يظهر شريط الفلاتر في التطبيق.
+          </p>
+        )}
+
+        <Button
+          onClick={() => saveMutation.mutate(localFilters)}
+          disabled={saveMutation.isPending || isLoading}
+          className="w-full mt-2"
+        >
+          {saveMutation.isPending ? "جارٍ الحفظ…" : "حفظ الفلاتر"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+const TAB_LABEL_MAP: Record<string, string> = {
+  home:      "الرئيسية",
+  favorites: "المفضلة",
+  orders:    "طلباتي",
+  profile:   "حسابي",
+  offers:    "عروض",
+  search:    "بحث",
+  errand:    "🛍 اطلب من أي مكان",
+};
+
+function TabBarCard() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: config, isLoading: configLoading } = useQuery<TabBarItem[]>({
+    queryKey: ["admin", "tab-bar"],
+    queryFn: api.getTabBarConfig,
+  });
+
+  const { data: available = [] } = useQuery<AvailableTabType[]>({
+    queryKey: ["admin", "tab-bar-types"],
+    queryFn: api.getAvailableTabTypes,
+  });
+
+  const [items, setItems] = useState<TabBarItem[]>([]);
+  const [addType, setAddType] = useState<string>("");
+
+  useEffect(() => {
+    if (config) setItems(config);
+  }, [config]);
+
+  const saveMutation = useMutation({
+    mutationFn: api.saveTabBarConfig,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "tab-bar"] });
+      toast({ title: "تم حفظ شريط التبويبات ✓" });
+    },
+    onError: (e: Error) => {
+      toast({ title: e.message || "فشل الحفظ", variant: "destructive" });
+    },
+  });
+
+  const move = (idx: number, dir: -1 | 1) => {
+    const next = idx + dir;
+    if (next < 0 || next >= items.length) return;
+    setItems((prev) => {
+      const copy = [...prev];
+      [copy[idx], copy[next]] = [copy[next], copy[idx]];
+      return copy.map((x, i) => ({ ...x, order: i }));
+    });
+  };
+
+  const remove = (idx: number) => {
+    setItems((prev) => prev.filter((_, i) => i !== idx).map((x, i) => ({ ...x, order: i })));
+  };
+
+  const renameItem = (idx: number, val: string) => {
+    setItems((prev) => prev.map((x, i) => (i === idx ? { ...x, labelAr: val } : x)));
+  };
+
+  const addTab = () => {
+    if (!addType) return;
+    const def = available.find((a) => a.type === addType);
+    if (!def) return;
+    const newItem: TabBarItem = { type: def.type, labelAr: def.labelAr, order: items.length };
+    setItems((prev) => [...prev, newItem]);
+    setAddType("");
+  };
+
+  const usedTypes = new Set(items.map((x) => x.type));
+  const addableTypes = available.filter((a) => !usedTypes.has(a.type));
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>شريط التبويبات السفلي</CardTitle>
+        <CardDescription>
+          تحكم بالتبويبات التي تظهر في الشريط السفلي للتطبيق وترتيبها. تبويب الرئيسية إلزامي.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {configLoading ? (
+          <p className="text-sm text-muted-foreground">جارٍ التحميل…</p>
+        ) : (
+          items.map((item, idx) => (
+            <div key={`${item.type}-${idx}`} className="flex items-center gap-2 p-3 rounded-md border">
+              <div className="flex flex-col gap-1 flex-1">
+                <p className="text-xs text-muted-foreground">{TAB_LABEL_MAP[item.type] ?? item.type}</p>
+                <Input
+                  value={item.labelAr}
+                  onChange={(e) => renameItem(idx, e.target.value)}
+                  className="h-8 text-sm"
+                  dir="rtl"
+                  placeholder="اسم التبويب"
+                />
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <Button variant="ghost" size="sm" onClick={() => move(idx, -1)} disabled={idx === 0}
+                  className="h-8 w-8 p-0">↑</Button>
+                <Button variant="ghost" size="sm" onClick={() => move(idx, 1)} disabled={idx === items.length - 1}
+                  className="h-8 w-8 p-0">↓</Button>
+                <Button variant="ghost" size="sm" onClick={() => remove(idx)}
+                  disabled={item.type === "home"}
+                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                  aria-label="حذف">✕</Button>
+              </div>
+            </div>
+          ))
+        )}
+
+        {/* Add tab row */}
+        {addableTypes.length > 0 && (
+          <div className="flex gap-2 pt-1">
+            <Select value={addType} onValueChange={setAddType}>
+              <SelectTrigger className="flex-1 h-9">
+                <SelectValue placeholder="اختر تبويباً للإضافة…" />
+              </SelectTrigger>
+              <SelectContent>
+                {addableTypes.map((a) => (
+                  <SelectItem key={a.type} value={a.type}>{TAB_LABEL_MAP[a.type] ?? a.type}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button variant="outline" onClick={addTab} disabled={!addType} className="h-9 px-3">
+              ＋ إضافة
+            </Button>
+          </div>
+        )}
+
+        <Button
+          onClick={() => saveMutation.mutate(items)}
+          disabled={saveMutation.isPending || configLoading}
+          className="w-full mt-2"
+        >
+          {saveMutation.isPending ? "جارٍ الحفظ…" : "حفظ الشريط السفلي"}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

@@ -30,6 +30,7 @@ export default function NameScreen() {
   const { phone, token, userId } = useLocalSearchParams<{ phone: string; token: string; userId: string }>();
   const { signIn } = useAuth();
   const [name, setName] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [loading, setLoading] = useState(false);
 
   const isValid = name.trim().length >= 2;
@@ -42,13 +43,17 @@ export default function NameScreen() {
     try {
       const base = getApiBaseUrl();
       const trimmedName = name.trim();
+      const body: Record<string, string> = { name: trimmedName };
+      if (referralCode.trim().length === 8) {
+        body.referralCode = referralCode.trim().toUpperCase();
+      }
       const res = await fetch(`${base}/api/auth/me`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ name: trimmedName }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -108,11 +113,35 @@ export default function NameScreen() {
             value={name}
             onChangeText={setName}
             autoFocus
+            returnKeyType="next"
+            maxLength={40}
+            textAlign="left"
+          />
+
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.card,
+                borderColor: referralCode.length > 0 ? colors.primary : colors.border,
+                color: colors.foreground,
+                marginTop: 12,
+              },
+            ]}
+            placeholder={t("auth.name.referralPlaceholder")}
+            placeholderTextColor={colors.mutedForeground}
+            value={referralCode}
+            onChangeText={(v) => setReferralCode(v.toUpperCase())}
+            autoCapitalize="characters"
+            autoCorrect={false}
             returnKeyType="done"
             onSubmitEditing={handleFinish}
-            textAlign="right"
-            maxLength={40}
+            maxLength={8}
+            textAlign="left"
           />
+          <Text style={[styles.referralHint, { color: colors.mutedForeground }]}>
+            {t("auth.name.referralHint")}
+          </Text>
 
           <TouchableOpacity
             style={[styles.finishBtn, { backgroundColor: isValid ? colors.primary : colors.muted }]}
@@ -141,7 +170,8 @@ const styles = StyleSheet.create({
   iconBox: { width: 80, height: 80, borderRadius: 24, alignItems: "center", justifyContent: "center", marginBottom: 24 },
   title: { fontSize: 24, fontWeight: "800", marginBottom: 8 },
   subtitle: { fontSize: 14, marginBottom: 32, textAlign: "center" },
-  input: { width: "100%", height: 56, borderRadius: 16, borderWidth: 1.5, paddingHorizontal: 18, fontSize: 17, fontWeight: "600", marginBottom: 20 },
+  input: { width: "100%", height: 56, borderRadius: 16, borderWidth: 1.5, paddingHorizontal: 18, fontSize: 17, fontWeight: "600" },
+  referralHint: { fontSize: 12, marginTop: 6, marginBottom: 20, textAlign: "center" },
   finishBtn: { width: "100%", height: 56, borderRadius: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   finishBtnText: { fontSize: 17, fontWeight: "700" },
 });

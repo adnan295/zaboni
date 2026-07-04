@@ -29,3 +29,45 @@ id = "6n3iuXgIWVZohOlZXL9t1"
 uri = "file://artifacts/marsool/BUILDING.md"
 type = "text"
 title = "دليل بناء تطبيق زبوني (Android & iOS)"
+
+[[outputs]]
+id = "uOkkQuHbtL6oM67bcIqOF"
+uri = "file://artifacts/marsool/assets/images/feature-graphic.png"
+type = "image"
+title = "Google Play Feature Graphic — Modern"
+
+[[outputs]]
+id = "8dA3P41U59HBdlWNRIAO8"
+uri = "file://artifacts/marsool/assets/images/adaptive-icon.png"
+type = "image"
+title = "Android Adaptive Icon — Foreground (1024×1024)"
+
+[[outputs]]
+id = "rIsanZ43SiMQr8bGbfuUl"
+uri = "file://artifacts/marsool/assets/images/notification-icon.png"
+type = "image"
+title = "Android Notification Icon — Scooter (white on transparent)"
+
+[[outputs]]
+id = "DoNWpeOY64lJ3efljNFMx"
+uri = "file://ZABONI_OVERVIEW.md"
+type = "text"
+title = "Zaboni — Complete Platform Overview"
+
+[[outputs]]
+id = "pQPJb8agn_hMCEA_VlwdD"
+uri = "file://promo-result.png"
+type = "image"
+title = "البوستر الترويجي — أرز بالدجاج الشهي 🩷"
+
+[[outputs]]
+id = "6hSMEwt6QCZrULVlmzKKs"
+uri = "file://.local/backups/production_backup_20260703_143411.tar.gz"
+type = "unspecified"
+title = "Production database backup (pg_dump)"
+
+[[outputs]]
+id = "A5wiM5LyGFy68Mu1DHoO1"
+uri = "file://zaboni-images-export.tar.gz"
+type = "unspecified"
+title = "Zaboni Images Export (2962 files, for VPS migration)"

@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import { useOrders, OrderStatus, Order } from "@/context/OrderContext";
+import { useCart } from "@/context/CartContext";
 import { useRatings } from "@/context/RatingsContext";
 import { customFetch } from "@workspace/api-client-react";
 
@@ -69,6 +70,7 @@ function StarRow({ stars, size = 16 }: { stars: number; size?: number }) {
 }
 
 function OrderCard({ order }: { order: Order }) {
+  const cart = useCart();
   const colors = useColors();
   const router = useRouter();
   const { t } = useTranslation();
@@ -174,18 +176,48 @@ function OrderCard({ order }: { order: Order }) {
           </View>
         )}
 
+        {order.status === "delivered" && (order.pointsEarned ?? 0) > 0 && (
+          <View style={[styles.pointsBadge, { backgroundColor: "#a855f711" }]}>
+            <MaterialIcons name="stars" size={13} color="#a855f7" />
+            <Text style={[styles.pointsBadgeText, { color: "#a855f7" }]}>
+              {t("loyalty.earnedBadge", { points: order.pointsEarned!.toLocaleString() })}
+            </Text>
+          </View>
+        )}
+
+        {(order.pointsRedeemed ?? 0) > 0 && (
+          <View style={[styles.pointsBadge, { backgroundColor: "#6366f111" }]}>
+            <MaterialIcons name="stars" size={13} color="#6366f1" />
+            <Text style={[styles.pointsBadgeText, { color: "#6366f1" }]}>
+              -{order.pointsRedeemed!.toLocaleString()} {t("loyalty.points")}
+            </Text>
+          </View>
+        )}
+
         {(order.status === "delivered" || order.status === "cancelled") && (
           <TouchableOpacity
             style={[styles.reorderBtn, { backgroundColor: colors.secondary }]}
-            onPress={() =>
-              router.push({
-                pathname: "/order-request",
-                params: {
-                  restaurantName: order.restaurantName,
-                  reorderText: order.orderText,
-                },
-              })
-            }
+            onPress={() => {
+              const items = (order.items ?? []).filter((i) => i.menuItemId);
+              if (items.length > 0 && order.restaurantId) {
+                cart.replaceCart(
+                  order.restaurantId,
+                  order.restaurantName,
+                  items.map((i) => ({
+                    menuItemId: i.menuItemId as string,
+                    nameAr: i.nameAr,
+                    price: i.unitPrice,
+                    qty: i.qty,
+                  }))
+                );
+                router.push({
+                  pathname: "/order-request",
+                  params: { restaurantName: order.restaurantName, restaurantId: order.restaurantId },
+                });
+              } else if (order.restaurantId) {
+                router.push({ pathname: "/restaurant/[id]", params: { id: order.restaurantId } });
+              }
+            }}
           >
             <MaterialIcons name="replay" size={16} color={colors.primary} />
             <Text style={[styles.reorderBtnText, { color: colors.primary }]}>{t("orders.reorder")}</Text>
@@ -209,6 +241,10 @@ type PaginatedOrdersResponse = {
     createdAt: string;
     address: string;
     estimatedMinutes: number;
+    pointsEarned?: number;
+    pointsRedeemed?: number;
+    restaurantId?: string | null;
+    items?: { menuItemId: string | null; nameAr: string; unitPrice: number; qty: number; lineTotal: number }[];
   }[];
   total: number;
   hasMore: boolean;
@@ -220,6 +256,8 @@ function toLocalOrder(o: PaginatedOrdersResponse["orders"][number]): Order {
     id: o.id,
     userId: (o as { userId?: string }).userId ?? "",
     orderText: o.orderText,
+    restaurantId: o.restaurantId ?? null,
+    items: o.items ?? [],
     restaurantName: o.restaurantName,
     status: o.status as OrderStatus,
     courierName: o.courierName,
@@ -229,6 +267,8 @@ function toLocalOrder(o: PaginatedOrdersResponse["orders"][number]): Order {
     createdAt: new Date(o.createdAt).getTime(),
     address: o.address,
     estimatedMinutes: o.estimatedMinutes,
+    pointsEarned: o.pointsEarned ?? 0,
+    pointsRedeemed: o.pointsRedeemed ?? 0,
   };
 }
 
@@ -367,7 +407,7 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 12, fontWeight: "700" },
   date: { fontSize: 12 },
   divider: { height: 1 },
-  orderText: { fontSize: 13, lineHeight: 20, textAlign: "right" },
+  orderText: { fontSize: 13, lineHeight: 20, textAlign: "left" },
   courierRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   courierName: { fontSize: 12 },
   footer: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 8, marginTop: 4, flexWrap: "wrap" },
@@ -381,4 +421,6 @@ const styles = StyleSheet.create({
   reorderBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
   reorderBtnText: { fontSize: 13, fontWeight: "700" },
   skeletonLine: { height: 16, borderRadius: 8, marginBottom: 4 },
+  pointsBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  pointsBadgeText: { fontSize: 12, fontWeight: "700" },
 });

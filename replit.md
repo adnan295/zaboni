@@ -60,13 +60,25 @@ Admin panel uses `ImageUpload` component (`artifacts/admin/src/components/ImageU
 Library: `lib/object-storage-web/` — `useUpload` hook and `ObjectUploader` component (Uppy-based).
 Server: `artifacts/api-server/src/lib/objectStorage.ts` — `ObjectStorageService` class.
 
+### STORAGE_MODE (local-disk backend for self-hosted VPS deployments)
+
+`ObjectStorageService` supports two backends, selected by the `STORAGE_MODE` env var:
+- `STORAGE_MODE` unset or `gcs` (default) — Replit Object Storage sidecar. Unchanged Replit dev/prod behavior.
+- `STORAGE_MODE=local` — stores files on local disk under `LOCAL_STORAGE_PUBLIC_DIR` / `LOCAL_STORAGE_PRIVATE_DIR` (both required in this mode). Intended for VPS deployments (e.g. Hostinger/aaPanel) that don't have the Replit sidecar available.
+
+In local mode there is no presigned-URL equivalent, so uploads go through the app server itself: the request-url endpoint mints a short-lived (15 min) in-memory token and returns `/api/storage/local-upload/:token`; the client's PUT streams raw bytes to `artifacts/api-server/src/routes/storage.ts`, which writes them to disk. ACL/content-type per object is tracked in a sidecar `<file>.meta.json` (see `artifacts/api-server/src/lib/localStorageMeta.ts`) since local disk has no GCS-style object metadata.
+
+The mobile app's `fetch(uploadURL)` requires an absolute URL (no page origin in React Native), so in local mode the request-url response builds the URL from the incoming request's host; web clients receive/consume the same absolute URL transparently.
+
+`restaurant-portal.ts`'s promo-banner compositing (`readFoodImageFromStorage`/`uploadBannerToPublicStorage`) goes through `ObjectStorageService.readPublicFile`/`writePublicFile`, which also branch on `STORAGE_MODE` — no direct GCS client usage remains outside `objectStorage.ts`.
+
 ## API Endpoints (`artifacts/api-server/`)
 
 - `GET /api/restaurants` — list all restaurants (sorted by rating)
 - `GET /api/restaurants/:id` — restaurant details
 - `GET /api/restaurants/:id/menu` — restaurant menu items
 - `GET /api/orders?userId=guest` — list user orders
-- `POST /api/orders` — create order (auto-assigns mock courier)
+- `POST /api/orders` — create order from a structured cart (`items: [{menuItemId, qty}]`). Server recomputes every line price from the DB (client `totalPrice` is ignored/removed), derives the restaurant from the cart items, enforces a single-restaurant cart (400 `items_cross_restaurant`), auto-generates `orderText`, and returns `items[]` in the response. Legacy free-text `orderText`-only orders are still accepted (no priced items)
 - `GET /api/orders/:id` — order details
 - `PATCH /api/orders/:id/status` — update order status
 - `GET /api/addresses?userId=guest` — list addresses
@@ -202,3 +214,33 @@ If FCM/APNs creds are missing, the corresponding channel auto-disables (warning 
 
 ### Foreground Token Refresh
 `hooks/usePushNotifications.ts` re-registers on every `AppState=active` (cooldown 30 s) so token rotations are picked up without a relaunch.
+
+## OTA Updates (EAS Update)
+
+`expo-updates ~0.28.x` is installed and configured for over-the-air JS/UI updates without a Play Store submission.
+
+### One-time setup (required before first OTA-enabled build)
+```bash
+cd artifacts/marsool
+eas login                   # login with your Expo account
+eas init                    # links project → writes projectId to app.json + eas.json
+```
+After `eas init`, replace both `YOUR_PROJECT_ID` placeholders in `artifacts/marsool/app.json` with the real UUID it outputs.
+
+### Build once & upload to Play
+```bash
+eas build --platform android --profile production  # produces AAB
+# Upload the AAB to Google Play Console as a new release
+```
+This is the last time you need to touch Play Store for UI/JS-only changes.
+
+### Push an OTA update (after the one-time build is live)
+```bash
+cd artifacts/marsool
+eas update --channel production --message "وصف التعديل"
+```
+Users receive the update silently on next app launch (no Play Store action needed).
+
+### Config files
+- `artifacts/marsool/app.json` — `expo.updates`, `expo.runtimeVersion`, `expo.extra.eas.projectId`
+- `artifacts/marsool/eas.json` — each build profile has a `channel` (`production` / `preview`)

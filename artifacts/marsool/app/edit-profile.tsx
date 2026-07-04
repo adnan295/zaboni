@@ -69,7 +69,6 @@ export default function EditProfileScreen() {
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert(t("editProfile.permissionDenied"), t("editProfile.permissionMessage"));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -181,7 +180,7 @@ export default function EditProfileScreen() {
                 placeholder={t("editProfile.namePlaceholder")}
                 placeholderTextColor={colors.mutedForeground}
                 maxLength={60}
-                textAlign="right"
+                textAlign="left"
               />
             </View>
 
@@ -198,7 +197,7 @@ export default function EditProfileScreen() {
                 placeholder={t("editProfile.phonePlaceholder")}
                 placeholderTextColor={colors.mutedForeground}
                 keyboardType="phone-pad"
-                textAlign="right"
+                textAlign="left"
               />
             </View>
           </View>

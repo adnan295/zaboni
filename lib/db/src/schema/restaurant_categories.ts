@@ -7,6 +7,7 @@ export const restaurantCategoriesTable = pgTable("restaurant_categories", {
   nameAr: text("name_ar").notNull(),
   nameEn: text("name_en").notNull().default(""),
   iconName: text("icon_name").notNull().default("restaurant"),
+  imageUrl: text("image_url"),
   sortOrder: integer("sort_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),

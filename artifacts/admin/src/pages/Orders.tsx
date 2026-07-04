@@ -76,7 +76,14 @@ function exportCSV(orders: Order[]) {
 }
 
 export default function Orders() {
-  const [search, setSearch] = useState("");
+  const [urlOrderId] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("orderId") ?? "";
+  });
+  const [search, setSearch] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("orderId") ?? params.get("search") ?? "";
+  });
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -84,10 +91,12 @@ export default function Orders() {
 
   const apiDateFrom = dateFrom || undefined;
   const apiDateTo = dateTo || undefined;
+  // When navigated from an SLA alert, use server-side orderId filter to bypass pagination
+  const apiOrderId = urlOrderId || undefined;
 
   const { data, isLoading } = useQuery({
-    queryKey: ["admin", "orders", page, apiDateFrom, apiDateTo],
-    queryFn: () => api.getOrders(page, PAGE_SIZE, apiDateFrom, apiDateTo),
+    queryKey: ["admin", "orders", page, apiDateFrom, apiDateTo, apiOrderId],
+    queryFn: () => api.getOrders(page, PAGE_SIZE, apiDateFrom, apiDateTo, apiOrderId),
     refetchInterval: 15_000,
   });
 
@@ -97,6 +106,8 @@ export default function Orders() {
 
   const filtered = orders.filter((o) => {
     const matchesSearch =
+      !search ||
+      o.id.toLowerCase().includes(search.toLowerCase()) ||
       o.orderText.includes(search) ||
       o.restaurantName.toLowerCase().includes(search.toLowerCase()) ||
       o.address.toLowerCase().includes(search.toLowerCase()) ||
@@ -298,11 +309,20 @@ function OrderRow({ order }: { order: Order }) {
         onClick={() => setExpanded((e) => !e)}
       >
         <td className="px-4 py-3">
-          <p className="font-mono text-xs text-muted-foreground mb-1">
-            #{order.id.slice(-8)}
-          </p>
+          <div className="flex items-center gap-1.5 mb-1">
+            <p className="font-mono text-xs text-muted-foreground">
+              #{order.id.slice(-8)}
+            </p>
+            {order.orderType === "errand" && (
+              <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700">
+                متجول
+              </span>
+            )}
+          </div>
           <p className="text-sm line-clamp-1" dir="rtl">
-            {order.orderText}
+            {order.orderType === "errand" && order.placeName
+              ? `🛍 ${order.placeName}`
+              : order.orderText}
           </p>
         </td>
         <td className="px-4 py-3 text-sm">

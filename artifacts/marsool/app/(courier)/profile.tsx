@@ -34,10 +34,10 @@ interface CourierStats {
 }
 
 interface SubscriptionStatus {
-  status: "paid" | "waived" | "pending";
+  status: "paid" | "no_subscription";
   amount: number;
   date: string;
-  note?: string | null;
+  isMonthlySubscriber: boolean;
 }
 
 interface ContactConfig {
@@ -299,8 +299,8 @@ export default function CourierProfileScreen() {
               style={[
                 styles.subscriptionCard,
                 {
-                  backgroundColor: subscription.status === "pending" ? "#fff7ed" : "#f0fdf4",
-                  borderColor: subscription.status === "pending" ? "#fed7aa" : "#bbf7d0",
+                  backgroundColor: subscription.isMonthlySubscriber ? "#f0fdf4" : "#fff7ed",
+                  borderColor: subscription.isMonthlySubscriber ? "#bbf7d0" : "#fed7aa",
                 },
               ]}
               onPress={() => router.push("/(courier)/subscription-history")}
@@ -308,32 +308,30 @@ export default function CourierProfileScreen() {
             >
               <View style={styles.subscriptionLeft}>
                 <MaterialIcons
-                  name={subscription.status === "pending" ? "warning" : "check-circle"}
+                  name={subscription.isMonthlySubscriber ? "verified" : "warning-amber"}
                   size={22}
-                  color={subscription.status === "pending" ? "#ea580c" : "#16a34a"}
+                  color={subscription.isMonthlySubscriber ? "#16a34a" : "#ea580c"}
                 />
                 <View>
                   <Text style={[
                     styles.subscriptionTitle,
-                    { color: subscription.status === "pending" ? "#c2410c" : "#15803d" },
+                    { color: subscription.isMonthlySubscriber ? "#15803d" : "#c2410c" },
                   ]}>
-                    {subscription.status === "paid"
-                      ? "اشتراك اليوم مدفوع ✓"
-                      : subscription.status === "waived"
-                      ? "اشتراك اليوم: معفى ✓"
-                      : "اشتراك اليوم غير مدفوع"}
+                    {subscription.isMonthlySubscriber
+                      ? "مشترك شهري ✓"
+                      : "لا يوجد اشتراك شهري"}
                   </Text>
                   <Text style={[
                     styles.subscriptionSub,
-                    { color: subscription.status === "pending" ? "#9a3412" : "#166534" },
+                    { color: subscription.isMonthlySubscriber ? "#166534" : "#9a3412" },
                   ]}>
-                    {subscription.status === "pending"
-                      ? "تواصل مع الإدارة لتسوية الاشتراك"
-                      : `${subscription.amount.toLocaleString("ar-SY")} ل.س`}
+                    {subscription.isMonthlySubscriber
+                      ? "الاشتراك الشهري مفعّل"
+                      : "تواصل مع الإدارة لتفعيل الاشتراك"}
                   </Text>
                 </View>
               </View>
-              <MaterialIcons name="chevron-left" size={20} color={subscription.status === "pending" ? "#ea580c" : "#16a34a"} />
+              <MaterialIcons name="chevron-left" size={20} color={subscription.isMonthlySubscriber ? "#16a34a" : "#ea580c"} />
             </TouchableOpacity>
           )}
 
@@ -441,7 +439,7 @@ export default function CourierProfileScreen() {
               <View style={styles.supportInfo}>
                 <Text style={[styles.menuText, { color: colors.foreground }]}>كيف يعمل التطبيق</Text>
                 <Text style={[styles.supportSub, { color: colors.mutedForeground }]}>
-                  اشتراك يومي — احتفظ بكامل رسوم التوصيل
+                  اشتراك شهري — احتفظ بكامل رسوم التوصيل
                 </Text>
               </View>
               <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
@@ -482,9 +480,9 @@ export default function CourierProfileScreen() {
                   <MaterialIcons name="credit-card" size={24} color="#DC2626" />
                 </View>
                 <View style={styles.howText}>
-                  <Text style={[styles.howTitle, { color: colors.foreground }]}>الاشتراك اليومي</Text>
+                  <Text style={[styles.howTitle, { color: colors.foreground }]}>الاشتراك الشهري</Text>
                   <Text style={[styles.howBody, { color: colors.mutedForeground }]}>
-                    تدفع رسوم اشتراك يومية للمنصة. يمكنك الدفع مسبقاً عبر المحفظة أو التسوية مع الإدارة.
+                    تدفع رسوم اشتراك شهرية للمنصة. يمكنك الدفع مسبقاً عبر المحفظة أو التسوية مع الإدارة.
                   </Text>
                 </View>
               </View>
@@ -508,7 +506,7 @@ export default function CourierProfileScreen() {
                 <View style={styles.howText}>
                   <Text style={[styles.howTitle, { color: colors.foreground }]}>المحفظة</Text>
                   <Text style={[styles.howBody, { color: colors.mutedForeground }]}>
-                    ادفع رصيداً في مكتب الإدارة وأودعه في محفظتك. يُستقطع منها الاشتراك اليومي تلقائياً.
+                    ادفع رصيداً في مكتب الإدارة وأودعه في محفظتك. يُستخدم لتسديد رسوم الاشتراك الشهري.
                   </Text>
                 </View>
               </View>

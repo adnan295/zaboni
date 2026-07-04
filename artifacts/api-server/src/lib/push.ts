@@ -1,5 +1,5 @@
 import { Expo } from "expo-server-sdk";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, userNotificationsTable } from "@workspace/db";
 import { and, eq, inArray, isNotNull, or } from "drizzle-orm";
 import { sendFcmNotification, isFcmConfigured } from "./firebase";
 import { sendApnsNotifications, isApnsConfigured } from "./apns";
@@ -148,6 +148,36 @@ async function sendToTokens(
  * Send a push notification to specific users across every channel
  * (Expo + FCM + APNs in parallel).
  */
+async function persistUserNotifications(
+  userIds: string[],
+  title: string,
+  body: string,
+  data?: Record<string, string>,
+): Promise<void> {
+  if (userIds.length === 0) return;
+  const type = (() => {
+    const t = data?.type;
+    if (t === "order_update" || t === "new_order") return "order_status" as const;
+    if (t === "flash_deal") return "promo" as const;
+    if (t === "chat_message") return "system" as const;
+    return "system" as const;
+  })();
+  const orderId = data?.orderId ?? undefined;
+  const rows = userIds.map((userId) => ({
+    id: `un_${Date.now()}${Math.random().toString(36).slice(2, 8)}_${userId.slice(-4)}`,
+    userId,
+    title,
+    body,
+    type,
+    orderId: orderId ?? null,
+  }));
+  try {
+    await db.insert(userNotificationsTable).values(rows);
+  } catch (e) {
+    logger.warn({ err: e }, "Failed to persist user notifications");
+  }
+}
+
 export async function sendPushToUsers(
   userIds: string[],
   title: string,
@@ -155,7 +185,9 @@ export async function sendPushToUsers(
   data?: Record<string, string>,
 ): Promise<PushTotals> {
   const tokens = await loadTokensForUserIds(userIds);
-  return sendToTokens(tokens, title, body, data);
+  const totals = await sendToTokens(tokens, title, body, data);
+  await persistUserNotifications(userIds, title, body, data);
+  return totals;
 }
 
 /**
@@ -196,6 +228,37 @@ export async function sendPushToRole(
   }
 
   return sendToTokens(tokens, title, body, data);
+}
+
+/**
+ * Returns true when a flash deal warrants an immediate customer push notification:
+ * - isActive=true (deal is live right now), OR
+ * - startsAt is within the next SOON_HOURS hours (deal starts very soon, even if not yet active)
+ */
+const SOON_HOURS = 2;
+export function isFlashDealImminent(isActive: boolean, startsAt: Date): boolean {
+  if (isActive) return true;
+  const now = Date.now();
+  const starts = startsAt.getTime();
+  return starts > now && starts - now <= SOON_HOURS * 60 * 60 * 1000;
+}
+
+/**
+ * Send a push notification to all customers (role="customer").
+ * Persists to user_notifications so they appear in the in-app notification list.
+ */
+export async function sendPushToAllCustomers(
+  title: string,
+  body: string,
+  data?: Record<string, string>,
+): Promise<PushTotals> {
+  const customers = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.role, "customer"));
+  const userIds = customers.map((c) => c.id);
+  if (userIds.length === 0) return emptyTotals();
+  return sendPushToUsers(userIds, title, body, data);
 }
 
 /**

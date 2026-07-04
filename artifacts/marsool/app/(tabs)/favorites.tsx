@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     borderBottomWidth: 1,
   },
-  title: { fontSize: 22, fontWeight: "800", textAlign: "right" },
+  title: { fontSize: 22, fontWeight: "800", textAlign: "left" },
   emptyContainer: {
     flex: 1,
     alignItems: "center",

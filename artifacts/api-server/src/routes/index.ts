@@ -10,6 +10,12 @@ import favoritesRouter from "./favorites";
 import notificationsRouter from "./notifications";
 import configRouter from "./config";
 import storageRouter from "./storage";
+import restaurantPortalRouter from "./restaurant-portal";
+import loyaltyRouter from "./loyalty";
+import achievementsRouter from "./achievements";
+import subscriptionsRouter from "./subscriptions";
+import supportRouter from "./support";
+import referralRouter from "./referral";
 import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
@@ -21,11 +27,18 @@ router.use(restaurantsRouter);
 router.use(adminRouter);
 router.use(notificationsRouter);
 router.use(storageRouter);
+router.use(restaurantPortalRouter);
+
+router.use(supportRouter);
 
 router.use(requireAuth);
 router.use(ordersRouter);
 router.use(addressesRouter);
 router.use(courierRouter);
 router.use(favoritesRouter);
+router.use(loyaltyRouter);
+router.use(achievementsRouter);
+router.use(subscriptionsRouter);
+router.use(referralRouter);
 
 export default router;

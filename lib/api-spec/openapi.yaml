@@ -438,6 +438,36 @@ components:
           type: string
           nullable: true
 
+    MenuItemOption:
+      type: object
+      required: [id, nameAr, extraPrice, isDefault, sortOrder]
+      properties:
+        id:
+          type: string
+        nameAr:
+          type: string
+        extraPrice:
+          type: integer
+        isDefault:
+          type: boolean
+        sortOrder:
+          type: integer
+
+    MenuItemOptionGroup:
+      type: object
+      required: [id, nameAr, sortOrder, options]
+      properties:
+        id:
+          type: string
+        nameAr:
+          type: string
+        sortOrder:
+          type: integer
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/MenuItemOption'
+
     MenuItem:
       type: object
       required:
@@ -471,8 +501,25 @@ components:
           type: string
         categoryAr:
           type: string
+        subcategory:
+          type: string
+          nullable: true
+        subcategoryAr:
+          type: string
+          nullable: true
         isPopular:
           type: boolean
+        isAvailable:
+          type: boolean
+        isDeal:
+          type: boolean
+        dealPrice:
+          type: number
+          nullable: true
+        optionGroups:
+          type: array
+          items:
+            $ref: '#/components/schemas/MenuItemOptionGroup'
 
     Order:
       type: object
@@ -520,10 +567,74 @@ components:
         updatedAt:
           type: string
           format: date-time
+        restaurantNote:
+          type: string
+          nullable: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+
+    OrderItemOption:
+      type: object
+      required: [nameAr, extraPrice]
+      properties:
+        nameAr:
+          type: string
+        extraPrice:
+          type: integer
+
+    OrderItem:
+      type: object
+      required: [id, orderId, nameAr, unitPrice, qty, lineTotal]
+      properties:
+        id:
+          type: string
+        orderId:
+          type: string
+        menuItemId:
+          type: string
+          nullable: true
+        nameAr:
+          type: string
+        unitPrice:
+          type: integer
+        qty:
+          type: integer
+        lineTotal:
+          type: integer
+        note:
+          type: string
+          nullable: true
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItemOption'
+
+    CreateOrderItemOption:
+      type: object
+      required: [optionId]
+      properties:
+        optionId:
+          type: string
+
+    CreateOrderItem:
+      type: object
+      required: [menuItemId, qty]
+      properties:
+        menuItemId:
+          type: string
+        qty:
+          type: integer
+        note:
+          type: string
+        selectedOptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateOrderItemOption'
 
     CreateOrderRequest:
       type: object
-      required: [orderText]
       properties:
         orderText:
           type: string
@@ -541,6 +652,16 @@ components:
           type: number
         restaurantId:
           type: string
+        totalPrice:
+          type: integer
+        usePoints:
+          type: boolean
+        restaurantNote:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateOrderItem'
 
     UpdateOrderStatusRequest:
       type: object

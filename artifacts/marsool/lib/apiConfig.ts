@@ -1,22 +1,22 @@
 import { Platform } from "react-native";
 import { setBaseUrl } from "@workspace/api-client-react";
 
-const LOCAL_DEV = "http://localhost:8080";
-const PROD = `https://${process.env.EXPO_PUBLIC_API_HOST}`;
+const PROD_HOST = process.env.EXPO_PUBLIC_API_HOST ?? "zaboni.app";
+const PROD = `https://${PROD_HOST}`;
+const DEV_HOST = process.env.EXPO_PUBLIC_DOMAIN;
+const DEV_BASE = DEV_HOST ? `https://${DEV_HOST}` : "http://localhost:8080";
 
 export function initApiClient() {
   if (Platform.OS === "web") {
     setBaseUrl(null);
   } else {
-    const host = process.env.EXPO_PUBLIC_API_HOST;
-    setBaseUrl(host ? PROD : LOCAL_DEV);
+    setBaseUrl(__DEV__ ? DEV_BASE : PROD);
   }
 }
 
 export function getApiBaseUrl(): string {
   if (Platform.OS === "web") return "";
-  const host = process.env.EXPO_PUBLIC_API_HOST;
-  return host ? PROD : LOCAL_DEV;
+  return __DEV__ ? DEV_BASE : PROD;
 }
 
 export function buildImageUrl(path: string | null | undefined): string | undefined {

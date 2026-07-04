@@ -19,6 +19,15 @@ Notifications.setNotificationHandler({
   }),
 });
 
+type NotifType = "order_status" | "promo" | "rating_request" | "system";
+
+type AddNotificationFn = (n: {
+  type: NotifType;
+  title: string;
+  body: string;
+  orderId?: string;
+}) => void;
+
 type NotificationData = Record<string, unknown> | null | undefined;
 
 function getNotificationData(
@@ -29,10 +38,29 @@ function getNotificationData(
     : notification.request.content.data;
 }
 
+function getNotificationContent(
+  notification: Notifications.Notification | Notifications.NotificationResponse,
+): { title: string; body: string } {
+  const content =
+    "notification" in notification
+      ? notification.notification.request.content
+      : notification.request.content;
+  return {
+    title: content.title ?? "",
+    body: content.body ?? "",
+  };
+}
+
+function pushTypeToNotifType(type: string | undefined): NotifType {
+  if (type === "order_update" || type === "new_order") return "order_status";
+  if (type === "flash_deal") return "promo";
+  return "system";
+}
+
 function getNotificationTargetRoute(
   notification: Notifications.Notification | Notifications.NotificationResponse,
   userRole: "customer" | "courier",
-): string | null {
+): string {
   const data = getNotificationData(notification);
   const type = data?.type as string | undefined;
   const orderId = data?.orderId as string | undefined;
@@ -51,10 +79,23 @@ function getNotificationTargetRoute(
     return "/(tabs)";
   }
 
-  return null;
+  if (type === "flash_deal") {
+    const restaurantId = data?.restaurantId as string | undefined;
+    if (restaurantId) {
+      return `/restaurant/${restaurantId}` as string;
+    }
+    return "/(tabs)";
+  }
+
+  if (type === "referral") {
+    return "/(tabs)/profile";
+  }
+
+  return "/notifications";
 }
 
 const handledResponseIds = new Set<string>();
+const handledReceivedIds = new Set<string>();
 
 const REGISTRATION_COOLDOWN_MS = 30_000;
 
@@ -117,8 +158,6 @@ async function registerForPush(authToken: string): Promise<void> {
     Authorization: `Bearer ${authToken}`,
   };
 
-  // 1) Save the native device token first (FCM on Android, APNs on iOS).
-  // This is the channel that actually works on Replit-managed Expo accounts.
   const deviceTokenData = await getDevicePushTokenWithRetry();
   if (deviceTokenData?.data && typeof deviceTokenData.data === "string") {
     const payload =
@@ -140,8 +179,6 @@ async function registerForPush(authToken: string): Promise<void> {
     }
   }
 
-  // 2) Try to also save the Expo push token as a secondary channel.
-  // Wrapped separately so any failure here does NOT block the native flow above.
   try {
     const projectId = process.env["EXPO_PUBLIC_PROJECT_ID"];
     const expoTokenData = await Notifications.getExpoPushTokenAsync(
@@ -159,15 +196,20 @@ async function registerForPush(authToken: string): Promise<void> {
   }
 }
 
-export function usePushNotifications(onNewOrderTap?: () => void) {
+export function usePushNotifications(
+  onNewOrderTap?: () => void,
+  addNotification?: AddNotificationFn,
+) {
   const { token, user } = useAuth();
   const router = useRouter();
   const routerRef = useRef(router);
   const onNewOrderTapRef = useRef(onNewOrderTap);
+  const addNotificationRef = useRef(addNotification);
   const userRoleRef = useRef<"customer" | "courier">(user?.role ?? "customer");
   const lastRegistrationRef = useRef<number>(0);
   routerRef.current = router;
   onNewOrderTapRef.current = onNewOrderTap;
+  addNotificationRef.current = addNotification;
   userRoleRef.current = user?.role ?? "customer";
 
   useEffect(() => {
@@ -182,10 +224,8 @@ export function usePushNotifications(onNewOrderTap?: () => void) {
       );
     };
 
-    // Register on login / token change
     tryRegister();
 
-    // Re-register when app returns to foreground (catches token refresh)
     const handleAppStateChange = (nextState: AppStateStatus) => {
       if (nextState === "active") tryRegister();
     };
@@ -197,6 +237,23 @@ export function usePushNotifications(onNewOrderTap?: () => void) {
   useEffect(() => {
     if (Platform.OS === "web") return;
 
+    const addToInbox = (
+      notification: Notifications.Notification | Notifications.NotificationResponse,
+      inboxId: string,
+    ) => {
+      if (handledReceivedIds.has(inboxId)) return;
+      handledReceivedIds.add(inboxId);
+      const data = getNotificationData(notification);
+      const { title, body } = getNotificationContent(notification);
+      if (!title && !body) return;
+      addNotificationRef.current?.({
+        type: pushTypeToNotifType(data?.type as string | undefined),
+        title,
+        body,
+        orderId: data?.orderId as string | undefined,
+      });
+    };
+
     const handleResponse = (
       response: Notifications.NotificationResponse,
       route: string,
@@ -204,6 +261,9 @@ export function usePushNotifications(onNewOrderTap?: () => void) {
       const id = response.notification.request.identifier;
       if (handledResponseIds.has(id)) return;
       handledResponseIds.add(id);
+
+      addToInbox(response, `tap-${id}`);
+
       routerRef.current.push(route as Parameters<typeof routerRef.current.push>[0]);
       const data = getNotificationData(response);
       if ((data?.type as string | undefined) === "new_order") {
@@ -216,19 +276,32 @@ export function usePushNotifications(onNewOrderTap?: () => void) {
         const lastResponse = await Notifications.getLastNotificationResponseAsync();
         if (lastResponse) {
           const route = getNotificationTargetRoute(lastResponse, userRoleRef.current);
-          if (route) handleResponse(lastResponse, route);
+          handleResponse(lastResponse, route);
         }
       } catch {
       }
     })();
 
-    const subscription = Notifications.addNotificationResponseReceivedListener(
+    const responseSub = Notifications.addNotificationResponseReceivedListener(
       (response) => {
         const route = getNotificationTargetRoute(response, userRoleRef.current);
-        if (route) handleResponse(response, route);
+        handleResponse(response, route);
       },
     );
 
-    return () => subscription.remove();
+    const receivedSub = Notifications.addNotificationReceivedListener(
+      (notification) => {
+        addToInbox(notification, notification.request.identifier);
+        const data = getNotificationData(notification);
+        if ((data?.type as string | undefined) === "new_order") {
+          onNewOrderTapRef.current?.();
+        }
+      },
+    );
+
+    return () => {
+      responseSub.remove();
+      receivedSub.remove();
+    };
   }, []);
 }

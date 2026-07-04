@@ -8,6 +8,8 @@
 
 export * from "./address";
 export * from "./createAddressParams";
+export * from "./createOrderItem";
+export * from "./createOrderItemOption";
 export * from "./createOrderRequest";
 export * from "./deleteAddressParams";
 export * from "./errorResponse";
@@ -15,7 +17,11 @@ export * from "./getAddressesParams";
 export * from "./getOrdersParams";
 export * from "./healthStatus";
 export * from "./menuItem";
+export * from "./menuItemOption";
+export * from "./menuItemOptionGroup";
 export * from "./order";
+export * from "./orderItem";
+export * from "./orderItemOption";
 export * from "./orderStatus";
 export * from "./restaurant";
 export * from "./setDefaultAddressParams";

@@ -15,6 +15,8 @@ export const usersTable = pgTable("users", {
   courierLocationUpdatedAt: timestamp("courier_location_updated_at", { withTimezone: true }),
   isOnline: boolean("is_online").notNull().default(true),
   walletBalance: integer("wallet_balance").notNull().default(0),
+  loyaltyPoints: integer("loyalty_points").notNull().default(0),
+  isBlocked: boolean("is_blocked").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

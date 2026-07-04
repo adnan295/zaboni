@@ -2,7 +2,7 @@
   "expo": {
     "name": "زبوني",
     "slug": "zaboni",
-    "version": "1.0.0",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "zaboni",
@@ -20,14 +20,14 @@
       "backgroundColor": "#DC2626"
     },
     "notification": {
-      "icon": "./assets/images/icon.png",
+      "icon": "./assets/images/notification-icon.png",
       "color": "#DC2626",
       "androidMode": "default"
     },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.zaboni.delivery",
-      "buildNumber": "1",
+      "buildNumber": "14",
       "googleServicesFile": "./GoogleService-Info.plist",
       "entitlements": {
         "aps-environment": "production"
@@ -41,7 +41,7 @@
     },
     "android": {
       "package": "com.zaboni.delivery",
-      "versionCode": 1,
+      "versionCode": 11,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
@@ -57,18 +57,20 @@
       "favicon": "./assets/images/icon.png"
     },
     "plugins": [
+      "./plugins/withRoomFix",
       [
         "expo-router",
         {
           "origin": "https://replit.com/"
         }
       ],
+      "expo-updates",
       "expo-font",
       "expo-web-browser",
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/icon.png",
+          "icon": "./assets/images/notification-icon.png",
           "color": "#DC2626",
           "defaultChannel": "default",
           "mode": "production"
@@ -82,11 +84,29 @@
           "isIosBackgroundLocationEnabled": false,
           "isAndroidBackgroundLocationEnabled": false
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Zaboni uses your photo library to update your profile picture. You can select any photo from your album to display on your account.",
+          "cameraPermission": "يستخدم زبوني الكاميرا لالتقاط صورة ملفك الشخصي مباشرة."
+        }
       ]
     ],
     "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
+      "typedRoutes": true
+    },
+    "updates": {
+      "url": "https://u.expo.dev/7632bc54-6c31-4b8a-ae83-b3b0076bce20",
+      "enabled": true,
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD"
+    },
+    "runtimeVersion": "1.0.4",
+    "extra": {
+      "eas": {
+        "projectId": "7632bc54-6c31-4b8a-ae83-b3b0076bce20"
+      }
     }
   }
 }

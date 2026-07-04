@@ -1,8 +1,20 @@
-import { Router, type IRouter } from "express";
-import { db, restaurantsTable, menuItemsTable, restaurantHoursTable, promoBannersTable, restaurantCategoriesTable } from "@workspace/db";
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { Router, type IRouter, type Request } from "express";
+import { db, restaurantsTable, menuItemsTable, restaurantHoursTable, promoBannersTable, restaurantCategoriesTable, restaurantCategorySortOrdersTable, homeSectionItemsTable, categoryRestaurantExclusionsTable, flashDealsTable, menuItemOptionGroupsTable, menuItemOptionsTable } from "@workspace/db";
+import { and, asc, desc, eq, gt, inArray, isNull, lt, lte, notInArray, or, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
+
+function resolveImageUrl(imageUrl: string | null | undefined, req: Request): string | null | undefined {
+  if (!imageUrl || imageUrl.startsWith("http")) return imageUrl;
+  const domains = process.env.REPLIT_DOMAINS;
+  if (domains) {
+    const primary = domains.split(",")[0].trim();
+    return `https://${primary}${imageUrl}`;
+  }
+  const proto = req.get("x-forwarded-proto") ?? req.protocol;
+  const host = req.get("x-forwarded-host") ?? req.get("host") ?? "localhost";
+  return `${proto}://${host}${imageUrl}`;
+}
 
 function getDamascusNow(): { dayOfWeek: number; prevDayOfWeek: number; nowMinutes: number } {
   const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Damascus" }));
@@ -67,9 +79,24 @@ async function getHoursForRestaurants(ids: string[], days: number[]): Promise<Ma
   return result;
 }
 
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 router.get("/restaurants", async (req, res) => {
   const search = typeof req.query["search"] === "string" ? req.query["search"].trim() : "";
   const category = typeof req.query["category"] === "string" ? req.query["category"].trim() : "";
+  const categoryId = typeof req.query["categoryId"] === "string" ? req.query["categoryId"].trim() : "";
+  const lat = typeof req.query["lat"] === "string" ? parseFloat(req.query["lat"]) : null;
+  const lon = typeof req.query["lon"] === "string" ? parseFloat(req.query["lon"]) : null;
+  const hasLocation = lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon);
+  const hasCategoryId = categoryId && categoryId !== "all";
 
   let query = db.select().from(restaurantsTable).$dynamic();
 
@@ -89,19 +116,155 @@ router.get("/restaurants", async (req, res) => {
     query = query.where(and(...conditions));
   }
 
-  const rows = await query.orderBy(desc(restaurantsTable.rating));
+  // Filter out restaurants excluded from this category
+  if (hasCategoryId) {
+    const excluded = await db
+      .select({ restaurantId: categoryRestaurantExclusionsTable.restaurantId })
+      .from(categoryRestaurantExclusionsTable)
+      .where(eq(categoryRestaurantExclusionsTable.categoryId, categoryId));
+    if (excluded.length > 0) {
+      const excludedIds = excluded.map((e) => e.restaurantId);
+      query = query.where(notInArray(restaurantsTable.id, excludedIds));
+    }
+  }
+
+  const rows = await query;
+
+  let categorySortMap = new Map<string, number>();
+  if (hasCategoryId) {
+    const catSortRows = await db
+      .select()
+      .from(restaurantCategorySortOrdersTable)
+      .where(eq(restaurantCategorySortOrdersTable.categoryId, categoryId));
+    for (const r of catSortRows) {
+      categorySortMap.set(r.restaurantId, r.sortOrder);
+    }
+  }
+
   const { dayOfWeek, prevDayOfWeek, nowMinutes } = getDamascusNow();
   const hoursMap = await getHoursForRestaurants(rows.map((r) => r.id), [dayOfWeek, prevDayOfWeek]);
 
+  const now = new Date();
+  const activeFlashDealRows = rows.length > 0
+    ? await db
+        .select({
+          restaurantId: flashDealsTable.restaurantId,
+          discountType: flashDealsTable.discountType,
+          discountValue: flashDealsTable.discountValue,
+        })
+        .from(flashDealsTable)
+        .where(
+          and(
+            eq(flashDealsTable.isActive, true),
+            lte(flashDealsTable.startsAt, now),
+            gt(flashDealsTable.endsAt, now),
+            inArray(flashDealsTable.restaurantId, rows.map((r) => r.id)),
+            or(isNull(flashDealsTable.maxUses), lt(flashDealsTable.usedCount, flashDealsTable.maxUses))
+          )
+        )
+    : [];
+  const flashDealRestaurantIds = new Set(activeFlashDealRows.map((f) => f.restaurantId));
+  // Build max flash-deal percent per restaurant (percent-type flash deals only)
+  const flashMaxPercentMap = new Map<string, number>();
+  for (const f of activeFlashDealRows) {
+    if (f.discountType === "percent" && f.discountValue > 0) {
+      const existing = flashMaxPercentMap.get(f.restaurantId) ?? 0;
+      if (f.discountValue > existing) flashMaxPercentMap.set(f.restaurantId, f.discountValue);
+    }
+  }
+
+  const dealItemRows = rows.length > 0
+    ? await db
+        .select({
+          restaurantId: menuItemsTable.restaurantId,
+          price: menuItemsTable.price,
+          dealPrice: menuItemsTable.dealPrice,
+          dealDiscountPercent: menuItemsTable.dealDiscountPercent,
+        })
+        .from(menuItemsTable)
+        .where(
+          and(
+            eq(menuItemsTable.isDeal, true),
+            inArray(menuItemsTable.restaurantId, rows.map((r) => r.id))
+          )
+        )
+    : [];
+  const maxDealPercentMap = new Map<string, number>();
+  for (const d of dealItemRows) {
+    const pct = d.dealDiscountPercent != null
+      ? d.dealDiscountPercent
+      : (d.dealPrice != null && d.price > 0)
+        ? Math.round((1 - d.dealPrice / d.price) * 100)
+        : null;
+    if (pct != null && pct > 0) {
+      const existing = maxDealPercentMap.get(d.restaurantId) ?? 0;
+      if (pct > existing) maxDealPercentMap.set(d.restaurantId, pct);
+    }
+  }
+
   const result = rows.map((r) => {
     const byDay = hoursMap.get(r.id);
+    const distanceKm =
+      hasLocation && r.lat != null && r.lon != null
+        ? haversineKm(lat!, lon!, r.lat, r.lon)
+        : null;
     return {
       ...r,
       isOpen: computeIsOpenFromHours(byDay?.get(dayOfWeek), byDay?.get(prevDayOfWeek), nowMinutes, r.isOpen),
+      distanceKm,
+      categorySortOrder: hasCategoryId ? (categorySortMap.get(r.id) ?? null) : null,
+      hasFlashDeal: flashDealRestaurantIds.has(r.id),
+      maxDealPercent: Math.max(maxDealPercentMap.get(r.id) ?? 0, flashMaxPercentMap.get(r.id) ?? 0) || null,
     };
   });
 
+  result.sort((a, b) => {
+    if (hasCategoryId) {
+      // 1. category-specific order (nulls last)
+      const aCs = a.categorySortOrder ?? null;
+      const bCs = b.categorySortOrder ?? null;
+      if (aCs !== null && bCs !== null) return aCs - bCs;
+      if (aCs !== null) return -1;
+      if (bCs !== null) return 1;
+      // 2. global sortOrder fallback (nulls last)
+      const aSo = a.sortOrder ?? null;
+      const bSo = b.sortOrder ?? null;
+      if (aSo !== null && bSo !== null) return aSo - bSo;
+      if (aSo !== null) return -1;
+      if (bSo !== null) return 1;
+      // 3. rating desc
+      return b.rating - a.rating;
+    } else {
+      // global mode: sortOrder (nulls last) → distance → rating
+      const aPriority = a.sortOrder ?? null;
+      const bPriority = b.sortOrder ?? null;
+      if (aPriority !== null && bPriority !== null) return aPriority - bPriority;
+      if (aPriority !== null) return -1;
+      if (bPriority !== null) return 1;
+
+      if (hasLocation) {
+        const aDist = a.distanceKm ?? Infinity;
+        const bDist = b.distanceKm ?? Infinity;
+        if (Math.abs(aDist - bDist) > 0.1) return aDist - bDist;
+      }
+
+      return b.rating - a.rating;
+    }
+  });
+
   res.json(result);
+});
+
+router.get("/restaurants/food-categories", async (_req, res) => {
+  const rows = await db
+    .selectDistinct({ categoryAr: restaurantsTable.categoryAr })
+    .from(restaurantsTable)
+    .orderBy(asc(restaurantsTable.categoryAr));
+  const filtered = rows
+    .map((r) => r.categoryAr?.trim())
+    .filter((v): v is string => !!v);
+  const unique = [...new Set(filtered)];
+  res.json(unique.map((v) => ({ categoryAr: v })));
 });
 
 router.get("/restaurants/:id", async (req, res) => {
@@ -124,13 +287,86 @@ router.get("/restaurants/:id", async (req, res) => {
   res.json({ ...restaurant, isOpen });
 });
 
+router.get("/restaurants/:id/flash-deal", async (req, res) => {
+  const { id } = req.params;
+  const now = new Date();
+  const [deal] = await db
+    .select()
+    .from(flashDealsTable)
+    .where(
+      and(
+        eq(flashDealsTable.restaurantId, id),
+        eq(flashDealsTable.isActive, true),
+        lte(flashDealsTable.startsAt, now),
+        gt(flashDealsTable.endsAt, now),
+        or(isNull(flashDealsTable.maxUses), lt(flashDealsTable.usedCount, flashDealsTable.maxUses))
+      )
+    )
+    .limit(1);
+  res.json(deal ?? null);
+});
+
 router.get("/restaurants/:id/menu", async (req, res) => {
   const { id } = req.params;
   const items = await db
     .select()
     .from(menuItemsTable)
     .where(eq(menuItemsTable.restaurantId, id));
-  res.json(items);
+
+  if (items.length === 0) {
+    res.json([]);
+    return;
+  }
+
+  const itemIds = items.map((i) => i.id);
+  const groupRows = await db
+    .select({
+      groupId: menuItemOptionGroupsTable.id,
+      groupNameAr: menuItemOptionGroupsTable.nameAr,
+      groupSortOrder: menuItemOptionGroupsTable.sortOrder,
+      menuItemId: menuItemOptionGroupsTable.menuItemId,
+      optionId: menuItemOptionsTable.id,
+      optionNameAr: menuItemOptionsTable.nameAr,
+      optionExtraPrice: menuItemOptionsTable.extraPrice,
+      optionIsDefault: menuItemOptionsTable.isDefault,
+      optionSortOrder: menuItemOptionsTable.sortOrder,
+    })
+    .from(menuItemOptionGroupsTable)
+    .leftJoin(menuItemOptionsTable, eq(menuItemOptionsTable.groupId, menuItemOptionGroupsTable.id))
+    .where(inArray(menuItemOptionGroupsTable.menuItemId, itemIds))
+    .orderBy(menuItemOptionGroupsTable.sortOrder, menuItemOptionsTable.sortOrder);
+
+  type OptionGroup = {
+    id: string;
+    nameAr: string;
+    sortOrder: number;
+    options: { id: string; nameAr: string; extraPrice: number; isDefault: boolean; sortOrder: number }[];
+  };
+  const groupsByItemId = new Map<string, Map<string, OptionGroup>>();
+  for (const row of groupRows) {
+    if (!groupsByItemId.has(row.menuItemId)) groupsByItemId.set(row.menuItemId, new Map());
+    const groupMap = groupsByItemId.get(row.menuItemId)!;
+    if (!groupMap.has(row.groupId)) {
+      groupMap.set(row.groupId, { id: row.groupId, nameAr: row.groupNameAr, sortOrder: row.groupSortOrder, options: [] });
+    }
+    if (row.optionId) {
+      groupMap.get(row.groupId)!.options.push({
+        id: row.optionId,
+        nameAr: row.optionNameAr!,
+        extraPrice: row.optionExtraPrice!,
+        isDefault: row.optionIsDefault!,
+        sortOrder: row.optionSortOrder!,
+      });
+    }
+  }
+
+  const result = items.map((item) => {
+    const groupMap = groupsByItemId.get(item.id);
+    const optionGroups = groupMap ? Array.from(groupMap.values()) : [];
+    return { ...item, optionGroups };
+  });
+
+  res.json(result);
 });
 
 
@@ -143,13 +379,86 @@ router.get("/banners", async (_req, res) => {
   res.json(rows);
 });
 
-router.get("/categories", async (_req, res) => {
+router.get("/categories", async (req, res) => {
   const rows = await db
     .select()
     .from(restaurantCategoriesTable)
     .where(eq(restaurantCategoriesTable.isActive, true))
     .orderBy(asc(restaurantCategoriesTable.sortOrder));
-  res.json(rows);
+  res.json(rows.map((r) => ({ ...r, imageUrl: resolveImageUrl(r.imageUrl, req) })));
+});
+
+router.get("/home-sections/:section", async (req, res) => {
+  const section = String(req.params["section"]);
+  if (section !== "popular" && section !== "deals") {
+    res.status(400).json({ error: "Invalid section" });
+    return;
+  }
+
+  const manualItems = await db
+    .select({ restaurantId: homeSectionItemsTable.restaurantId })
+    .from(homeSectionItemsTable)
+    .where(eq(homeSectionItemsTable.section, section))
+    .orderBy(asc(homeSectionItemsTable.sortOrder));
+
+  let restaurantIds: string[] = manualItems.map((i) => i.restaurantId);
+
+  const flashRestaurantIds = new Set<string>();
+  const flashDealEndsAtMap = new Map<string, Date>();
+
+  if (section === "deals") {
+    const now = new Date();
+    const [dealItems, flashItems] = await Promise.all([
+      db
+        .select({ restaurantId: menuItemsTable.restaurantId })
+        .from(menuItemsTable)
+        .where(eq(menuItemsTable.isDeal, true)),
+      db
+        .select({ restaurantId: flashDealsTable.restaurantId, endsAt: flashDealsTable.endsAt })
+        .from(flashDealsTable)
+        .where(
+          and(
+            eq(flashDealsTable.isActive, true),
+            lte(flashDealsTable.startsAt, now),
+            gt(flashDealsTable.endsAt, now),
+            or(isNull(flashDealsTable.maxUses), lt(flashDealsTable.usedCount, flashDealsTable.maxUses))
+          )
+        ),
+    ]);
+    const dealRestaurantIds = [...new Set(dealItems.map((i) => i.restaurantId))];
+    for (const f of flashItems) flashRestaurantIds.add(f.restaurantId);
+    const combined = [...new Set([...restaurantIds, ...dealRestaurantIds, ...flashRestaurantIds])];
+    restaurantIds = combined;
+    for (const f of flashItems) {
+      const existing = flashDealEndsAtMap.get(f.restaurantId);
+      if (!existing || f.endsAt > existing) flashDealEndsAtMap.set(f.restaurantId, f.endsAt);
+    }
+  }
+
+  if (restaurantIds.length === 0) {
+    res.json([]);
+    return;
+  }
+
+  const restaurants = await db
+    .select()
+    .from(restaurantsTable)
+    .where(inArray(restaurantsTable.id, restaurantIds));
+
+  const map = new Map(restaurants.map((r) => [r.id, r]));
+  const ordered = restaurantIds
+    .map((id) => {
+      const r = map.get(id);
+      if (!r) return null;
+      const endsAt = flashDealEndsAtMap.get(id);
+      return {
+        ...r,
+        hasFlashDeal: flashRestaurantIds.has(id),
+        flashDealEndsAt: endsAt ? endsAt.toISOString() : null,
+      };
+    })
+    .filter(Boolean);
+  res.json(ordered);
 });
 
 export default router;

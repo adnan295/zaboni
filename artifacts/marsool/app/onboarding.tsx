@@ -3,10 +3,9 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
-  FlatList,
+  Animated,
   Dimensions,
   Platform,
-  I18nManager,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -27,8 +26,8 @@ const SLIDE_ICONS: Array<{
   color: string;
 }> = [
   { icon: "restaurant-menu", color: "#DC2626" },
-  { icon: "delivery-dining",  color: "#FF8C35" },
-  { icon: "payments",         color: "#E55A00" },
+  { icon: "delivery-dining", color: "#FF8C35" },
+  { icon: "payments",        color: "#E55A00" },
 ];
 
 export default function OnboardingScreen() {
@@ -37,7 +36,7 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const [activeIndex, setActiveIndex] = useState(0);
-  const flatListRef = useRef<FlatList>(null);
+  const translateX = useRef(new Animated.Value(0)).current;
 
   const topPadding = Platform.OS === "web" ? 60 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 40 : insets.bottom;
@@ -48,7 +47,6 @@ export default function OnboardingScreen() {
   }>;
 
   const isLast = activeIndex === slides.length - 1;
-  const isRTL = I18nManager.isRTL;
 
   async function finish() {
     await AsyncStorage.setItem(ONBOARDING_SEEN_KEY, "1");
@@ -64,25 +62,15 @@ export default function OnboardingScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (activeIndex < slides.length - 1) {
       const nextIdx = activeIndex + 1;
-      if (isRTL) {
-        flatListRef.current?.scrollToOffset({
-          offset: (slides.length - 1 - nextIdx) * SCREEN_WIDTH,
-          animated: true,
-        });
-      } else {
-        flatListRef.current?.scrollToIndex({ index: nextIdx, animated: true });
-      }
       setActiveIndex(nextIdx);
+      Animated.timing(translateX, {
+        toValue: -SCREEN_WIDTH * nextIdx,
+        duration: 320,
+        useNativeDriver: true,
+      }).start();
     } else {
       finish();
     }
-  }
-
-  function handleScrollEnd(e: { nativeEvent: { contentOffset: { x: number } } }) {
-    const raw = e.nativeEvent.contentOffset.x / SCREEN_WIDTH;
-    const rawIdx = Math.round(Math.abs(raw));
-    const idx = isRTL ? slides.length - 1 - rawIdx : rawIdx;
-    setActiveIndex(Math.max(0, Math.min(idx, slides.length - 1)));
   }
 
   return (
@@ -96,35 +84,34 @@ export default function OnboardingScreen() {
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        ref={flatListRef}
-        data={slides}
-        keyExtractor={(_, i) => String(i)}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        scrollEnabled
-        bounces={false}
-        onMomentumScrollEnd={handleScrollEnd}
-        renderItem={({ item, index }) => {
-          const meta = SLIDE_ICONS[index] ?? SLIDE_ICONS[0];
-          return (
-            <View style={[styles.slide, { width: SCREEN_WIDTH }]}>
-              <View style={[styles.iconCircle, { backgroundColor: meta.color + "18" }]}>
-                <View style={[styles.iconInner, { backgroundColor: meta.color, shadowColor: meta.color }]}>
-                  <MaterialIcons name={meta.icon} size={72} color="#fff" />
+      {/* Slides strip — always LTR, always moves left on Next */}
+      <View style={styles.slidesViewport}>
+        <Animated.View
+          style={[
+            styles.slidesStrip,
+            { width: SCREEN_WIDTH * slides.length, transform: [{ translateX }] },
+          ]}
+        >
+          {slides.map((item, index) => {
+            const meta = SLIDE_ICONS[index] ?? SLIDE_ICONS[0];
+            return (
+              <View key={index} style={[styles.slide, { width: SCREEN_WIDTH }]}>
+                <View style={[styles.iconCircle, { backgroundColor: meta.color + "18" }]}>
+                  <View style={[styles.iconInner, { backgroundColor: meta.color, shadowColor: meta.color }]}>
+                    <MaterialIcons name={meta.icon} size={72} color="#fff" />
+                  </View>
                 </View>
+                <Text style={[styles.slideTitle, { color: colors.foreground }]}>
+                  {item.title}
+                </Text>
+                <Text style={[styles.slideBody, { color: colors.mutedForeground }]}>
+                  {item.body}
+                </Text>
               </View>
-              <Text style={[styles.slideTitle, { color: colors.foreground }]}>
-                {item.title}
-              </Text>
-              <Text style={[styles.slideBody, { color: colors.mutedForeground }]}>
-                {item.body}
-              </Text>
-            </View>
-          );
-        }}
-      />
+            );
+          })}
+        </Animated.View>
+      </View>
 
       <View style={[styles.footer, { paddingBottom: bottomPadding + 16 }]}>
         <View style={styles.dotsRow}>
@@ -154,11 +141,7 @@ export default function OnboardingScreen() {
           ) : (
             <>
               <Text style={styles.nextBtnText}>{t("onboarding.next")}</Text>
-              <MaterialIcons
-                name={isRTL ? "arrow-back" : "arrow-forward"}
-                size={20}
-                color="#fff"
-              />
+              <MaterialIcons name="arrow-back" size={20} color="#fff" />
             </>
           )}
         </TouchableOpacity>
@@ -179,6 +162,14 @@ const styles = StyleSheet.create({
   },
   skipBtn: { paddingHorizontal: 8, paddingVertical: 6 },
   skipText: { fontSize: 14, fontWeight: "600" },
+  slidesViewport: {
+    flex: 1,
+    overflow: "hidden",
+  },
+  slidesStrip: {
+    flex: 1,
+    flexDirection: "row",
+  },
   slide: {
     alignItems: "center",
     justifyContent: "center",

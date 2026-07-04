@@ -1,9 +1,13 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { db, usersTable, ordersTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, systemSettingsTable, courierCustomerRatingsTable, courierWalletTransactionsTable, courierApplicationsTable } from "@workspace/db";
-import { and, eq, ne, notInArray, avg, count, sql, desc, getTableColumns } from "drizzle-orm";
+import { db, usersTable, ordersTable, orderItemsTable, orderItemOptionsTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, courierSubscriptionPlansTable, courierCustomerRatingsTable, courierWalletTransactionsTable, courierApplicationsTable, referralsTable, courierSubscriptionRequestsTable, systemSettingsTable } from "@workspace/db";
+import { and, eq, ne, inArray, notInArray, avg, count, sql, desc, getTableColumns } from "drizzle-orm";
 import { haversineKm as _haversineKm } from "../lib/deliveryZones";
 import { z } from "zod";
-import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
+import { notifyOrderUpdate, sendOrderPush, notifyCouriersOrderTaken } from "../orders/server";
+import { getLoyaltySettings, awardPointsInTx } from "../lib/loyalty";
+import { checkAndAwardAchievements } from "../lib/achievements";
+import { awardReferralCommissionInTx } from "../lib/referral";
+import { sendPushToUsers } from "../lib/push";
 
 const router: IRouter = Router();
 
@@ -171,6 +175,11 @@ const locationSchema = z.object({
   lon: z.number().min(-180).max(180),
 });
 
+const MAX_SPEED_KMH = 150;
+const MAX_SINGLE_JUMP_KM = 50;
+const LOCATION_FRESHNESS_MINUTES = 15;
+const SERVICE_AREA_MAX_KM = 100;
+
 router.patch("/courier/location", requireCourier, async (req, res) => {
   const body = locationSchema.safeParse(req.body);
   if (!body.success) {
@@ -179,6 +188,38 @@ router.patch("/courier/location", requireCourier, async (req, res) => {
   }
 
   const courierId = resolveUserId(req);
+
+  const current = await db
+    .select({ courierLat: usersTable.courierLat, courierLon: usersTable.courierLon, courierLocationUpdatedAt: usersTable.courierLocationUpdatedAt })
+    .from(usersTable)
+    .where(eq(usersTable.id, courierId))
+    .limit(1);
+
+  const prev = current[0];
+  const hasPriorLocation = prev?.courierLat !== null && prev?.courierLon !== null &&
+    prev?.courierLocationUpdatedAt !== null &&
+    prev?.courierLat !== undefined && prev?.courierLon !== undefined &&
+    prev?.courierLocationUpdatedAt !== undefined;
+
+  if (hasPriorLocation) {
+    const elapsedHours = (Date.now() - prev!.courierLocationUpdatedAt!.getTime()) / 3_600_000;
+    const distKm = haversineKm(prev!.courierLat!, prev!.courierLon!, body.data.lat, body.data.lon);
+    if (distKm > MAX_SINGLE_JUMP_KM) {
+      res.status(429).json({ error: "Location update rejected: distance jump too large" });
+      return;
+    }
+    if (elapsedHours > 0 && distKm / elapsedHours > MAX_SPEED_KMH) {
+      res.status(429).json({ error: "Location update rejected: movement speed exceeds physical limit" });
+      return;
+    }
+  } else {
+    const distFromCenter = haversineKm(DAMASCUS_LAT, DAMASCUS_LON, body.data.lat, body.data.lon);
+    if (distFromCenter > SERVICE_AREA_MAX_KM) {
+      res.status(400).json({ error: "Location is outside the service area" });
+      return;
+    }
+  }
+
   await db
     .update(usersTable)
     .set({ courierLat: body.data.lat, courierLon: body.data.lon, courierLocationUpdatedAt: new Date() })
@@ -195,7 +236,7 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
 
   const courierUser = await db
-    .select({ lat: usersTable.courierLat, lon: usersTable.courierLon, isOnline: usersTable.isOnline })
+    .select({ lat: usersTable.courierLat, lon: usersTable.courierLon, isOnline: usersTable.isOnline, locationUpdatedAt: usersTable.courierLocationUpdatedAt })
     .from(usersTable)
     .where(eq(usersTable.id, courierId))
     .limit(1);
@@ -205,31 +246,74 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
     return;
   }
 
+  const isProduction = process.env["NODE_ENV"] === "production";
+  const locUpdatedAt = courierUser[0]?.locationUpdatedAt;
+  if (isProduction) {
+    if (!locUpdatedAt || !courierUser[0]?.lat || !courierUser[0]?.lon) {
+      res.json([]);
+      return;
+    }
+    const ageMinutes = (Date.now() - locUpdatedAt.getTime()) / 60_000;
+    if (ageMinutes > LOCATION_FRESHNESS_MINUTES) {
+      res.json([]);
+      return;
+    }
+  }
+
   const courierLat = courierUser[0]?.lat ?? DAMASCUS_LAT;
   const courierLon = courierUser[0]?.lon ?? DAMASCUS_LON;
 
   const rows = await db
-    .select()
+    .select({
+      id: ordersTable.id,
+      userId: ordersTable.userId,
+      status: ordersTable.status,
+      restaurantName: ordersTable.restaurantName,
+      restaurantId: ordersTable.restaurantId,
+      deliveryFee: ordersTable.deliveryFee,
+      totalPrice: ordersTable.totalPrice,
+      orderText: ordersTable.orderText,
+      estimatedMinutes: ordersTable.estimatedMinutes,
+      createdAt: ordersTable.createdAt,
+      updatedAt: ordersTable.updatedAt,
+      destinationLat: ordersTable.destinationLat,
+      destinationLon: ordersTable.destinationLon,
+      orderType: ordersTable.orderType,
+      placeName: ordersTable.placeName,
+    })
     .from(ordersTable)
     .where(and(eq(ordersTable.status, "searching"), eq(ordersTable.courierId, "")))
     .orderBy(ordersTable.createdAt);
 
-  const isDev = process.env["NODE_ENV"] !== "production";
   const withDistance = rows
     .filter((o) => o.userId !== courierId)
     .map((o) => {
       const destLat = o.destinationLat ?? DAMASCUS_LAT;
       const destLon = o.destinationLon ?? DAMASCUS_LON;
+      const distanceKm = Number(haversineKm(courierLat, courierLon, destLat, destLon).toFixed(1));
       return {
-        ...o,
-        distanceKm: Number(haversineKm(courierLat, courierLon, destLat, destLon).toFixed(1)),
+        id: o.id,
+        status: o.status,
+        restaurantName: o.restaurantName,
+        restaurantId: o.restaurantId,
+        deliveryFee: o.deliveryFee,
+        totalPrice: o.totalPrice,
+        orderText: o.orderText,
+        estimatedMinutes: o.estimatedMinutes,
+        createdAt: o.createdAt,
+        updatedAt: o.updatedAt,
+        distanceKm,
+        orderType: o.orderType,
+        placeName: o.placeName,
       };
     })
-    .filter((o) => isDev || o.distanceKm <= NEARBY_RADIUS_KM)
+    .filter((o) => !isProduction || o.distanceKm <= NEARBY_RADIUS_KM)
     .sort((a, b) => a.distanceKm - b.distanceKm);
 
   res.json(withDistance);
 });
+
+const CUSTOMER_CONTACT_STATUSES: string[] = ["on_way", "delivered"];
 
 router.get("/courier/orders/active", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
@@ -244,7 +328,56 @@ router.get("/courier/orders/active", requireCourier, async (req, res) => {
     .where(eq(ordersTable.courierId, courierId))
     .orderBy(ordersTable.updatedAt);
 
-  res.json(rows.filter((o) => o.status !== "delivered" && o.status !== "searching"));
+  const active = rows.filter((o) => o.status !== "delivered" && o.status !== "searching");
+
+  // Fetch structured items + options for active orders
+  const activeIds = active.map((o) => o.id);
+  let itemsByOrderId = new Map<string, { id: string; nameAr: string; qty: number; unitPrice: number; lineTotal: number; note: string | null; options: { nameAr: string; extraPrice: number }[] }[]>();
+  if (activeIds.length > 0) {
+    const itemRows = await db
+      .select({
+        id: orderItemsTable.id,
+        orderId: orderItemsTable.orderId,
+        nameAr: orderItemsTable.nameAr,
+        qty: orderItemsTable.qty,
+        unitPrice: orderItemsTable.unitPrice,
+        lineTotal: orderItemsTable.lineTotal,
+        note: orderItemsTable.note,
+        optNameAr: orderItemOptionsTable.nameAr,
+        optExtraPrice: orderItemOptionsTable.extraPrice,
+      })
+      .from(orderItemsTable)
+      .leftJoin(orderItemOptionsTable, eq(orderItemOptionsTable.orderItemId, orderItemsTable.id))
+      .where(inArray(orderItemsTable.orderId, activeIds));
+
+    type ItemAcc = { id: string; nameAr: string; qty: number; unitPrice: number; lineTotal: number; note: string | null; options: { nameAr: string; extraPrice: number }[] };
+    const itemMap = new Map<string, Map<string, ItemAcc>>();
+    for (const row of itemRows) {
+      if (!itemMap.has(row.orderId)) itemMap.set(row.orderId, new Map());
+      const orderItems = itemMap.get(row.orderId)!;
+      if (!orderItems.has(row.id)) {
+        orderItems.set(row.id, { id: row.id, nameAr: row.nameAr, qty: row.qty, unitPrice: row.unitPrice, lineTotal: row.lineTotal, note: row.note, options: [] });
+      }
+      if (row.optNameAr) {
+        orderItems.get(row.id)!.options.push({ nameAr: row.optNameAr, extraPrice: row.optExtraPrice ?? 0 });
+      }
+    }
+    for (const [orderId, orderItemMap] of itemMap.entries()) {
+      itemsByOrderId.set(orderId, Array.from(orderItemMap.values()));
+    }
+  }
+
+  const masked = active.map((o) => {
+    const contactRevealed = CUSTOMER_CONTACT_STATUSES.includes(o.status);
+    return {
+      ...o,
+      customerName: contactRevealed ? o.customerName : null,
+      customerPhone: contactRevealed ? o.customerPhone : null,
+      items: itemsByOrderId.get(o.id) ?? [],
+    };
+  });
+
+  res.json(masked);
 });
 
 router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) => {
@@ -286,7 +419,7 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   }
 
   const courierUsers = await db
-    .select({ name: usersTable.name, phone: usersTable.phone, isOnline: usersTable.isOnline })
+    .select({ name: usersTable.name, phone: usersTable.phone, isOnline: usersTable.isOnline, courierLat: usersTable.courierLat, courierLon: usersTable.courierLon, locationUpdatedAt: usersTable.courierLocationUpdatedAt })
     .from(usersTable)
     .where(eq(usersTable.id, courierId))
     .limit(1);
@@ -294,6 +427,44 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   if (!courierUsers[0]?.isOnline) {
     res.status(409).json({ error: "You must be online to accept orders" });
     return;
+  }
+
+  const [activeSub] = await db
+    .select({ id: courierSubscriptionsTable.id })
+    .from(courierSubscriptionsTable)
+    .where(and(
+      eq(courierSubscriptionsTable.courierId, courierId),
+      eq(courierSubscriptionsTable.isActive, true),
+      sql`${courierSubscriptionsTable.endsAt} > NOW()`,
+    ))
+    .limit(1);
+
+  if (!activeSub) {
+    res.status(403).json({ error: "subscription_expired", message: "اشتراكك منتهٍ. يرجى تجديد الاشتراك من صفحة الاشتراك." });
+    return;
+  }
+
+  const isProduction = process.env["NODE_ENV"] === "production";
+  if (isProduction) {
+    const cLat = courierUsers[0]?.courierLat ?? null;
+    const cLon = courierUsers[0]?.courierLon ?? null;
+    const locUpdatedAt = courierUsers[0]?.locationUpdatedAt ?? null;
+    if (cLat === null || cLon === null || locUpdatedAt === null) {
+      res.status(409).json({ error: "Location not available. Please enable location and try again." });
+      return;
+    }
+    const ageMinutes = (Date.now() - locUpdatedAt.getTime()) / 60_000;
+    if (ageMinutes > LOCATION_FRESHNESS_MINUTES) {
+      res.status(409).json({ error: "Location is stale. Please allow the app to update your location and try again." });
+      return;
+    }
+    const destLat = order!.destinationLat ?? DAMASCUS_LAT;
+    const destLon = order!.destinationLon ?? DAMASCUS_LON;
+    const distKm = haversineKm(cLat, cLon, destLat, destLon);
+    if (distKm > NEARBY_RADIUS_KM) {
+      res.status(409).json({ error: "Order is outside your delivery area" });
+      return;
+    }
   }
 
   const courierName = courierUsers[0]?.name || "مندوب";
@@ -317,6 +488,7 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   });
 
   notifyOrderUpdate(order.userId, updated[0]);
+  notifyCouriersOrderTaken(orderId);
   await sendOrderPush(order.userId, `${courierName} قبل طلبك وهو في الطريق لاستلامه!`, orderId);
 
   res.json(updated[0]);
@@ -368,34 +540,121 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
     return;
   }
 
-  const updated = await db
-    .update(ordersTable)
-    .set({ status: body.data.status, updatedAt: new Date() })
-    .where(and(eq(ordersTable.id, orderId), eq(ordersTable.courierId, courierId)))
-    .returning();
+  const updated = await db.transaction(async (tx) => {
+    // Guard on current status inside the transaction so concurrent requests both
+    // matching the pre-check cannot both win — only the first UPDATE succeeds.
+    const rows = await tx
+      .update(ordersTable)
+      .set({ status: body.data.status, updatedAt: new Date() })
+      .where(
+        and(
+          eq(ordersTable.id, orderId),
+          eq(ordersTable.courierId, courierId),
+          eq(ordersTable.status, currentOrder.status)
+        )
+      )
+      .returning();
+
+    if (rows.length === 0) return [];
+
+    await tx.insert(orderStatusHistoryTable).values({
+      id: `${orderId}_${body.data.status}_${Date.now()}`,
+      orderId,
+      status: body.data.status,
+    });
+
+    if (body.data.status === "delivered") {
+      const order = rows[0]!;
+      const totalForPoints = order.totalPrice ?? order.deliveryFee;
+      if (totalForPoints > 0) {
+        try {
+          const settings = await getLoyaltySettings();
+          await awardPointsInTx(tx, currentOrder.userId, orderId, totalForPoints, settings);
+        } catch {
+          // points award failure must not block order completion
+        }
+      }
+      // Referral commission: award 5% of itemsTotal to referrer on FIRST delivered order only.
+      // We filter status = 'pending' so a referral is only paid once even if the referred
+      // user has multiple delivered orders in the future.
+      if (order.totalPrice != null && order.totalPrice > 0) {
+        try {
+          const [pendingReferral] = await tx
+            .select({ id: referralsTable.id, referrerId: referralsTable.referrerId })
+            .from(referralsTable)
+            .where(
+              and(
+                eq(referralsTable.referredUserId, currentOrder.userId),
+                eq(referralsTable.status, "pending")
+              )
+            )
+            .limit(1);
+          if (pendingReferral && pendingReferral.referrerId !== currentOrder.userId) {
+            const commission = await awardReferralCommissionInTx(tx, pendingReferral.id, pendingReferral.referrerId, orderId, order.totalPrice);
+            if (commission > 0) {
+              // Notify referrer after the transaction commits (non-blocking)
+              const referrerId = pendingReferral.referrerId;
+              const commissionAmt = commission;
+              setImmediate(() => {
+                void sendPushToUsers(
+                  [referrerId],
+                  `💰 حصلت على ${commissionAmt.toLocaleString()} ل.س عمولة إحالة!`,
+                  "تهانينا! صديقك أكمل أول طلب بنجاح 🎉",
+                  { type: "referral" }
+                );
+              });
+            }
+          }
+        } catch {
+          // referral commission failure must not block order completion
+        }
+      }
+    }
+
+    return rows;
+  });
 
   if (updated.length === 0) {
     res.status(404).json({ error: "Order not found" });
     return;
   }
 
-  await db.insert(orderStatusHistoryTable).values({
-    id: `${orderId}_${body.data.status}_${Date.now()}`,
-    orderId,
-    status: body.data.status,
-  });
-
   notifyOrderUpdate(currentOrder.userId, updated[0]);
 
   const pushMsg = STATUS_PUSH_MESSAGES[body.data.status] ?? "تم تحديث طلبك";
   await sendOrderPush(currentOrder.userId, pushMsg, orderId);
 
+  if (body.data.status === "delivered") {
+    void checkAndAwardAchievements(currentOrder.userId);
+  }
+
   res.json(updated[0]);
 });
+
+const CANCEL_COOLDOWN_WINDOW_MINUTES = 60;
+const CANCEL_COOLDOWN_MAX_CANCELS = 3;
 
 router.post("/courier/orders/:orderId/cancel", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
   const orderId = String(req.params["orderId"]);
+
+  const windowStart = new Date(Date.now() - CANCEL_COOLDOWN_WINDOW_MINUTES * 60_000);
+  const cancelNotePrefix = `courier_cancelled:${courierId}`;
+  const recentCancels = await db
+    .select({ id: orderStatusHistoryTable.id })
+    .from(orderStatusHistoryTable)
+    .where(
+      and(
+        sql`${orderStatusHistoryTable.note} LIKE ${cancelNotePrefix + "%"}`,
+        sql`${orderStatusHistoryTable.createdAt} >= ${windowStart.toISOString()}`
+      )
+    )
+    .limit(CANCEL_COOLDOWN_MAX_CANCELS);
+
+  if (recentCancels.length >= CANCEL_COOLDOWN_MAX_CANCELS) {
+    res.status(429).json({ error: "Too many cancellations. Please wait before cancelling again." });
+    return;
+  }
 
   const orders = await db
     .select()
@@ -410,8 +669,8 @@ router.post("/courier/orders/:orderId/cancel", requireCourier, async (req, res) 
 
   const order = orders[0];
 
-  if (order.status === "delivered") {
-    res.status(409).json({ error: "Cannot cancel a delivered order" });
+  if (order.status === "delivered" || order.status === "picked_up" || order.status === "on_way") {
+    res.status(409).json({ error: "Cannot cancel after pickup has occurred" });
     return;
   }
 
@@ -437,7 +696,7 @@ router.post("/courier/orders/:orderId/cancel", requireCourier, async (req, res) 
     id: `${orderId}_cancelled_courier_${Date.now()}`,
     orderId,
     status: "searching",
-    note: "courier_cancelled",
+    note: `courier_cancelled:${courierId}`,
   });
 
   notifyOrderUpdate(order.userId, { ...updated[0], cancelNote: "courier_cancelled" });
@@ -445,8 +704,6 @@ router.post("/courier/orders/:orderId/cancel", requireCourier, async (req, res) 
 
   res.json({ success: true });
 });
-
-const DEFAULT_DAILY_FEE = 5000;
 
 router.get("/courier/earnings", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
@@ -478,7 +735,7 @@ router.get("/courier/earnings", requireCourier, async (req, res) => {
   type AggRow = { totalEarnings: string | null; totalCount: string | null };
   type RecentRow = { id: string; restaurantName: string; address: string; updatedAt: Date; deliveryFee: number };
 
-  const [aggResult, recentResult, todayAggResult, subRow, settingRow] = await Promise.all([
+  const [aggResult, recentResult, todayAggResult] = await Promise.all([
     periodStart
       ? db.execute(sql`
           SELECT
@@ -536,19 +793,6 @@ router.get("/courier/earnings", requireCourier, async (req, res) => {
             AND o.updated_at >= ${todayStart.toISOString()}
         `)
       : Promise.resolve(null),
-    db
-      .select()
-      .from(courierSubscriptionsTable)
-      .where(and(
-        eq(courierSubscriptionsTable.courierId, courierId),
-        eq(courierSubscriptionsTable.date, new Date().toISOString().slice(0, 10)),
-      ))
-      .limit(1),
-    db
-      .select()
-      .from(systemSettingsTable)
-      .where(eq(systemSettingsTable.key, "daily_subscription_fee"))
-      .limit(1),
   ]);
 
   const aggRow = aggResult.rows[0] as AggRow;
@@ -574,22 +818,12 @@ router.get("/courier/earnings", requireCourier, async (req, res) => {
     todayDeliveriesCount = Number(todayAgg?.totalCount ?? 0);
   }
 
-  const defaultFee = settingRow[0]?.value ? parseInt(settingRow[0].value, 10) || DEFAULT_DAILY_FEE : DEFAULT_DAILY_FEE;
-  const todaySubscriptionStatus = subRow[0]?.status ?? "pending";
-  const todaySubscriptionFee = subRow[0]?.amount ?? defaultFee;
-  const todayNetEarnings = todaySubscriptionStatus === "paid"
-    ? todayEarnings - todaySubscriptionFee
-    : todayEarnings;
-
   res.json({
     period: normalizedPeriod,
     periodEarnings,
     periodDeliveries: periodDeliveriesCount,
     todayEarnings,
     todayDeliveries: todayDeliveriesCount,
-    todaySubscriptionFee,
-    todaySubscriptionStatus,
-    todayNetEarnings,
     recentDeliveries,
   });
 });
@@ -598,33 +832,23 @@ router.get("/courier/subscription/today", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
   const today = new Date().toISOString().slice(0, 10);
 
-  const [subRow, settingRow] = await Promise.all([
-    db
-      .select()
-      .from(courierSubscriptionsTable)
-      .where(and(
-        eq(courierSubscriptionsTable.courierId, courierId),
-        eq(courierSubscriptionsTable.date, today),
-      ))
-      .limit(1),
-    db
-      .select()
-      .from(systemSettingsTable)
-      .where(eq(systemSettingsTable.key, "daily_subscription_fee"))
-      .limit(1),
-  ]);
+  const [activeSub] = await db
+    .select({ id: courierSubscriptionsTable.id, status: courierSubscriptionsTable.status })
+    .from(courierSubscriptionsTable)
+    .where(and(
+      eq(courierSubscriptionsTable.courierId, courierId),
+      eq(courierSubscriptionsTable.isActive, true),
+      sql`${courierSubscriptionsTable.endsAt} > NOW()`,
+    ))
+    .orderBy(desc(courierSubscriptionsTable.endsAt))
+    .limit(1);
 
-  const defaultAmount = settingRow[0]?.value
-    ? parseInt(settingRow[0].value, 10) || DEFAULT_DAILY_FEE
-    : DEFAULT_DAILY_FEE;
-
-  if (subRow.length === 0) {
-    res.json({ status: "pending", amount: defaultAmount, date: today });
+  if (!activeSub) {
+    res.json({ status: "no_subscription", amount: 0, date: today, isMonthlySubscriber: false });
     return;
   }
 
-  const sub = subRow[0]!;
-  res.json({ status: sub.status, amount: sub.amount, date: today, note: sub.note });
+  res.json({ status: "paid", amount: 0, date: today, isMonthlySubscriber: true });
 });
 
 const rateCustomerSchema = z.object({
@@ -689,15 +913,163 @@ router.post("/courier/orders/:orderId/rate-customer", requireCourier, async (req
 
 router.get("/courier/subscription/history", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
-
   const rows = await db
     .select()
     .from(courierSubscriptionsTable)
     .where(eq(courierSubscriptionsTable.courierId, courierId))
-    .orderBy(sql`${courierSubscriptionsTable.date} DESC`)
+    .orderBy(desc(courierSubscriptionsTable.createdAt))
     .limit(60);
-
   res.json(rows);
+});
+
+router.get("/courier/subscription/status", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+  const now = new Date();
+
+  const [activeSub] = await db
+    .select()
+    .from(courierSubscriptionsTable)
+    .where(and(
+      eq(courierSubscriptionsTable.courierId, courierId),
+      eq(courierSubscriptionsTable.isActive, true),
+      sql`${courierSubscriptionsTable.endsAt} > NOW()`,
+    ))
+    .orderBy(desc(courierSubscriptionsTable.endsAt))
+    .limit(1);
+
+  const [app] = await db
+    .select({ vehicleType: courierApplicationsTable.vehicleType })
+    .from(courierApplicationsTable)
+    .where(and(
+      eq(courierApplicationsTable.userId, courierId),
+      eq(courierApplicationsTable.status, "approved"),
+    ))
+    .limit(1);
+  const vehicleType = app?.vehicleType ?? "motorcycle";
+
+  if (!activeSub) {
+    const [plan] = await db
+      .select({ monthlyPrice: courierSubscriptionPlansTable.monthlyPrice })
+      .from(courierSubscriptionPlansTable)
+      .where(eq(courierSubscriptionPlansTable.vehicleType, vehicleType))
+      .limit(1);
+    res.json({ isActive: false, subscription: null, vehicleType, monthlyPrice: plan?.monthlyPrice ?? 0 });
+    return;
+  }
+
+  const daysLeft = Math.max(0, Math.ceil((activeSub.endsAt.getTime() - now.getTime()) / 86_400_000));
+
+  const [plan] = await db
+    .select({ monthlyPrice: courierSubscriptionPlansTable.monthlyPrice })
+    .from(courierSubscriptionPlansTable)
+    .where(eq(courierSubscriptionPlansTable.vehicleType, vehicleType))
+    .limit(1);
+
+  res.json({ isActive: true, subscription: activeSub, daysLeft, vehicleType, monthlyPrice: plan?.monthlyPrice ?? 0 });
+});
+
+router.post("/courier/subscription/renew", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+
+  const [app] = await db
+    .select({ vehicleType: courierApplicationsTable.vehicleType })
+    .from(courierApplicationsTable)
+    .where(and(
+      eq(courierApplicationsTable.userId, courierId),
+      eq(courierApplicationsTable.status, "approved"),
+    ))
+    .limit(1);
+  const vehicleType = app?.vehicleType ?? "motorcycle";
+
+  const [plan] = await db
+    .select({ monthlyPrice: courierSubscriptionPlansTable.monthlyPrice })
+    .from(courierSubscriptionPlansTable)
+    .where(eq(courierSubscriptionPlansTable.vehicleType, vehicleType))
+    .limit(1);
+  const price = plan?.monthlyPrice ?? 0;
+
+  const [currentSub] = await db
+    .select()
+    .from(courierSubscriptionsTable)
+    .where(and(
+      eq(courierSubscriptionsTable.courierId, courierId),
+      eq(courierSubscriptionsTable.isActive, true),
+      sql`${courierSubscriptionsTable.endsAt} > NOW()`,
+    ))
+    .orderBy(desc(courierSubscriptionsTable.endsAt))
+    .limit(1);
+
+  const now = new Date();
+  const base = currentSub && currentSub.endsAt > now ? currentSub.endsAt : now;
+  const startsAt = base;
+  const endsAt = new Date(base);
+  endsAt.setMonth(endsAt.getMonth() + 1);
+  const id = `csub_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+
+  let savedRow: typeof courierSubscriptionsTable.$inferSelect | undefined;
+
+  if (price > 0) {
+    let insufficientBalance = false;
+    let newBalance = 0;
+
+    await db.transaction(async (trx) => {
+      const updated = await trx
+        .update(usersTable)
+        .set({ walletBalance: sql`wallet_balance - ${price}` })
+        .where(and(eq(usersTable.id, courierId), sql`wallet_balance >= ${price}`))
+        .returning({ newBalance: usersTable.walletBalance });
+
+      if (updated.length === 0) {
+        insufficientBalance = true;
+        return;
+      }
+      newBalance = updated[0]!.newBalance;
+
+      const dedId = `wded_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+      await trx.insert(courierWalletTransactionsTable).values({
+        id: dedId,
+        courierId,
+        amount: -price,
+        type: "subscription_deduction",
+        status: "approved",
+        note: "تجديد اشتراك شهري",
+      });
+
+      await trx
+        .update(courierSubscriptionsTable)
+        .set({ isActive: false })
+        .where(and(
+          eq(courierSubscriptionsTable.courierId, courierId),
+          eq(courierSubscriptionsTable.isActive, true),
+        ));
+
+      const [row] = await trx
+        .insert(courierSubscriptionsTable)
+        .values({ id, courierId, vehicleType, startsAt, endsAt, amount: price, status: "paid", isActive: true, gifted: false, createdByAdmin: false })
+        .returning();
+      savedRow = row;
+    });
+
+    if (insufficientBalance) {
+      res.status(402).json({ error: "insufficient_balance", required: price });
+      return;
+    }
+
+    res.status(201).json({ subscription: savedRow, newBalance });
+  } else {
+    await db
+      .update(courierSubscriptionsTable)
+      .set({ isActive: false })
+      .where(and(
+        eq(courierSubscriptionsTable.courierId, courierId),
+        eq(courierSubscriptionsTable.isActive, true),
+      ));
+    const [row] = await db
+      .insert(courierSubscriptionsTable)
+      .values({ id, courierId, vehicleType, startsAt, endsAt, amount: 0, status: "paid", isActive: true, gifted: false, createdByAdmin: false })
+      .returning();
+    res.status(201).json({ subscription: row, newBalance: 0 });
+  }
 });
 
 router.get("/courier/orders/history", requireCourier, async (req, res) => {
@@ -894,6 +1266,136 @@ router.patch("/courier/profile", requireCourier, async (req, res) => {
   }
 
   res.json(rows[0]);
+});
+
+const subscriptionRequestSchema = z.object({
+  vehicleType: z.enum(["bicycle", "motorcycle", "car"]),
+  paidAmount: z.number().int().positive(),
+  receiptUrl: z.string().optional(),
+});
+
+router.post("/courier/subscription/request", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+
+  const body = subscriptionRequestSchema.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "Invalid payload", details: body.error.issues });
+    return;
+  }
+
+  const [activeSub] = await db
+    .select({ id: courierSubscriptionsTable.id })
+    .from(courierSubscriptionsTable)
+    .where(and(
+      eq(courierSubscriptionsTable.courierId, courierId),
+      eq(courierSubscriptionsTable.isActive, true),
+      sql`${courierSubscriptionsTable.endsAt} > NOW()`,
+    ))
+    .limit(1);
+
+  if (activeSub) {
+    res.status(409).json({ error: "already_subscribed", message: "لديك اشتراك نشط بالفعل." });
+    return;
+  }
+
+  const [existing] = await db
+    .select({ id: courierSubscriptionRequestsTable.id, status: courierSubscriptionRequestsTable.status })
+    .from(courierSubscriptionRequestsTable)
+    .where(and(
+      eq(courierSubscriptionRequestsTable.courierId, courierId),
+      eq(courierSubscriptionRequestsTable.status, "pending"),
+    ))
+    .limit(1);
+
+  if (existing) {
+    res.status(409).json({ error: "request_pending", message: "لديك طلب اشتراك قيد المراجعة بالفعل." });
+    return;
+  }
+
+  const [plan] = await db
+    .select({ monthlyPrice: courierSubscriptionPlansTable.monthlyPrice })
+    .from(courierSubscriptionPlansTable)
+    .where(eq(courierSubscriptionPlansTable.vehicleType, body.data.vehicleType))
+    .limit(1);
+
+  const planAmount = plan?.monthlyPrice ?? 0;
+  const id = crypto.randomUUID();
+
+  const [created] = await db
+    .insert(courierSubscriptionRequestsTable)
+    .values({
+      id,
+      courierId,
+      vehicleType: body.data.vehicleType,
+      planAmount,
+      paidAmount: body.data.paidAmount,
+      receiptUrl: body.data.receiptUrl ?? null,
+      status: "pending",
+    })
+    .returning();
+
+  res.status(201).json(created);
+});
+
+router.get("/courier/subscription/request/status", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+
+  const [latest] = await db
+    .select()
+    .from(courierSubscriptionRequestsTable)
+    .where(eq(courierSubscriptionRequestsTable.courierId, courierId))
+    .orderBy(desc(courierSubscriptionRequestsTable.createdAt))
+    .limit(1);
+
+  res.json(latest ?? null);
+});
+
+router.delete("/courier/subscription/request", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+
+  const [pending] = await db
+    .select()
+    .from(courierSubscriptionRequestsTable)
+    .where(and(
+      eq(courierSubscriptionRequestsTable.courierId, courierId),
+      eq(courierSubscriptionRequestsTable.status, "pending"),
+    ))
+    .orderBy(desc(courierSubscriptionRequestsTable.createdAt))
+    .limit(1);
+
+  if (!pending) {
+    res.status(404).json({ error: "No pending request found" });
+    return;
+  }
+
+  const ageMs = Date.now() - new Date(pending.createdAt).getTime();
+  const tenMinutes = 10 * 60 * 1000;
+  if (ageMs < tenMinutes) {
+    const remainingMs = tenMinutes - ageMs;
+    const remainingMin = Math.ceil(remainingMs / 60_000);
+    res.status(409).json({
+      error: "too_soon",
+      message: `يمكنك إلغاء الطلب بعد ${remainingMin} دقيقة`,
+      remainingMs,
+    });
+    return;
+  }
+
+  await db
+    .update(courierSubscriptionRequestsTable)
+    .set({ status: "cancelled" })
+    .where(eq(courierSubscriptionRequestsTable.id, pending.id));
+
+  res.json({ ok: true });
+});
+
+router.get("/courier/payment-qr", async (_req, res) => {
+  const rows = await db
+    .select()
+    .from(systemSettingsTable)
+    .where(eq(systemSettingsTable.key, "payment_qr_url"));
+  const url = rows[0]?.value ?? null;
+  res.json({ url });
 });
 
 export default router;

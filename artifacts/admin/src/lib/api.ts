@@ -12,6 +12,11 @@ export function clearAdminToken(): void {
   localStorage.removeItem("marsool_admin_token");
 }
 
+export type PaymentInfo = {
+  accountImage: string | null;
+  qrImage: string | null;
+};
+
 async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
@@ -69,6 +74,7 @@ export type Restaurant = {
   phone?: string | null;
   ordersCount?: number;
   avgCourierRating?: number | null;
+  sortOrder?: number | null;
 };
 
 export type MenuItem = {
@@ -82,7 +88,13 @@ export type MenuItem = {
   image: string;
   category: string;
   categoryAr: string;
+  subcategory?: string | null;
+  subcategoryAr?: string | null;
   isPopular: boolean;
+  isDeal?: boolean;
+  dealPrice?: number | null;
+  dealDiscountPercent?: number | null;
+  dealExpiresAt?: string | null;
 };
 
 export type Order = {
@@ -102,6 +114,8 @@ export type Order = {
   updatedAt: string;
   customerName?: string | null;
   customerPhone?: string | null;
+  orderType?: string | null;
+  placeName?: string | null;
 };
 
 export type OrdersPage = {
@@ -118,6 +132,50 @@ export type User = {
   role: "customer" | "courier";
   avatarUrl?: string | null;
   createdAt: string;
+  orderCount: number;
+  loyaltyPoints: number;
+  isSubscribed: boolean;
+  lastOrderAt: string | null;
+  isBlocked: boolean;
+};
+
+export type UserDetailOrder = {
+  id: string;
+  restaurantName: string;
+  status: string;
+  createdAt: string;
+  totalPrice: number | null;
+  deliveryFee: number | null;
+  orderText: string;
+};
+
+export type UserDetailTransaction = {
+  id: string;
+  type: string;
+  points: number;
+  description: string;
+  createdAt: string;
+};
+
+export type UserDetailAchievement = {
+  achievementKey: string;
+  earnedAt: string;
+  titleAr: string | null;
+  icon: string | null;
+};
+
+export type UserDetail = {
+  currentPoints: number;
+  orders: UserDetailOrder[];
+  loyaltyTransactions: UserDetailTransaction[];
+  achievements: UserDetailAchievement[];
+  subscription: {
+    id: string;
+    startsAt: string;
+    endsAt: string;
+    isActive: boolean;
+    pricePaid: number;
+  } | null;
 };
 
 export type Courier = {
@@ -130,6 +188,65 @@ export type Courier = {
   totalAssigned: number;
   avgRating: number | null;
   lastDelivery: string | null;
+};
+
+export type SupportMessage = {
+  id: string;
+  userId: string;
+  ticketId: string | null;
+  text: string;
+  senderRole: "customer" | "support";
+  isRead: boolean;
+  createdAt: string;
+};
+
+export type SupportConversation = {
+  userId: string;
+  userName: string | null;
+  userPhone: string | null;
+  lastMessageText: string;
+  lastMessageAt: string;
+  unreadCount: number;
+  totalCount: number;
+};
+
+export type SupportThread = {
+  user: { name: string | null; phone: string | null };
+  messages: SupportMessage[];
+};
+
+export type SupportTicketCategory = "order_delayed" | "wrong_items" | "damaged" | "payment" | "other";
+export type SupportTicketStatus = "open" | "resolved";
+
+export type AdminTicket = {
+  id: string;
+  userId: string;
+  userName: string | null;
+  userPhone: string | null;
+  orderId: string | null;
+  orderRef: string | null;
+  category: SupportTicketCategory;
+  status: SupportTicketStatus;
+  createdAt: string;
+  resolvedAt: string | null;
+  unreadCount: number;
+  lastMessage: string | null;
+  lastMessageAt: string | null;
+};
+
+export type AdminTicketOrder = {
+  id: string;
+  restaurantName: string;
+  status: string;
+  totalPrice: number | null;
+  deliveryFee: number;
+  createdAt: string;
+  estimatedMinutes: number;
+};
+
+export type AdminTicketDetail = {
+  ticket: AdminTicket & { order: AdminTicketOrder | null };
+  messages: SupportMessage[];
 };
 
 export type ChatSummary = {
@@ -222,6 +339,19 @@ export type RatingsPage = {
   total: number;
   avgRestaurantStars: number | null;
   avgCourierStars: number | null;
+};
+
+export type RestaurantPerformance = {
+  id: string;
+  nameAr: string;
+  name: string;
+  image: string;
+  totalOrders: number;
+  cancelledOrders: number;
+  cancellationRate: number;
+  avgDeliveryMinutes: number | null;
+  avgRating: number | null;
+  ratingCount: number;
 };
 
 export type RestaurantHour = {
@@ -324,6 +454,7 @@ export type RestaurantCategory = {
   nameAr: string;
   nameEn: string;
   iconName: string;
+  imageUrl?: string | null;
   sortOrder: number;
   isActive: boolean;
   createdAt: string;
@@ -352,38 +483,41 @@ export const ORDER_STATUSES = [
   "cancelled",
 ] as const;
 
-export type CourierSubscriptionRow = {
+export type CourierSubRow = {
   courierId: string;
   name: string;
   phone: string;
-  date: string;
+  vehicleType: "bicycle" | "motorcycle" | "car";
   subscriptionId: string | null;
+  isActive: boolean;
   status: "paid" | "waived" | "pending";
   amount: number;
+  gifted: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+  daysLeft: number | null;
   note: string | null;
 };
 
-export type SubscriptionDay = {
-  date: string;
-  defaultFee: number;
-  couriers: CourierSubscriptionRow[];
+export type CourierSubRecord = {
+  id: string;
+  courierId: string;
+  vehicleType: "bicycle" | "motorcycle" | "car";
+  startsAt: string;
+  endsAt: string;
+  amount: number;
+  status: "paid" | "waived" | "pending";
+  isActive: boolean;
+  gifted: boolean;
+  createdByAdmin: boolean;
+  note: string | null;
+  createdAt: string;
 };
 
-export type SubscriptionReport = {
-  month: string;
-  totalPaid: number;
-  totalWaived: number;
-  totalRevenue: number;
-  totalWaivedAmount: number;
-  entries: {
-    id: string;
-    courierId: string;
-    date: string;
-    amount: number;
-    status: "paid" | "waived" | "pending";
-    note: string | null;
-    createdAt: string;
-  }[];
+export type CourierSubPlans = {
+  bicycle: number;
+  motorcycle: number;
+  car: number;
 };
 
 export type SystemSettings = Record<string, string>;
@@ -418,6 +552,11 @@ export type CourierApplicationItem = {
 };
 
 export const api = {
+  get: <T>(path: string) => apiFetch<T>(path),
+  post: <T>(path: string, body: unknown) => apiFetch<T>(path, { method: "POST", body: JSON.stringify(body) }),
+  patch: <T>(path: string, body: unknown) => apiFetch<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
+  del: (path: string) => apiFetch<void>(path, { method: "DELETE" }),
+
   async verifyToken(token: string): Promise<boolean> {
     const res = await fetch(`${API_BASE}/admin/stats`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -461,10 +600,11 @@ export const api = {
       method: "DELETE",
     }),
 
-  getOrders: (page = 1, limit = 50, dateFrom?: string, dateTo?: string) => {
+  getOrders: (page = 1, limit = 50, dateFrom?: string, dateTo?: string, orderId?: string) => {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo) params.set("dateTo", dateTo);
+    if (orderId) params.set("orderId", orderId);
     return apiFetch<OrdersPage>(`/admin/orders?${params.toString()}`);
   },
   getActiveOrders: () => apiFetch<Order[]>("/admin/orders/active"),
@@ -481,7 +621,43 @@ export const api = {
   getChats: (q?: string) => apiFetch<ChatSummary[]>(`/admin/chats${q ? `?q=${encodeURIComponent(q)}` : ""}`),
   getChatThread: (orderId: string) => apiFetch<ChatThread>(`/admin/chats/${orderId}`),
 
+  getSupportConversations: () => apiFetch<SupportConversation[]>("/admin/support/conversations"),
+  getSupportThread: (userId: string) => apiFetch<SupportThread>(`/admin/support/conversations/${userId}`),
+  sendSupportReply: (userId: string, text: string) =>
+    apiFetch<SupportMessage>(`/admin/support/conversations/${userId}`, {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    }),
+  getSupportUnreadCount: () => apiFetch<{ count: number }>("/admin/support/unread-count"),
+
+  getAdminTickets: (filters?: { status?: string; category?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.status) params.set("status", filters.status);
+    if (filters?.category) params.set("category", filters.category);
+    const qs = params.toString();
+    return apiFetch<AdminTicket[]>(`/admin/support/tickets${qs ? `?${qs}` : ""}`);
+  },
+  getAdminTicket: (id: string) => apiFetch<AdminTicketDetail>(`/admin/support/tickets/${id}`),
+  sendAdminTicketReply: (id: string, text: string) =>
+    apiFetch<SupportMessage>(`/admin/support/tickets/${id}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    }),
+  resolveAdminTicket: (id: string) =>
+    apiFetch<{ ok: boolean }>(`/admin/support/tickets/${id}/resolve`, { method: "PATCH" }),
+
   getUsers: () => apiFetch<User[]>("/admin/users"),
+  getUserDetail: (id: string) => apiFetch<UserDetail>(`/admin/users/${id}/detail`),
+  adjustUserPoints: (id: string, delta: number, note: string) =>
+    apiFetch<{ ok: boolean; newPoints: number }>(`/admin/users/${id}/adjust-points`, {
+      method: "POST",
+      body: JSON.stringify({ delta, note }),
+    }),
+  blockUser: (id: string, block: boolean) =>
+    apiFetch<{ ok: boolean; isBlocked: boolean }>(`/admin/users/${id}/block`, {
+      method: "PATCH",
+      body: JSON.stringify({ block }),
+    }),
   updateUserRole: (id: string, role: "customer" | "courier") =>
     apiFetch<User>(`/admin/users/${id}/role`, {
       method: "PATCH",
@@ -557,6 +733,43 @@ export const api = {
     apiFetch<RestaurantCategory>(`/admin/categories/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteCategory: (id: string) =>
     apiFetch<void>(`/admin/categories/${id}`, { method: "DELETE" }),
+  reorderCategories: (order: { id: string; sortOrder: number }[]) =>
+    apiFetch<{ ok: boolean }>("/admin/categories/reorder", { method: "PUT", body: JSON.stringify({ order }) }),
+
+  getRestaurantGlobalOrder: () =>
+    apiFetch<{ id: string; nameAr: string; name: string; image: string; sortOrder: number | null }[]>(
+      "/admin/restaurants/global-order"
+    ),
+  saveRestaurantGlobalOrder: (order: { restaurantId: string; sortOrder: number }[]) =>
+    apiFetch<{ ok: boolean }>("/admin/restaurants/global-order", {
+      method: "PUT",
+      body: JSON.stringify({ order }),
+    }),
+
+  getRestaurantCategoryOrder: (categoryId: string) =>
+    apiFetch<{ id: string; nameAr: string; name: string; image: string; sortOrder: number | null; categorySortOrder: number | null }[]>(
+      `/admin/restaurants/category-order?categoryId=${encodeURIComponent(categoryId)}`
+    ),
+  saveRestaurantCategoryOrder: (
+    categoryId: string,
+    order: { restaurantId: string; sortOrder: number }[]
+  ) =>
+    apiFetch<{ ok: boolean }>("/admin/restaurants/category-order", {
+      method: "PUT",
+      body: JSON.stringify({ categoryId, order }),
+    }),
+
+  getCategoryExclusions: (categoryId: string) =>
+    apiFetch<string[]>(`/admin/categories/${encodeURIComponent(categoryId)}/exclusions`),
+  addCategoryExclusion: (categoryId: string, restaurantId: string) =>
+    apiFetch<{ ok: boolean }>(`/admin/categories/${encodeURIComponent(categoryId)}/exclusions`, {
+      method: "POST",
+      body: JSON.stringify({ restaurantId }),
+    }),
+  removeCategoryExclusion: (categoryId: string, restaurantId: string) =>
+    apiFetch<void>(`/admin/categories/${encodeURIComponent(categoryId)}/exclusions/${encodeURIComponent(restaurantId)}`, {
+      method: "DELETE",
+    }),
 
   getFinancialReport: (days?: number, groupBy?: 'day' | 'week') => {
     const params = new URLSearchParams();
@@ -573,6 +786,34 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  getPaymentInfo: () => apiFetch<PaymentInfo>("/admin/settings").then(s => ({
+    accountImage: (s as Record<string, string>)["payment_account_image"] ?? null,
+    qrImage: (s as Record<string, string>)["payment_qr_image"] ?? null,
+  })),
+  updatePaymentInfo: (data: { accountImage: string | null; qrImage: string | null }) =>
+    apiFetch<{ ok: boolean }>("/admin/settings", {
+      method: "PUT",
+      body: JSON.stringify({
+        ...(data.accountImage !== null ? { payment_account_image: data.accountImage } : {}),
+        ...(data.qrImage !== null ? { payment_qr_image: data.qrImage } : {}),
+      }),
+    }),
+
+  getHomeFilters: () => apiFetch<HomeFilter[]>("/config/home-filters"),
+  saveHomeFilters: (filters: HomeFilter[]) =>
+    apiFetch<{ ok: boolean }>("/admin/settings/home-filters", {
+      method: "PUT",
+      body: JSON.stringify(filters),
+    }),
+
+  getTabBarConfig: () => apiFetch<TabBarItem[]>("/config/tab-bar"),
+  getAvailableTabTypes: () => apiFetch<AvailableTabType[]>("/config/tab-bar/available-types"),
+  saveTabBarConfig: (items: TabBarItem[]) =>
+    apiFetch<{ ok: boolean }>("/admin/settings/tab-bar", {
+      method: "PUT",
+      body: JSON.stringify(items),
+    }),
+
   getSmsStatus: () =>
     apiFetch<{ jwtConfigured: boolean; smsConfigured: boolean; smsMethod: string; smsUrl: string | null }>("/admin/sms/status"),
   testSms: (phone: string) =>
@@ -587,27 +828,36 @@ export const api = {
       body: JSON.stringify({ url }),
     }),
 
-  getSubscriptions: (date?: string) => {
-    const qs = date ? `?date=${date}` : "";
-    return apiFetch<SubscriptionDay>(`/admin/subscriptions${qs}`);
-  },
-  saveSubscription: (data: {
+  getCourierSubscriptions: () => apiFetch<CourierSubRow[]>("/admin/courier-subscriptions"),
+  createCourierSubscription: (data: {
     courierId: string;
-    date: string;
-    status: "paid" | "waived" | "pending";
-    amount: number;
-    note: string | null;
+    vehicleType?: "bicycle" | "motorcycle" | "car";
+    months: number;
+    gifted: boolean;
+    note?: string | null;
   }) =>
-    apiFetch<CourierSubscriptionRow>("/admin/subscriptions", {
+    apiFetch<CourierSubRecord>("/admin/courier-subscriptions", {
       method: "POST",
       body: JSON.stringify(data),
     }),
+  extendCourierSubscription: (
+    id: string,
+    data: { months?: number; note?: string | null; status?: "paid" | "waived" | "pending" }
+  ) =>
+    apiFetch<CourierSubRecord>(`/admin/courier-subscriptions/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  cancelCourierSubscription: (id: string) =>
+    apiFetch<void>(`/admin/courier-subscriptions/${id}`, { method: "DELETE" }),
   getCourierSubscriptionHistory: (courierId: string) =>
-    apiFetch<SubscriptionReport["entries"]>(`/admin/subscriptions/history/${courierId}`),
-  getSubscriptionReport: (month?: string) => {
-    const qs = month ? `?month=${month}` : "";
-    return apiFetch<SubscriptionReport>(`/admin/subscriptions/report${qs}`);
-  },
+    apiFetch<CourierSubRecord[]>(`/admin/subscriptions/history/${courierId}`),
+  getCourierSubPlans: () => apiFetch<CourierSubPlans>("/admin/courier-subscription-plans"),
+  updateCourierSubPlans: (data: CourierSubPlans) =>
+    apiFetch<CourierSubPlans>("/admin/courier-subscription-plans", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
 
   getWalletDepositRequests: () =>
     apiFetch<WalletDepositRequest[]>("/admin/wallet/deposit-requests"),
@@ -631,6 +881,20 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ adminNote }),
     }),
+
+  getSubscriptionRequests: () =>
+    apiFetch<CourierSubscriptionRequest[]>("/admin/subscription-requests"),
+  approveSubscriptionRequest: (id: string) =>
+    apiFetch<{ ok: boolean }>(`/admin/subscription-requests/${id}/approve`, { method: "POST" }),
+  rejectSubscriptionRequest: (id: string, adminNote: string) =>
+    apiFetch<{ ok: boolean }>(`/admin/subscription-requests/${id}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ adminNote }),
+    }),
+  getPendingSubscriptionRequestsCount: () =>
+    apiFetch<CourierSubscriptionRequest[]>("/admin/subscription-requests?status=pending").then(
+      (list) => ({ count: list.length })
+    ),
 
   getWaVerifyHealth: async (): Promise<WaVerifyHealth> => {
     const token = getAdminToken();
@@ -662,6 +926,119 @@ export const api = {
     apiFetch<{ id: string }>("/admin/whatsapp/accounts", { method: "POST" }),
   disconnectWhatsAppAccount: (id: string) =>
     apiFetch<void>(`/admin/whatsapp/accounts/${id}`, { method: "DELETE" }),
+
+  getRestaurantPerformance: (days: number) =>
+    apiFetch<RestaurantPerformance[]>(`/admin/restaurant-performance?days=${days}`),
+
+  getChurnUsers: (inactiveDays: number) =>
+    apiFetch<ChurnUser[]>(`/admin/churn?inactiveDays=${inactiveDays}`),
+  sendBulkNotification: (data: { userIds: string[]; title: string; body: string; promoCode?: string }) =>
+    apiFetch<{ success: boolean; sentCount: number; failedCount: number }>("/admin/notifications/bulk-users", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  getHomeSectionItems: (section: "popular" | "deals") =>
+    apiFetch<HomeSectionItem[]>(`/admin/home-sections/${section}`),
+  addHomeSectionItem: (section: "popular" | "deals", restaurantId: string) =>
+    apiFetch<HomeSectionItem>(`/admin/home-sections/${section}`, {
+      method: "POST",
+      body: JSON.stringify({ restaurantId }),
+    }),
+  removeHomeSectionItem: (section: "popular" | "deals", restaurantId: string) =>
+    apiFetch<void>(`/admin/home-sections/${section}/${restaurantId}`, { method: "DELETE" }),
+  reorderHomeSectionItems: (
+    section: "popular" | "deals",
+    items: { restaurantId: string; sortOrder: number }[]
+  ) =>
+    apiFetch<{ ok: boolean }>(`/admin/home-sections/${section}/order`, {
+      method: "PUT",
+      body: JSON.stringify({ items }),
+    }),
+  getSlaAlerts: (minAge = 5) =>
+    apiFetch<SlaAlert[]>(`/admin/sla-alerts?minAge=${minAge}`),
+  getCancellationStats: (days: number) =>
+    apiFetch<CancellationStats>(`/admin/cancellation-stats?days=${days}`),
+  getCourierPerformance: (days: number) =>
+    apiFetch<CourierPerformanceRow[]>(`/admin/courier-performance?days=${days}`),
+  getCourierPerformanceDetail: (courierId: string, days: number) =>
+    apiFetch<CourierPerformanceDetail>(`/admin/courier-performance/${courierId}?days=${days}`),
+
+  getCourierNotes: (courierId: string) =>
+    apiFetch<AdminNote[]>(`/admin/couriers/${courierId}/notes`),
+  addCourierNote: (courierId: string, text: string) =>
+    apiFetch<AdminNote>(`/admin/couriers/${courierId}/notes`, {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    }),
+
+  getFlashDeals: () => apiFetch<FlashDeal[]>("/admin/flash-deals"),
+  createFlashDeal: (data: Omit<FlashDeal, "id" | "usedCount" | "createdAt" | "restaurantName">) =>
+    apiFetch<FlashDeal>("/admin/flash-deals", { method: "POST", body: JSON.stringify(data) }),
+  updateFlashDeal: (id: string, data: Partial<Omit<FlashDeal, "id" | "usedCount" | "createdAt" | "restaurantName">>) =>
+    apiFetch<FlashDeal>(`/admin/flash-deals/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteFlashDeal: (id: string) =>
+    apiFetch<void>(`/admin/flash-deals/${id}`, { method: "DELETE" }),
+  getFlashDealStats: (id: string) =>
+    apiFetch<FlashDealStats>(`/admin/flash-deals/${id}/stats`),
+
+  getLoyaltySettings: () => apiFetch<LoyaltySettings>("/admin/loyalty-settings"),
+  saveLoyaltySettings: (data: LoyaltySettings) =>
+    apiFetch<LoyaltySettings>("/admin/loyalty-settings", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  getLoyaltyUsers: () => apiFetch<LoyaltyUser[]>("/admin/loyalty-users"),
+
+  getCustomerSubscriptions: () =>
+    apiFetch<CustomerSubscriptionRow[]>("/admin/customer-subscriptions"),
+  createCustomerSubscription: (data: { userId: string; durationDays: number }) =>
+    apiFetch<CustomerSubscriptionRow>("/admin/customer-subscriptions", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  toggleCustomerSubscription: (id: string, isActive: boolean) =>
+    apiFetch<CustomerSubscriptionRow>(`/admin/customer-subscriptions/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ isActive }),
+    }),
+  getCustomerSubscriptionSettings: () =>
+    apiFetch<CustomerSubscriptionSettings>("/admin/subscription-settings"),
+  updateCustomerSubscriptionSettings: (data: CustomerSubscriptionSettings) =>
+    apiFetch<CustomerSubscriptionSettings>("/admin/subscription-settings", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+};
+
+export type SlaAlert = {
+  id: string;
+  orderText: string;
+  restaurantName: string | null;
+  address: string | null;
+  createdAt: string;
+  ageMinutes: number;
+  customerName: string | null;
+  customerPhone: string | null;
+};
+
+export type ChurnUser = {
+  id: string;
+  name: string | null;
+  phone: string;
+  lastOrderAt: string | null;
+  totalOrders: number;
+  hasPushToken: boolean;
+};
+
+export type HomeSectionItem = {
+  id: string;
+  section: "popular" | "deals";
+  restaurantId: string;
+  sortOrder: number;
+  restaurantName: string;
+  restaurantNameAr: string;
+  restaurantImage: string;
 };
 
 export type WAAccount = {
@@ -672,6 +1049,105 @@ export type WAAccount = {
   createdAt: string;
 };
 
+export type AdminNote = {
+  id: string;
+  courierId: string;
+  text: string;
+  adminId: string;
+  createdAt: string;
+};
+
+export type CourierPerformanceRow = {
+  id: string;
+  name: string;
+  phone: string;
+  avatarUrl: string | null;
+  isOnline: boolean;
+  lastSeen: string | null;
+  deliveries: number;
+  cancelledAfterAssign: number;
+  totalAssigned: number;
+  acceptanceRate: number | null;
+  avgRating: number | null;
+  ratingCount: number;
+  avgDeliveryMinutes: number | null;
+};
+
+export type CourierPerformanceDetail = {
+  courierId: string;
+  days: number;
+  dailyDeliveries: { date: string; count: number }[];
+  recentOrders: {
+    id: string;
+    status: string;
+    restaurantName: string;
+    address: string;
+    orderText: string;
+    deliveryFee: number;
+    createdAt: string;
+    customerName: string | null;
+  }[];
+  ratingHistory: {
+    stars: number;
+    ratedAt: string;
+    customerName: string | null;
+    restaurantName: string | null;
+  }[];
+};
+
+export type CancellationStats = {
+  days: number;
+  total: number;
+  byReason: {
+    autoExpired: number;
+    customerInitiated: number;
+    restaurantRejected: number;
+  };
+  byHour: { hour: number; count: number }[];
+  byZone: { zone: string; count: number }[];
+  byRestaurant: {
+    restaurantName: string;
+    totalOrders: number;
+    cancelled: number;
+    rate: number;
+  }[];
+};
+
+export type FlashDeal = {
+  id: string;
+  restaurantId: string;
+  restaurantName?: string | null;
+  title: string;
+  discountType: "percent" | "fixed";
+  discountValue: number;
+  startsAt: string;
+  endsAt: string;
+  maxUses: number | null;
+  usedCount: number;
+  isActive: boolean;
+  createdAt: string;
+};
+
+export type FlashDealStats = {
+  ordersCount: number;
+  totalDiscount: number;
+  totalRevenue: number;
+  conversionRate: number | null;
+};
+
+export type LoyaltySettings = {
+  earnRate: number;
+  pointValue: number;
+};
+
+export type LoyaltyUser = {
+  id: string;
+  name: string;
+  phone: string;
+  role: string;
+  loyaltyPoints: number;
+};
+
 export type WaVerifyHealth = {
   ok: boolean;
   configured?: boolean;
@@ -679,10 +1155,64 @@ export type WaVerifyHealth = {
   error?: string;
 };
 
+
 export type WaVerifyHealthLogEntry = {
   id: number;
   ok: boolean;
   httpStatus: number | null;
   message: string | null;
   checkedAt: string;
+};
+
+export type CustomerSubscriptionSettings = {
+  monthlyPrice: number;
+  subscriberDeliveryFee: number;
+};
+
+export type CustomerSubscriptionRow = {
+  id: string;
+  userId: string;
+  startsAt: string;
+  endsAt: string;
+  planType: string;
+  pricePaid: number;
+  isActive: boolean;
+  createdByAdmin: boolean;
+  createdAt: string;
+  userName: string | null;
+  userPhone: string;
+  walletBalance: number;
+};
+
+export type HomeFilter = {
+  key: "rating" | "time" | "fee" | "openNow";
+  labelAr: string;
+  enabled: boolean;
+  order: number;
+};
+
+export type TabBarItem = {
+  type: "home" | "favorites" | "orders" | "profile" | "offers" | "search" | "errand";
+  labelAr: string;
+  order: number;
+};
+
+export type AvailableTabType = {
+  type: "home" | "favorites" | "orders" | "profile" | "offers" | "search" | "errand";
+  labelAr: string;
+};
+
+export type CourierSubscriptionRequest = {
+  id: string;
+  courierId: string;
+  vehicleType: string;
+  planAmount: number;
+  paidAmount: number;
+  receiptUrl: string | null;
+  status: "pending" | "approved" | "rejected";
+  adminNote: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+  courierName: string | null;
+  courierPhone: string | null;
 };

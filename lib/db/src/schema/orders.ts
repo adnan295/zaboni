@@ -22,6 +22,7 @@ export const ordersTable = pgTable("orders", {
   orderText: text("order_text").notNull(),
   restaurantName: text("restaurant_name").notNull().default(""),
   restaurantPhone: text("restaurant_phone").notNull().default(""),
+  restaurantId: text("restaurant_id"),
   status: text("status", {
     enum: ORDER_STATUSES,
   })
@@ -35,8 +36,14 @@ export const ordersTable = pgTable("orders", {
   destinationLat: doublePrecision("destination_lat").default(DAMASCUS_CENTER_LAT),
   destinationLon: doublePrecision("destination_lon").default(DAMASCUS_CENTER_LON),
   deliveryFee: integer("delivery_fee").notNull().default(0),
+  totalPrice: integer("total_price"),
+  flashDealId: text("flash_deal_id"),
+  flashDealDiscount: integer("flash_deal_discount"),
   paymentMethod: text("payment_method").notNull().default("cash"),
   estimatedMinutes: integer("estimated_minutes").notNull().default(30),
+  orderType: text("order_type").notNull().default("restaurant"),
+  placeName: text("place_name"),
+  restaurantNote: text("restaurant_note"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

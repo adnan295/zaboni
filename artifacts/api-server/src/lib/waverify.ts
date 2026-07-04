@@ -80,7 +80,7 @@ export async function verifyOtp(phone: string, otp: string): Promise<boolean> {
     }
   }
 
-  const data = await res.json().catch(() => null);
+  const data = await res.json().catch(() => null) as { success?: boolean; status?: string; verified?: boolean } | null;
   return data?.success === true || data?.status === "success" || data?.verified === true;
 }
 

@@ -14,19 +14,19 @@ export default function Layout({ lang, setLang, activePage, children }: LayoutPr
     <div className="min-h-screen bg-gray-50 flex flex-col" dir={isAr ? "rtl" : "ltr"}>
       <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-orange-500 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">م</span>
+          <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <div className="w-8 h-8 rounded-xl bg-red-600 flex items-center justify-center">
+              <span className="text-white font-bold text-sm">ز</span>
             </div>
-            <span className="font-bold text-gray-900 text-lg">مرسول</span>
-          </div>
+            <span className="font-bold text-gray-900 text-lg">زبوني</span>
+          </Link>
 
           <nav className="flex items-center gap-1">
             <Link
               href="/support"
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 activePage === "support"
-                  ? "bg-orange-50 text-orange-600"
+                  ? "bg-red-50 text-red-600"
                   : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
               }`}
             >
@@ -36,7 +36,7 @@ export default function Layout({ lang, setLang, activePage, children }: LayoutPr
               href="/privacy"
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 activePage === "privacy"
-                  ? "bg-orange-50 text-orange-600"
+                  ? "bg-red-50 text-red-600"
                   : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
               }`}
             >
@@ -65,8 +65,8 @@ export default function Layout({ lang, setLang, activePage, children }: LayoutPr
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-gray-400">
           <p>
             {isAr
-              ? `© ${new Date().getFullYear()} مرسول. جميع الحقوق محفوظة.`
-              : `© ${new Date().getFullYear()} Marsool. All rights reserved.`}
+              ? `© ${new Date().getFullYear()} زبوني. جميع الحقوق محفوظة.`
+              : `© ${new Date().getFullYear()} Zaboni. All rights reserved.`}
           </p>
           <div className="flex items-center gap-4">
             <a href="mailto:support@zaboni.app" className="hover:text-gray-600 transition-colors">

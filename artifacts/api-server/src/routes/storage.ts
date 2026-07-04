@@ -1,17 +1,56 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { Readable } from "stream";
 import jwt from "jsonwebtoken";
+import rateLimit from "express-rate-limit";
 import {
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
 } from "@workspace/api-zod";
-import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import { createWriteStream } from "fs";
+import { mkdir, rm } from "fs/promises";
+import path from "path";
+import {
+  ObjectStorageService,
+  ObjectNotFoundError,
+  MAX_PUBLIC_UPLOAD_SIZE_BYTES,
+  isLocalStorageMode,
+  consumePendingLocalUpload,
+} from "../lib/objectStorage";
+import { writeLocalObjectMeta } from "../lib/localStorageMeta";
+import { ObjectPermission } from "../lib/objectAcl";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
 
-const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+const MAX_UPLOAD_SIZE_BYTES = MAX_PUBLIC_UPLOAD_SIZE_BYTES;
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+const DAILY_UPLOAD_LIMIT = 50;
+
+interface UserUploadBucket {
+  count: number;
+  dateUtc: string;
+}
+
+const userUploadBuckets = new Map<string, UserUploadBucket>();
+
+function todayUtc(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function checkAndIncrementDailyQuota(userId: string): boolean {
+  const today = todayUtc();
+  const bucket = userUploadBuckets.get(userId);
+  if (!bucket || bucket.dateUtc !== today) {
+    userUploadBuckets.set(userId, { count: 1, dateUtc: today });
+    return true;
+  }
+  if (bucket.count >= DAILY_UPLOAD_LIMIT) {
+    return false;
+  }
+  bucket.count++;
+  return true;
+}
 
 function getJwtSecret(): string {
   const secret = process.env["JWT_SECRET"];
@@ -33,17 +72,33 @@ function requireUploadAuth(req: Request, res: Response, next: NextFunction): voi
 
   const adminSecret = process.env["ADMIN_SECRET"];
   if (adminSecret && token === adminSecret) {
+    res.locals["isAdmin"] = true;
     next();
     return;
   }
 
   try {
-    jwt.verify(token, getJwtSecret());
+    const payload = jwt.verify(token, getJwtSecret()) as { userId?: string };
+    res.locals["isAdmin"] = false;
+    res.locals["userId"] = payload.userId;
     next();
   } catch {
     res.status(401).json({ error: "Unauthorized" });
   }
 }
+
+const uploadRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req: Request, res: Response) => {
+    const userId = res.locals["userId"] as string | undefined;
+    return userId ?? req.ip ?? "unknown";
+  },
+  message: { error: "Too many upload requests. Please try again later." },
+  skip: (_req: Request, res: Response) => res.locals["isAdmin"] === true,
+});
 
 /**
  * POST /storage/uploads/request-url
@@ -52,8 +107,9 @@ function requireUploadAuth(req: Request, res: Response, next: NextFunction): voi
  * The client sends JSON metadata (name, size, contentType) — NOT the file.
  * Then uploads the file directly to the returned presigned URL.
  * Enforces: max 5MB, only image/jpeg | image/png | image/webp.
+ * Rate limited to 20 requests per minute per authenticated user.
  */
-router.post("/storage/uploads/request-url", requireUploadAuth, async (req: Request, res: Response) => {
+router.post("/storage/uploads/request-url", requireUploadAuth, uploadRateLimit, async (req: Request, res: Response) => {
   const parsed = RequestUploadUrlBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Missing or invalid required fields" });
@@ -72,12 +128,29 @@ router.post("/storage/uploads/request-url", requireUploadAuth, async (req: Reque
     return;
   }
 
+  const isAdmin = res.locals["isAdmin"] as boolean;
+  const userId = res.locals["userId"] as string | undefined;
+  if (!isAdmin && userId) {
+    const allowed = checkAndIncrementDailyQuota(userId);
+    if (!allowed) {
+      res.status(429).json({ error: "تجاوزت الحد اليومي لرفع الملفات" });
+      return;
+    }
+  }
+
   try {
     const { uploadURL, objectPath } = await objectStorageService.getPublicObjectUploadURL(contentType);
 
+    // Local-disk upload URLs are server-relative paths. Web clients can fetch()
+    // a relative URL fine (resolved against the page origin), but the Expo/React
+    // Native client has no page origin, so it needs an absolute URL.
+    const absoluteUploadURL = isLocalStorageMode
+      ? `${req.protocol}://${req.get("host")}${uploadURL}`
+      : uploadURL;
+
     res.json(
       RequestUploadUrlResponse.parse({
-        uploadURL,
+        uploadURL: absoluteUploadURL,
         objectPath,
         metadata: { name, size, contentType },
       }),
@@ -105,6 +178,17 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
       return;
     }
 
+    // User-uploaded objects land under uploads/. Validate actual size and magic
+    // bytes before serving — this catches oversized or non-image payloads that
+    // bypassed the client-declared metadata check at upload-URL request time.
+    if (filePath.startsWith("uploads/")) {
+      const valid = await objectStorageService.validatePublicUpload(file, MAX_UPLOAD_SIZE_BYTES);
+      if (!valid) {
+        res.status(404).json({ error: "File not found" });
+        return;
+      }
+    }
+
     const response = await objectStorageService.downloadObject(file);
 
     res.status(response.status);
@@ -127,6 +211,8 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
  *
  * Serve object entities from PRIVATE_OBJECT_DIR.
  * Requires admin secret or valid user JWT.
+ * Enforces per-object ACL: admin bypasses; non-admin callers must satisfy
+ * canAccessObjectEntity (owner match or public visibility).
  */
 router.get("/storage/objects/*path", requireUploadAuth, async (req: Request, res: Response) => {
   try {
@@ -134,6 +220,20 @@ router.get("/storage/objects/*path", requireUploadAuth, async (req: Request, res
     const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
     const objectPath = `/objects/${wildcardPath}`;
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+
+    const isAdmin = res.locals["isAdmin"] as boolean;
+    if (!isAdmin) {
+      const userId = res.locals["userId"] as string | undefined;
+      const allowed = await objectStorageService.canAccessObjectEntity({
+        userId,
+        objectFile,
+        requestedPermission: ObjectPermission.READ,
+      });
+      if (!allowed) {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
+    }
 
     const response = await objectStorageService.downloadObject(objectFile);
 
@@ -154,6 +254,74 @@ router.get("/storage/objects/*path", requireUploadAuth, async (req: Request, res
     }
     req.log.error({ err: error }, "Error serving object");
     res.status(500).json({ error: "Failed to serve object" });
+  }
+});
+
+/**
+ * PUT /storage/local-upload/:token
+ *
+ * Only active when STORAGE_MODE=local. Receives the raw file bytes for a
+ * pending upload token minted by getPublicObjectUploadURL /
+ * getObjectEntityUploadURL, and streams them directly to local disk.
+ * This replaces the GCS presigned-URL PUT step used in the default mode.
+ */
+router.put("/storage/local-upload/:token", async (req: Request, res: Response) => {
+  if (!isLocalStorageMode) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  const token = req.params["token"] as string;
+  const entry = consumePendingLocalUpload(token);
+  if (!entry) {
+    res.status(410).json({ error: "Upload link expired or invalid" });
+    return;
+  }
+
+  const declaredLength = Number(req.headers["content-length"] ?? 0);
+  if (declaredLength > entry.maxSizeBytes) {
+    res.status(413).json({ error: "File too large" });
+    return;
+  }
+
+  try {
+    await mkdir(path.dirname(entry.absolutePath), { recursive: true });
+
+    let bytesWritten = 0;
+    let tooLarge = false;
+
+    await new Promise<void>((resolve, reject) => {
+      const writeStream = createWriteStream(entry.absolutePath);
+
+      req.on("data", (chunk: Buffer) => {
+        bytesWritten += chunk.length;
+        if (bytesWritten > entry.maxSizeBytes && !tooLarge) {
+          tooLarge = true;
+          writeStream.destroy();
+          req.destroy();
+        }
+      });
+
+      writeStream.on("finish", resolve);
+      writeStream.on("error", reject);
+      req.on("error", reject);
+      req.on("aborted", () => reject(new Error("aborted")));
+
+      req.pipe(writeStream);
+    });
+
+    if (tooLarge) {
+      await rm(entry.absolutePath, { force: true });
+      res.status(413).json({ error: "File too large" });
+      return;
+    }
+
+    await writeLocalObjectMeta(entry.absolutePath, { contentType: entry.contentType });
+    res.status(200).json({ ok: true });
+  } catch (error) {
+    await rm(entry.absolutePath, { force: true }).catch(() => {});
+    req.log.error({ err: error }, "Error writing local upload");
+    res.status(500).json({ error: "Failed to save file" });
   }
 });
 

@@ -43,10 +43,21 @@ export interface Restaurant {
   tags: string[];
   isOpen: boolean;
   discount?: string | null;
-  isLogo?: boolean | null;
-  lat?: number | null;
-  lon?: number | null;
-  phone?: string | null;
+}
+
+export interface MenuItemOption {
+  id: string;
+  nameAr: string;
+  extraPrice: number;
+  isDefault: boolean;
+  sortOrder: number;
+}
+
+export interface MenuItemOptionGroup {
+  id: string;
+  nameAr: string;
+  sortOrder: number;
+  options: MenuItemOption[];
 }
 
 export interface MenuItem {
@@ -60,7 +71,13 @@ export interface MenuItem {
   image: string;
   category: string;
   categoryAr: string;
+  subcategory?: string | null;
+  subcategoryAr?: string | null;
   isPopular: boolean;
+  isAvailable?: boolean;
+  isDeal?: boolean;
+  dealPrice?: number | null;
+  optionGroups?: MenuItemOptionGroup[];
 }
 
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
@@ -71,6 +88,23 @@ export const OrderStatus = {
   on_way: "on_way",
   delivered: "delivered",
 } as const;
+
+export interface OrderItemOption {
+  nameAr: string;
+  extraPrice: number;
+}
+
+export interface OrderItem {
+  id: string;
+  orderId: string;
+  menuItemId?: string | null;
+  nameAr: string;
+  unitPrice: number;
+  qty: number;
+  lineTotal: number;
+  note?: string | null;
+  options?: OrderItemOption[];
+}
 
 export interface Order {
   id: string;
@@ -86,10 +120,23 @@ export interface Order {
   estimatedMinutes: number;
   createdAt: string;
   updatedAt: string;
+  restaurantNote?: string | null;
+  items?: OrderItem[];
+}
+
+export interface CreateOrderItemOption {
+  optionId: string;
+}
+
+export interface CreateOrderItem {
+  menuItemId: string;
+  qty: number;
+  note?: string;
+  selectedOptions?: CreateOrderItemOption[];
 }
 
 export interface CreateOrderRequest {
-  orderText: string;
+  orderText?: string;
   restaurantName?: string;
   address?: string;
   userId?: string;
@@ -97,6 +144,10 @@ export interface CreateOrderRequest {
   lat?: number;
   lon?: number;
   restaurantId?: string;
+  totalPrice?: number;
+  usePoints?: boolean;
+  restaurantNote?: string;
+  items?: CreateOrderItem[];
 }
 
 export type UpdateOrderStatusRequestStatus =

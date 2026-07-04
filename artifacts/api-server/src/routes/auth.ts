@@ -1,12 +1,13 @@
 import { Router, type IRouter } from "express";
 import { randomInt } from "crypto";
-import { db, otpCodesTable, usersTable, ordersTable } from "@workspace/db";
+import { db, otpCodesTable, usersTable, ordersTable, referralCodesTable, referralsTable } from "@workspace/db";
 import { and, eq, gt, count, sum } from "drizzle-orm";
 import { z } from "zod";
 import jwt from "jsonwebtoken";
 import { parsePhoneNumber, isValidPhoneNumber } from "libphonenumber-js";
 import { sendSmsViaGateway } from "../lib/sms";
 import { whatsappManager } from "../lib/whatsapp";
+import { sendPushToUsers } from "../lib/push";
 
 const router: IRouter = Router();
 
@@ -45,6 +46,7 @@ function getJwtSecret(): string {
 }
 
 function generateOtp(): string {
+  if (process.env.NODE_ENV !== "production") return "000000";
   return randomInt(100000, 1000000).toString();
 }
 
@@ -74,6 +76,7 @@ const e164Phone = z
 
 const sendOtpSchema = z.object({
   phone: e164Phone,
+  preferSms: z.boolean().optional(),
 });
 
 const verifyOtpSchema = z.object({
@@ -89,7 +92,7 @@ router.post("/auth/send-otp", async (req, res) => {
     return;
   }
 
-  const { phone } = body.data;
+  const { phone, preferSms } = body.data;
 
   const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.socket.remoteAddress ?? "unknown";
   const phoneKey = `phone:${phone}`;
@@ -111,15 +114,19 @@ router.post("/auth/send-otp", async (req, res) => {
 
   await db.insert(otpCodesTable).values({ id, phone, code, expiresAt });
 
-  const message = `رمز التحقق الخاص بك في مرسول: ${code}`;
+  const message = `رمز التحقق الخاص بك في زبوني: ${code}`;
 
   let channel: "whatsapp" | "sms" = "sms";
 
-  const waSent = await whatsappManager.sendMessage(phone, message);
-  if (waSent) {
-    channel = "whatsapp";
-    console.log(`[auth] OTP sent via WhatsApp to ${phone}`);
-  } else {
+  if (!preferSms) {
+    const waSent = await whatsappManager.sendMessage(phone, message);
+    if (waSent) {
+      channel = "whatsapp";
+      console.log(`[auth] OTP sent via WhatsApp to ${phone}`);
+    }
+  }
+
+  if (channel === "sms") {
     try {
       await sendOtpSms(phone, code);
       console.log(`[auth] OTP sent via SMS to ${phone}`);
@@ -152,10 +159,14 @@ router.post("/auth/verify-otp", async (req, res) => {
   }
 
   const TEST_OTP = "999999";
-  const isTestOtp = code === TEST_OTP;
+  const reviewPhone = process.env["APPLE_REVIEW_PHONE"];
+  const isTestOtp =
+    code === TEST_OTP &&
+    (process.env.NODE_ENV !== "production" ||
+      (reviewPhone != null && phone === reviewPhone));
 
   if (isTestOtp) {
-    console.log(`[auth] Test OTP used for phone ${phone} — skipping real verification`);
+    req.log.info({ phone }, "[auth] Test OTP used — skipping real verification");
   }
 
   if (!isTestOtp) {
@@ -196,6 +207,10 @@ router.post("/auth/verify-otp", async (req, res) => {
   let userAvatarUrl: string | null = null;
 
   if (existingUser.length > 0) {
+    if (existingUser[0].isBlocked) {
+      res.status(403).json({ error: "هذا الحساب موقوف / This account has been blocked" });
+      return;
+    }
     userId = existingUser[0].id;
     userName = name ?? existingUser[0].name;
     userRole = (existingUser[0].role as "customer" | "courier") ?? "customer";
@@ -256,7 +271,7 @@ router.get("/auth/me", async (req, res) => {
   }
 
   const users = await db
-    .select({ id: usersTable.id, phone: usersTable.phone, name: usersTable.name, role: usersTable.role, avatarUrl: usersTable.avatarUrl })
+    .select({ id: usersTable.id, phone: usersTable.phone, name: usersTable.name, role: usersTable.role, avatarUrl: usersTable.avatarUrl, isBlocked: usersTable.isBlocked })
     .from(usersTable)
     .where(eq(usersTable.id, userId))
     .limit(1);
@@ -266,13 +281,20 @@ router.get("/auth/me", async (req, res) => {
     return;
   }
 
-  res.json(users[0]);
+  if (users[0].isBlocked) {
+    res.status(403).json({ error: "Account is blocked" });
+    return;
+  }
+
+  const { isBlocked: _b, ...userFields } = users[0];
+  res.json(userFields);
 });
 
 const updateProfileSchema = z.object({
   name: z.string().min(1).max(60).optional(),
   phone: e164Phone.optional(),
   avatarUrl: z.string().max(1024).nullable().optional(),
+  referralCode: z.string().length(8).optional(),
 });
 
 router.patch("/auth/me", async (req, res) => {
@@ -294,6 +316,10 @@ router.patch("/auth/me", async (req, res) => {
     return;
   }
 
+  const callerCheck = await db.select({ isBlocked: usersTable.isBlocked }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  if (callerCheck.length === 0) { res.status(404).json({ error: "User not found" }); return; }
+  if (callerCheck[0].isBlocked) { res.status(403).json({ error: "Account is blocked" }); return; }
+
   const body = updateProfileSchema.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Invalid profile data", details: body.error.issues }); return; }
 
@@ -313,6 +339,21 @@ router.patch("/auth/me", async (req, res) => {
   }
   if (body.data.avatarUrl !== undefined) updates.avatarUrl = body.data.avatarUrl;
 
+  // Validate referral code BEFORE performing the profile update so we can
+  // reject self-referral with 400 without leaving a partial profile change.
+  if (body.data.referralCode) {
+    const code = body.data.referralCode.toUpperCase();
+    const [codeRow] = await db
+      .select({ userId: referralCodesTable.userId })
+      .from(referralCodesTable)
+      .where(eq(referralCodesTable.code, code))
+      .limit(1);
+    if (codeRow && codeRow.userId === userId) {
+      res.status(400).json({ error: "self_referral" });
+      return;
+    }
+  }
+
   if (Object.keys(updates).length === 0) {
     const existing = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
     if (existing.length === 0) { res.status(404).json({ error: "User not found" }); return; }
@@ -328,7 +369,78 @@ router.patch("/auth/me", async (req, res) => {
 
   if (rows.length === 0) { res.status(404).json({ error: "User not found" }); return; }
 
+  if (body.data.referralCode) {
+    const code = body.data.referralCode.toUpperCase();
+    try {
+      const [codeRow] = await db
+        .select({ userId: referralCodesTable.userId })
+        .from(referralCodesTable)
+        .where(eq(referralCodesTable.code, code))
+        .limit(1);
+      if (codeRow && codeRow.userId !== userId) {
+        // Reject self-referral (already handled above) and ensure:
+        // 1. No existing referral record for this user (UNIQUE constraint, prevents double-claim).
+        // 2. The user is genuinely new — they must have no delivered orders yet.
+        //    This prevents an established user from retroactively linking a referral code.
+        const [[existingReferral], [deliveredOrder]] = await Promise.all([
+          db.select({ id: referralsTable.id }).from(referralsTable)
+            .where(eq(referralsTable.referredUserId, userId)).limit(1),
+          db.select({ id: ordersTable.id }).from(ordersTable)
+            .where(and(eq(ordersTable.userId, userId), eq(ordersTable.status, "delivered"))).limit(1),
+        ]);
+        if (!existingReferral && !deliveredOrder) {
+          await db.insert(referralsTable).values({
+            id: `ref_${Date.now()}${Math.random().toString(36).slice(2, 7)}`,
+            referrerId: codeRow.userId,
+            referredUserId: userId,
+            status: "pending",
+          });
+          // Notify the referrer that their friend joined (non-blocking)
+          const referrerId = codeRow.userId;
+          setImmediate(() => {
+            void sendPushToUsers(
+              [referrerId],
+              "🎉 صديقك انضم إلى مرسول!",
+              "انضم صديقك باستخدام كودك — ستحصل على عمولة عند أول طلب يكمله",
+              { type: "referral" }
+            );
+          });
+        }
+      }
+    } catch {
+      // referral registration failure must not block profile update
+    }
+  }
+
   res.json(rows[0]);
+});
+
+router.delete("/auth/me", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const token = authHeader.slice(7);
+  let userId: string;
+  try {
+    const payload = jwt.verify(token, getJwtSecret()) as { userId: string };
+    userId = payload.userId;
+  } catch {
+    res.status(401).json({ error: "Invalid or expired token" });
+    return;
+  }
+
+  const users = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  if (users.length === 0) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  await db.delete(usersTable).where(eq(usersTable.id, userId));
+
+  res.json({ success: true });
 });
 
 router.get("/me/stats", async (req, res) => {
@@ -351,11 +463,14 @@ router.get("/me/stats", async (req, res) => {
   }
 
   const [userRow, totalRow, completedRow, deliveryFeeRow] = await Promise.all([
-    db.select({ createdAt: usersTable.createdAt }).from(usersTable).where(eq(usersTable.id, userId)).limit(1),
+    db.select({ createdAt: usersTable.createdAt, isBlocked: usersTable.isBlocked }).from(usersTable).where(eq(usersTable.id, userId)).limit(1),
     db.select({ count: count() }).from(ordersTable).where(eq(ordersTable.userId, userId)),
     db.select({ count: count() }).from(ordersTable).where(and(eq(ordersTable.userId, userId), eq(ordersTable.status, "delivered"))),
     db.select({ total: sum(ordersTable.deliveryFee) }).from(ordersTable).where(and(eq(ordersTable.userId, userId), eq(ordersTable.status, "delivered"))),
   ]);
+
+  if (!userRow[0]) { res.status(404).json({ error: "User not found" }); return; }
+  if (userRow[0].isBlocked) { res.status(403).json({ error: "Account is blocked" }); return; }
 
   res.json({
     totalOrders: totalRow[0]?.count ?? 0,

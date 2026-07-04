@@ -219,7 +219,8 @@ export default function AddressesScreen() {
         onRequestClose={() => setModalVisible(false)}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "android" ? insets.top : 0}
           style={styles.modalOverlay}
         >
           <TouchableOpacity
@@ -234,80 +235,87 @@ export default function AddressesScreen() {
             </Text>
 
             <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.suggestionsRow}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.modalScrollContent}
             >
-              {labelSuggestions.map((s) => (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.suggestionsRow}
+                keyboardShouldPersistTaps="handled"
+              >
+                {labelSuggestions.map((s) => (
+                  <TouchableOpacity
+                    key={s}
+                    style={[
+                      styles.suggestionChip,
+                      { backgroundColor: editing.label === s ? colors.primary : colors.muted },
+                    ]}
+                    onPress={() => setEditing((e) => ({ ...e, label: s }))}
+                  >
+                    <Text style={[styles.suggestionText, { color: editing.label === s ? "#fff" : colors.foreground }]}>
+                      {s}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+                placeholder={t("addresses.modal.labelPlaceholder")}
+                placeholderTextColor={colors.mutedForeground}
+                value={editing.label}
+                onChangeText={(text) => setEditing((e) => ({ ...e, label: text }))}
+                textAlign="left"
+                maxLength={30}
+              />
+
+              <AddressSearchBar
+                onSelect={(addr) => setEditing((e) => ({ ...e, address: addr }))}
+                placeholder={t("map.searchPlaceholder")}
+                userCoords={userCoords}
+              />
+
+              <TextInput
+                style={[styles.input, styles.inputMultiline, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+                placeholder={t("addresses.modal.addressPlaceholder")}
+                placeholderTextColor={colors.mutedForeground}
+                value={editing.address}
+                onChangeText={(text) => setEditing((e) => ({ ...e, address: text }))}
+                textAlign="left"
+                multiline
+                numberOfLines={2}
+                textAlignVertical="top"
+                maxLength={200}
+              />
+
+              <TouchableOpacity
+                style={[styles.mapPickerBtn, { backgroundColor: colors.secondary, borderColor: colors.primary }]}
+                onPress={() => {
+                  setModalVisible(false);
+                  setTimeout(() => setMapPickerVisible(true), 300);
+                }}
+              >
+                <MaterialIcons name="map" size={18} color={colors.primary} />
+                <Text style={[styles.mapPickerBtnText, { color: colors.primary }]}>{t("map.pickFromMap")}</Text>
+              </TouchableOpacity>
+
+              <View style={styles.modalBtns}>
                 <TouchableOpacity
-                  key={s}
-                  style={[
-                    styles.suggestionChip,
-                    { backgroundColor: editing.label === s ? colors.primary : colors.muted },
-                  ]}
-                  onPress={() => setEditing((e) => ({ ...e, label: s }))}
+                  style={[styles.cancelBtn, { borderColor: colors.border }]}
+                  onPress={() => setModalVisible(false)}
                 >
-                  <Text style={[styles.suggestionText, { color: editing.label === s ? "#fff" : colors.foreground }]}>
-                    {s}
-                  </Text>
+                  <Text style={[styles.cancelBtnText, { color: colors.mutedForeground }]}>{t("addresses.modal.cancel")}</Text>
                 </TouchableOpacity>
-              ))}
+                <TouchableOpacity
+                  style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+                  onPress={handleSave}
+                >
+                  <Text style={styles.saveBtnText}>{t("addresses.modal.save")}</Text>
+                </TouchableOpacity>
+              </View>
             </ScrollView>
-
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
-              placeholder={t("addresses.modal.labelPlaceholder")}
-              placeholderTextColor={colors.mutedForeground}
-              value={editing.label}
-              onChangeText={(text) => setEditing((e) => ({ ...e, label: text }))}
-              textAlign="right"
-              maxLength={30}
-            />
-
-            <AddressSearchBar
-              onSelect={(addr) => setEditing((e) => ({ ...e, address: addr }))}
-              placeholder={t("map.searchPlaceholder")}
-              userCoords={userCoords}
-            />
-
-            <TextInput
-              style={[styles.input, styles.inputMultiline, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
-              placeholder={t("addresses.modal.addressPlaceholder")}
-              placeholderTextColor={colors.mutedForeground}
-              value={editing.address}
-              onChangeText={(text) => setEditing((e) => ({ ...e, address: text }))}
-              textAlign="right"
-              multiline
-              numberOfLines={2}
-              textAlignVertical="top"
-              maxLength={200}
-            />
-
-            <TouchableOpacity
-              style={[styles.mapPickerBtn, { backgroundColor: colors.secondary, borderColor: colors.primary }]}
-              onPress={() => {
-                setModalVisible(false);
-                setTimeout(() => setMapPickerVisible(true), 300);
-              }}
-            >
-              <MaterialIcons name="map" size={18} color={colors.primary} />
-              <Text style={[styles.mapPickerBtnText, { color: colors.primary }]}>{t("map.pickFromMap")}</Text>
-            </TouchableOpacity>
-
-            <View style={styles.modalBtns}>
-              <TouchableOpacity
-                style={[styles.cancelBtn, { borderColor: colors.border }]}
-                onPress={() => setModalVisible(false)}
-              >
-                <Text style={[styles.cancelBtnText, { color: colors.mutedForeground }]}>{t("addresses.modal.cancel")}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.saveBtn, { backgroundColor: colors.primary }]}
-                onPress={handleSave}
-              >
-                <Text style={styles.saveBtnText}>{t("addresses.modal.save")}</Text>
-              </TouchableOpacity>
-            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -443,6 +451,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginBottom: 8,
   },
+  modalScrollContent: { gap: 12, paddingBottom: 8 },
   modalTitle: { fontSize: 18, fontWeight: "800", textAlign: "center", marginBottom: 4 },
   suggestionsRow: { gap: 8, paddingBottom: 4 },
   suggestionChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20 },

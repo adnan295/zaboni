@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
-import { clearAdminToken } from "@/lib/api";
+import { clearAdminToken, getAdminToken, api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
-import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { io, type Socket } from "socket.io-client";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -14,21 +14,34 @@ interface LayoutProps {
 const navItems = [
   { href: "/", label: "لوحة التحكم", icon: "📊" },
   { href: "/restaurants", label: "المطاعم", icon: "🍽️" },
+  { href: "/restaurant-order", label: "ترتيب المطاعم", icon: "↕️" },
+  { href: "/home-sections", label: "أقسام الرئيسية", icon: "🏠" },
   { href: "/categories", label: "التصنيفات", icon: "🏷️" },
   { href: "/orders", label: "الطلبات", icon: "📦" },
   { href: "/couriers", label: "المندوبون", icon: "🚴" },
+  { href: "/courier-performance", label: "أداء السائقين", icon: "🏆" },
   { href: "/live-map", label: "الخريطة الحية", icon: "🗺️" },
   { href: "/chats", label: "المحادثات", icon: "💬" },
+  { href: "/customer-support", label: "دعم العملاء", icon: "🎧" },
   { href: "/content", label: "المحتوى", icon: "🖼️" },
   { href: "/courier-applications", label: "طلبات الانضمام", icon: "📋" },
+  { href: "/subscription-requests", label: "طلبات الاشتراك", icon: "💳" },
   { href: "/users", label: "المستخدمون", icon: "👤" },
+  { href: "/restaurant-performance", label: "أداء المطاعم", icon: "📈" },
+  { href: "/churn", label: "العملاء الغائبون", icon: "💤" },
+  { href: "/cancellation", label: "تحليل الإلغاءات", icon: "❌" },
   { href: "/ratings", label: "التقييمات", icon: "⭐" },
+  { href: "/flash-deals", label: "عروض فلاش", icon: "⚡" },
+  { href: "/loyalty", label: "نقاط الولاء", icon: "⭐" },
+  { href: "/customer-subscriptions", label: "اشتراكات العملاء", icon: "🌟" },
+  { href: "/referrals", label: "الإحالات والمحافظ", icon: "🎁" },
   { href: "/promos", label: "أكواد الخصم", icon: "🎟️" },
   { href: "/notifications", label: "الإشعارات", icon: "🔔" },
   { href: "/financial", label: "التقارير المالية", icon: "💰" },
   { href: "/delivery-zones", label: "نطاقات التوصيل", icon: "📍" },
   { href: "/subscriptions", label: "الاشتراكات", icon: "💳" },
   { href: "/wallet-requests", label: "طلبات المحفظة", icon: "👛" },
+  { href: "/restaurant-accounts", label: "حسابات المطاعم", icon: "🔐" },
   { href: "/whatsapp", label: "واتساب", icon: "📱" },
   { href: "/settings", label: "الإعدادات", icon: "⚙️" },
 ];
@@ -38,6 +51,30 @@ export default function Layout({ children, onLogout }: LayoutProps) {
   const { theme, setTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const qc = useQueryClient();
+  const socketRef = useRef<Socket | null>(null);
+
+  useEffect(() => {
+    const token = getAdminToken();
+    if (!token) return;
+
+    const socket = io("/orders", {
+      path: "/api/socket.io",
+      auth: { token },
+      transports: ["websocket"],
+    });
+    socketRef.current = socket;
+
+    socket.on("support_message_new", () => {
+      void qc.invalidateQueries({ queryKey: ["admin", "support-unread"] });
+      void qc.invalidateQueries({ queryKey: ["admin", "support-conversations"] });
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [qc]);
 
   const { data: stats } = useQuery({
     queryKey: ["admin", "stats"],
@@ -45,10 +82,32 @@ export default function Layout({ children, onLogout }: LayoutProps) {
     refetchInterval: 10_000,
   });
 
+  const { data: slaAlerts = [] } = useQuery({
+    queryKey: ["admin", "sla-alerts", 10],
+    queryFn: () => api.getSlaAlerts(10),
+    refetchInterval: 30_000,
+  });
+
+  const { data: supportUnread } = useQuery({
+    queryKey: ["admin", "support-unread"],
+    queryFn: api.getSupportUnreadCount,
+    refetchInterval: 15_000,
+  });
+  const supportUnreadCount = supportUnread?.count ?? 0;
+
+  const { data: pendingSubRequests } = useQuery({
+    queryKey: ["admin", "pending-sub-requests"],
+    queryFn: api.getPendingSubscriptionRequestsCount,
+    refetchInterval: 30_000,
+  });
+  const pendingSubCount = pendingSubRequests?.count ?? 0;
+
   const activeOrders =
     stats?.ordersByStatus
       .filter((s) => s.status !== "delivered" && s.status !== "cancelled")
       .reduce((sum, s) => sum + Number(s.count), 0) ?? 0;
+
+  const slaAlertCount = slaAlerts.length;
 
   const handleLogout = () => {
     clearAdminToken();
@@ -135,7 +194,10 @@ export default function Layout({ children, onLogout }: LayoutProps) {
               item.href === "/"
                 ? location === "/" || location === ""
                 : location.startsWith(item.href);
-            const showBadge = item.href === "/orders" && activeOrders > 0;
+            const showOrdersBadge = item.href === "/orders" && activeOrders > 0;
+            const showSlaBadge = item.href === "/" && slaAlertCount > 0;
+            const showSupportBadge = item.href === "/customer-support" && supportUnreadCount > 0;
+            const showSubRequestsBadge = item.href === "/subscription-requests" && pendingSubCount > 0;
             return (
               <Link
                 key={item.href}
@@ -152,20 +214,52 @@ export default function Layout({ children, onLogout }: LayoutProps) {
               >
                 <span className="text-base flex-shrink-0 relative">
                   {item.icon}
-                  {showBadge && collapsed && (
+                  {showOrdersBadge && collapsed && (
                     <span className="absolute -top-1 -left-1 w-2 h-2 bg-primary rounded-full" />
+                  )}
+                  {showSlaBadge && collapsed && (
+                    <span className="absolute -top-1 -left-1 w-2 h-2 bg-red-500 rounded-full" />
+                  )}
+                  {showSupportBadge && collapsed && (
+                    <span className="absolute -top-1 -left-1 w-2 h-2 bg-orange-500 rounded-full" />
+                  )}
+                  {showSubRequestsBadge && collapsed && (
+                    <span className="absolute -top-1 -left-1 w-2 h-2 bg-yellow-500 rounded-full" />
                   )}
                 </span>
                 {!collapsed && (
                   <>
                     <span className="flex-1 lg:block">{item.label}</span>
-                    {showBadge && (
+                    {showOrdersBadge && (
                       <span className="flex items-center gap-1 text-xs font-bold bg-primary text-white rounded-full px-1.5 py-0.5 leading-none">
                         <span className="relative flex h-1.5 w-1.5">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
                           <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
                         </span>
                         {activeOrders}
+                      </span>
+                    )}
+                    {showSlaBadge && (
+                      <span className="flex items-center gap-1 text-xs font-bold bg-red-600 text-white rounded-full px-1.5 py-0.5 leading-none">
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
+                        </span>
+                        🔴 {slaAlertCount}
+                      </span>
+                    )}
+                    {showSupportBadge && (
+                      <span className="flex items-center gap-1 text-xs font-bold bg-orange-500 text-white rounded-full px-1.5 py-0.5 leading-none">
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
+                        </span>
+                        {supportUnreadCount}
+                      </span>
+                    )}
+                    {showSubRequestsBadge && (
+                      <span className="flex items-center gap-1 text-xs font-bold bg-yellow-500 text-white rounded-full px-1.5 py-0.5 leading-none">
+                        {pendingSubCount}
                       </span>
                     )}
                   </>

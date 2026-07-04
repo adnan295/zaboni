@@ -3,10 +3,10 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
-  Image,
   Animated,
   GestureResponderEvent,
 } from "react-native";
+import { Image } from "expo-image";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -15,10 +15,31 @@ import { useColors } from "@/hooks/useColors";
 import { buildImageUrl } from "@/lib/apiConfig";
 import { useFavorites } from "@/context/FavoritesContext";
 import type { Restaurant as ApiRestaurant } from "@workspace/api-client-react";
+import SkeletonBox from "@/components/SkeletonBox";
 
 interface Props {
   restaurant: ApiRestaurant;
   onPress: () => void;
+}
+
+export function RestaurantCardSkeleton() {
+  const colors = useColors();
+  return (
+    <View style={[styles.card, { backgroundColor: colors.card }]}>
+      <SkeletonBox width={"100%"} height={160} borderRadius={0} />
+      <View style={[styles.content, { gap: 10 }]}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <SkeletonBox width={140} height={14} borderRadius={6} />
+          <SkeletonBox width={36} height={14} borderRadius={6} />
+        </View>
+        <SkeletonBox width={100} height={11} borderRadius={6} />
+        <View style={{ flexDirection: "row", gap: 12, marginTop: 2 }}>
+          <SkeletonBox width={70} height={11} borderRadius={6} />
+          <SkeletonBox width={80} height={11} borderRadius={6} />
+        </View>
+      </View>
+    </View>
+  );
 }
 
 export default function RestaurantCard({ restaurant, onPress }: Props) {
@@ -27,6 +48,8 @@ export default function RestaurantCard({ restaurant, onPress }: Props) {
   const { isFavorite, toggleFavorite } = useFavorites();
   const fav = isFavorite(restaurant.id);
   const scale = React.useRef(new Animated.Value(1)).current;
+  const hasFlashDeal = !!(restaurant as unknown as Record<string, unknown>)["hasFlashDeal"];
+  const maxDealPercent = (restaurant as unknown as Record<string, unknown>)["maxDealPercent"] as number | null | undefined;
 
   const handleFav = (e: GestureResponderEvent) => {
     e.stopPropagation();
@@ -44,18 +67,34 @@ export default function RestaurantCard({ restaurant, onPress }: Props) {
       onPress={onPress}
       activeOpacity={0.92}
     >
-      <View style={[styles.imageContainer, restaurant.isLogo && styles.logoContainer]}>
+      <View style={[styles.imageContainer, (restaurant as any).isLogo && styles.logoContainer]}>
         <Image
           source={{ uri: buildImageUrl(restaurant.image) }}
-          style={restaurant.isLogo ? [styles.image, styles.logoImage] : styles.image}
-          resizeMode={restaurant.isLogo ? "contain" : "cover"}
+          style={(restaurant as any).isLogo ? [styles.image, styles.logoImage] : styles.image}
+          contentFit={(restaurant as any).isLogo ? "contain" : "cover"}
         />
         {!restaurant.isOpen && (
           <View style={styles.closedOverlay}>
             <Text style={styles.closedText}>{t("restaurant.closed")}</Text>
           </View>
         )}
-        {restaurant.discount && (
+        {hasFlashDeal && (
+          <View style={styles.flashBadge}>
+            {maxDealPercent != null && maxDealPercent > 0 ? (
+              <Text style={styles.flashBadgeText}>⚡ خصم حتى {maxDealPercent}%</Text>
+            ) : (
+              <Text style={styles.flashBadgeText}>⚡ عرض محدود</Text>
+            )}
+          </View>
+        )}
+        {!hasFlashDeal && maxDealPercent != null && maxDealPercent > 0 && (
+          <View style={[styles.discountBadge, { backgroundColor: "#f97316" }]}>
+            <Text style={[styles.discountText, { color: "#fff" }]}>
+              خصم حتى {maxDealPercent}%
+            </Text>
+          </View>
+        )}
+        {restaurant.discount && !hasFlashDeal && !(maxDealPercent != null && maxDealPercent > 0) && (
           <View style={[styles.discountBadge, { backgroundColor: colors.primary }]}>
             <Text style={[styles.discountText, { color: colors.primaryForeground }]}>
               {restaurant.discount}
@@ -140,6 +179,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   closedText: { color: "#fff", fontSize: 18, fontWeight: "700" },
+  flashBadge: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    backgroundColor: "#DC2626",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  flashBadgeText: { fontSize: 11, fontWeight: "700", color: "#fff" },
   discountBadge: {
     position: "absolute",
     top: 12,
@@ -166,10 +215,10 @@ const styles = StyleSheet.create({
   },
   content: { padding: 14, gap: 5 },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  name: { fontSize: 16, fontWeight: "700", flex: 1 },
+  name: { fontSize: 16, fontWeight: "700", flex: 1, textAlign: "left" },
   ratingRow: { flexDirection: "row", alignItems: "center", gap: 2 },
   rating: { fontSize: 13, fontWeight: "600" },
-  category: { fontSize: 13 },
+  category: { fontSize: 13, textAlign: "left" },
   meta: { flexDirection: "row", alignItems: "center", marginTop: 2, gap: 6 },
   metaItem: { flexDirection: "row", alignItems: "center", gap: 3 },
   metaText: { fontSize: 12 },

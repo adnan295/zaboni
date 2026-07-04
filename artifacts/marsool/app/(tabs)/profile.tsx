@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -10,7 +10,10 @@ import {
   Modal,
   TextInput,
   KeyboardAvoidingView,
+  Animated,
+  Share,
 } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { Image } from "expo-image";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -25,7 +28,6 @@ import { useOrders } from "@/context/OrderContext";
 import { useFavorites } from "@/context/FavoritesContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import { useRatings } from "@/context/RatingsContext";
-import { useLanguage, AppLanguage } from "@/context/LanguageContext";
 import { customFetch } from "@workspace/api-client-react";
 
 interface MenuItemDef {
@@ -51,17 +53,48 @@ interface CustomerStats {
   memberSince: string | null;
 }
 
+interface LoyaltyBalance {
+  balance: number;
+  redeemDiscount: number;
+  earnRate: number;
+}
+
+interface WalletTransaction {
+  id: string;
+  type: string;
+  amount: number;
+  note: string | null;
+  createdAt: string;
+}
+
+interface Achievement {
+  key: string;
+  icon: string;
+  titleAr: string;
+  titleEn: string;
+  descriptionAr: string;
+  descriptionEn: string;
+  type: string;
+  threshold: number;
+  earned: boolean;
+  earnedAt: string | null;
+  progress: number;
+}
+
+interface AchievementsData {
+  achievements: Achievement[];
+}
+
 export default function ProfileScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const { user, signOut, isCourier, isCourierMode, setCourierMode, refreshRole, updateName } = useAuth();
-  const { orders } = useOrders();
+  const { orders, setStatusChangeHandler } = useOrders();
   const { favorites } = useFavorites();
   const { unreadCount } = useNotifications();
   const { ratings } = useRatings();
-  const { language, setLanguage } = useLanguage();
 
   const [application, setApplication] = useState<CourierApplication | null>(null);
   const [appLoading, setAppLoading] = useState(false);
@@ -71,6 +104,19 @@ export default function ProfileScreen() {
   const [editNameVisible, setEditNameVisible] = useState(false);
   const [editNameValue, setEditNameValue] = useState("");
   const [savingName, setSavingName] = useState(false);
+
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [loyaltyData, setLoyaltyData] = useState<LoyaltyBalance | null>(null);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [walletTransactions, setWalletTransactions] = useState<WalletTransaction[]>([]);
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [referralStats, setReferralStats] = useState<{ totalReferrals: number; totalEarned: number } | null>(null);
+  const [codeCopied, setCodeCopied] = useState(false);
+  const [achievementsData, setAchievementsData] = useState<AchievementsData | null>(null);
+  const [celebrationAchievement, setCelebrationAchievement] = useState<Achievement | null>(null);
+  const [supportUnreadCount, setSupportUnreadCount] = useState(0);
+  const knownEarnedKeys = useRef<Set<string>>(new Set());
+  const celebrationScale = useRef(new Animated.Value(0)).current;
 
   const avgRating =
     ratings.length > 0
@@ -117,12 +163,107 @@ export default function ProfileScreen() {
     }
   }, [user?.id]);
 
+  const fetchLoyalty = useCallback(async () => {
+    if (!user || isCourier) return;
+    try {
+      const data = await customFetch("/api/users/me/loyalty") as LoyaltyBalance;
+      setLoyaltyData(data);
+    } catch {
+      setLoyaltyData(null);
+    }
+  }, [user?.id, isCourier]);
+
+  const fetchWallet = useCallback(async () => {
+    if (!user || isCourier) return;
+    try {
+      const data = await customFetch("/api/wallet/transactions") as { balance: number; transactions: WalletTransaction[] };
+      setWalletBalance(data.balance);
+      setWalletTransactions(data.transactions ?? []);
+    } catch {
+      setWalletBalance(null);
+    }
+  }, [user?.id, isCourier]);
+
+  const fetchReferral = useCallback(async () => {
+    if (!user || isCourier) return;
+    try {
+      const data = await customFetch("/api/referrals/my-code") as { code: string; totalReferrals: number; totalEarned: number };
+      setReferralCode(data.code);
+      setReferralStats({ totalReferrals: data.totalReferrals, totalEarned: data.totalEarned });
+    } catch {
+      setReferralCode(null);
+    }
+  }, [user?.id, isCourier]);
+
+  const fetchSubscriptionStatus = useCallback(async () => {
+    if (!user || isCourier) return;
+    try {
+      const data = await customFetch("/api/subscriptions/status") as { isSubscribed: boolean };
+      setIsSubscribed(data.isSubscribed);
+    } catch {
+      setIsSubscribed(false);
+    }
+  }, [user?.id, isCourier]);
+
+  const fetchSupportUnread = useCallback(async () => {
+    if (!user || isCourier) return;
+    try {
+      const data = await customFetch("/api/support/unread-count") as { count: number };
+      setSupportUnreadCount(data.count);
+    } catch {
+      // ignore
+    }
+  }, [user?.id, isCourier]);
+
+  const fetchAchievements = useCallback(async () => {
+    if (!user || isCourier) return;
+    try {
+      const data = await customFetch("/api/users/me/achievements") as AchievementsData;
+      setAchievementsData(data);
+      for (const ach of data.achievements) {
+        if (ach.earned && !knownEarnedKeys.current.has(ach.key)) {
+          knownEarnedKeys.current.add(ach.key);
+          if (knownEarnedKeys.current.size > data.achievements.filter((a) => a.earned).length) {
+            continue;
+          }
+          if (ach.earnedAt) {
+            const age = Date.now() - new Date(ach.earnedAt).getTime();
+            if (age < 60_000) {
+              setCelebrationAchievement(ach);
+              celebrationScale.setValue(0);
+              Animated.spring(celebrationScale, { toValue: 1, useNativeDriver: true, tension: 60, friction: 8 }).start();
+            }
+          }
+        } else if (ach.earned) {
+          knownEarnedKeys.current.add(ach.key);
+        }
+      }
+    } catch {
+      setAchievementsData(null);
+    }
+  }, [user?.id, isCourier]);
+
   useFocusEffect(
     useCallback(() => {
       fetchApplication();
       fetchCustomerStats();
-    }, [fetchApplication, fetchCustomerStats])
+      fetchLoyalty();
+      fetchAchievements();
+      fetchSubscriptionStatus();
+      void fetchSupportUnread();
+      void fetchWallet();
+      void fetchReferral();
+    }, [fetchApplication, fetchCustomerStats, fetchLoyalty, fetchAchievements, fetchSubscriptionStatus, fetchSupportUnread, fetchWallet, fetchReferral])
   );
+
+  useEffect(() => {
+    setStatusChangeHandler((_order, newStatus) => {
+      if (newStatus === "delivered") {
+        void fetchLoyalty();
+        void fetchCustomerStats();
+      }
+    });
+  }, [setStatusChangeHandler, fetchLoyalty, fetchCustomerStats]);
 
   const handleSignOut = () => {
     Alert.alert(t("profile.signOutTitle"), t("profile.signOutMessage"), [
@@ -138,9 +279,23 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const handleLanguage = () => {
-    const otherLang: AppLanguage = language === "ar" ? "en" : "ar";
-    setLanguage(otherLang);
+  const handleDeleteAccount = () => {
+    Alert.alert(t("profile.deleteAccountTitle"), t("profile.deleteAccountMessage"), [
+      { text: t("profile.deleteAccountCancel"), style: "cancel" },
+      {
+        text: t("profile.deleteAccountConfirm"),
+        style: "destructive",
+        onPress: async () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          try {
+            await customFetch("/api/auth/me", { method: "DELETE" });
+            await signOut();
+          } catch {
+            Alert.alert(t("profile.deleteAccountTitle"), t("profile.deleteAccountError"));
+          }
+        },
+      },
+    ]);
   };
 
   const openEditName = () => {
@@ -180,11 +335,12 @@ export default function ProfileScreen() {
     { icon: "receipt-long", label: t("profile.menu.orders"), onPress: () => router.push("/orders"), badge: orders.length > 0 ? orders.length : undefined },
     { icon: "favorite", label: t("profile.menu.favorites"), onPress: () => router.push("/favorites"), badge: favorites.length > 0 ? favorites.length : undefined },
     { icon: "location-on", label: t("profile.menu.addresses"), onPress: () => router.push("/addresses") },
+    { icon: "stars", label: t("loyalty.viewHistory"), onPress: () => router.push("/loyalty-history") },
+    { icon: "local-shipping", label: t("subscription.menuLabel"), onPress: () => router.push("/subscription") },
     { icon: "notifications", label: t("profile.menu.notifications"), onPress: () => router.push("/notifications"), badge: unreadCount > 0 ? unreadCount : undefined },
     { icon: "payment", label: t("profile.menu.payments"), onPress: () => router.push("/payment-info") },
-    { icon: "help-outline", label: t("profile.menu.support"), onPress: () => router.push("/support") },
+    { icon: "help-outline", label: t("profile.menu.support"), onPress: () => router.push("/support"), badge: supportUnreadCount > 0 ? supportUnreadCount : undefined },
     { icon: "info-outline", label: t("profile.menu.about"), onPress: () => router.push("/about") },
-    { icon: "translate", label: t("profile.menu.language"), onPress: handleLanguage },
   ];
 
   const appStatus: AppStatus = isCourier ? "approved" : (application?.status ?? "none");
@@ -226,6 +382,11 @@ export default function ProfileScreen() {
             )}
           </View>
         )}
+        {isSubscribed && (
+          <View style={styles.subscriberBadge}>
+            <Text style={styles.subscriberBadgeText}>⭐ {t("subscription.subscriberBadge")}</Text>
+          </View>
+        )}
       </View>
 
       <ScrollView
@@ -254,47 +415,209 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Customer info card */}
-        {customerStats !== null && (
-          <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.infoRow}>
-              <MaterialIcons name="account-balance-wallet" size={18} color={colors.primary} />
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>{t("profile.stats.deliveryFees")}</Text>
-                <Text style={[styles.infoValue, { color: colors.foreground }]}>
-                  {customerStats.totalDeliveryFees.toLocaleString("ar-SY")} ل.س
+
+        {/* Loyalty card */}
+        {!isCourier && loyaltyData !== null && (
+          <TouchableOpacity
+            style={[styles.loyaltyCard, { backgroundColor: colors.primary }]}
+            onPress={() => router.push("/loyalty-history")}
+            activeOpacity={0.85}
+          >
+            <View style={styles.loyaltyLeft}>
+              <MaterialIcons name="stars" size={28} color="#fff" />
+              <View>
+                <Text style={styles.loyaltyLabel}>{t("loyalty.balance")}</Text>
+                <Text style={styles.loyaltyPoints}>
+                  {loyaltyData.balance.toLocaleString()} {t("loyalty.points")}
                 </Text>
+                {loyaltyData.redeemDiscount > 0 && (
+                  <Text style={styles.loyaltyValue}>
+                    {t("loyalty.redeemValue", { amount: loyaltyData.redeemDiscount.toLocaleString() })}
+                  </Text>
+                )}
+                {loyaltyData.balance === 0 && (
+                  <Text style={styles.loyaltyValue}>{t("loyalty.noPointsHint")}</Text>
+                )}
               </View>
             </View>
-            {customerStats.memberSince && (
-              <>
-                <View style={[styles.infoDivider, { backgroundColor: colors.border }]} />
-                <View style={styles.infoRow}>
-                  <MaterialIcons name="calendar-today" size={18} color={colors.primary} />
-                  <View style={styles.infoContent}>
-                    <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>{t("profile.stats.memberSince")}</Text>
-                    <Text style={[styles.infoValue, { color: colors.foreground }]}>
-                      {formatDate(customerStats.memberSince)}
-                    </Text>
-                  </View>
-                </View>
-              </>
-            )}
+            <MaterialIcons name="chevron-left" size={22} color="rgba(255,255,255,0.7)" />
+          </TouchableOpacity>
+        )}
+
+        {/* Wallet card */}
+        {!isCourier && walletBalance !== null && (
+          <View style={[styles.loyaltyCard, { backgroundColor: "#15803d" }]}>
+            <View style={styles.loyaltyLeft}>
+              <MaterialIcons name="account-balance-wallet" size={28} color="#fff" />
+              <View>
+                <Text style={styles.loyaltyLabel}>{t("wallet.balance")}</Text>
+                <Text style={styles.loyaltyPoints}>
+                  {walletBalance.toLocaleString()} {t("wallet.currency")}
+                </Text>
+                {walletBalance === 0 && (
+                  <Text style={styles.loyaltyValue}>{t("wallet.noBalanceHint")}</Text>
+                )}
+              </View>
+            </View>
           </View>
         )}
 
-        {/* Language chip */}
-        <View style={[styles.langChip, { backgroundColor: colors.secondary }]}>
-          <MaterialIcons name="language" size={16} color={colors.primary} />
-          <Text style={[styles.langChipText, { color: colors.primary }]}>
-            {t("profile.language.currentLabel")}
-          </Text>
-          <TouchableOpacity onPress={handleLanguage} style={[styles.langToggleBtn, { backgroundColor: colors.primary }]}>
-            <Text style={styles.langToggleBtnText}>
-              {t("profile.language.switchLabel")}
+        {/* Wallet transactions */}
+        {!isCourier && walletTransactions.length > 0 && (
+          <View style={[styles.achievementsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.achievementsSectionTitle, { color: colors.foreground }]}>
+              {t("wallet.transactionsTitle")}
             </Text>
-          </TouchableOpacity>
-        </View>
+            {walletTransactions.slice(0, 5).map((tx) => (
+              <View key={tx.id} style={[styles.infoRow, { paddingVertical: 8 }]}>
+                <MaterialIcons
+                  name={tx.amount > 0 ? "add-circle-outline" : "remove-circle-outline"}
+                  size={18}
+                  color={tx.amount > 0 ? "#16a34a" : "#dc2626"}
+                />
+                <View style={styles.infoContent}>
+                  <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>
+                    {tx.type === "referral_commission"
+                      ? t("wallet.typeCommission")
+                      : tx.type === "order_payment"
+                      ? t("wallet.typePayment")
+                      : t("wallet.typeAdjustment")}
+                  </Text>
+                  <Text style={[styles.infoValue, { color: tx.amount > 0 ? "#16a34a" : "#dc2626", fontWeight: "700" }]}>
+                    {tx.amount > 0 ? "+" : ""}{tx.amount.toLocaleString()} {t("wallet.currency")}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Referral card */}
+        {!isCourier && referralCode !== null && (
+          <View style={[styles.achievementsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.referralHeader}>
+              <MaterialIcons name="card-giftcard" size={22} color={colors.primary} />
+              <Text style={[styles.achievementsSectionTitle, { color: colors.foreground, marginBottom: 0, flex: 1, marginLeft: 8 }]}>
+                {t("referral.title")}
+              </Text>
+            </View>
+
+            <Text style={[styles.infoLabel, { color: colors.mutedForeground, marginTop: 12, marginBottom: 6 }]}>
+              {t("referral.codeLabel")}
+            </Text>
+            <View style={styles.referralCodeRow}>
+              <Text style={[styles.referralCode, { color: colors.primary, borderColor: colors.primary + "40", backgroundColor: colors.primary + "10" }]}>
+                {referralCode}
+              </Text>
+              <TouchableOpacity
+                style={[styles.referralBtn, { backgroundColor: colors.secondary }]}
+                onPress={async () => {
+                  await Clipboard.setStringAsync(referralCode);
+                  setCodeCopied(true);
+                  setTimeout(() => setCodeCopied(false), 2000);
+                }}
+              >
+                <MaterialIcons name={codeCopied ? "check" : "content-copy"} size={18} color={colors.primary} />
+                <Text style={[styles.referralBtnText, { color: colors.primary }]}>
+                  {codeCopied ? t("referral.copied") : t("referral.copy")}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.referralBtn, { backgroundColor: colors.secondary }]}
+                onPress={() => {
+                  Share.share({ message: `${t("referral.codeLabel")}: ${referralCode}` });
+                }}
+              >
+                <MaterialIcons name="share" size={18} color={colors.primary} />
+                <Text style={[styles.referralBtnText, { color: colors.primary }]}>{t("referral.share")}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {referralStats !== null && (
+              <View style={styles.referralStatsRow}>
+                <View style={styles.referralStatItem}>
+                  <Text style={[styles.referralStatValue, { color: colors.foreground }]}>
+                    {referralStats.totalReferrals}
+                  </Text>
+                  <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>{t("referral.totalReferrals")}</Text>
+                </View>
+                <View style={[styles.referralStatDivider, { backgroundColor: colors.border }]} />
+                <View style={styles.referralStatItem}>
+                  <Text style={[styles.referralStatValue, { color: "#16a34a" }]}>
+                    {referralStats.totalEarned.toLocaleString()} {t("wallet.currency")}
+                  </Text>
+                  <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>{t("referral.totalEarned")}</Text>
+                </View>
+              </View>
+            )}
+
+            <View style={[styles.referralSteps, { backgroundColor: colors.secondary, borderRadius: 12, padding: 12, marginTop: 12 }]}>
+              <Text style={[styles.achievementsSectionTitle, { color: colors.foreground, marginBottom: 8, fontSize: 13 }]}>
+                {t("referral.howItWorksTitle")}
+              </Text>
+              {[t("referral.step1"), t("referral.step2"), t("referral.step3")].map((step, i) => (
+                <View key={i} style={styles.referralStep}>
+                  <View style={[styles.referralStepNum, { backgroundColor: colors.primary }]}>
+                    <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>{i + 1}</Text>
+                  </View>
+                  <Text style={[{ color: colors.foreground, fontSize: 13, flex: 1 }]}>{step}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Achievements */}
+        {!isCourier && achievementsData !== null && (
+          <View style={[styles.achievementsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.achievementsSectionTitle, { color: colors.foreground }]}>
+              {t("achievements.sectionTitle")}
+            </Text>
+            <View style={styles.achievementsGrid}>
+              {achievementsData.achievements.map((ach) => (
+                <View
+                  key={ach.key}
+                  style={[
+                    styles.achievementItem,
+                    ach.earned
+                      ? { backgroundColor: colors.primary + "15", borderColor: colors.primary + "40" }
+                      : { backgroundColor: colors.secondary, borderColor: colors.border },
+                  ]}
+                >
+                  <Text style={[styles.achievementIcon, { opacity: ach.earned ? 1 : 0.35 }]}>
+                    {ach.icon}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.achievementTitle,
+                      { color: ach.earned ? colors.foreground : colors.mutedForeground },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {ach.titleAr}
+                  </Text>
+                  {ach.earned ? (
+                    <View style={[styles.earnedBadge, { backgroundColor: colors.primary }]}>
+                      <MaterialIcons name="check" size={10} color="#fff" />
+                    </View>
+                  ) : (
+                    <View style={styles.progressBarBg}>
+                      <View
+                        style={[
+                          styles.progressBarFill,
+                          {
+                            backgroundColor: colors.primary,
+                            width: `${Math.round((ach.progress / ach.threshold) * 100)}%` as unknown as number,
+                          },
+                        ]}
+                      />
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
         {/* Courier section */}
         {appLoading ? (
@@ -407,7 +730,6 @@ export default function ProfileScreen() {
                     <Text style={styles.badgeText}>{item.badge}</Text>
                   </View>
                 )}
-                <MaterialIcons name="chevron-right" size={20} color={colors.mutedForeground} />
               </TouchableOpacity>
               {idx < menuItems.length - 1 && (
                 <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -428,10 +750,60 @@ export default function ProfileScreen() {
           </Text>
         </TouchableOpacity>
 
+        {/* Delete Account */}
+        <TouchableOpacity
+          style={[styles.signOutBtn, { backgroundColor: colors.card, borderColor: "#fee2e2", marginTop: 8 }]}
+          onPress={handleDeleteAccount}
+          activeOpacity={0.7}
+        >
+          <MaterialIcons name="delete-forever" size={20} color={colors.destructive} />
+          <Text style={[styles.signOutText, { color: colors.destructive }]}>
+            {t("profile.deleteAccount")}
+          </Text>
+        </TouchableOpacity>
+
         <Text style={[styles.version, { color: colors.mutedForeground }]}>
           {t("profile.version")}
         </Text>
       </ScrollView>
+
+      {/* Celebration Modal */}
+      <Modal
+        visible={celebrationAchievement !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCelebrationAchievement(null)}
+      >
+        <View style={styles.celebrationOverlay}>
+          <Animated.View
+            style={[
+              styles.celebrationCard,
+              { backgroundColor: colors.card, transform: [{ scale: celebrationScale }] },
+            ]}
+          >
+            <Text style={styles.celebrationEmoji}>{celebrationAchievement?.icon ?? "🎉"}</Text>
+            <Text style={[styles.celebrationTitle, { color: colors.foreground }]}>
+              {t("achievements.celebrationTitle")}
+            </Text>
+            <Text style={[styles.celebrationAchTitle, { color: colors.primary }]}>
+              {celebrationAchievement?.titleAr}
+            </Text>
+            <Text style={[styles.celebrationDesc, { color: colors.mutedForeground }]}>
+              {celebrationAchievement?.descriptionAr}
+            </Text>
+            <TouchableOpacity
+              style={[styles.celebrationBtn, { backgroundColor: colors.primary }]}
+              onPress={() => {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                setCelebrationAchievement(null);
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.celebrationBtnText}>{t("achievements.close")}</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </Modal>
 
       {/* Edit Name Modal */}
       <Modal
@@ -463,7 +835,7 @@ export default function ProfileScreen() {
               placeholderTextColor={colors.mutedForeground}
               autoFocus
               maxLength={60}
-              textAlign="right"
+              textAlign="left"
             />
             <View style={styles.editNameActions}>
               <TouchableOpacity
@@ -534,6 +906,16 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   courierBadgeText: { fontSize: 12, fontWeight: "700", color: "#DC2626" },
+  subscriberBadge: {
+    marginTop: 6,
+    backgroundColor: "#FFF8E1",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#F9A825",
+  },
+  subscriberBadgeText: { fontSize: 12, fontWeight: "700", color: "#E65100" },
   modeDot: {
     width: 8,
     height: 8,
@@ -572,19 +954,19 @@ const styles = StyleSheet.create({
   infoLabel: { fontSize: 12, marginBottom: 2 },
   infoValue: { fontSize: 14, fontWeight: "600" },
   infoDivider: { height: 1, marginHorizontal: 14 },
-  langChip: {
-    flexDirection: "row",
-    alignItems: "center",
+  loyaltyCard: {
     marginHorizontal: 16,
     marginTop: 12,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 8,
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  langChipText: { flex: 1, fontSize: 14, fontWeight: "600" },
-  langToggleBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 10 },
-  langToggleBtnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
+  loyaltyLeft: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
+  loyaltyLabel: { fontSize: 11, color: "rgba(255,255,255,0.75)", fontWeight: "600" },
+  loyaltyPoints: { fontSize: 20, fontWeight: "900", color: "#fff" },
+  loyaltyValue: { fontSize: 12, color: "rgba(255,255,255,0.85)", marginTop: 2 },
   courierCard: {
     marginHorizontal: 16,
     marginTop: 12,
@@ -626,7 +1008,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  menuLabel: { flex: 1, fontSize: 15, fontWeight: "500" },
+  menuLabel: { flex: 1, fontSize: 15, fontWeight: "500", textAlign: "left" },
   badge: {
     minWidth: 22,
     height: 22,
@@ -692,4 +1074,178 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   editNameSaveText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  achievementsCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+  },
+  achievementsSectionTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 12,
+  },
+  achievementsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  achievementItem: {
+    width: "30%",
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 10,
+    alignItems: "center",
+    gap: 6,
+    position: "relative",
+  },
+  achievementIcon: {
+    fontSize: 26,
+  },
+  achievementTitle: {
+    fontSize: 11,
+    fontWeight: "600",
+    textAlign: "center",
+    lineHeight: 15,
+  },
+  earnedBadge: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  progressBarBg: {
+    width: "100%",
+    height: 4,
+    backgroundColor: "rgba(0,0,0,0.08)",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: 4,
+    borderRadius: 2,
+  },
+  celebrationOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 32,
+  },
+  celebrationCard: {
+    width: "100%",
+    borderRadius: 24,
+    padding: 28,
+    alignItems: "center",
+    gap: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  celebrationEmoji: {
+    fontSize: 64,
+  },
+  celebrationTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  celebrationAchTitle: {
+    fontSize: 24,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+  celebrationDesc: {
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  celebrationBtn: {
+    marginTop: 8,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 16,
+    width: "100%",
+    alignItems: "center",
+  },
+  celebrationBtnText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  referralHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  referralCodeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+    marginBottom: 4,
+  },
+  referralCode: {
+    fontSize: 22,
+    fontWeight: "900",
+    letterSpacing: 3,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    overflow: "hidden",
+  },
+  referralBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  referralBtnText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  referralStatsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 12,
+    gap: 0,
+  },
+  referralStatItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+  referralStatDivider: {
+    width: 1,
+    height: 32,
+    marginHorizontal: 8,
+  },
+  referralStatValue: {
+    fontSize: 18,
+    fontWeight: "800",
+    marginBottom: 2,
+  },
+  referralSteps: {},
+  referralStep: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    marginBottom: 8,
+  },
+  referralStepNum: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+  },
 });

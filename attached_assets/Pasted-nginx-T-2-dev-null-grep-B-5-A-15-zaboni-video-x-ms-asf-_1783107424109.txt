@@ -1,0 +1,98 @@
+nginx -T 2>/dev/null | grep -B 5 -A 15 "zaboni"
+    video/x-ms-asf                                   asx asf;
+    video/x-ms-wmv                                   wmv;
+    video/x-msvideo                                  avi;
+}
+
+# configuration file /etc/nginx/conf.d/zaboni.app.conf:
+server {
+    listen 80;
+    listen [::]:80;
+    server_name zaboni.app;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /www/wwwroot/zaboni;
+        default_type text/plain;
+        try_files $uri =404;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name zaboni.app;
+    client_max_body_size 10M;
+
+    ssl_certificate     /www/server/panel/vhost/cert/zaboni/fullchain.pem;
+    ssl_certificate_key /www/server/panel/vhost/cert/zaboni/privkey.pem;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /www/wwwroot/zaboni;
+        default_type text/plain;
+        try_files $uri =404;
+    }
+
+    location ~ ^/(api|support|privacy|delete-my-account)(/|$) {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+--
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    location /storage/public-objects/ {
+        alias /www/wwwroot/zaboni/storage/public/;
+        add_header Cache-Control "public, max-age=86400";
+    }
+
+    location /admin/ {
+        alias /www/wwwroot/zaboni/artifacts/admin/dist/public/;
+        try_files $uri $uri/ /admin/index.html;
+        location ~* \.html$ { add_header Cache-Control "no-cache, no-store, must-revalidate"; }
+    }
+
+    location /restaurant-portal/ {
+        alias /www/wwwroot/zaboni/artifacts/restaurant-portal/dist/public/;
+        try_files $uri $uri/ /restaurant-portal/index.html;
+        location ~* \.html$ { add_header Cache-Control "no-cache, no-store, must-revalidate"; }
+    }
+
+    location /zaboni-web/ {
+        alias /www/wwwroot/zaboni/artifacts/zaboni-web/dist/public/;
+        try_files $uri $uri/ /zaboni-web/index.html;
+        location ~* \.html$ { add_header Cache-Control "no-cache, no-store, must-revalidate"; }
+    }
+
+    location = / {
+        return 301 /admin/;
+    }
+
+    access_log /www/wwwlogs/zaboni.log;
+    error_log /www/wwwlogs/zaboni.error.log;
+}
+
+# configuration file /etc/nginx/sites-enabled/fitopass:
+server {
+    listen 80;
+    server_name fitopass.app www.fitopass.app fitopass.net www.fitopass.net;
+
+    location / {
+        proxy_pass http://localhost:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

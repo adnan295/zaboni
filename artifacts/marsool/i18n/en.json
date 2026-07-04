@@ -24,12 +24,16 @@
       "errorTitle": "Invalid Code",
       "errorMsg": "The code is incorrect or has expired. Please try again.",
       "hintWhatsapp": "You will receive a WhatsApp message with the verification code",
-      "noCodeWhatsapp": "Did not receive a WhatsApp message?"
+      "noCodeWhatsapp": "Did not receive a WhatsApp message?",
+      "resendSms": "Send via SMS",
+      "switchToSms": "Use SMS instead of WhatsApp"
     },
     "name": {
       "title": "What's your name?",
       "subtitle": "We'll use it to address you in the app",
       "placeholder": "Full name",
+      "referralPlaceholder": "Referral code (optional)",
+      "referralHint": "If a friend referred you, enter their code here",
       "loading": "Signing in...",
       "start": "Start Ordering",
       "errorTitle": "Error",
@@ -45,6 +49,19 @@
     "searchPlaceholder": "Search for a restaurant or food...",
     "allRestaurants": "All Restaurants",
     "noResults": "No results",
+    "popular": "Popular Near You",
+    "exclusiveDeals": "Exclusive Deals",
+    "expressDelivery": "Fast Delivery",
+    "exploreAll": "Explore Restaurants",
+    "shortcutOffers": "Offers",
+    "shortcutFast": "Fast",
+    "shortcutTopRated": "Top Rated",
+    "filterRating": "Rating",
+    "filterTime": "Time",
+    "filterFee": "Price",
+    "openOnly": "Open Now",
+    "orderAgain": "Order Again",
+    "orderAgainBadge": "Reorder",
     "banners": [
       {
         "title": "Fast delivery to your door",
@@ -65,7 +82,30 @@
       "pickedUp": "Courier picked up your order",
       "onWay": "Courier is on the way to you",
       "delivered": "Delivered"
+    },
+    "errandCard": {
+      "title": "Order from Anywhere",
+      "subtitle": "Send a courier to any shop or supermarket"
     }
+  },
+  "errand": {
+    "title": "Order from Anywhere",
+    "placeNameLabel": "Place Name",
+    "placeNamePlaceholder": "e.g. Al-Quds Library, Al-Nour Pharmacy...",
+    "itemsLabel": "What do you need?",
+    "itemsPlaceholder": "Write the items you need...",
+    "addressLabel": "Delivery Address",
+    "noAddress": "No address set",
+    "changeAddress": "Change Address",
+    "feeNote": "Delivery fee: 10,000 SYP (fixed)",
+    "feeDescription": "The courier will buy items and add the actual invoice upon delivery",
+    "submit": "Place Order",
+    "submitting": "Submitting...",
+    "badge": "Errand",
+    "requiredFields": "Please enter the place name and items",
+    "noAddressAlert": "Please add a delivery address first",
+    "errorTitle": "Error",
+    "errorMsg": "Failed to place order, please try again"
   },
   "profile": {
     "defaultUser": "User",
@@ -98,6 +138,12 @@
     "signOut": "Sign Out",
     "signOutTitle": "Sign Out",
     "signOutMessage": "Do you want to sign out?",
+    "deleteAccount": "Delete Account",
+    "deleteAccountTitle": "Delete Account Permanently",
+    "deleteAccountMessage": "This action cannot be undone. Your account and all your data will be permanently deleted.",
+    "deleteAccountConfirm": "Delete",
+    "deleteAccountCancel": "Cancel",
+    "deleteAccountError": "Failed to delete account. Please try again.",
     "signOutCancel": "Cancel",
     "signOutConfirm": "Sign Out",
     "version": "Zaboni · Version 1.0.0",
@@ -197,6 +243,7 @@
   "search": {
     "placeholder": "Search for a restaurant or food...",
     "sort": {
+      "recommended": "Recommended",
       "fastest": "Fastest",
       "rating": "Top Rated",
       "fee": "Lowest Fee"
@@ -243,19 +290,15 @@
       "justNow": "Just now",
       "minutes": "{{count}} min ago",
       "hours": "{{count}} hr ago"
-    },
-    "seed": {
-      "welcome1Title": "Welcome to Zaboni!",
-      "welcome1Body": "Use code WELCOME for 25% off your first order",
-      "welcome2Title": "Limited offer: Free delivery",
-      "welcome2Body": "Order now and enjoy free delivery on all your orders"
     }
   },
   "tabs": {
     "home": "Home",
     "favorites": "Favorites",
     "orders": "My Orders",
-    "profile": "Profile"
+    "profile": "Profile",
+    "offers": "Offers",
+    "search": "Search"
   },
   "courierTabs": {
     "available": "Orders",
@@ -358,6 +401,17 @@
       "error": "Failed to load earnings"
     }
   },
+  "menu": {
+    "note": {
+      "title": "Notes for the restaurant",
+      "placeholder": "e.g. extra salt, no lettuce...",
+      "addBtn": "Add {{total}} SYP",
+      "qtyLabel": "Quantity",
+      "saveBtn": "Save Note",
+      "addNoteLink": "Add note",
+      "editNoteLabel": "Edit note"
+    }
+  },
   "restaurant": {
     "notFound": "Restaurant not found",
     "deliveryTime": "Delivery Time",
@@ -373,7 +427,8 @@
     "closed": "Closed",
     "freeDelivery": "Free Delivery",
     "currency": "SYP",
-    "popular": "Most Ordered"
+    "popular": "Most Ordered",
+    "selectItems": "Select items"
   },
   "orderRequest": {
     "title": "Write Your Order",
@@ -406,7 +461,16 @@
     "promoDiscount": "Discount: {{amount}} SYP",
     "estimatedTotal": "Estimated Items Total",
     "estimatedNote": "(approx. — final bill from courier)",
-    "deliveryFee": "Delivery Fee"
+    "deliveryFee": "Delivery Fee",
+    "totalAfterDiscount": "Total after discount",
+    "browseMenu": "Browse menu",
+    "emptyCart": "Your cart is empty",
+    "itemsTitle": "Items",
+    "serverPricedNote": "Final price is calculated by the server",
+    "subtotal": "Subtotal",
+    "total": "Total",
+    "flashDealBannerDesc": "A {{discount}} discount will be applied to your full order automatically",
+    "itemSavings": "You saved {{amount}} SYP on this order 🎉"
   },
   "payment": {
     "cashOnDelivery": "Cash on Delivery 💵",
@@ -604,6 +668,61 @@
       "title": "Could not open link",
       "body": "The app was unable to open this link. You can copy the contact info and reach out manually.",
       "copy": "Copy"
+    },
+    "chat": {
+      "agentLabel": "Support Team",
+      "emptyTitle": "Message us directly",
+      "emptySub": "Type your message and our support team will reply as soon as possible",
+      "inputPlaceholder": "Type your message..."
+    },
+    "landing": {
+      "heroTitle": "How can we help you?",
+      "heroSub": "Select the order you need help with, or contact us directly",
+      "recentOrders": "My Recent Orders",
+      "noOrders": "No recent orders",
+      "generalTopic": "Topic not related to an order",
+      "myTickets": "My Previous Support Requests"
+    },
+    "issuePicker": {
+      "headerTitle": "Select Issue",
+      "title": "What problem are you facing?",
+      "orderRef": "Order from {{restaurant}}"
+    },
+    "categories": {
+      "order_delayed": "My order is late or hasn't arrived",
+      "wrong_items": "Missing or wrong items",
+      "damaged": "Order arrived damaged",
+      "payment": "Payment issue",
+      "other": "Something else"
+    },
+    "resolution": {
+      "orderStatus": "Order Status",
+      "estimatedTime": "Estimated Delivery Time",
+      "minutes": "min",
+      "orderTotal": "Order Total",
+      "paymentMethod": "Payment Method",
+      "cashOnDelivery": "Cash on Delivery",
+      "stillNeedHelp": "Still need help?",
+      "contactSupport": "Contact Support",
+      "order_delayed": {
+        "note": "If your order is taking longer than expected, contact our support team and we'll help you out."
+      },
+      "wrong_items": {
+        "note": "We're sorry about that. Our support team will reach out to review your order and make it right."
+      },
+      "damaged": {
+        "note": "We're sorry you received a damaged order. Our support team will contact you to resolve this."
+      },
+      "payment": {
+        "note": "If you notice any discrepancy in the amount charged, contact our support team and we'll review it together."
+      },
+      "other": {
+        "note": "Describe your issue to our support team and they'll get back to you as soon as possible."
+      }
+    },
+    "tickets": {
+      "open": "Open",
+      "resolved": "Resolved"
     }
   },
   "about": {
@@ -689,6 +808,66 @@
       "title": "Terms of Service"
     }
   },
+  "subscription": {
+    "menuLabel": "Free Delivery Plan",
+    "title": "Free Delivery Plan",
+    "heroTitle": "Save on delivery every month",
+    "heroSub": "Pay once and enjoy free or discounted delivery on all your orders",
+    "currency": "SYP",
+    "perMonth": "month",
+    "benefitsTitle": "Plan Benefits",
+    "benefit1Free": "100% free delivery on all your orders",
+    "benefit1Discounted": "Fixed delivery fee of {{fee}} SYP only",
+    "benefit2": "No limit on the number of orders",
+    "benefit3": "⭐ Subscriber badge on your profile",
+    "benefit4": "Instant savings from your very first order",
+    "walletInfo": "The plan price is deducted from your wallet balance upon subscribing",
+    "subscribeBtn": "Subscribe Now",
+    "confirmTitle": "Confirm Subscription",
+    "confirmBody": "{{price}} SYP will be deducted from your wallet. Subscription is valid for 30 days.",
+    "cancel": "Cancel",
+    "confirmBtn": "Subscribe",
+    "successTitle": "Subscribed!",
+    "successBody": "You now have free delivery on all your orders this month!",
+    "errorTitle": "Error",
+    "errorBody": "Could not complete subscription, please try again",
+    "insufficientBalance": "Insufficient wallet balance to subscribe",
+    "alreadySubscribed": "You already have an active subscription",
+    "activeTitle": "You're Subscribed ⭐",
+    "activeUntil": "Subscription active until {{date}}",
+    "freeDeliveryActive": "Free delivery on all your orders",
+    "discountedDelivery": "Discounted delivery: {{fee}} SYP only",
+    "subscriberBadge": "Subscriber - Free Delivery"
+  },
+  "loyalty": {
+    "title": "Loyalty Points",
+    "balance": "Your Points Balance",
+    "points": "pts",
+    "redeemValue": "= {{amount}} SYP discount",
+    "earnInfo": "Earn {{rate}} pts per 1,000 SYP",
+    "usePoints": "Use my points as a discount",
+    "usePointsDesc": "{{points}} pts = {{discount}} SYP off",
+    "noPoints": "No points yet",
+    "noPointsHint": "Complete orders to earn points",
+    "historyTitle": "Points History",
+    "noHistory": "No transactions yet",
+    "earn": "Earned",
+    "redeem": "Used",
+    "viewHistory": "Points history",
+    "appliedDiscount": "Points discount: {{amount}} SYP",
+    "earnedOnOrder": "You earned {{points}} pts on this order",
+    "redeemedOnOrder": "You used {{points}} pts as a discount on this order",
+    "earnedBadge": "+{{points}} pts"
+  },
+  "achievements": {
+    "sectionTitle": "My Achievements",
+    "earned": "Unlocked",
+    "locked": "Locked",
+    "progress": "{{current}} / {{total}}",
+    "celebrationTitle": "🎉 Well done!",
+    "celebrationBody": "You earned a new badge",
+    "close": "Awesome!"
+  },
   "onboarding": {
     "skip": "Skip",
     "next": "Next",
@@ -707,5 +886,38 @@
         "body": "100% cash — no credit cards, no subscriptions. Just hand the money to the courier."
       }
     ]
+  },
+  "cart": {
+    "switchTitle": "Start a new cart?",
+    "switchBody": "Your cart has items from {{restaurant}}. Empty it and start over?",
+    "switchConfirm": "New cart"
+  },
+  "wallet": {
+    "title": "My Wallet",
+    "balance": "Wallet Balance",
+    "currency": "SYP",
+    "noBalance": "Zero balance",
+    "noBalanceHint": "Earn credit by referring friends",
+    "useWallet": "Use wallet credit",
+    "useWalletDesc": "Balance {{balance}} SYP · Discount {{discount}} SYP",
+    "transactionsTitle": "Wallet History",
+    "noTransactions": "No transactions yet",
+    "typeCommission": "Referral commission",
+    "typePayment": "Order discount",
+    "typeAdjustment": "Admin adjustment"
+  },
+  "referral": {
+    "title": "Refer Friends",
+    "myCode": "My Code",
+    "codeLabel": "Share this code with friends",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "share": "Share",
+    "totalReferrals": "Total referrals",
+    "totalEarned": "Total earned",
+    "howItWorksTitle": "How does it work?",
+    "step1": "Share your unique code with a friend",
+    "step2": "They enter it when signing up",
+    "step3": "When their first order is delivered, you earn 5% of its value"
   }
 }

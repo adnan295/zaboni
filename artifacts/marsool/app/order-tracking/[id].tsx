@@ -566,7 +566,25 @@ export default function OrderTrackingScreen() {
           <Text style={[styles.cardTitle, { color: colors.foreground }]}>{t("orderTracking.summary.title")}</Text>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Text style={[styles.restaurantLabel, { color: colors.mutedForeground }]}>{order.restaurantName}</Text>
-          <Text style={[styles.orderText, { color: colors.foreground }]}>{order.orderText}</Text>
+          {order.items && order.items.length > 0 ? (
+            <View style={{ gap: 6, marginTop: 4 }}>
+              {order.items.map((it, idx) => (
+                <View
+                  key={idx}
+                  style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
+                >
+                  <Text style={[styles.orderText, { color: colors.foreground, flex: 1 }]}>
+                    {it.qty} × {it.nameAr}
+                  </Text>
+                  <Text style={[styles.orderText, { color: colors.foreground, fontWeight: "700" }]}>
+                    {it.lineTotal.toLocaleString()} ل.س
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={[styles.orderText, { color: colors.foreground }]}>{order.orderText}</Text>
+          )}
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <View style={styles.addrRow}>
             <MaterialIcons name="location-on" size={16} color={colors.primary} />
@@ -578,6 +596,33 @@ export default function OrderTrackingScreen() {
             <Text style={[styles.addrText, { color: colors.foreground }]}>{t("payment.cashOnDelivery")}</Text>
           </View>
         </View>
+
+        {(order.flashDealDiscount ?? 0) > 0 && (
+          <View style={[styles.pointsBanner, { backgroundColor: "#fff7ed", borderColor: "#fed7aa" }]}>
+            <Text style={{ fontSize: 18 }}>⚡</Text>
+            <Text style={[styles.pointsBannerText, { color: "#c2410c" }]}>
+              وفّرت {(order.flashDealDiscount ?? 0).toLocaleString()} ل.س بعرض الفلاش على رسوم التوصيل
+            </Text>
+          </View>
+        )}
+
+        {isDelivered && (order.pointsEarned ?? 0) > 0 && (
+          <View style={[styles.pointsBanner, { backgroundColor: "#a855f711", borderColor: "#a855f730" }]}>
+            <MaterialIcons name="stars" size={22} color="#a855f7" />
+            <Text style={[styles.pointsBannerText, { color: "#a855f7" }]}>
+              {t("loyalty.earnedOnOrder", { points: (order.pointsEarned ?? 0).toLocaleString() })}
+            </Text>
+          </View>
+        )}
+
+        {(order.pointsRedeemed ?? 0) > 0 && (
+          <View style={[styles.pointsBanner, { backgroundColor: "#6366f111", borderColor: "#6366f130" }]}>
+            <MaterialIcons name="stars" size={22} color="#6366f1" />
+            <Text style={[styles.pointsBannerText, { color: "#6366f1" }]}>
+              {t("loyalty.redeemedOnOrder", { points: (order.pointsRedeemed ?? 0).toLocaleString() })}
+            </Text>
+          </View>
+        )}
 
         {isDelivered && (
           <View style={styles.deliveredActions}>
@@ -751,9 +796,21 @@ const styles = StyleSheet.create({
   },
   divider: { height: 1 },
   restaurantLabel: { fontSize: 12 },
-  orderText: { fontSize: 15, lineHeight: 22, textAlign: "right" },
+  orderText: { fontSize: 15, lineHeight: 22, textAlign: "left" },
   addrRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   addrText: { fontSize: 13, flex: 1 },
+  pointsBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+  },
+  pointsBannerText: { fontSize: 14, fontWeight: "700", flex: 1 },
   deliveredActions: { marginHorizontal: 16, marginTop: 4, gap: 12 },
   rateBtn: {
     flexDirection: "row",

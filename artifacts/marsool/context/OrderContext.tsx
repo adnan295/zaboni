@@ -6,18 +6,42 @@ import React, {
   useRef,
   useEffect,
 } from "react";
-import {
-  createOrder as apiCreateOrder,
-  customFetch,
-} from "@workspace/api-client-react";
+import { customFetch } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
 
 export type OrderStatus = "searching" | "accepted" | "picked_up" | "on_way" | "delivered" | "cancelled";
+
+export interface OrderItem {
+  menuItemId: string | null;
+  nameAr: string;
+  unitPrice: number;
+  qty: number;
+  lineTotal: number;
+}
+
+export interface PlaceOrderInput {
+  items?: { menuItemId: string; qty: number; note?: string | null; selectedOptions?: { optionId: string }[] }[];
+  orderText?: string;
+  restaurantName: string;
+  address: string;
+  promoCode?: string;
+  lat?: number;
+  lon?: number;
+  restaurantId?: string;
+  usePoints?: boolean;
+  useWallet?: boolean;
+  flashDealId?: string;
+  orderType?: "restaurant" | "errand";
+  placeName?: string;
+  restaurantNote?: string;
+}
 
 export interface Order {
   id: string;
   userId: string;
   orderText: string;
+  restaurantId?: string | null;
+  items?: OrderItem[];
   restaurantName: string;
   status: OrderStatus;
   courierName: string;
@@ -28,12 +52,17 @@ export interface Order {
   address: string;
   estimatedMinutes: number;
   cancelNote?: string | null;
+  pointsEarned?: number;
+  pointsRedeemed?: number;
+  flashDealDiscount?: number;
+  orderType?: string;
+  placeName?: string | null;
 }
 
 interface OrderContextValue {
   orders: Order[];
   activeOrder: Order | null;
-  placeOrder: (orderText: string, restaurantName: string, address: string, promoCode?: string, lat?: number, lon?: number, restaurantId?: string) => Promise<Order>;
+  placeOrder: (input: PlaceOrderInput) => Promise<Order>;
   getOrder: (id: string) => Order | undefined;
   refreshOrder: (id: string) => Promise<void>;
   setStatusChangeHandler: (handler: (order: Order, newStatus: OrderStatus) => void) => void;
@@ -45,6 +74,8 @@ function apiOrderToLocal(apiOrder: {
   id: string;
   userId?: string;
   orderText: string;
+  restaurantId?: string | null;
+  items?: OrderItem[] | null;
   restaurantName: string;
   status: string;
   courierName: string;
@@ -55,11 +86,16 @@ function apiOrderToLocal(apiOrder: {
   address: string;
   estimatedMinutes: number;
   cancelNote?: string | null;
+  pointsEarned?: number;
+  pointsRedeemed?: number;
+  flashDealDiscount?: number | null;
 }): Order {
   return {
     id: apiOrder.id,
     userId: apiOrder.userId ?? "",
     orderText: apiOrder.orderText,
+    restaurantId: apiOrder.restaurantId ?? null,
+    items: apiOrder.items ?? [],
     restaurantName: apiOrder.restaurantName,
     status: apiOrder.status as OrderStatus,
     courierName: apiOrder.courierName,
@@ -73,6 +109,9 @@ function apiOrderToLocal(apiOrder: {
     address: apiOrder.address,
     estimatedMinutes: apiOrder.estimatedMinutes,
     cancelNote: apiOrder.cancelNote ?? null,
+    pointsEarned: apiOrder.pointsEarned ?? 0,
+    pointsRedeemed: apiOrder.pointsRedeemed ?? 0,
+    flashDealDiscount: apiOrder.flashDealDiscount ?? undefined,
   };
 }
 
@@ -135,17 +174,28 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   );
 
   const placeOrder = useCallback(
-    async (orderText: string, restaurantName: string, address: string, promoCode?: string, lat?: number, lon?: number, restaurantId?: string): Promise<Order> => {
-      const result = await apiCreateOrder({
-          orderText,
+    async (input: PlaceOrderInput): Promise<Order> => {
+      const { items, orderText, restaurantName, address, promoCode, lat, lon, restaurantId, usePoints, useWallet, flashDealId, orderType, placeName, restaurantNote } = input;
+      const result = await customFetch("/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          ...(items && items.length > 0 ? { items } : {}),
+          ...(orderText ? { orderText } : {}),
           restaurantName,
           address,
           ...(promoCode ? { promoCode } : {}),
           ...(lat != null ? { lat } : {}),
           ...(lon != null ? { lon } : {}),
           ...(restaurantId ? { restaurantId } : {}),
-        });
-      const newOrder = apiOrderToLocal(result);
+          ...(usePoints ? { usePoints: true } : {}),
+          ...(useWallet ? { useWallet: true } : {}),
+          ...(flashDealId ? { flashDealId } : {}),
+          ...(orderType ? { orderType } : {}),
+          ...(placeName ? { placeName } : {}),
+          ...(restaurantNote ? { restaurantNote } : {}),
+        }),
+      });
+      const newOrder = apiOrderToLocal(result as Parameters<typeof apiOrderToLocal>[0]);
       setOrders((prev) => {
         if (prev.some((o) => o.id === newOrder.id)) return prev;
         return [newOrder, ...prev];

@@ -11,6 +11,7 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Image,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -36,6 +37,24 @@ interface WalletData {
   balance: number;
   transactions: WalletTransaction[];
 }
+
+interface SubStatus {
+  isActive: boolean;
+  daysLeft?: number;
+  vehicleType: string;
+  monthlyPrice: number;
+  subscription?: {
+    endsAt: string;
+    startsAt: string;
+    gifted: boolean;
+  } | null;
+}
+
+const VEHICLE_LABEL: Record<string, string> = {
+  bicycle: "دراجة هوائية",
+  motorcycle: "دراجة نارية",
+  car: "سيارة",
+};
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -81,7 +100,7 @@ function TxRow({ tx }: { tx: WalletTransaction }) {
       ? "طلب إيداع"
       : tx.type === "deposit_approved"
       ? "إيداع مؤكد"
-      : "اشتراك يومي";
+      : "اشتراك شهري";
 
   const statusLabel =
     tx.status === "pending"
@@ -122,8 +141,11 @@ export default function WalletScreen() {
   const router = useRouter();
 
   const [walletData, setWalletData] = useState<WalletData | null>(null);
+  const [subStatus, setSubStatus] = useState<SubStatus | null>(null);
+  const [paymentQrUrl, setPaymentQrUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [renewingSubscription, setRenewingSubscription] = useState(false);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [depositAmount, setDepositAmount] = useState("");
@@ -135,8 +157,14 @@ export default function WalletScreen() {
 
   const fetchWallet = useCallback(async () => {
     try {
-      const data = await customFetch("/api/courier/wallet") as WalletData;
-      setWalletData(data);
+      const [walletRes, subRes, qrRes] = await Promise.allSettled([
+        customFetch("/api/courier/wallet") as Promise<WalletData>,
+        customFetch("/api/courier/subscription/status") as Promise<SubStatus>,
+        customFetch("/api/courier/payment-qr") as Promise<{ url: string | null }>,
+      ]);
+      if (walletRes.status === "fulfilled") setWalletData(walletRes.value);
+      if (subRes.status === "fulfilled") setSubStatus(subRes.value);
+      if (qrRes.status === "fulfilled") setPaymentQrUrl(qrRes.value.url);
     } catch {
       setWalletData(null);
     } finally {
@@ -144,6 +172,30 @@ export default function WalletScreen() {
       setRefreshing(false);
     }
   }, []);
+
+  const handleRenewSubscription = async () => {
+    if (!subStatus) return;
+    const price = subStatus.monthlyPrice;
+    const balance = walletData?.balance ?? 0;
+    if (price > balance) {
+      Alert.alert(
+        "رصيد غير كافٍ",
+        `سعر الاشتراك الشهري ${price.toLocaleString("ar-SY")} ل.س ورصيدك ${balance.toLocaleString("ar-SY")} ل.س`
+      );
+      return;
+    }
+    setRenewingSubscription(true);
+    try {
+      await customFetch("/api/courier/subscription/renew", { method: "POST" });
+      await fetchWallet();
+      Alert.alert("تم التجديد", "تم تجديد الاشتراك الشهري بنجاح");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "حدث خطأ";
+      Alert.alert("خطأ", msg);
+    } finally {
+      setRenewingSubscription(false);
+    }
+  };
 
   React.useEffect(() => {
     fetchWallet();
@@ -216,6 +268,66 @@ export default function WalletScreen() {
             </TouchableOpacity>
           </View>
 
+          {subStatus && (
+            <View
+              style={[
+                styles.subCard,
+                {
+                  backgroundColor: subStatus.isActive ? "#f0fdf4" : "#fff7ed",
+                  borderColor: subStatus.isActive
+                    ? (subStatus.daysLeft ?? 99) <= 5 ? "#fca5a5" : "#bbf7d0"
+                    : "#fed7aa",
+                },
+              ]}
+            >
+              <View style={styles.subCardRow}>
+                <MaterialIcons
+                  name={subStatus.isActive ? "check-circle" : "warning"}
+                  size={22}
+                  color={subStatus.isActive ? (subStatus.daysLeft ?? 99) <= 5 ? "#dc2626" : "#16a34a" : "#ea580c"}
+                />
+                <View style={styles.subCardInfo}>
+                  <Text style={[styles.subCardTitle, { color: subStatus.isActive ? "#166534" : "#9a3412" }]}>
+                    {subStatus.isActive
+                      ? `اشتراك نشط — ${VEHICLE_LABEL[subStatus.vehicleType] ?? subStatus.vehicleType}`
+                      : `لا يوجد اشتراك نشط — ${VEHICLE_LABEL[subStatus.vehicleType] ?? subStatus.vehicleType}`}
+                  </Text>
+                  {subStatus.isActive && subStatus.subscription ? (
+                    <Text style={[styles.subCardDetail, { color: "#166534" }]}>
+                      ينتهي في {formatDate(subStatus.subscription.endsAt)} · متبقٍ {subStatus.daysLeft ?? 0} يوم
+                    </Text>
+                  ) : (
+                    <Text style={[styles.subCardDetail, { color: "#9a3412" }]}>
+                      سعر التجديد: {subStatus.monthlyPrice.toLocaleString("ar-SY")} ل.س / شهر
+                    </Text>
+                  )}
+                </View>
+              </View>
+              {subStatus.monthlyPrice > 0 && (!subStatus.isActive || (subStatus.daysLeft ?? 99) <= 7) && (
+                <TouchableOpacity
+                  style={[
+                    styles.renewBtn,
+                    {
+                      backgroundColor: subStatus.isActive ? "#16a34a" : "#ea580c",
+                      opacity: renewingSubscription ? 0.7 : 1,
+                    },
+                  ]}
+                  onPress={handleRenewSubscription}
+                  disabled={renewingSubscription}
+                  activeOpacity={0.8}
+                >
+                  {renewingSubscription ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.renewBtnText}>
+                      {subStatus.isActive ? "تجديد الاشتراك" : "اشتراك الآن"}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
           <View style={[styles.txSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.txHeader}>
               <MaterialIcons name="receipt-long" size={18} color={colors.mutedForeground} />
@@ -231,6 +343,25 @@ export default function WalletScreen() {
               transactions.map((tx) => <TxRow key={tx.id} tx={tx} />)
             )}
           </View>
+
+          {paymentQrUrl ? (
+            <View style={[styles.qrCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={styles.qrHeader}>
+                <MaterialIcons name="qr-code" size={20} color={colors.primary} />
+                <Text style={[styles.qrTitle, { color: colors.foreground }]}>ادفع عبر QR</Text>
+              </View>
+              <Text style={[styles.qrDesc, { color: colors.mutedForeground }]}>
+                امسح الـ QR بتطبيق الدفع (سيريتل كاش / MTN) لإرسال مبلغ الاشتراك
+              </Text>
+              <View style={styles.qrImageWrap}>
+                <Image
+                  source={{ uri: paymentQrUrl }}
+                  style={styles.qrImage}
+                  resizeMode="contain"
+                />
+              </View>
+            </View>
+          ) : null}
 
           <View style={[styles.infoCard, { backgroundColor: "#fff7ed", borderColor: "#fed7aa" }]}>
             <MaterialIcons name="info-outline" size={18} color="#ea580c" />
@@ -263,7 +394,7 @@ export default function WalletScreen() {
               keyboardType="numeric"
               value={depositAmount}
               onChangeText={setDepositAmount}
-              textAlign="right"
+              textAlign="left"
             />
 
             <Text style={[styles.fieldLabel, { color: colors.foreground }]}>رقم الإيصال (اختياري)</Text>
@@ -273,7 +404,7 @@ export default function WalletScreen() {
               placeholderTextColor={colors.mutedForeground}
               value={depositNote}
               onChangeText={setDepositNote}
-              textAlign="right"
+              textAlign="left"
             />
 
             <TouchableOpacity
@@ -370,6 +501,46 @@ const styles = StyleSheet.create({
   txCurrency: { fontSize: 11, fontWeight: "600" },
   emptyTx: { alignItems: "center", paddingVertical: 32, gap: 8 },
   emptyTxText: { fontSize: 14 },
+  subCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    gap: 12,
+  },
+  subCardRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  subCardInfo: { flex: 1, gap: 4 },
+  subCardTitle: { fontSize: 14, fontWeight: "700" },
+  subCardDetail: { fontSize: 12 },
+  renewBtn: {
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  renewBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  qrCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    gap: 10,
+    alignItems: "center",
+  },
+  qrHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+  qrTitle: { fontSize: 16, fontWeight: "700" },
+  qrDesc: { fontSize: 12, textAlign: "center", lineHeight: 18 },
+  qrImageWrap: {
+    width: 200,
+    height: 200,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#fff",
+    padding: 8,
+  },
+  qrImage: { width: "100%", height: "100%" },
   infoCard: {
     flexDirection: "row",
     alignItems: "flex-start",

@@ -30,8 +30,7 @@ export default function OtpScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const backIcon = useBackIcon();
-  const { phone, channel } = useLocalSearchParams<{ phone: string; channel?: string }>();
-  const isWhatsApp = channel === "whatsapp";
+  const { phone } = useLocalSearchParams<{ phone: string; channel?: string }>();
   const { signIn } = useAuth();
   const [otp, setOtp] = useState("");
   const [countdown, setCountdown] = useState(60);
@@ -88,8 +87,8 @@ export default function OtpScreen() {
     }
   };
 
-  const handleResend = async () => {
-    if (!canResend) return;
+  const handleResend = async (preferSms?: boolean) => {
+    if (!canResend && !preferSms) return;
     setCountdown(60);
     setCanResend(false);
     setOtp("");
@@ -99,7 +98,7 @@ export default function OtpScreen() {
       await fetch(`${base}/api/auth/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone, ...(preferSms ? { preferSms: true } : {}) }),
       });
     } catch {}
   };
@@ -169,18 +168,18 @@ export default function OtpScreen() {
         </TouchableOpacity>
 
         <View style={[styles.hintBox, { backgroundColor: colors.secondary }]}>
-          <MaterialIcons name={isWhatsApp ? "chat" : "info-outline"} size={14} color={colors.primary} />
+          <MaterialIcons name="sms" size={14} color={colors.primary} />
           <Text style={[styles.hint, { color: colors.primary }]}>
-            {isWhatsApp ? t("auth.otp.hintWhatsapp") : t("auth.otp.hint")}
+            {t("auth.otp.hint")}
           </Text>
         </View>
 
         <View style={styles.resendRow}>
           <Text style={[styles.resendLabel, { color: colors.mutedForeground }]}>
-            {isWhatsApp ? t("auth.otp.noCodeWhatsapp") : t("auth.otp.noCode")}
+            {t("auth.otp.noCode")}
           </Text>
           {canResend ? (
-            <TouchableOpacity onPress={handleResend}>
+            <TouchableOpacity onPress={() => handleResend()}>
               <Text style={[styles.resendBtn, { color: colors.primary }]}>{t("auth.otp.resend")}</Text>
             </TouchableOpacity>
           ) : (

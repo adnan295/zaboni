@@ -5,6 +5,7 @@
  * Marsool delivery app API
  * OpenAPI spec version: 0.1.0
  */
+import type { MenuItemOptionGroup } from "./menuItemOptionGroup";
 
 export interface MenuItem {
   id: string;
@@ -17,5 +18,11 @@ export interface MenuItem {
   image: string;
   category: string;
   categoryAr: string;
+  subcategory?: string | null;
+  subcategoryAr?: string | null;
   isPopular: boolean;
+  isAvailable?: boolean;
+  isDeal?: boolean;
+  dealPrice?: number | null;
+  optionGroups?: MenuItemOptionGroup[];
 }

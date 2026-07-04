@@ -6,9 +6,11 @@ import React, {
   useEffect,
   useRef,
 } from "react";
-import { AppState, AppStateStatus, Vibration } from "react-native";
+import { AppState, AppStateStatus, Platform, Vibration } from "react-native";
+import { io } from "socket.io-client";
 import { customFetch } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
+import { getApiBaseUrl } from "@/lib/apiConfig";
 
 export type CourierOrderStatus = "searching" | "accepted" | "picked_up" | "on_way" | "delivered";
 
@@ -32,6 +34,8 @@ export interface CourierOrder {
   destinationLat?: number | null;
   destinationLon?: number | null;
   deliveryFee?: number | null;
+  orderType?: string;
+  placeName?: string | null;
 }
 
 export type CourierDeliveryStatus = "picked_up" | "on_way" | "delivered";
@@ -58,7 +62,7 @@ const CourierContext = createContext<CourierContextValue | null>(null);
 const POLL_INTERVAL_MS = 8000;
 
 export function CourierProvider({ children }: { children: React.ReactNode }) {
-  const { user, isCourier } = useAuth();
+  const { user, isCourier, token } = useAuth();
   const [availableOrders, setAvailableOrders] = useState<CourierOrder[]>([]);
   const [activeOrders, setActiveOrders] = useState<CourierOrder[]>([]);
   const [availableOrdersError, setAvailableOrdersError] = useState(false);
@@ -223,6 +227,26 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
     });
     return () => sub.remove();
   }, [isCourier, refreshAvailableOrders, refreshActiveOrders, startPolling, stopPolling]);
+
+  useEffect(() => {
+    if (!isCourier || !token) return;
+    const base = Platform.OS === "web" ? "" : getApiBaseUrl();
+    const socket = io(`${base}/orders`, {
+      path: "/api/socket.io",
+      auth: { token },
+      transports: ["websocket"],
+      reconnection: true,
+      reconnectionDelay: 3000,
+      reconnectionAttempts: 5,
+    });
+    socket.on("order_taken", ({ orderId }: { orderId: string }) => {
+      setAvailableOrders((prev) => prev.filter((o) => o.id !== orderId));
+      lastKnownIdsRef.current.delete(orderId);
+    });
+    return () => {
+      socket.disconnect();
+    };
+  }, [isCourier, token]);
 
   return (
     <CourierContext.Provider

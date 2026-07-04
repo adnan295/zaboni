@@ -23,9 +23,22 @@ import Settings from "@/pages/Settings";
 import CourierApplications from "@/pages/CourierApplications";
 import Content from "@/pages/Content";
 import Categories from "@/pages/Categories";
+import RestaurantOrder from "@/pages/RestaurantOrder";
 import LiveMap from "@/pages/LiveMap";
 import ChatMonitor from "@/pages/ChatMonitor";
 import WhatsApp from "@/pages/WhatsApp";
+import HomeSections from "@/pages/HomeSections";
+import RestaurantAccounts from "@/pages/RestaurantAccounts";
+import RestaurantPerformance from "@/pages/RestaurantPerformance";
+import ChurnAnalysis from "@/pages/ChurnAnalysis";
+import CancellationAnalysis from "@/pages/CancellationAnalysis";
+import CourierPerformancePage from "@/pages/CourierPerformance";
+import FlashDeals from "@/pages/FlashDeals";
+import Loyalty from "@/pages/Loyalty";
+import CustomerSubscriptions from "@/pages/CustomerSubscriptions";
+import CustomerSupport from "@/pages/CustomerSupport";
+import Referrals from "@/pages/Referrals";
+import SubscriptionRequests from "@/pages/SubscriptionRequests";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -57,9 +70,22 @@ function Router({ onLogout }: { onLogout: () => void }) {
         <Route path="/courier-applications" component={CourierApplications} />
         <Route path="/content" component={Content} />
         <Route path="/categories" component={Categories} />
+        <Route path="/restaurant-order" component={RestaurantOrder} />
         <Route path="/live-map" component={LiveMap} />
         <Route path="/chats" component={ChatMonitor} />
         <Route path="/whatsapp" component={WhatsApp} />
+        <Route path="/home-sections" component={HomeSections} />
+        <Route path="/restaurant-accounts" component={RestaurantAccounts} />
+        <Route path="/restaurant-performance" component={RestaurantPerformance} />
+        <Route path="/churn" component={ChurnAnalysis} />
+        <Route path="/cancellation" component={CancellationAnalysis} />
+        <Route path="/courier-performance" component={CourierPerformancePage} />
+        <Route path="/flash-deals" component={FlashDeals} />
+        <Route path="/loyalty" component={Loyalty} />
+        <Route path="/customer-subscriptions" component={CustomerSubscriptions} />
+        <Route path="/customer-support" component={CustomerSupport} />
+        <Route path="/referrals" component={Referrals} />
+        <Route path="/subscription-requests" component={SubscriptionRequests} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

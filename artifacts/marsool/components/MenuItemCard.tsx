@@ -2,10 +2,10 @@ import React from "react";
 import {
   View,
   StyleSheet,
-  Image,
   TouchableOpacity,
   Animated,
 } from "react-native";
+import { Image } from "expo-image";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -19,9 +19,12 @@ interface Props {
   quantity?: number;
   onAdd?: () => void;
   onRemove?: () => void;
+  isDeal?: boolean;
+  dealPrice?: number | null;
+  dealDiscountPercent?: number | null;
 }
 
-export default function MenuItemCard({ item, quantity = 0, onAdd, onRemove }: Props) {
+export default function MenuItemCard({ item, quantity = 0, onAdd, onRemove, isDeal, dealPrice, dealDiscountPercent }: Props) {
   const colors = useColors();
   const { t } = useTranslation();
 
@@ -45,12 +48,25 @@ export default function MenuItemCard({ item, quantity = 0, onAdd, onRemove }: Pr
 
   const hasPrice = item.price != null && item.price > 0;
   const inCart = quantity > 0;
+  const showDeal = isDeal && dealPrice != null && dealPrice > 0;
+  const dealPct = showDeal
+    ? (dealDiscountPercent != null
+        ? Math.round(dealDiscountPercent)
+        : (item.price > 0 ? Math.round((1 - dealPrice! / item.price) * 100) : null))
+    : null;
 
   return (
-    <Animated.View style={[styles.card, { backgroundColor: colors.card, borderColor: inCart ? colors.primary : colors.border, transform: [{ scale: scaleRef }] }]}>
+    <Animated.View style={[styles.card, { backgroundColor: colors.card, borderColor: inCart ? colors.primary : (showDeal ? "#FF6B00" : colors.border), transform: [{ scale: scaleRef }] }]}>
       <View style={styles.content}>
         <View style={styles.topRow}>
-          {item.isPopular && (
+          {showDeal && (
+            <View style={styles.dealBadge}>
+              <Text style={styles.dealBadgeText}>
+                {dealPct != null && dealPct > 0 ? `خصم ${dealPct}%` : "عرض 🔥"}
+              </Text>
+            </View>
+          )}
+          {!showDeal && item.isPopular && (
             <View style={[styles.popularBadge, { backgroundColor: colors.accent }]}>
               <Text style={[styles.popularText, { color: colors.primary }]}>{t("restaurant.popular")}</Text>
             </View>
@@ -64,13 +80,24 @@ export default function MenuItemCard({ item, quantity = 0, onAdd, onRemove }: Pr
         ) : null}
 
         <View style={styles.bottomRow}>
-          {hasPrice && (
+          {showDeal ? (
+            <View style={styles.dealPriceWrap}>
+              <Text style={[styles.originalPrice, { color: colors.mutedForeground }]}>
+                {hasPrice ? `${item.price.toLocaleString()} ل.س` : ""}
+              </Text>
+              <View style={styles.dealPriceBadge}>
+                <Text style={styles.dealPrice}>
+                  {dealPrice!.toLocaleString()} ل.س
+                </Text>
+              </View>
+            </View>
+          ) : hasPrice ? (
             <View style={[styles.priceBadge, { backgroundColor: colors.secondary }]}>
               <Text style={[styles.price, { color: colors.primary }]}>
                 {item.price.toLocaleString()} ل.س
               </Text>
             </View>
-          )}
+          ) : null}
 
           {onAdd ? (
             inCart ? (
@@ -96,7 +123,16 @@ export default function MenuItemCard({ item, quantity = 0, onAdd, onRemove }: Pr
         </View>
       </View>
 
-      <Image source={{ uri: buildImageUrl(item.image) }} style={styles.image} resizeMode="cover" />
+      <View style={styles.imageWrap}>
+        <Image source={{ uri: buildImageUrl(item.image) }} style={styles.image} contentFit="cover" />
+        {showDeal && (
+          <View style={styles.imageDealBadge}>
+            <Text style={styles.imageDealBadgeText}>
+              {dealPct != null && dealPct > 0 ? `خصم ${dealPct}%` : "عرض 🔥"}
+            </Text>
+          </View>
+        )}
+      </View>
     </Animated.View>
   );
 }
@@ -133,12 +169,12 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 15,
     fontWeight: "700",
-    textAlign: "right",
+    textAlign: "left",
   },
   description: {
     fontSize: 12,
     lineHeight: 18,
-    textAlign: "right",
+    textAlign: "left",
   },
   bottomRow: {
     flexDirection: "row",
@@ -180,9 +216,60 @@ const styles = StyleSheet.create({
     minWidth: 16,
     textAlign: "center",
   },
+  imageWrap: {
+    position: "relative",
+  },
   image: {
     width: 90,
     height: 90,
     borderRadius: 10,
+  },
+  imageDealBadge: {
+    position: "absolute",
+    bottom: 4,
+    left: 4,
+    backgroundColor: "#FF6B00",
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  imageDealBadgeText: {
+    color: "#fff",
+    fontSize: 9,
+    fontWeight: "800",
+  },
+  dealBadge: {
+    alignSelf: "flex-end",
+    backgroundColor: "#FF6B00",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  dealBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  dealPriceWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+  originalPrice: {
+    fontSize: 11,
+    textDecorationLine: "line-through",
+    fontWeight: "600",
+  },
+  dealPriceBadge: {
+    backgroundColor: "#FFF0E6",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  dealPrice: {
+    color: "#FF6B00",
+    fontSize: 13,
+    fontWeight: "800",
   },
 });

@@ -24,12 +24,16 @@
       "errorTitle": "رمز غير صحيح",
       "errorMsg": "الرمز غير صحيح أو انتهت صلاحيته، يرجى المحاولة مجدداً",
       "hintWhatsapp": "ستصلك رسالة واتساب تحتوي على رمز التحقق",
-      "noCodeWhatsapp": "لم تصلك رسالة واتساب؟"
+      "noCodeWhatsapp": "لم تصلك رسالة واتساب؟",
+      "resendSms": "أرسل عبر SMS",
+      "switchToSms": "استخدم SMS بدلاً من واتساب"
     },
     "name": {
       "title": "ما اسمك؟",
       "subtitle": "سنستخدمه لمخاطبتك في التطبيق",
       "placeholder": "اسمك الكامل",
+      "referralPlaceholder": "كود الإحالة (اختياري)",
+      "referralHint": "إن أحالك أحد الأصدقاء، أدخل كوده هنا",
       "loading": "جاري الدخول...",
       "start": "ابدأ الطلب",
       "errorTitle": "خطأ",
@@ -45,6 +49,19 @@
     "searchPlaceholder": "ابحث عن مطعم أو طعام...",
     "allRestaurants": "جميع المطاعم",
     "noResults": "لا توجد نتائج",
+    "popular": "مشهورة عندنا",
+    "exclusiveDeals": "خصومات حصرية",
+    "expressDelivery": "توصيل سريع",
+    "exploreAll": "استكشف المطاعم",
+    "shortcutOffers": "العروض",
+    "shortcutFast": "سريع",
+    "shortcutTopRated": "الأعلى",
+    "filterRating": "تقييم",
+    "filterTime": "وقت",
+    "filterFee": "سعر",
+    "openOnly": "مفتوح الآن",
+    "orderAgain": "اطلب مجدداً",
+    "orderAgainBadge": "مجدداً",
     "banners": [
       {
         "title": "توصيل سريع لباب بيتك",
@@ -65,7 +82,30 @@
       "pickedUp": "المندوب استلم طلبك من المطعم",
       "onWay": "المندوب في الطريق إليك",
       "delivered": "تم التوصيل"
+    },
+    "errandCard": {
+      "title": "اطلب من أي مكان",
+      "subtitle": "أرسل مندوباً لأي محل أو سوبرماركت"
     }
+  },
+  "errand": {
+    "title": "اطلب من أي مكان",
+    "placeNameLabel": "اسم المكان",
+    "placeNamePlaceholder": "مثال: مكتبة القدس، صيدلية النور...",
+    "itemsLabel": "ماذا تريد؟",
+    "itemsPlaceholder": "اكتب الأصناف التي تريدها...",
+    "addressLabel": "عنوان التوصيل",
+    "noAddress": "لا يوجد عنوان محدد",
+    "changeAddress": "تغيير العنوان",
+    "feeNote": "رسوم التوصيل: 10,000 ل.س (ثابتة)",
+    "feeDescription": "السائق سيشتري الأصناف ويضيف الفاتورة الفعلية عند التسليم",
+    "submit": "إرسال الطلب",
+    "submitting": "جاري الإرسال...",
+    "badge": "مندوب متجول",
+    "requiredFields": "يرجى إدخال اسم المكان والأصناف المطلوبة",
+    "noAddressAlert": "يرجى إضافة عنوان توصيل أولاً",
+    "errorTitle": "خطأ",
+    "errorMsg": "تعذّر إرسال الطلب، يرجى المحاولة مجدداً"
   },
   "profile": {
     "defaultUser": "المستخدم",
@@ -100,6 +140,12 @@
     "signOutMessage": "هل تريد تسجيل الخروج؟",
     "signOutCancel": "إلغاء",
     "signOutConfirm": "خروج",
+    "deleteAccount": "حذف الحساب",
+    "deleteAccountTitle": "حذف الحساب نهائياً",
+    "deleteAccountMessage": "هذا الإجراء لا يمكن التراجع عنه. سيتم حذف حسابك وجميع بياناتك بشكل دائم.",
+    "deleteAccountConfirm": "حذف",
+    "deleteAccountCancel": "إلغاء",
+    "deleteAccountError": "تعذّر حذف الحساب، حاول مجدداً",
     "version": "زبوني · الإصدار 1.0.0",
     "language": {
       "title": "اختر اللغة",
@@ -197,6 +243,7 @@
   "search": {
     "placeholder": "ابحث عن مطعم أو طعام...",
     "sort": {
+      "recommended": "موصى به",
       "fastest": "الأسرع",
       "rating": "الأعلى تقييماً",
       "fee": "أقل رسوم"
@@ -243,19 +290,15 @@
       "justNow": "الآن",
       "minutes": "منذ {{count}} دقيقة",
       "hours": "منذ {{count}} ساعة"
-    },
-    "seed": {
-      "welcome1Title": "مرحباً بك في زبوني!",
-      "welcome1Body": "استخدم كود WELCOME للحصول على خصم 25% على أول طلب",
-      "welcome2Title": "عرض محدود: توصيل مجاني",
-      "welcome2Body": "اطلب الآن واستمتع بتوصيل مجاني على طلباتك"
     }
   },
   "tabs": {
     "home": "الرئيسية",
     "favorites": "المفضلة",
     "orders": "طلباتي",
-    "profile": "حسابي"
+    "profile": "حسابي",
+    "offers": "عروض",
+    "search": "بحث"
   },
   "courierTabs": {
     "available": "الطلبات",
@@ -358,6 +401,17 @@
       "error": "تعذّر تحميل الأرباح"
     }
   },
+  "menu": {
+    "note": {
+      "title": "ملاحظات للمطعم",
+      "placeholder": "مثال: ملح زيادة، بدون خس...",
+      "addBtn": "إضافة {{total}} ل.س",
+      "qtyLabel": "الكمية",
+      "saveBtn": "حفظ الملاحظة",
+      "addNoteLink": "إضافة ملاحظة",
+      "editNoteLabel": "تعديل الملاحظة"
+    }
+  },
   "restaurant": {
     "notFound": "المطعم غير موجود",
     "deliveryTime": "وقت التوصيل",
@@ -373,7 +427,8 @@
     "closed": "مغلق",
     "freeDelivery": "توصيل مجاني",
     "currency": "ل.س",
-    "popular": "الأكثر طلباً"
+    "popular": "الأكثر طلباً",
+    "selectItems": "اختر الأصناف"
   },
   "orderRequest": {
     "title": "اكتب طلبك",
@@ -406,7 +461,16 @@
     "promoDiscount": "خصم {{amount}} ل.س",
     "estimatedTotal": "المجموع التقديري للأصناف",
     "estimatedNote": "(تقديري، الفاتورة الحقيقية من السائق)",
-    "deliveryFee": "رسوم التوصيل"
+    "deliveryFee": "رسوم التوصيل",
+    "totalAfterDiscount": "المجموع بعد الخصم",
+    "browseMenu": "تصفح القائمة",
+    "emptyCart": "سلتك فارغة",
+    "itemsTitle": "الأصناف",
+    "serverPricedNote": "يتم احتساب السعر النهائي من الخادم",
+    "subtotal": "المجموع الفرعي",
+    "total": "الإجمالي",
+    "flashDealBannerDesc": "سيُطبَّق خصم {{discount}} على قيمة طلبك بالكامل تلقائياً",
+    "itemSavings": "وفّرت {{amount}} ل.س على هذا الطلب 🎉"
   },
   "payment": {
     "cashOnDelivery": "الدفع عند الاستلام 💵",
@@ -604,6 +668,61 @@
       "title": "تعذّر فتح الرابط",
       "body": "لم يتمكن التطبيق من فتح الرابط. يمكنك نسخ المعلومات والتواصل يدوياً.",
       "copy": "نسخ"
+    },
+    "chat": {
+      "agentLabel": "فريق الدعم",
+      "emptyTitle": "راسلنا مباشرةً",
+      "emptySub": "اكتب رسالتك وسيرد عليك فريق الدعم في أقرب وقت ممكن",
+      "inputPlaceholder": "اكتب رسالتك..."
+    },
+    "landing": {
+      "heroTitle": "كيف يمكننا مساعدتك؟",
+      "heroSub": "اختر الطلب الذي تواجه فيه مشكلة، أو تواصل معنا مباشرةً",
+      "recentOrders": "طلباتي الأخيرة",
+      "noOrders": "لا توجد طلبات سابقة",
+      "generalTopic": "موضوع لا يتعلق بطلب",
+      "myTickets": "طلبات الدعم السابقة"
+    },
+    "issuePicker": {
+      "headerTitle": "اختر المشكلة",
+      "title": "ما المشكلة التي تواجهها؟",
+      "orderRef": "الطلب من {{restaurant}}"
+    },
+    "categories": {
+      "order_delayed": "طلبي متأخر أو لم يصل",
+      "wrong_items": "عناصر ناقصة أو خاطئة",
+      "damaged": "الطلب وصل تالفًا",
+      "payment": "مشكلة في الدفع",
+      "other": "شيء آخر"
+    },
+    "resolution": {
+      "orderStatus": "حالة الطلب",
+      "estimatedTime": "الوقت المتوقع للوصول",
+      "minutes": "دقيقة",
+      "orderTotal": "إجمالي الطلب",
+      "paymentMethod": "طريقة الدفع",
+      "cashOnDelivery": "الدفع عند الاستلام",
+      "stillNeedHelp": "لا تزال بحاجة للمساعدة؟",
+      "contactSupport": "تواصل مع الدعم",
+      "order_delayed": {
+        "note": "إذا كان طلبك يتأخر أكثر من المتوقع، تواصل مع فريق الدعم وسنساعدك."
+      },
+      "wrong_items": {
+        "note": "نأسف لهذه التجربة. سيتواصل معك فريق الدعم لمراجعة طلبك وتعويضك إذا لزم."
+      },
+      "damaged": {
+        "note": "نأسف لتلقيك طلبًا تالفًا. سيتواصل معك فريق الدعم لمعالجة هذه المشكلة."
+      },
+      "payment": {
+        "note": "إذا لاحظت أي خطأ في المبلغ المحصّل، تواصل مع فريق الدعم وسنراجع معك."
+      },
+      "other": {
+        "note": "صف مشكلتك لفريق الدعم وسيردون عليك في أقرب وقت ممكن."
+      }
+    },
+    "tickets": {
+      "open": "مفتوحة",
+      "resolved": "محلولة"
     }
   },
   "about": {
@@ -689,6 +808,66 @@
       "title": "شروط الاستخدام"
     }
   },
+  "subscription": {
+    "menuLabel": "باقة التوصيل المجاني",
+    "title": "باقة التوصيل المجاني",
+    "heroTitle": "وفّر على توصيلك كل شهر",
+    "heroSub": "ادفع مرة واحدة واستمتع بتوصيل مجاني أو مخفض لجميع طلباتك",
+    "currency": "ل.س",
+    "perMonth": "شهرياً",
+    "benefitsTitle": "مزايا الباقة",
+    "benefit1Free": "توصيل مجاني 100٪ لجميع طلباتك",
+    "benefit1Discounted": "رسوم توصيل ثابتة {{fee}} ل.س فقط",
+    "benefit2": "لا قيود على عدد الطلبات",
+    "benefit3": "شارة ⭐ مشترك في ملفك الشخصي",
+    "benefit4": "توفير فوري من أول طلب",
+    "walletInfo": "تُخصم قيمة الباقة من رصيد محفظتك عند الاشتراك",
+    "subscribeBtn": "اشترك الآن",
+    "confirmTitle": "تأكيد الاشتراك",
+    "confirmBody": "سيُخصم {{price}} ل.س من رصيد محفظتك. الاشتراك صالح لمدة 30 يوماً.",
+    "cancel": "إلغاء",
+    "confirmBtn": "اشترك",
+    "successTitle": "تم الاشتراك",
+    "successBody": "أصبح لديك توصيل مجاني لجميع طلباتك هذا الشهر!",
+    "errorTitle": "خطأ",
+    "errorBody": "تعذّر إتمام الاشتراك، يرجى المحاولة مجدداً",
+    "insufficientBalance": "رصيد محفظتك غير كافٍ لإتمام الاشتراك",
+    "alreadySubscribed": "لديك اشتراك نشط بالفعل",
+    "activeTitle": "أنت مشترك ⭐",
+    "activeUntil": "الاشتراك ساري حتى {{date}}",
+    "freeDeliveryActive": "توصيل مجاني لجميع طلباتك",
+    "discountedDelivery": "رسوم توصيل مخفضة: {{fee}} ل.س فقط",
+    "subscriberBadge": "مشترك - توصيل مجاني"
+  },
+  "loyalty": {
+    "title": "نقاط الولاء",
+    "balance": "رصيد نقاطك",
+    "points": "نقطة",
+    "redeemValue": "تساوي خصماً بقيمة {{amount}} ل.س",
+    "earnInfo": "تكسب {{rate}} نقطة لكل 1000 ل.س",
+    "usePoints": "استخدم نقاطي كخصم",
+    "usePointsDesc": "{{points}} نقطة = خصم {{discount}} ل.س",
+    "noPoints": "ليس لديك نقاط بعد",
+    "noPointsHint": "أكمل طلبات لتكسب نقاطاً",
+    "historyTitle": "تاريخ النقاط",
+    "noHistory": "لا توجد معاملات بعد",
+    "earn": "كسب",
+    "redeem": "استخدام",
+    "viewHistory": "سجل النقاط",
+    "appliedDiscount": "خصم النقاط: {{amount}} ل.س",
+    "earnedOnOrder": "ربحت {{points}} نقطة من هذا الطلب",
+    "redeemedOnOrder": "استخدمت {{points}} نقطة خصماً في هذا الطلب",
+    "earnedBadge": "+{{points}} نقطة"
+  },
+  "achievements": {
+    "sectionTitle": "إنجازاتي",
+    "earned": "تم الفتح",
+    "locked": "مقفل",
+    "progress": "{{current}} / {{total}}",
+    "celebrationTitle": "🎉 أحسنت!",
+    "celebrationBody": "حصلت على شارة جديدة",
+    "close": "رائع!"
+  },
   "onboarding": {
     "skip": "تخطّي",
     "next": "التالي",
@@ -707,5 +886,38 @@
         "body": "الدفع نقداً ٪100 — لا بطاقات بنكية، لا اشتراكات. فقط سلّم المبلغ للمندوب."
       }
     ]
+  },
+  "cart": {
+    "switchTitle": "بدء سلة جديدة؟",
+    "switchBody": "سلتك تحتوي على أصناف من {{restaurant}}. هل تريد إفراغها والبدء من جديد؟",
+    "switchConfirm": "سلة جديدة"
+  },
+  "wallet": {
+    "title": "محفظتي",
+    "balance": "رصيد المحفظة",
+    "currency": "ل.س",
+    "noBalance": "رصيدك صفر",
+    "noBalanceHint": "احصل على رصيد عبر إحالة أصدقائك",
+    "useWallet": "استخدم رصيد المحفظة",
+    "useWalletDesc": "رصيد {{balance}} ل.س · خصم {{discount}} ل.س",
+    "transactionsTitle": "سجل المحفظة",
+    "noTransactions": "لا توجد معاملات بعد",
+    "typeCommission": "عمولة إحالة",
+    "typePayment": "خصم على طلب",
+    "typeAdjustment": "تعديل إداري"
+  },
+  "referral": {
+    "title": "أحِل أصدقاءك",
+    "myCode": "كودي",
+    "codeLabel": "شارك هذا الكود مع أصدقائك",
+    "copy": "نسخ",
+    "copied": "تم النسخ!",
+    "share": "مشاركة",
+    "totalReferrals": "إجمالي الإحالات",
+    "totalEarned": "إجمالي المكسب",
+    "howItWorksTitle": "كيف يعمل النظام؟",
+    "step1": "شارك كودك الخاص مع صديق",
+    "step2": "يُدخل الكود عند التسجيل",
+    "step3": "عند تسليم طلبه الأول، تحصل على 5٪ من قيمته"
   }
 }
