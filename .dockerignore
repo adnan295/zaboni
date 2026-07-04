@@ -1,0 +1,13 @@
+.git
+.local
+.agents
+node_modules
+**/node_modules
+**/dist
+**/.tsbuildinfo
+export-images
+*.log
+.env
+.env.*
+!.env.docker.example
+artifacts/marsool/.expo
