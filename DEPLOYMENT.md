@@ -1,11 +1,12 @@
-# Deploying Zaboni/Marsool with Docker on an aaPanel VPS
+# Deploying Zaboni/Marsool with Docker on a VPS (terminal-only)
 
 This guide walks through deploying the API server and the three web
 artifacts (admin panel, zaboni-web legal pages, restaurant portal) to a
-Hostinger (or any) VPS managed with aaPanel, using Docker instead of the
-PM2-based approach. It also covers migrating your existing production
-database and uploaded images into the new setup so the app works "from the
-first time" with all your real data.
+Hostinger (or any) VPS using Docker instead of the PM2-based approach —
+entirely from the SSH terminal, no control panel (aaPanel or otherwise)
+required. It also covers migrating your existing production database and
+uploaded images into the new setup so the app works "from the first time"
+with all your real data.
 
 The Expo mobile app (`marsool`) is **not** part of this Docker setup — it is
 shipped separately via EAS/Play Store/App Store (see `replit.md`). Once the
@@ -22,40 +23,59 @@ section below) before your next EAS build/OTA update.
 | `api-server` | Express 5 + Socket.IO API (esbuild bundle), reads/writes Postgres and local-disk object storage | no (internal only) |
 | `web`        | nginx serving the 3 built SPAs + reverse-proxying `/api`, `/support`, `/privacy`, `/delete-my-account` to `api-server` | `127.0.0.1:8090` |
 
-Only `web` is exposed on the host (bound to `127.0.0.1` only), and aaPanel's
-own nginx (or a dedicated site) reverse-proxies your public domain to it.
-This mirrors the structure of the earlier PM2 deployment but with everything
-built from source inside Docker, so **you can never accidentally run a stale
-build again** — `docker compose up -d --build` always rebuilds from the
-current source before starting.
+Only `web` is exposed on the host (bound to `127.0.0.1` only). A separate,
+lightweight system nginx (installed directly via `apt`, no control panel)
+reverse-proxies your public domain over HTTPS to that port. This mirrors
+the structure of the earlier PM2 deployment but with everything built from
+source inside Docker, so **you can never accidentally run a stale build
+again** — `docker compose up -d --build` always rebuilds from the current
+source before starting.
 
 ## 0. Prerequisites
 
-- A VPS with aaPanel installed, and the **Docker Manager** plugin installed
-  and enabled from the aaPanel App Store.
-- A domain (or subdomain) pointed at the VPS's IP address.
+- A VPS you can SSH into (`ssh user@your-vps-ip`), running Ubuntu/Debian
+  (commands below assume `apt`; adjust for other distros).
+- A domain (or subdomain) with its DNS `A` record pointed at the VPS's IP
+  address.
 - Your existing Replit deployment's `PRODUCTION_DATABASE_URL` (from Replit's
   Secrets) — needed only for the one-time data/image migration in step 4.
-  Treat it as a secret and delete it from the VPS once the migration is done.
+  Treat it as a secret and delete it from the VPS once the migration is
+  done.
+
+### Install Docker
+
+```bash
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+newgrp docker   # or log out/in so the group change takes effect
+docker --version
+docker compose version
+```
+
+### Install nginx + certbot (for the public HTTPS front door)
+
+```bash
+sudo apt update
+sudo apt install -y nginx certbot python3-certbot-nginx
+```
 
 ## 1. Get the code onto the VPS
-
-SSH into the VPS (aaPanel exposes an SSH terminal, or use your own SSH
-client):
 
 ```bash
 mkdir -p /www/wwwroot/zaboni && cd /www/wwwroot/zaboni
 git clone <your-repo-url> .
 ```
 
-If you don't use git on the VPS, upload the repo as a zip via aaPanel's File
-Manager and extract it into `/www/wwwroot/zaboni` instead.
+(No git on the VPS? `scp` a tarball of the repo instead:
+`tar czf zaboni.tar.gz -C /path/to/repo .` locally, then
+`scp zaboni.tar.gz user@your-vps:/www/wwwroot/zaboni/` and
+`tar xzf zaboni.tar.gz` on the VPS.)
 
 ## 2. Configure environment variables
 
 ```bash
 cp .env.docker.example .env
-nano .env   # or use aaPanel's File Manager editor
+nano .env   # or vim .env
 ```
 
 Fill in, at minimum:
@@ -189,32 +209,55 @@ Reload any pages referencing images to confirm they now load from the new
 VPS — e.g. `curl -I https://yourdomain.com/api/storage/public-objects/uploads/<uuid>`
 should return `200`.
 
-## 5. Point aaPanel's nginx at the `web` container
+## 5. Point a system nginx at the `web` container
 
-In aaPanel: **Website → Add site**, using your domain, with no PHP/backend
-selected (static site is fine, since aaPanel's nginx is just a reverse
-proxy here). Then edit that site's nginx config (aaPanel → Website → your
-site → Config) and replace the `location /` block with:
+Create an nginx site config for your domain:
+
+```bash
+sudo nano /etc/nginx/sites-available/zaboni
+```
+
+Paste in:
 
 ```nginx
-location / {
-    proxy_pass http://127.0.0.1:8090;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-    proxy_read_timeout 90s;
+server {
+    listen 80;
+    server_name yourdomain.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8090;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 90s;
+    }
 }
 ```
 
 `8090` matches the port `web` is published on in `docker-compose.yml`
 (`127.0.0.1:8090:80`) — change both if you edit that mapping.
 
-Then enable **SSL** for the site from aaPanel's site settings (Let's
-Encrypt, one click) so the domain serves over HTTPS.
+Enable the site and reload nginx:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/zaboni /etc/nginx/sites-enabled/zaboni
+sudo nginx -t              # check the config is valid before reloading
+sudo systemctl reload nginx
+```
+
+Then issue a free TLS certificate with certbot — it edits the config above
+in place to add the `listen 443 ssl` block and redirect HTTP → HTTPS:
+
+```bash
+sudo certbot --nginx -d yourdomain.com
+```
+
+Certbot's systemd timer renews the certificate automatically; confirm it's
+active with `sudo systemctl status certbot.timer`.
 
 ## 6. Verify the deployment
 
@@ -306,10 +349,11 @@ processes managed by PM2, and PM2 commands (`pm2 kill`, `pm2 restart`,
 etc.) have no visibility into Docker containers. The two are fully isolated
 at the OS level. The only things to double-check are that each project
 listens on a different host port (this project's `web` container is
-published on `127.0.0.1:8090` only) and that aaPanel's site-level nginx
-routes each domain/subdomain to the correct project. Always run the
-`docker compose` commands above from inside this project's directory so
-you don't accidentally target the wrong `docker-compose.yml`.
+published on `127.0.0.1:8090` only) and that the system nginx routes each
+domain/subdomain to the correct project (a separate `sites-available`
+config per project). Always run the `docker compose` commands above from
+inside this project's directory so you don't accidentally target the wrong
+`docker-compose.yml`.
 
 ## Troubleshooting
 
@@ -340,14 +384,34 @@ path was exactly `/data/storage/public/uploads` (matching
 **Symptom: `docker compose up -d --build` runs out of memory on a small
 VPS.**
 The build stage runs a full `pnpm install` + TypeScript build for the whole
-workspace, which can be memory-hungry on a 1-2 GB VPS. Add a swap file via
-aaPanel (Files → Swap) or build the images on a beefier machine and push
-them to a private registry instead of building on the VPS directly.
+workspace, which can be memory-hungry on a 1-2 GB VPS. Add a swap file from
+the terminal:
+
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab   # persist across reboots
+```
+
+Or build the images on a beefier machine and push them to a private
+registry instead of building on the VPS directly.
 
 **Symptom: websocket features (live order tracking) don't update in
-real time behind aaPanel's nginx.**
+real time behind the system nginx.**
 Make sure both the `web` container's `nginx.conf` (already included in this
-repo, no changes needed) *and* aaPanel's site-level nginx config include the
-`Upgrade`/`Connection "upgrade"` headers shown in step 5 above — Socket.IO's
-`/api/socket.io` path needs the websocket upgrade to pass through both proxy
-hops untouched.
+repo, no changes needed) *and* the system nginx config from step 5 include
+the `Upgrade`/`Connection "upgrade"` headers — Socket.IO's `/api/socket.io`
+path needs the websocket upgrade to pass through both proxy hops untouched.
+
+**Symptom: `nginx: [emerg] bind() to 0.0.0.0:80 failed (98: Address already
+in use)`.**
+Something else (e.g. the other project's web server, or a leftover Apache
+install) is already bound to port 80/443. Find it with
+`sudo ss -tlnp | grep -E ':80|:443'` and either stop it or move this
+project's nginx `server_name`/port so the two don't collide — the same
+system nginx can serve multiple `sites-enabled` configs on port 80/443 as
+long as each uses a distinct `server_name`, so in most cases the fix is
+combining both projects under the one system nginx rather than running two
+separate nginx instances.
