@@ -62,3 +62,5 @@ attached_assets/*.p8
 
 # WhatsApp session data (contains credentials)
 artifacts/api-server/whatsapp-session/
+scripts/export-images/
+*.tar.gz
