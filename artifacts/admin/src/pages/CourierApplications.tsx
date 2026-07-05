@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, CourierApplicationItem } from "@/lib/api";
+import { api, CourierApplicationItem, WorkZone } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -10,6 +10,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const VEHICLE_LABELS: Record<string, string> = {
   motorcycle: "دراجة نارية 🏍️",
@@ -34,6 +41,7 @@ export default function CourierApplications() {
   const [rejectDialog, setRejectDialog] = useState<{ id: string; name: string } | null>(null);
   const [rejectNote, setRejectNote] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [zoneSelections, setZoneSelections] = useState<Record<string, string>>({});
 
   const { data: applications = [], isLoading } = useQuery({
     queryKey: ["admin", "courier-applications"],
@@ -41,8 +49,15 @@ export default function CourierApplications() {
     refetchInterval: 15_000,
   });
 
+  const { data: workZones = [] } = useQuery({
+    queryKey: ["admin", "work-zones"],
+    queryFn: api.getWorkZones,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const approveMutation = useMutation({
-    mutationFn: (id: string) => api.approveCourierApplication(id),
+    mutationFn: ({ id, zoneId }: { id: string; zoneId: string | null }) =>
+      api.approveCourierApplication(id, zoneId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "courier-applications"] }),
   });
 
@@ -134,7 +149,17 @@ export default function CourierApplications() {
                 <ApplicationRow
                   key={app.id}
                   app={app}
-                  onApprove={() => approveMutation.mutate(app.id)}
+                  workZones={workZones}
+                  selectedZoneId={zoneSelections[app.id] ?? app.zoneId ?? ""}
+                  onZoneChange={(zoneId) =>
+                    setZoneSelections((prev) => ({ ...prev, [app.id]: zoneId }))
+                  }
+                  onApprove={() =>
+                    approveMutation.mutate({
+                      id: app.id,
+                      zoneId: zoneSelections[app.id] || app.zoneId || null,
+                    })
+                  }
                   onReject={() => setRejectDialog({ id: app.id, name: app.fullName })}
                   approving={approveMutation.isPending}
                 />
@@ -184,11 +209,17 @@ export default function CourierApplications() {
 
 function ApplicationRow({
   app,
+  workZones,
+  selectedZoneId,
+  onZoneChange,
   onApprove,
   onReject,
   approving,
 }: {
   app: CourierApplicationItem;
+  workZones: WorkZone[];
+  selectedZoneId: string;
+  onZoneChange: (zoneId: string) => void;
   onApprove: () => void;
   onReject: () => void;
   approving: boolean;
@@ -228,7 +259,19 @@ function ApplicationRow({
         </td>
         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
           {app.status === "pending" && (
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              <Select value={selectedZoneId || undefined} onValueChange={onZoneChange}>
+                <SelectTrigger className="h-8 w-32 text-xs">
+                  <SelectValue placeholder="منطقة العمل" />
+                </SelectTrigger>
+                <SelectContent>
+                  {workZones.map((z) => (
+                    <SelectItem key={z.id} value={z.id}>
+                      {z.nameAr || z.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button
                 size="sm"
                 className="bg-green-600 hover:bg-green-700 text-white h-8 px-3 text-xs"

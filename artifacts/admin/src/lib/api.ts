@@ -75,6 +75,7 @@ export type Restaurant = {
   ordersCount?: number;
   avgCourierRating?: number | null;
   sortOrder?: number | null;
+  zoneId?: string | null;
 };
 
 export type MenuItem = {
@@ -183,6 +184,7 @@ export type Courier = {
   name: string;
   phone: string;
   avatarUrl?: string | null;
+  zoneId?: string | null;
   createdAt: string;
   deliveredCount: number;
   totalAssigned: number;
@@ -432,6 +434,15 @@ export type DeliveryZone = {
   createdAt: string;
 };
 
+export type WorkZone = {
+  id: string;
+  name: string;
+  nameAr: string;
+  city: string;
+  isActive: boolean;
+  createdAt: string;
+};
+
 export type PromoBanner = {
   id: string;
   image: string;
@@ -549,6 +560,7 @@ export type CourierApplicationItem = {
   updatedAt: string;
   phone: string | null;
   userName: string | null;
+  zoneId: string | null;
 };
 
 export const api = {
@@ -718,6 +730,25 @@ export const api = {
   deleteDeliveryZone: (id: string) =>
     apiFetch<void>(`/admin/delivery-zones/${id}`, { method: "DELETE" }),
 
+  getWorkZones: () => apiFetch<WorkZone[]>("/admin/work-zones"),
+  createWorkZone: (data: Omit<WorkZone, "id" | "createdAt">) =>
+    apiFetch<WorkZone>("/admin/work-zones", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateWorkZone: (id: string, data: Partial<Omit<WorkZone, "id" | "createdAt">>) =>
+    apiFetch<WorkZone>(`/admin/work-zones/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteWorkZone: (id: string) =>
+    apiFetch<void>(`/admin/work-zones/${id}`, { method: "DELETE" }),
+  updateCourierZone: (id: string, zoneId: string | null) =>
+    apiFetch<{ ok: boolean; zoneId: string | null }>(`/admin/couriers/${id}/zone`, {
+      method: "PATCH",
+      body: JSON.stringify({ zoneId }),
+    }),
+
   getBanners: () => apiFetch<PromoBanner[]>("/admin/banners"),
   createBanner: (data: Omit<PromoBanner, "id" | "createdAt" | "updatedAt">) =>
     apiFetch<PromoBanner>("/admin/banners", { method: "POST", body: JSON.stringify(data) }),
@@ -872,9 +903,10 @@ export const api = {
 
   getCourierApplications: () =>
     apiFetch<CourierApplicationItem[]>("/admin/courier-applications"),
-  approveCourierApplication: (id: string) =>
+  approveCourierApplication: (id: string, zoneId?: string | null) =>
     apiFetch<{ ok: boolean }>(`/admin/courier-applications/${id}/approve`, {
       method: "PATCH",
+      body: JSON.stringify({ zoneId }),
     }),
   rejectCourierApplication: (id: string, adminNote: string) =>
     apiFetch<{ ok: boolean }>(`/admin/courier-applications/${id}/reject`, {

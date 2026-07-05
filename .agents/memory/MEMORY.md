@@ -1,3 +1,4 @@
 - [Restaurant-portal port fix](restaurant-portal-port.md) — artifact.toml port must be registered in .replit [[ports]] for workflow health-check to succeed.
 - [Structured cart pricing](structured-cart-pricing.md) — POST /api/orders recomputes all prices from DB and derives restaurant from items; never trust client totalPrice/restaurantId.
 - [Object storage backend switch](object-storage-backend-switch.md) — STORAGE_MODE env flag toggles GCS vs local-disk backend; keep default unchanged when adding backends to shared services.
+- [drizzle-kit push stuck prompt](drizzle-kit-push-stuck-prompt.md) — unrelated interactive constraint prompt can hang `db run push`; use direct psql DDL to unblock, keep schema file as source of truth.

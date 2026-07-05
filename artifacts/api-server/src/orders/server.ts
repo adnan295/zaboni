@@ -1,31 +1,17 @@
 import { Server as SocketServer, Namespace, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
-import { db, usersTable, ordersTable } from "@workspace/db";
-import { and, eq, isNotNull, ne, notInArray, or } from "drizzle-orm";
+import { db, usersTable, ordersTable, restaurantsTable } from "@workspace/db";
+import { and, eq, isNotNull, isNull, ne, notInArray, or } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { sendPushToTokens, sendPushToUsers } from "../lib/push";
 import { sendWebPushToRestaurant } from "../lib/webPush";
 import type { AuthPayload } from "../middleware/auth";
-
-const NEARBY_RADIUS_KM = 30;
 
 interface RestaurantPortalSocketPayload {
   tokenType: "restaurant_portal";
   restaurantId: string;
   restaurantUserId: string;
   phone: string;
-}
-
-function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 function getJwtSecret(): string | null {
@@ -100,25 +86,25 @@ export async function sendOrderPush(
   }
 }
 
-const DAMASCUS_LAT = 33.5138;
-const DAMASCUS_LON = 36.2765;
+type ZoneFilter = { type: "all" } | { type: "zone"; zoneId: string | null };
 
-async function queryOrderStatus(orderId: string): Promise<string | null> {
-  const rows = await db
-    .select({ status: ordersTable.status })
-    .from(ordersTable)
-    .where(eq(ordersTable.id, orderId))
-    .limit(1);
-  return rows[0]?.status ?? null;
-}
-
-async function getSortedFreeCouriers(destLat: number, destLon: number): Promise<Array<{
+async function getFreeOnlineCouriers(zoneFilter: ZoneFilter): Promise<Array<{
   id: string;
   pushToken: string | null;
   fcmToken: string | null;
   apnToken: string | null;
-  dist: number;
 }>> {
+  // "all" = broadcast to every online courier (used for errand orders with no
+  // restaurant, since there is no zone to derive). "zone" matches couriers whose
+  // zoneId equals the restaurant's zoneId exactly, including matching null-to-null
+  // for couriers/restaurants that are both unassigned to any zone.
+  const zoneCondition =
+    zoneFilter.type === "all"
+      ? undefined
+      : zoneFilter.zoneId === null
+        ? isNull(usersTable.zoneId)
+        : eq(usersTable.zoneId, zoneFilter.zoneId);
+
   const [couriers, busyRows] = await Promise.all([
     db
       .select({
@@ -126,14 +112,13 @@ async function getSortedFreeCouriers(destLat: number, destLon: number): Promise<
         pushToken: usersTable.pushToken,
         fcmToken: usersTable.fcmToken,
         apnToken: usersTable.apnToken,
-        courierLat: usersTable.courierLat,
-        courierLon: usersTable.courierLon,
       })
       .from(usersTable)
       .where(
         and(
           eq(usersTable.role, "courier"),
           eq(usersTable.isOnline, true),
+          zoneCondition,
           or(
             isNotNull(usersTable.pushToken),
             isNotNull(usersTable.fcmToken),
@@ -153,18 +138,7 @@ async function getSortedFreeCouriers(destLat: number, destLon: number): Promise<
   ]);
 
   const busyIds = new Set(busyRows.map((r) => r.courierId));
-
-  return couriers
-    .filter((c) => !busyIds.has(c.id))
-    .map((c) => ({
-      id: c.id,
-      pushToken: c.pushToken,
-      fcmToken: c.fcmToken,
-      apnToken: c.apnToken,
-      dist: haversineKm(c.courierLat ?? DAMASCUS_LAT, c.courierLon ?? DAMASCUS_LON, destLat, destLon),
-    }))
-    .filter((c) => c.dist <= NEARBY_RADIUS_KM)
-    .sort((a, b) => a.dist - b.dist);
+  return couriers.filter((c) => !busyIds.has(c.id));
 }
 
 function extractTokens(couriers: Array<{ pushToken: string | null; fcmToken: string | null; apnToken: string | null }>) {
@@ -177,70 +151,48 @@ function extractTokens(couriers: Array<{ pushToken: string | null; fcmToken: str
   return tokens;
 }
 
+async function getRestaurantZoneId(restaurantId: string | null): Promise<string | null> {
+  if (!restaurantId) return null;
+  const rows = await db
+    .select({ zoneId: restaurantsTable.zoneId })
+    .from(restaurantsTable)
+    .where(eq(restaurantsTable.id, restaurantId))
+    .limit(1);
+  return rows[0]?.zoneId ?? null;
+}
+
+/**
+ * Zone-based dispatch: notify every online, free courier whose assigned work zone
+ * matches the order's restaurant's work zone, in a single immediate broadcast
+ * (no GPS distance/tiering/location-freshness gating). Errand orders (no
+ * restaurant) broadcast to all online couriers since there is no zone to derive.
+ */
 export async function notifyNearbyCouriers(
   orderId: string,
-  destLat: number,
-  destLon: number,
+  restaurantId: string | null,
   restaurantName: string,
   deliveryFee: number,
 ): Promise<void> {
-  const title = "🛵 طلب جديد قريب منك!";
+  const title = "🛵 طلب جديد!";
   const body = restaurantName
     ? `طلب من ${restaurantName} — رسوم التوصيل: ${deliveryFee.toLocaleString("ar-SY")} ل.س`
     : `طلب جديد — رسوم التوصيل: ${deliveryFee.toLocaleString("ar-SY")} ل.س`;
   const data = { type: "new_order" };
 
-  const notifiedIds = new Set<string>();
-
   try {
-    const sorted = await getSortedFreeCouriers(destLat, destLon);
-    const phase1 = sorted.slice(0, 5);
-    if (phase1.length > 0) {
-      const tokens = extractTokens(phase1);
-      const totals = await sendPushToTokens(tokens, title, body, data);
-      for (const c of phase1) notifiedIds.add(c.id);
-      logger.info({ count: phase1.length, orderId, totals }, "Tiered dispatch phase 1: notified closest couriers");
-    } else {
-      logger.info({ orderId }, "Tiered dispatch phase 1: no free nearby couriers");
+    const zoneFilter: ZoneFilter =
+      restaurantId === null ? { type: "all" } : { type: "zone", zoneId: await getRestaurantZoneId(restaurantId) };
+    const couriers = await getFreeOnlineCouriers(zoneFilter);
+    if (couriers.length === 0) {
+      logger.info({ orderId, zoneFilter }, "Zone dispatch: no free online couriers in matching zone");
+      return;
     }
+    const tokens = extractTokens(couriers);
+    const totals = await sendPushToTokens(tokens, title, body, data);
+    logger.info({ count: couriers.length, orderId, zoneFilter, totals }, "Zone dispatch: broadcast to all matching couriers");
   } catch (err) {
-    logger.warn({ err, orderId }, "Failed to notify nearby couriers phase 1");
+    logger.warn({ err, orderId }, "Failed to notify zone couriers");
   }
-
-  setTimeout(() => {
-    void (async () => {
-      try {
-        const status = await queryOrderStatus(orderId);
-        if (status !== "searching") return;
-        const sorted = await getSortedFreeCouriers(destLat, destLon);
-        const phase2 = sorted.filter((c) => !notifiedIds.has(c.id)).slice(0, 10);
-        if (phase2.length === 0) return;
-        const tokens = extractTokens(phase2);
-        const totals = await sendPushToTokens(tokens, title, body, data);
-        for (const c of phase2) notifiedIds.add(c.id);
-        logger.info({ count: phase2.length, orderId, totals }, "Tiered dispatch phase 2: expanded to more couriers");
-      } catch (err) {
-        logger.warn({ err, orderId }, "Failed to notify nearby couriers phase 2");
-      }
-    })();
-  }, 90_000);
-
-  setTimeout(() => {
-    void (async () => {
-      try {
-        const status = await queryOrderStatus(orderId);
-        if (status !== "searching") return;
-        const sorted = await getSortedFreeCouriers(destLat, destLon);
-        const phase3 = sorted.filter((c) => !notifiedIds.has(c.id));
-        if (phase3.length === 0) return;
-        const tokens = extractTokens(phase3);
-        const totals = await sendPushToTokens(tokens, title, body, data);
-        logger.info({ count: phase3.length, orderId, totals }, "Tiered dispatch phase 3: broadcast to all remaining couriers");
-      } catch (err) {
-        logger.warn({ err, orderId }, "Failed to notify nearby couriers phase 3");
-      }
-    })();
-  }, 3 * 60_000);
 }
 
 export function notifyCouriersOrderTaken(orderId: string): void {

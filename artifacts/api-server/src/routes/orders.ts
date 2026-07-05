@@ -289,7 +289,7 @@ router.post("/orders", async (req, res) => {
         status: "searching",
       });
     });
-    void notifyNearbyCouriers(id, destLat, destLon, placeName, errandOrder.deliveryFee);
+    void notifyNearbyCouriers(id, null, placeName, errandOrder.deliveryFee);
     res.status(201).json({ ...errandOrder, items: [] });
     return;
   }
@@ -678,7 +678,7 @@ router.post("/orders", async (req, res) => {
 
   const flashDealData = rows.appliedFlashDeal;
 
-  void notifyNearbyCouriers(id, destLat, destLon, body.data.restaurantName, effectiveDeliveryFee);
+  void notifyNearbyCouriers(id, effectiveRestaurantId, body.data.restaurantName, effectiveDeliveryFee);
 
   if (effectiveRestaurantId) {
     notifyRestaurantNewOrder(effectiveRestaurantId, rows.inserted[0]);

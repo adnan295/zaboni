@@ -11,6 +11,7 @@ import {
   promoUsesTable,
   restaurantHoursTable,
   deliveryZonesTable,
+  workZonesTable,
   courierSubscriptionsTable,
   courierSubscriptionPlansTable,
   systemSettingsTable,
@@ -188,6 +189,7 @@ router.get("/admin/couriers", async (_req, res) => {
       u.name,
       u.phone,
       u.avatar_url AS "avatarUrl",
+      u.zone_id AS "zoneId",
       u.created_at AS "createdAt",
       COUNT(o.id) FILTER (WHERE o.status = 'delivered') AS "deliveredCount",
       COUNT(o.id) FILTER (WHERE o.status <> 'searching') AS "totalAssigned",
@@ -196,7 +198,7 @@ router.get("/admin/couriers", async (_req, res) => {
     FROM users u
     LEFT JOIN orders o ON o.courier_id = u.id
     WHERE u.role = 'courier'
-    GROUP BY u.id, u.name, u.phone, u.avatar_url, u.created_at
+    GROUP BY u.id, u.name, u.phone, u.avatar_url, u.zone_id, u.created_at
     ORDER BY u.created_at DESC
   `);
   res.json(
@@ -207,6 +209,25 @@ router.get("/admin/couriers", async (_req, res) => {
       avgRating: r["avgRating"] != null ? Number(r["avgRating"]) : null,
     })),
   );
+});
+
+router.patch("/admin/couriers/:id/zone", async (req, res) => {
+  const id = String(req.params["id"]);
+  const parsed = z.object({ zoneId: z.string().nullable() }).safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const [row] = await db
+    .update(usersTable)
+    .set({ zoneId: parsed.data.zoneId })
+    .where(eq(usersTable.id, id))
+    .returning();
+  if (!row) {
+    res.status(404).json({ error: "Courier not found" });
+    return;
+  }
+  res.json({ ok: true, zoneId: row.zoneId });
 });
 
 router.get("/admin/couriers/locations", async (_req, res) => {
@@ -413,6 +434,7 @@ const restaurantBody = z.object({
   lon: z.number().min(-180).max(180).nullable().optional(),
   phone: z.string().nullable().optional(),
   sortOrder: z.number().int().nullable().optional(),
+  zoneId: z.string().nullable().optional(),
 });
 
 router.post("/admin/restaurants", async (req, res) => {
@@ -2001,6 +2023,79 @@ router.delete("/admin/delivery-zones/:id", async (req, res) => {
   res.status(204).end();
 });
 
+const workZoneBodySchema = z.object({
+  name: z.string().min(1),
+  nameAr: z.string().min(1),
+  city: z.string().optional(),
+  isActive: z.boolean().default(true),
+});
+
+router.get("/admin/work-zones", async (_req, res) => {
+  const rows = await db
+    .select()
+    .from(workZonesTable)
+    .orderBy(asc(workZonesTable.name));
+  res.json(rows);
+});
+
+router.post("/admin/work-zones", async (req, res) => {
+  const parsed = workZoneBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const id = `wzone_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+  const [row] = await db
+    .insert(workZonesTable)
+    .values({
+      id,
+      name: parsed.data.name,
+      nameAr: parsed.data.nameAr,
+      city: parsed.data.city ?? "",
+      isActive: parsed.data.isActive,
+    })
+    .returning();
+  res.status(201).json(row);
+});
+
+router.put("/admin/work-zones/:id", async (req, res) => {
+  const id = String(req.params["id"]);
+  const parsed = workZoneBodySchema.partial().safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const [row] = await db
+    .update(workZonesTable)
+    .set(parsed.data)
+    .where(eq(workZonesTable.id, id))
+    .returning();
+  if (!row) {
+    res.status(404).json({ error: "Zone not found" });
+    return;
+  }
+  res.json(row);
+});
+
+router.delete("/admin/work-zones/:id", async (req, res) => {
+  const id = String(req.params["id"]);
+  const existing = await db
+    .select()
+    .from(workZonesTable)
+    .where(eq(workZonesTable.id, id))
+    .limit(1);
+  if (existing.length === 0) {
+    res.status(404).json({ error: "Zone not found" });
+    return;
+  }
+  await db.transaction(async (tx) => {
+    await tx.update(usersTable).set({ zoneId: null }).where(eq(usersTable.zoneId, id));
+    await tx.update(restaurantsTable).set({ zoneId: null }).where(eq(restaurantsTable.zoneId, id));
+    await tx.delete(workZonesTable).where(eq(workZonesTable.id, id));
+  });
+  res.status(204).end();
+});
+
 router.get("/admin/settings", async (_req, res) => {
   const rows = await db.select().from(systemSettingsTable);
   const map: Record<string, string> = {};
@@ -2577,6 +2672,7 @@ router.get("/admin/courier-applications", requireAdmin, async (_req, res) => {
       updatedAt: courierApplicationsTable.updatedAt,
       phone: usersTable.phone,
       userName: usersTable.name,
+      zoneId: usersTable.zoneId,
     })
     .from(courierApplicationsTable)
     .leftJoin(usersTable, eq(courierApplicationsTable.userId, usersTable.id))
@@ -2589,8 +2685,18 @@ const rejectApplicationSchema = z.object({
   adminNote: z.string().default(""),
 });
 
+const approveApplicationSchema = z.object({
+  zoneId: z.string().nullable().optional(),
+});
+
 router.patch("/admin/courier-applications/:id/approve", requireAdmin, async (req, res) => {
   const id = String(req.params["id"]);
+
+  const body = approveApplicationSchema.safeParse(req.body ?? {});
+  if (!body.success) {
+    res.status(400).json({ error: "Invalid payload" });
+    return;
+  }
 
   const [app] = await db
     .select()
@@ -2613,7 +2719,10 @@ router.patch("/admin/courier-applications/:id/approve", requireAdmin, async (req
     .where(eq(courierApplicationsTable.id, id));
 
   await db.update(usersTable)
-    .set({ role: "courier" })
+    .set({
+      role: "courier",
+      ...(body.data.zoneId !== undefined ? { zoneId: body.data.zoneId } : {}),
+    })
     .where(eq(usersTable.id, app.userId));
 
   res.json({ ok: true });

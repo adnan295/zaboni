@@ -47,6 +47,18 @@ Arabic RTL delivery app. Features:
 - `notification_logs` — broadcast push notification history (title, body, target, sentCount, failedCount)
 - `delivery_zones` — zone-based delivery pricing (id, label, fromKm, toKm, fee, isActive); admin-managed; courier keeps 100% of fee
 - `courier_applications` — courier join requests (userId, status: pending/approved/rejected, fullName, vehicleType, vehiclePlate, idNumber, notes, adminNote)
+- `work_zones` — admin-managed dispatch zones (id, name, nameAr, city, isActive). `users.zone_id` (couriers) and `restaurants.zone_id` are nullable FKs into this table. Unrelated to `delivery_zones` (distance-based fee table).
+
+## Zone-Based Courier Dispatch (Task #388 — 2026-07-05)
+
+Order dispatch matches couriers to orders by admin-assigned **work zone**, not GPS distance. Replaces the old tiered/radius-based `notifyNearbyCouriers`.
+
+- On order creation, `notifyNearbyCouriers` (`artifacts/api-server/src/orders/server.ts`) broadcasts immediately (single notification, no tiering/delay) to every **online** courier whose `zoneId` matches the order's restaurant's `zoneId`. Errand orders (no `restaurantId`) broadcast to all online couriers regardless of zone.
+- If the restaurant has no zone, or no couriers share that zone, no one is notified — no fallback/backfill guessing.
+- `GET /api/courier/orders/available` filters by zone match instead of GPS radius/location-freshness; courier GPS is no longer required to see or receive orders (still used for live tracking during an active delivery).
+- `POST /api/courier/orders/:id/accept` gates on zone match plus the existing atomic `WHERE status = 'searching'` conditional update (first-accept-wins, unchanged).
+- Admin manages zones on the **Work Zones** page (`artifacts/admin/src/pages/WorkZones.tsx`, full CRUD; deleting a zone nulls `zoneId` on affected users/restaurants in a transaction). Zone assignment also available on the Restaurants form, Couriers list, and the Courier Applications approval action (`PATCH /admin/couriers/:id/zone`, `PATCH /admin/courier-applications/:id/approve` with optional `zoneId`).
+- Existing couriers/restaurants have `zoneId = null` after this ships — no automatic backfill. Admin must assign zones manually post-deploy or dispatch will silently notify no one for unassigned restaurants/couriers.
 
 ## Object Storage
 

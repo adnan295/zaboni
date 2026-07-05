@@ -61,6 +61,7 @@ const emptyRestaurant: RestaurantForm = {
   phone: null,
   isLogo: false,
   sortOrder: null,
+  zoneId: null,
 };
 
 const emptyMenuItem: MenuItemForm = {
@@ -95,6 +96,12 @@ function RestaurantFormDialog({
   const { data: categories = [] } = useQuery({
     queryKey: ["adminCategories"],
     queryFn: api.getAdminCategories,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: workZones = [] } = useQuery({
+    queryKey: ["admin", "work-zones"],
+    queryFn: api.getWorkZones,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -263,6 +270,28 @@ function RestaurantFormDialog({
               className="w-4 h-4 accent-primary"
             />
             <Label htmlFor="isLogo">الصورة لوغو (تُعرض كاملةً بخلفية بيضاء)</Label>
+          </div>
+          <div className="col-span-2 space-y-1">
+            <Label>منطقة العمل (اختياري)</Label>
+            <Select
+              value={form.zoneId ?? "__none__"}
+              onValueChange={(v) => set("zoneId", v === "__none__" ? null : v)}
+            >
+              <SelectTrigger dir="rtl">
+                <SelectValue placeholder="بدون منطقة" />
+              </SelectTrigger>
+              <SelectContent dir="rtl">
+                <SelectItem value="__none__">بدون منطقة</SelectItem>
+                {workZones.map((z) => (
+                  <SelectItem key={z.id} value={z.id}>
+                    {z.nameAr}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              الطلبات من هذا المطعم تُرسل فقط لمندوبي هذه المنطقة
+            </p>
           </div>
           <div className="col-span-2 space-y-1">
             <Label>الأولوية في الترتيب (اختياري)</Label>

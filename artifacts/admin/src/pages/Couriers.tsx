@@ -1,8 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, type Courier } from "@/lib/api";
+import { api, type Courier, type WorkZone } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useState } from "react";
 
 function StarRating({ rating }: { rating: number | null }) {
@@ -40,12 +47,26 @@ export default function Couriers() {
     refetchInterval: 30_000,
   });
 
+  const { data: workZones = [] } = useQuery({
+    queryKey: ["admin", "work-zones"],
+    queryFn: api.getWorkZones,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const roleMutation = useMutation({
     mutationFn: (id: string) => api.updateUserRole(id, "customer"),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "couriers"] });
       qc.invalidateQueries({ queryKey: ["admin", "users"] });
       qc.invalidateQueries({ queryKey: ["admin", "stats"] });
+    },
+  });
+
+  const zoneMutation = useMutation({
+    mutationFn: ({ id, zoneId }: { id: string; zoneId: string | null }) =>
+      api.updateCourierZone(id, zoneId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "couriers"] });
     },
   });
 
@@ -114,6 +135,7 @@ export default function Couriers() {
               <tr>
                 <th className="text-right px-4 py-3 font-medium">المندوب</th>
                 <th className="text-right px-4 py-3 font-medium">الهاتف</th>
+                <th className="text-right px-4 py-3 font-medium">منطقة العمل</th>
                 <th className="text-right px-4 py-3 font-medium">التوصيلات</th>
                 <th className="text-right px-4 py-3 font-medium">المُسنَدة</th>
                 <th className="text-right px-4 py-3 font-medium">التقييم</th>
@@ -127,6 +149,8 @@ export default function Couriers() {
                 <CourierRow
                   key={courier.id}
                   courier={courier}
+                  workZones={workZones}
+                  onZoneChange={(zoneId) => zoneMutation.mutate({ id: courier.id, zoneId })}
                   onConvert={() => {
                     if (
                       confirm(
@@ -149,10 +173,14 @@ export default function Couriers() {
 
 function CourierRow({
   courier,
+  workZones,
+  onZoneChange,
   onConvert,
   converting,
 }: {
   courier: Courier;
+  workZones: WorkZone[];
+  onZoneChange: (zoneId: string | null) => void;
   onConvert: () => void;
   converting: boolean;
 }) {
@@ -184,6 +212,24 @@ function CourierRow({
         </div>
       </td>
       <td className="px-4 py-3 font-mono text-xs">{courier.phone}</td>
+      <td className="px-4 py-3">
+        <Select
+          value={courier.zoneId ?? "__none__"}
+          onValueChange={(v) => onZoneChange(v === "__none__" ? null : v)}
+        >
+          <SelectTrigger dir="rtl" className="h-8 text-xs w-36">
+            <SelectValue placeholder="بدون منطقة" />
+          </SelectTrigger>
+          <SelectContent dir="rtl">
+            <SelectItem value="__none__">بدون منطقة</SelectItem>
+            {workZones.map((z) => (
+              <SelectItem key={z.id} value={z.id}>
+                {z.nameAr}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </td>
       <td className="px-4 py-3">
         <span className="font-bold text-green-600">
           {courier.deliveredCount ?? 0}

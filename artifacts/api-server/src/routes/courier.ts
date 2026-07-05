@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { db, usersTable, ordersTable, orderItemsTable, orderItemOptionsTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, courierSubscriptionPlansTable, courierCustomerRatingsTable, courierWalletTransactionsTable, courierApplicationsTable, referralsTable, courierSubscriptionRequestsTable, systemSettingsTable } from "@workspace/db";
+import { db, usersTable, ordersTable, orderItemsTable, orderItemOptionsTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, courierSubscriptionPlansTable, courierCustomerRatingsTable, courierWalletTransactionsTable, courierApplicationsTable, referralsTable, courierSubscriptionRequestsTable, systemSettingsTable, restaurantsTable } from "@workspace/db";
 import { and, eq, ne, inArray, notInArray, avg, count, sql, desc, getTableColumns } from "drizzle-orm";
 import { haversineKm as _haversineKm } from "../lib/deliveryZones";
 import { z } from "zod";
@@ -177,7 +177,6 @@ const locationSchema = z.object({
 
 const MAX_SPEED_KMH = 150;
 const MAX_SINGLE_JUMP_KM = 50;
-const LOCATION_FRESHNESS_MINUTES = 15;
 const SERVICE_AREA_MAX_KM = 100;
 
 router.patch("/courier/location", requireCourier, async (req, res) => {
@@ -228,7 +227,6 @@ router.patch("/courier/location", requireCourier, async (req, res) => {
   res.json({ ok: true });
 });
 
-const NEARBY_RADIUS_KM = process.env["NODE_ENV"] === "production" ? 30 : 100;
 const DAMASCUS_LAT = 33.5138;
 const DAMASCUS_LON = 36.2765;
 
@@ -236,7 +234,7 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
 
   const courierUser = await db
-    .select({ lat: usersTable.courierLat, lon: usersTable.courierLon, isOnline: usersTable.isOnline, locationUpdatedAt: usersTable.courierLocationUpdatedAt })
+    .select({ isOnline: usersTable.isOnline, zoneId: usersTable.zoneId })
     .from(usersTable)
     .where(eq(usersTable.id, courierId))
     .limit(1);
@@ -246,22 +244,7 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
     return;
   }
 
-  const isProduction = process.env["NODE_ENV"] === "production";
-  const locUpdatedAt = courierUser[0]?.locationUpdatedAt;
-  if (isProduction) {
-    if (!locUpdatedAt || !courierUser[0]?.lat || !courierUser[0]?.lon) {
-      res.json([]);
-      return;
-    }
-    const ageMinutes = (Date.now() - locUpdatedAt.getTime()) / 60_000;
-    if (ageMinutes > LOCATION_FRESHNESS_MINUTES) {
-      res.json([]);
-      return;
-    }
-  }
-
-  const courierLat = courierUser[0]?.lat ?? DAMASCUS_LAT;
-  const courierLon = courierUser[0]?.lon ?? DAMASCUS_LON;
+  const courierZoneId = courierUser[0]?.zoneId ?? null;
 
   const rows = await db
     .select({
@@ -276,41 +259,37 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
       estimatedMinutes: ordersTable.estimatedMinutes,
       createdAt: ordersTable.createdAt,
       updatedAt: ordersTable.updatedAt,
-      destinationLat: ordersTable.destinationLat,
-      destinationLon: ordersTable.destinationLon,
       orderType: ordersTable.orderType,
       placeName: ordersTable.placeName,
+      restaurantZoneId: restaurantsTable.zoneId,
     })
     .from(ordersTable)
+    .leftJoin(restaurantsTable, eq(ordersTable.restaurantId, restaurantsTable.id))
     .where(and(eq(ordersTable.status, "searching"), eq(ordersTable.courierId, "")))
     .orderBy(ordersTable.createdAt);
 
-  const withDistance = rows
+  // Zone match: errand orders (no restaurantId) are visible to everyone. Restaurant
+  // orders are only visible to couriers whose zoneId equals the restaurant's zoneId
+  // exactly (including null-to-null for couriers/restaurants unassigned to any zone).
+  const matching = rows
     .filter((o) => o.userId !== courierId)
-    .map((o) => {
-      const destLat = o.destinationLat ?? DAMASCUS_LAT;
-      const destLon = o.destinationLon ?? DAMASCUS_LON;
-      const distanceKm = Number(haversineKm(courierLat, courierLon, destLat, destLon).toFixed(1));
-      return {
-        id: o.id,
-        status: o.status,
-        restaurantName: o.restaurantName,
-        restaurantId: o.restaurantId,
-        deliveryFee: o.deliveryFee,
-        totalPrice: o.totalPrice,
-        orderText: o.orderText,
-        estimatedMinutes: o.estimatedMinutes,
-        createdAt: o.createdAt,
-        updatedAt: o.updatedAt,
-        distanceKm,
-        orderType: o.orderType,
-        placeName: o.placeName,
-      };
-    })
-    .filter((o) => !isProduction || o.distanceKm <= NEARBY_RADIUS_KM)
-    .sort((a, b) => a.distanceKm - b.distanceKm);
+    .filter((o) => (o.restaurantId ? o.restaurantZoneId === courierZoneId : true))
+    .map((o) => ({
+      id: o.id,
+      status: o.status,
+      restaurantName: o.restaurantName,
+      restaurantId: o.restaurantId,
+      deliveryFee: o.deliveryFee,
+      totalPrice: o.totalPrice,
+      orderText: o.orderText,
+      estimatedMinutes: o.estimatedMinutes,
+      createdAt: o.createdAt,
+      updatedAt: o.updatedAt,
+      orderType: o.orderType,
+      placeName: o.placeName,
+    }));
 
-  res.json(withDistance);
+  res.json(matching);
 });
 
 const CUSTOMER_CONTACT_STATUSES: string[] = ["on_way", "delivered"];
@@ -419,7 +398,7 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   }
 
   const courierUsers = await db
-    .select({ name: usersTable.name, phone: usersTable.phone, isOnline: usersTable.isOnline, courierLat: usersTable.courierLat, courierLon: usersTable.courierLon, locationUpdatedAt: usersTable.courierLocationUpdatedAt })
+    .select({ name: usersTable.name, phone: usersTable.phone, isOnline: usersTable.isOnline, zoneId: usersTable.zoneId })
     .from(usersTable)
     .where(eq(usersTable.id, courierId))
     .limit(1);
@@ -427,6 +406,20 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   if (!courierUsers[0]?.isOnline) {
     res.status(409).json({ error: "You must be online to accept orders" });
     return;
+  }
+
+  if (order.restaurantId) {
+    const restaurantRows = await db
+      .select({ zoneId: restaurantsTable.zoneId })
+      .from(restaurantsTable)
+      .where(eq(restaurantsTable.id, order.restaurantId))
+      .limit(1);
+    const restaurantZoneId = restaurantRows[0]?.zoneId ?? null;
+    const courierZoneId = courierUsers[0]?.zoneId ?? null;
+    if (restaurantZoneId !== courierZoneId) {
+      res.status(409).json({ error: "Order is outside your work zone" });
+      return;
+    }
   }
 
   const [activeSub] = await db
@@ -442,29 +435,6 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   if (!activeSub) {
     res.status(403).json({ error: "subscription_expired", message: "اشتراكك منتهٍ. يرجى تجديد الاشتراك من صفحة الاشتراك." });
     return;
-  }
-
-  const isProduction = process.env["NODE_ENV"] === "production";
-  if (isProduction) {
-    const cLat = courierUsers[0]?.courierLat ?? null;
-    const cLon = courierUsers[0]?.courierLon ?? null;
-    const locUpdatedAt = courierUsers[0]?.locationUpdatedAt ?? null;
-    if (cLat === null || cLon === null || locUpdatedAt === null) {
-      res.status(409).json({ error: "Location not available. Please enable location and try again." });
-      return;
-    }
-    const ageMinutes = (Date.now() - locUpdatedAt.getTime()) / 60_000;
-    if (ageMinutes > LOCATION_FRESHNESS_MINUTES) {
-      res.status(409).json({ error: "Location is stale. Please allow the app to update your location and try again." });
-      return;
-    }
-    const destLat = order!.destinationLat ?? DAMASCUS_LAT;
-    const destLon = order!.destinationLon ?? DAMASCUS_LON;
-    const distKm = haversineKm(cLat, cLon, destLat, destLon);
-    if (distKm > NEARBY_RADIUS_KM) {
-      res.status(409).json({ error: "Order is outside your delivery area" });
-      return;
-    }
   }
 
   const courierName = courierUsers[0]?.name || "مندوب";

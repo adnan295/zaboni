@@ -22,6 +22,7 @@ export const restaurantsTable = pgTable("restaurants", {
   phone: text("phone"),
   isLogo: boolean("is_logo").notNull().default(false),
   sortOrder: integer("sort_order"),
+  zoneId: text("zone_id"),
 });
 
 export const insertRestaurantSchema = createInsertSchema(restaurantsTable);
