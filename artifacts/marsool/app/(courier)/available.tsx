@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -14,7 +14,6 @@ import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import * as Location from "expo-location";
 import { useColors } from "@/hooks/useColors";
 import { useCourier, CourierOrder } from "@/context/CourierContext";
 
@@ -27,10 +26,6 @@ function timeAgo(isoString: string): string {
   if (diff < 1) return "الآن";
   if (diff < 60) return `منذ ${diff} د`;
   return `منذ ${Math.floor(diff / 60)} س`;
-}
-
-function estimatedMinutes(distanceKm: number): number {
-  return Math.round((distanceKm / 30) * 60);
 }
 
 function OrderCard({
@@ -86,22 +81,6 @@ function OrderCard({
           ) : null}
         </View>
         <View style={styles.metaRow}>
-          {order.distanceKm !== undefined ? (
-            <View style={[styles.distanceBadge, { backgroundColor: colors.secondary }]}>
-              <MaterialIcons name="near-me" size={12} color={colors.primary} />
-              <Text style={[styles.distanceText, { color: colors.primary }]}>
-                {order.distanceKm} كم
-              </Text>
-            </View>
-          ) : null}
-          {order.distanceKm !== undefined ? (
-            <View style={[styles.timeBadge, { backgroundColor: "#f3f4f6" }]}>
-              <MaterialIcons name="schedule" size={12} color="#6b7280" />
-              <Text style={[styles.timeText, { color: "#6b7280" }]}>
-                ~{estimatedMinutes(order.distanceKm)} د
-              </Text>
-            </View>
-          ) : null}
           {order.deliveryFee != null && order.deliveryFee > 0 ? (
             <View style={[styles.feeBadge, { backgroundColor: "#fff7ed" }]}>
               <MaterialIcons name="account-balance-wallet" size={12} color="#ea580c" />
@@ -170,74 +149,13 @@ export default function AvailableOrdersScreen() {
     isTogglingOnline,
     refreshAvailableOrders,
     acceptOrder,
-    updateLocation,
     toggleAvailability,
   } = useCourier();
 
   const hasActiveOrder = activeOrders.length > 0;
-  const locationWatcher = useRef<Location.LocationSubscription | null>(null);
-  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastCoordsRef = useRef<{ lat: number; lon: number } | null>(null);
-
-  const LOCATION_HEARTBEAT_MS = 3 * 60 * 1000;
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
-
-  useEffect(() => {
-    if (Platform.OS === "web") return;
-    let active = true;
-    (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== "granted" || !active) return;
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        if (active) {
-          lastCoordsRef.current = { lat: loc.coords.latitude, lon: loc.coords.longitude };
-          await updateLocation(loc.coords.latitude, loc.coords.longitude);
-          await refreshAvailableOrders();
-        }
-        const watcher = await Location.watchPositionAsync(
-          { accuracy: Location.Accuracy.Balanced, distanceInterval: 20, timeInterval: 30000 },
-          (position) => {
-            if (active) {
-              lastCoordsRef.current = { lat: position.coords.latitude, lon: position.coords.longitude };
-              updateLocation(position.coords.latitude, position.coords.longitude);
-            }
-          }
-        );
-        if (active) {
-          locationWatcher.current = watcher;
-        } else {
-          watcher.remove();
-        }
-      } catch {
-      }
-    })();
-
-    heartbeatRef.current = setInterval(async () => {
-      if (!lastCoordsRef.current) return;
-      try {
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        lastCoordsRef.current = { lat: loc.coords.latitude, lon: loc.coords.longitude };
-        await updateLocation(loc.coords.latitude, loc.coords.longitude);
-      } catch {
-        if (lastCoordsRef.current) {
-          await updateLocation(lastCoordsRef.current.lat, lastCoordsRef.current.lon).catch(() => {});
-        }
-      }
-    }, LOCATION_HEARTBEAT_MS);
-
-    return () => {
-      active = false;
-      locationWatcher.current?.remove();
-      locationWatcher.current = null;
-      if (heartbeatRef.current) {
-        clearInterval(heartbeatRef.current);
-        heartbeatRef.current = null;
-      }
-    };
-  }, []);
 
   const handleAccept = useCallback(
     async (orderId: string) => {
@@ -259,18 +177,8 @@ export default function AvailableOrdersScreen() {
   }, [toggleAvailability]);
 
   const handleRefresh = useCallback(async () => {
-    if (Platform.OS !== "web") {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === "granted") {
-          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          await updateLocation(loc.coords.latitude, loc.coords.longitude);
-        }
-      } catch {
-      }
-    }
     await refreshAvailableOrders();
-  }, [refreshAvailableOrders, updateLocation]);
+  }, [refreshAvailableOrders]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
