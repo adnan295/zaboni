@@ -48,6 +48,12 @@ Thumbs.db
 .cache/
 .local/
 
+# Deployment secrets / VPS-local config — never commit
+.env
+.env.*
+!.env.docker.example
+docker-compose.override.yml
+
 # Android signing — NEVER commit (keep dir + .gitkeep, ignore everything else inside)
 artifacts/marsool/credentials/*
 !artifacts/marsool/credentials/.gitkeep
@@ -64,3 +70,5 @@ attached_assets/*.p8
 artifacts/api-server/whatsapp-session/
 scripts/export-images/
 *.tar.gz
+
+storage/
