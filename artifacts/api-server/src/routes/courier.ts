@@ -270,10 +270,15 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
 
   // Zone match: errand orders (no restaurantId) are visible to everyone. Restaurant
   // orders are only visible to couriers whose zoneId equals the restaurant's zoneId
-  // exactly (including null-to-null for couriers/restaurants unassigned to any zone).
+  // AND is non-null — an unassigned restaurant or unassigned courier never matches
+  // (no null-to-null fallback), per spec.
   const matching = rows
     .filter((o) => o.userId !== courierId)
-    .filter((o) => (o.restaurantId ? o.restaurantZoneId === courierZoneId : true))
+    .filter((o) =>
+      o.restaurantId
+        ? o.restaurantZoneId !== null && o.restaurantZoneId === courierZoneId
+        : true,
+    )
     .map((o) => ({
       id: o.id,
       status: o.status,
@@ -416,7 +421,7 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
       .limit(1);
     const restaurantZoneId = restaurantRows[0]?.zoneId ?? null;
     const courierZoneId = courierUsers[0]?.zoneId ?? null;
-    if (restaurantZoneId !== courierZoneId) {
+    if (restaurantZoneId === null || restaurantZoneId !== courierZoneId) {
       res.status(409).json({ error: "Order is outside your work zone" });
       return;
     }

@@ -1,7 +1,7 @@
 import { Server as SocketServer, Namespace, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
 import { db, usersTable, ordersTable, restaurantsTable } from "@workspace/db";
-import { and, eq, isNotNull, isNull, ne, notInArray, or } from "drizzle-orm";
+import { and, eq, isNotNull, ne, notInArray, or, sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { sendPushToTokens, sendPushToUsers } from "../lib/push";
 import { sendWebPushToRestaurant } from "../lib/webPush";
@@ -95,14 +95,15 @@ async function getFreeOnlineCouriers(zoneFilter: ZoneFilter): Promise<Array<{
   apnToken: string | null;
 }>> {
   // "all" = broadcast to every online courier (used for errand orders with no
-  // restaurant, since there is no zone to derive). "zone" matches couriers whose
-  // zoneId equals the restaurant's zoneId exactly, including matching null-to-null
-  // for couriers/restaurants that are both unassigned to any zone.
+  // restaurant, since there is no zone to derive). "zone" matches only couriers
+  // whose zoneId equals the restaurant's zoneId AND is non-null — an unassigned
+  // restaurant (null zoneId) never matches unassigned couriers; it matches no one,
+  // per spec (no fallback/backfill guessing).
   const zoneCondition =
     zoneFilter.type === "all"
       ? undefined
       : zoneFilter.zoneId === null
-        ? isNull(usersTable.zoneId)
+        ? sql`false`
         : eq(usersTable.zoneId, zoneFilter.zoneId);
 
   const [couriers, busyRows] = await Promise.all([
