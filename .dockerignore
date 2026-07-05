@@ -11,3 +11,11 @@ export-images
 .env.*
 !.env.docker.example
 artifacts/marsool/.expo
+artifacts/marsool/credentials
+artifacts/marsool/credentials.json
+artifacts/marsool/static-build
+artifacts/marsool/.metro-cache
+artifacts/api-server/whatsapp-session
+**/*.keystore
+**/*.jks
+**/*.p8

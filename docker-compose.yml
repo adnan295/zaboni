@@ -56,6 +56,15 @@ services:
       timeout: 5s
       retries: 10
 
+  marsool:
+    build:
+      context: .
+      dockerfile: docker/marsool.Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+
   web:
     build:
       context: .
@@ -63,6 +72,7 @@ services:
     restart: unless-stopped
     depends_on:
       - api-server
+      - marsool
     ports:
       - "127.0.0.1:8090:80"
 
