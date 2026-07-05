@@ -103,6 +103,19 @@ Fill in, at minimum:
 `storage-private`) — you don't need to change these unless you want images
 to live on a specific host path instead of a Docker-managed volume.
 
+The WhatsApp OTP sender (`artifacts/api-server/src/lib/whatsapp.ts`) also
+keeps its login session on disk, at `/repo/whatsapp-session` inside the
+container. This is backed by the `whatsapp-session` named volume in
+`docker-compose.yml`. **Do not remove that volume** — without it, every
+`docker compose build && up -d` (i.e. every deploy) wipes the linked
+WhatsApp account and either forces a fresh QR scan or leaves the socket in
+a broken state where it reports "connected" but silently fails to send.
+The first time you bring the stack up, link WhatsApp once via the admin
+panel's WhatsApp accounts screen (scan the QR code); it should then survive
+future deploys as long as the volume isn't removed (`docker compose down
+-v` deletes named volumes — use plain `docker compose down` when you want
+to keep data).
+
 ## 3. First-time build and startup
 
 From `/www/wwwroot/zaboni` (the repo root, where `docker-compose.yml`
@@ -380,6 +393,31 @@ value from your original Replit deployment (mismatched paths mean the
 script can't find the source files), and that the `docker cp` destination
 path was exactly `/data/storage/public/uploads` (matching
 `LOCAL_STORAGE_PUBLIC_DIR=/data/storage/public` from `.env`).
+
+**Symptom: WhatsApp OTPs stop sending after moving to a new server / after
+a redeploy, even though the admin panel shows the account "connected".**
+This almost always means the `whatsapp-session` volume was missing (fixed
+in `docker-compose.yml` — make sure you're on the current version) or the
+volume was wiped by `docker compose down -v`. Check the logs for the real
+error first:
+
+```bash
+docker compose logs api-server | grep -i whatsapp
+```
+
+Look for lines like `[whatsapp] Send failed via ...` (the actual send
+error — e.g. the account was logged out server-side even though the local
+socket briefly reports "open") or `[whatsapp] Account ... closed`. If the
+account keeps cycling between `connecting`/`qr`, the session isn't
+persisting — confirm `docker volume ls` shows `zaboni_whatsapp-session` and
+that it's mounted at `/repo/whatsapp-session` (`docker compose config` will
+show the resolved mount). If the volume is fine but the account is
+genuinely logged out, re-link it from the admin panel's WhatsApp accounts
+screen (scan the new QR). Frequent forced re-links from a lost session can
+also get a number rate-limited/flagged by WhatsApp itself — if re-linking
+doesn't stick, let the number sit disconnected for a while before retrying,
+or add a second WhatsApp account as a fallback (the sender already
+round-robins across all connected accounts).
 
 **Symptom: `docker compose up -d --build` runs out of memory on a small
 VPS.**
