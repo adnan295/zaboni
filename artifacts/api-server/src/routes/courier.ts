@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { db, usersTable, ordersTable, orderItemsTable, orderItemOptionsTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, courierSubscriptionPlansTable, courierCustomerRatingsTable, courierWalletTransactionsTable, courierApplicationsTable, referralsTable, courierSubscriptionRequestsTable, systemSettingsTable, restaurantsTable } from "@workspace/db";
+import { db, usersTable, ordersTable, orderItemsTable, orderItemOptionsTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, courierSubscriptionPlansTable, courierCustomerRatingsTable, courierApplicationsTable, referralsTable, courierSubscriptionRequestsTable, systemSettingsTable, restaurantsTable } from "@workspace/db";
 import { and, eq, ne, inArray, notInArray, avg, count, sql, desc, getTableColumns } from "drizzle-orm";
 import { haversineKm as _haversineKm } from "../lib/deliveryZones";
 import { z } from "zod";
@@ -912,139 +912,23 @@ router.get("/courier/subscription/status", requireCourier, async (req, res) => {
     .orderBy(desc(courierSubscriptionsTable.endsAt))
     .limit(1);
 
-  const [app] = await db
-    .select({ vehicleType: courierApplicationsTable.vehicleType })
-    .from(courierApplicationsTable)
-    .where(and(
-      eq(courierApplicationsTable.userId, courierId),
-      eq(courierApplicationsTable.status, "approved"),
-    ))
-    .limit(1);
-  const vehicleType = app?.vehicleType ?? "motorcycle";
-
   if (!activeSub) {
-    const [plan] = await db
-      .select({ monthlyPrice: courierSubscriptionPlansTable.monthlyPrice })
-      .from(courierSubscriptionPlansTable)
-      .where(eq(courierSubscriptionPlansTable.vehicleType, vehicleType))
-      .limit(1);
-    res.json({ isActive: false, subscription: null, vehicleType, monthlyPrice: plan?.monthlyPrice ?? 0 });
+    res.json({ isActive: false, subscription: null });
     return;
   }
 
   const daysLeft = Math.max(0, Math.ceil((activeSub.endsAt.getTime() - now.getTime()) / 86_400_000));
 
-  const [plan] = await db
-    .select({ monthlyPrice: courierSubscriptionPlansTable.monthlyPrice })
-    .from(courierSubscriptionPlansTable)
-    .where(eq(courierSubscriptionPlansTable.vehicleType, vehicleType))
-    .limit(1);
-
-  res.json({ isActive: true, subscription: activeSub, daysLeft, vehicleType, monthlyPrice: plan?.monthlyPrice ?? 0 });
+  res.json({ isActive: true, subscription: activeSub, daysLeft });
 });
 
-router.post("/courier/subscription/renew", requireCourier, async (req, res) => {
-  const courierId = resolveUserId(req);
-
-  const [app] = await db
-    .select({ vehicleType: courierApplicationsTable.vehicleType })
-    .from(courierApplicationsTable)
-    .where(and(
-      eq(courierApplicationsTable.userId, courierId),
-      eq(courierApplicationsTable.status, "approved"),
-    ))
-    .limit(1);
-  const vehicleType = app?.vehicleType ?? "motorcycle";
-
-  const [plan] = await db
-    .select({ monthlyPrice: courierSubscriptionPlansTable.monthlyPrice })
-    .from(courierSubscriptionPlansTable)
-    .where(eq(courierSubscriptionPlansTable.vehicleType, vehicleType))
-    .limit(1);
-  const price = plan?.monthlyPrice ?? 0;
-
-  const [currentSub] = await db
+router.get("/courier/subscription-plans", requireCourier, async (_req, res) => {
+  const plans = await db
     .select()
-    .from(courierSubscriptionsTable)
-    .where(and(
-      eq(courierSubscriptionsTable.courierId, courierId),
-      eq(courierSubscriptionsTable.isActive, true),
-      sql`${courierSubscriptionsTable.endsAt} > NOW()`,
-    ))
-    .orderBy(desc(courierSubscriptionsTable.endsAt))
-    .limit(1);
-
-  const now = new Date();
-  const base = currentSub && currentSub.endsAt > now ? currentSub.endsAt : now;
-  const startsAt = base;
-  const endsAt = new Date(base);
-  endsAt.setMonth(endsAt.getMonth() + 1);
-  const id = `csub_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
-
-  let savedRow: typeof courierSubscriptionsTable.$inferSelect | undefined;
-
-  if (price > 0) {
-    let insufficientBalance = false;
-    let newBalance = 0;
-
-    await db.transaction(async (trx) => {
-      const updated = await trx
-        .update(usersTable)
-        .set({ walletBalance: sql`wallet_balance - ${price}` })
-        .where(and(eq(usersTable.id, courierId), sql`wallet_balance >= ${price}`))
-        .returning({ newBalance: usersTable.walletBalance });
-
-      if (updated.length === 0) {
-        insufficientBalance = true;
-        return;
-      }
-      newBalance = updated[0]!.newBalance;
-
-      const dedId = `wded_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
-      await trx.insert(courierWalletTransactionsTable).values({
-        id: dedId,
-        courierId,
-        amount: -price,
-        type: "subscription_deduction",
-        status: "approved",
-        note: "تجديد اشتراك شهري",
-      });
-
-      await trx
-        .update(courierSubscriptionsTable)
-        .set({ isActive: false })
-        .where(and(
-          eq(courierSubscriptionsTable.courierId, courierId),
-          eq(courierSubscriptionsTable.isActive, true),
-        ));
-
-      const [row] = await trx
-        .insert(courierSubscriptionsTable)
-        .values({ id, courierId, vehicleType, startsAt, endsAt, amount: price, status: "paid", isActive: true, gifted: false, createdByAdmin: false })
-        .returning();
-      savedRow = row;
-    });
-
-    if (insufficientBalance) {
-      res.status(402).json({ error: "insufficient_balance", required: price });
-      return;
-    }
-
-    res.status(201).json({ subscription: savedRow, newBalance });
-  } else {
-    await db
-      .update(courierSubscriptionsTable)
-      .set({ isActive: false })
-      .where(and(
-        eq(courierSubscriptionsTable.courierId, courierId),
-        eq(courierSubscriptionsTable.isActive, true),
-      ));
-    const [row] = await db
-      .insert(courierSubscriptionsTable)
-      .values({ id, courierId, vehicleType, startsAt, endsAt, amount: 0, status: "paid", isActive: true, gifted: false, createdByAdmin: false })
-      .returning();
-    res.status(201).json({ subscription: row, newBalance: 0 });
-  }
+    .from(courierSubscriptionPlansTable)
+    .where(eq(courierSubscriptionPlansTable.isActive, true))
+    .orderBy(courierSubscriptionPlansTable.sortOrder, courierSubscriptionPlansTable.price);
+  res.json(plans);
 });
 
 router.get("/courier/orders/history", requireCourier, async (req, res) => {
@@ -1139,59 +1023,6 @@ router.get("/courier/my-ratings", requireCourier, async (req, res) => {
   res.json({ ratings: rows, avgStars: avgStars ? Number(avgStars.toFixed(2)) : null, total: rows.length });
 });
 
-router.get("/courier/wallet", requireCourier, async (req, res) => {
-  const courierId = resolveUserId(req);
-
-  const [userRow, transactions] = await Promise.all([
-    db
-      .select({ walletBalance: usersTable.walletBalance })
-      .from(usersTable)
-      .where(eq(usersTable.id, courierId))
-      .limit(1),
-    db
-      .select()
-      .from(courierWalletTransactionsTable)
-      .where(eq(courierWalletTransactionsTable.courierId, courierId))
-      .orderBy(desc(courierWalletTransactionsTable.createdAt))
-      .limit(30),
-  ]);
-
-  res.json({
-    balance: userRow[0]?.walletBalance ?? 0,
-    transactions,
-  });
-});
-
-const depositRequestSchema = z.object({
-  amount: z.number().int().positive(),
-  note: z.string().max(500).optional().default(""),
-});
-
-router.post("/courier/wallet/deposit-request", requireCourier, async (req, res) => {
-  const courierId = resolveUserId(req);
-
-  const parsed = depositRequestSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: "amount (positive integer) required" });
-    return;
-  }
-
-  const id = `wdep_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
-  const [row] = await db
-    .insert(courierWalletTransactionsTable)
-    .values({
-      id,
-      courierId,
-      amount: parsed.data.amount,
-      type: "deposit_request",
-      status: "pending",
-      note: parsed.data.note || null,
-    })
-    .returning();
-
-  res.status(201).json(row);
-});
-
 const updateCourierProfileSchema = z.object({
   name: z.string().min(1).max(60).trim().optional(),
   phone: z.string().min(7).max(20).optional(),
@@ -1244,7 +1075,7 @@ router.patch("/courier/profile", requireCourier, async (req, res) => {
 });
 
 const subscriptionRequestSchema = z.object({
-  vehicleType: z.enum(["bicycle", "motorcycle", "car"]),
+  planId: z.string().min(1),
   paidAmount: z.number().int().positive(),
   receiptUrl: z.string().optional(),
 });
@@ -1288,12 +1119,19 @@ router.post("/courier/subscription/request", requireCourier, async (req, res) =>
   }
 
   const [plan] = await db
-    .select({ monthlyPrice: courierSubscriptionPlansTable.monthlyPrice })
+    .select()
     .from(courierSubscriptionPlansTable)
-    .where(eq(courierSubscriptionPlansTable.vehicleType, body.data.vehicleType))
+    .where(and(
+      eq(courierSubscriptionPlansTable.id, body.data.planId),
+      eq(courierSubscriptionPlansTable.isActive, true),
+    ))
     .limit(1);
 
-  const planAmount = plan?.monthlyPrice ?? 0;
+  if (!plan) {
+    res.status(404).json({ error: "plan_not_found", message: "الباقة غير موجودة أو غير متاحة." });
+    return;
+  }
+
   const id = crypto.randomUUID();
 
   const [created] = await db
@@ -1301,8 +1139,10 @@ router.post("/courier/subscription/request", requireCourier, async (req, res) =>
     .values({
       id,
       courierId,
-      vehicleType: body.data.vehicleType,
-      planAmount,
+      planId: plan.id,
+      planName: plan.name,
+      planPeriod: plan.period,
+      planPrice: plan.price,
       paidAmount: body.data.paidAmount,
       receiptUrl: body.data.receiptUrl ?? null,
       status: "pending",
@@ -1323,6 +1163,19 @@ router.get("/courier/subscription/request/status", requireCourier, async (req, r
     .limit(1);
 
   res.json(latest ?? null);
+});
+
+router.get("/courier/subscription/request/history", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+
+  const rows = await db
+    .select()
+    .from(courierSubscriptionRequestsTable)
+    .where(eq(courierSubscriptionRequestsTable.courierId, courierId))
+    .orderBy(desc(courierSubscriptionRequestsTable.createdAt))
+    .limit(60);
+
+  res.json(rows);
 });
 
 router.delete("/courier/subscription/request", requireCourier, async (req, res) => {

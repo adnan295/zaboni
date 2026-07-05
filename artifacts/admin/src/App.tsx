@@ -19,7 +19,6 @@ import Financial from "@/pages/Financial";
 import DeliveryZones from "@/pages/DeliveryZones";
 import WorkZones from "@/pages/WorkZones";
 import Subscriptions from "@/pages/Subscriptions";
-import WalletRequests from "@/pages/WalletRequests";
 import Settings from "@/pages/Settings";
 import CourierApplications from "@/pages/CourierApplications";
 import Content from "@/pages/Content";
@@ -67,7 +66,6 @@ function Router({ onLogout }: { onLogout: () => void }) {
         <Route path="/delivery-zones" component={DeliveryZones} />
         <Route path="/work-zones" component={WorkZones} />
         <Route path="/subscriptions" component={Subscriptions} />
-        <Route path="/wallet-requests" component={WalletRequests} />
         <Route path="/settings" component={Settings} />
         <Route path="/courier-applications" component={CourierApplications} />
         <Route path="/content" component={Content} />

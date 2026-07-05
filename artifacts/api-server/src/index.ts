@@ -29,7 +29,6 @@ import { addSupportMessages } from "@workspace/db/migrations/add-support-message
 import { addSupportTickets } from "@workspace/db/migrations/add-support-tickets";
 import { addReferralSystem } from "@workspace/db/migrations/add-referral-system";
 import { addErrandOrders } from "@workspace/db/migrations/add-errand-orders";
-import { addCourierMonthlySubscriptions } from "@workspace/db/migrations/add-courier-monthly-subscriptions";
 import { addRestaurantPushSubscriptions } from "@workspace/db/migrations/add-restaurant-push-subscriptions";
 
 const rawPort = process.env["PORT"];
@@ -132,9 +131,6 @@ httpServer.listen(port, (err?: Error) => {
   );
   addErrandOrders().catch((e: unknown) =>
     logger.error({ err: e }, "Failed to run errand orders migration"),
-  );
-  addCourierMonthlySubscriptions().catch((e: unknown) =>
-    logger.error({ err: e }, "Failed to run courier monthly subscriptions migration"),
   );
   addRestaurantPushSubscriptions().catch((e: unknown) =>
     logger.error({ err: e }, "Failed to run restaurant push subscriptions migration"),

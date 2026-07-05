@@ -1,5 +1,6 @@
 import { pgTable, text, integer, timestamp, pgEnum, boolean } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
+import { subscriptionPeriodEnum } from "./courier_subscription_plans";
 
 export const subscriptionStatusEnum = pgEnum("subscription_status", ["paid", "waived", "pending"]);
 
@@ -8,7 +9,9 @@ export const courierSubscriptionsTable = pgTable("courier_subscriptions", {
   courierId: text("courier_id")
     .notNull()
     .references(() => usersTable.id, { onDelete: "cascade" }),
-  vehicleType: text("vehicle_type", { enum: ["bicycle", "motorcycle", "car"] }).notNull().default("motorcycle"),
+  planId: text("plan_id"),
+  planName: text("plan_name").notNull(),
+  planPeriod: subscriptionPeriodEnum("plan_period").notNull(),
   startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
   endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
   amount: integer("amount").notNull().default(0),

@@ -14,10 +14,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-const VEHICLE_LABELS: Record<string, string> = {
-  bicycle: "دراجة هوائية",
-  motorcycle: "دراجة نارية",
-  car: "سيارة",
+const PERIOD_LABELS: Record<string, string> = {
+  weekly: "أسبوعي",
+  monthly: "شهري",
+  yearly: "سنوي",
 };
 
 const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
@@ -151,7 +151,7 @@ export default function SubscriptionRequests() {
               <TableRow>
                 <TableHead className="text-right">السائق</TableHead>
                 <TableHead className="text-right">الهاتف</TableHead>
-                <TableHead className="text-right">المركبة</TableHead>
+                <TableHead className="text-right">الباقة</TableHead>
                 <TableHead className="text-right">المبلغ المطلوب</TableHead>
                 <TableHead className="text-right">المبلغ المدفوع</TableHead>
                 <TableHead className="text-right">وصل الدفع</TableHead>
@@ -167,10 +167,12 @@ export default function SubscriptionRequests() {
                   <TableRow key={req.id}>
                     <TableCell className="font-semibold">{req.courierName || "—"}</TableCell>
                     <TableCell dir="ltr" className="text-right">{req.courierPhone || "—"}</TableCell>
-                    <TableCell>{VEHICLE_LABELS[req.vehicleType] ?? req.vehicleType}</TableCell>
+                    <TableCell>
+                      {req.planName} — {PERIOD_LABELS[req.planPeriod] ?? req.planPeriod}
+                    </TableCell>
                     <TableCell>
                       <span className="font-mono font-bold text-blue-600">
-                        {req.planAmount.toLocaleString("ar-SY")} ل.س
+                        {req.planPrice.toLocaleString("ar-SY")} ل.س
                       </span>
                     </TableCell>
                     <TableCell>

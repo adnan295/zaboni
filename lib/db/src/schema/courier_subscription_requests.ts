@@ -1,13 +1,16 @@
 import { pgTable, text, integer, timestamp } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
+import { subscriptionPeriodEnum } from "./courier_subscription_plans";
 
 export const courierSubscriptionRequestsTable = pgTable("courier_subscription_requests", {
   id: text("id").primaryKey(),
   courierId: text("courier_id")
     .notNull()
     .references(() => usersTable.id, { onDelete: "cascade" }),
-  vehicleType: text("vehicle_type", { enum: ["bicycle", "motorcycle", "car"] }).notNull(),
-  planAmount: integer("plan_amount").notNull(),
+  planId: text("plan_id"),
+  planName: text("plan_name").notNull(),
+  planPeriod: subscriptionPeriodEnum("plan_period").notNull(),
+  planPrice: integer("plan_price").notNull(),
   paidAmount: integer("paid_amount").notNull(),
   receiptUrl: text("receipt_url"),
   status: text("status", { enum: ["pending", "approved", "rejected", "cancelled"] }).notNull().default("pending"),

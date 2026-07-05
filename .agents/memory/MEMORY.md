@@ -2,3 +2,4 @@
 - [Structured cart pricing](structured-cart-pricing.md) — POST /api/orders recomputes all prices from DB and derives restaurant from items; never trust client totalPrice/restaurantId.
 - [Object storage backend switch](object-storage-backend-switch.md) — STORAGE_MODE env flag toggles GCS vs local-disk backend; keep default unchanged when adding backends to shared services.
 - [drizzle-kit push stuck prompt](drizzle-kit-push-stuck-prompt.md) — unrelated interactive constraint prompt can hang `db run push`; use direct psql DDL to unblock, keep schema file as source of truth.
+- [courier_subscriptions dual-purpose table](courier-subscriptions-dual-purpose.md) — shared by legacy admin-gift flow and newer self-serve plan/receipt-approval flow; check both before changing columns.

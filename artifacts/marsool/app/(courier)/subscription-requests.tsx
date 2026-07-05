@@ -14,26 +14,25 @@ import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { customFetch } from "@workspace/api-client-react";
 
-interface SubscriptionRecord {
+interface SubscriptionRequestRecord {
   id: string;
   courierId: string;
-  planId: string | null;
+  planId: string;
   planName: string;
   planPeriod: "weekly" | "monthly" | "yearly";
-  startsAt: string;
-  endsAt: string;
-  amount: number;
-  status: "paid" | "waived" | "pending";
-  isActive: boolean;
-  gifted: boolean;
-  note: string | null;
+  planPrice: number;
+  paidAmount: number;
+  receiptUrl: string | null;
+  status: "pending" | "approved" | "rejected" | "cancelled";
+  adminNote: string | null;
   createdAt: string;
 }
 
 const STATUS_CONFIG = {
-  paid: { label: "مدفوع", color: "#16a34a", bg: "#f0fdf4", border: "#bbf7d0", icon: "check-circle" as const },
-  waived: { label: "معفى", color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe", icon: "star" as const },
-  pending: { label: "غير مدفوع", color: "#ea580c", bg: "#fff7ed", border: "#fed7aa", icon: "warning" as const },
+  pending: { label: "قيد المراجعة", color: "#ea580c", bg: "#fff7ed", border: "#fed7aa", icon: "hourglass-empty" as const },
+  approved: { label: "مقبول", color: "#16a34a", bg: "#f0fdf4", border: "#bbf7d0", icon: "check-circle" as const },
+  rejected: { label: "مرفوض", color: "#dc2626", bg: "#fef2f2", border: "#fecaca", icon: "cancel" as const },
+  cancelled: { label: "ملغى", color: "#64748b", bg: "#f1f5f9", border: "#e2e8f0", icon: "block" as const },
 };
 
 const PERIOD_LABEL: Record<string, string> = {
@@ -44,14 +43,14 @@ const PERIOD_LABEL: Record<string, string> = {
 
 function fmtDate(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleDateString("ar-SY", { year: "numeric", month: "short", day: "numeric" });
+  return d.toLocaleDateString("ar-SY", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-export default function SubscriptionHistoryScreen() {
+export default function SubscriptionRequestsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [records, setRecords] = useState<SubscriptionRecord[]>([]);
+  const [records, setRecords] = useState<SubscriptionRequestRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,7 +60,7 @@ export default function SubscriptionHistoryScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const data = await customFetch("/api/courier/subscription/history") as SubscriptionRecord[];
+        const data = await customFetch("/api/courier/subscription/request/history") as SubscriptionRequestRecord[];
         setRecords(data);
       } catch {
         setError("تعذّر تحميل السجل");
@@ -71,17 +70,13 @@ export default function SubscriptionHistoryScreen() {
     })();
   }, []);
 
-  const totalPaid = records.filter((r) => r.status === "paid").reduce((s, r) => s + r.amount, 0);
-  const activeCount = records.filter((r) => r.isActive).length;
-  const giftedCount = records.filter((r) => r.gifted).length;
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPadding + 16, backgroundColor: colors.primary }]}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <MaterialIcons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>سجل الاشتراكات</Text>
+        <Text style={styles.headerTitle}>سجل طلبات الاشتراك</Text>
       </View>
 
       {loading ? (
@@ -97,31 +92,11 @@ export default function SubscriptionHistoryScreen() {
         <FlatList
           data={records}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingBottom: bottomPadding + 20 }}
-          ListHeaderComponent={
-            <View style={styles.summaryRow}>
-              <View style={[styles.summaryCard, { backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" }]}>
-                <Text style={[styles.summaryValue, { color: "#16a34a" }]}>
-                  {totalPaid.toLocaleString("ar-SY")} ل.س
-                </Text>
-                <Text style={[styles.summaryLabel, { color: "#166534" }]}>إجمالي المدفوع</Text>
-              </View>
-              <View style={[styles.summaryCard, { backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" }]}>
-                <Text style={[styles.summaryValue, { color: "#16a34a" }]}>{activeCount}</Text>
-                <Text style={[styles.summaryLabel, { color: "#166534" }]}>اشتراك نشط</Text>
-              </View>
-              {giftedCount > 0 && (
-                <View style={[styles.summaryCard, { backgroundColor: "#eff6ff", borderColor: "#bfdbfe" }]}>
-                  <Text style={[styles.summaryValue, { color: "#2563eb" }]}>{giftedCount}</Text>
-                  <Text style={[styles.summaryLabel, { color: "#1e40af" }]}>هدية</Text>
-                </View>
-              )}
-            </View>
-          }
+          contentContainerStyle={{ paddingBottom: bottomPadding + 20, paddingTop: 12 }}
           ListEmptyComponent={
             <View style={styles.center}>
               <MaterialIcons name="receipt-long" size={56} color={colors.border} />
-              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>لا يوجد سجل اشتراكات بعد</Text>
+              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>لا يوجد طلبات اشتراك بعد</Text>
             </View>
           }
           renderItem={({ item }) => {
@@ -133,22 +108,23 @@ export default function SubscriptionHistoryScreen() {
                 </View>
                 <View style={styles.rowContent}>
                   <View style={styles.rowTop}>
-                    <Text style={[styles.vehicleText, { color: colors.foreground }]}>
+                    <Text style={[styles.planText, { color: colors.foreground }]}>
                       {item.planName} ({PERIOD_LABEL[item.planPeriod] ?? item.planPeriod})
-                      {item.gifted ? " — هدية" : ""}
                     </Text>
                     <View style={[styles.badge, { backgroundColor: cfg.color + "18", borderColor: cfg.color + "40" }]}>
                       <Text style={[styles.badgeText, { color: cfg.color }]}>{cfg.label}</Text>
                     </View>
                   </View>
                   <Text style={[styles.dateRange, { color: colors.mutedForeground }]}>
-                    {fmtDate(item.startsAt)} → {fmtDate(item.endsAt)}
+                    {fmtDate(item.createdAt)}
                   </Text>
                   <Text style={[styles.amountText, { color: cfg.color }]}>
-                    {item.amount.toLocaleString("ar-SY")} ل.س
+                    {item.paidAmount.toLocaleString("ar-SY")} ل.س
                   </Text>
-                  {item.note ? (
-                    <Text style={[styles.noteText, { color: colors.mutedForeground }]}>{item.note}</Text>
+                  {item.status === "rejected" && item.adminNote ? (
+                    <Text style={[styles.noteText, { color: colors.mutedForeground }]}>
+                      السبب: {item.adminNote}
+                    </Text>
                   ) : null}
                 </View>
               </View>
@@ -173,24 +149,6 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, padding: 32 },
   errorText: { fontSize: 15, textAlign: "center" },
   emptyText: { fontSize: 15, textAlign: "center" },
-  summaryRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    margin: 16,
-    marginBottom: 8,
-  },
-  summaryCard: {
-    flex: 1,
-    minWidth: 100,
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 12,
-    alignItems: "center",
-    gap: 4,
-  },
-  summaryValue: { fontSize: 18, fontWeight: "800" },
-  summaryLabel: { fontSize: 11, fontWeight: "600" },
   row: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -210,7 +168,7 @@ const styles = StyleSheet.create({
   },
   rowContent: { flex: 1, gap: 4 },
   rowTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  vehicleText: { fontSize: 14, fontWeight: "600" },
+  planText: { fontSize: 14, fontWeight: "600" },
   badge: {
     paddingHorizontal: 8,
     paddingVertical: 2,

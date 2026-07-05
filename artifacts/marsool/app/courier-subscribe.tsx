@@ -20,11 +20,23 @@ import { useRouter } from "expo-router";
 import { customFetch } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+type SubscriptionPeriod = "weekly" | "monthly" | "yearly";
+
+type SubPlan = {
+  id: string;
+  name: string;
+  period: SubscriptionPeriod;
+  price: number;
+  isActive: boolean;
+};
+
 type SubRequest = {
   id: string;
   courierId: string;
-  vehicleType: string;
-  planAmount: number;
+  planId: string;
+  planName: string;
+  planPeriod: SubscriptionPeriod;
+  planPrice: number;
   paidAmount: number;
   receiptUrl: string | null;
   status: "pending" | "approved" | "rejected";
@@ -34,8 +46,10 @@ type SubRequest = {
 
 type SubStatus = {
   isActive: boolean;
-  vehicleType: string;
-  monthlyPrice: number;
+  subscription: {
+    planName?: string;
+    planPeriod?: SubscriptionPeriod;
+  } | null;
 };
 
 type PaymentInfo = {
@@ -43,10 +57,10 @@ type PaymentInfo = {
   qrImage: string | null;
 };
 
-const VEHICLE_LABELS: Record<string, string> = {
-  bicycle: "دراجة هوائية",
-  motorcycle: "دراجة نارية",
-  car: "سيارة",
+const PERIOD_LABEL: Record<SubscriptionPeriod, string> = {
+  weekly: "أسبوعي",
+  monthly: "شهري",
+  yearly: "سنوي",
 };
 
 async function uploadReceiptToStorage(imageUri: string): Promise<string> {
@@ -89,6 +103,7 @@ export default function CourierSubscribeScreen() {
   const qc = useQueryClient();
 
   const [step, setStep] = useState<"plan" | "payment">("plan");
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [receiptImageUri, setReceiptImageUri] = useState<string | null>(null);
   const [paidAmountText, setPaidAmountText] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -99,6 +114,13 @@ export default function CourierSubscribeScreen() {
     enabled: !!user,
     staleTime: 15_000,
     refetchInterval: 20_000,
+  });
+
+  const { data: plans, isLoading: loadingPlans } = useQuery<SubPlan[]>({
+    queryKey: ["courier", "subscription", "plans"],
+    queryFn: () => customFetch("/api/courier/subscription-plans"),
+    enabled: !!user,
+    staleTime: 30_000,
   });
 
   const { data: paymentInfo } = useQuery<PaymentInfo>({
@@ -121,6 +143,14 @@ export default function CourierSubscribeScreen() {
     }
   }, [subStatus?.isActive, router]);
 
+  useEffect(() => {
+    if (!selectedPlanId && plans && plans.length > 0) {
+      setSelectedPlanId(plans[0]!.id);
+    }
+  }, [plans, selectedPlanId]);
+
+  const selectedPlan = plans?.find((p) => p.id === selectedPlanId) ?? null;
+
   const cancelMutation = useMutation({
     mutationFn: () =>
       customFetch("/api/courier/subscription/request", { method: "DELETE" }),
@@ -137,7 +167,7 @@ export default function CourierSubscribeScreen() {
 
   const submitMutation = useMutation({
     mutationFn: async () => {
-      if (!subStatus) throw new Error("بيانات الاشتراك غير متاحة");
+      if (!selectedPlan) throw new Error("يرجى اختيار باقة");
 
       const paidAmount = parseInt(paidAmountText.replace(/[^0-9]/g, ""), 10);
       if (!paidAmountText || isNaN(paidAmount) || paidAmount <= 0) {
@@ -160,7 +190,7 @@ export default function CourierSubscribeScreen() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          vehicleType: subStatus.vehicleType,
+          planId: selectedPlan.id,
           paidAmount,
           receiptUrl,
         }),
@@ -212,7 +242,7 @@ export default function CourierSubscribeScreen() {
     setPaidAmountText("");
   };
 
-  if (loadingStatus || loadingRequest) {
+  if (loadingStatus || loadingRequest || loadingPlans) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <ActivityIndicator color={colors.primary} size="large" />
@@ -238,7 +268,7 @@ export default function CourierSubscribeScreen() {
         </Text>
         <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border, width: "100%" }]}>
           <Text style={[styles.infoRow, { color: colors.foreground, fontFamily: fontMedium }]}>
-            الباقة: {VEHICLE_LABELS[latestRequest.vehicleType] ?? latestRequest.vehicleType}
+            الباقة: {latestRequest.planName} ({PERIOD_LABEL[latestRequest.planPeriod] ?? latestRequest.planPeriod})
           </Text>
           <Text style={[styles.infoRow, { color: colors.foreground, fontFamily: fontMedium }]}>
             المبلغ المدفوع: {latestRequest.paidAmount.toLocaleString("ar-SY")} ل.س
@@ -326,37 +356,72 @@ export default function CourierSubscribeScreen() {
       >
         <MaterialIcons name="card-membership" size={56} color={colors.primary} style={styles.icon} />
         <Text style={[styles.bigTitle, { color: colors.foreground, fontFamily: fontBold }]}>
-          اشترك لتبدأ العمل
+          اختر باقتك
         </Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground, fontFamily: fontMedium }]}>
-          لاستلام الطلبات، تحتاج إلى اشتراك شهري نشط
+          لاستلام الطلبات، تحتاج إلى باقة اشتراك نشطة
         </Text>
 
-        {subStatus && (
-          <View style={[styles.planCard, { backgroundColor: colors.card, borderColor: colors.primary }]}>
-            <View style={styles.planHeader}>
-              <MaterialIcons name="directions-bike" size={28} color={colors.primary} />
-              <Text style={[styles.planTitle, { color: colors.foreground, fontFamily: fontBold }]}>
-                باقة {VEHICLE_LABELS[subStatus.vehicleType] ?? subStatus.vehicleType}
-              </Text>
-            </View>
-            <Text style={[styles.planPrice, { color: colors.primary, fontFamily: fontBold }]}>
-              {subStatus.monthlyPrice.toLocaleString("ar-SY")} ل.س / شهر
+        {!plans || plans.length === 0 ? (
+          <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border, width: "100%" }]}>
+            <Text style={[styles.infoRow, { color: colors.mutedForeground, fontFamily: fontMedium, textAlign: "center" }]}>
+              لا توجد باقات متاحة حالياً، يرجى التواصل مع الإدارة
             </Text>
-            <View style={styles.planFeatures}>
-              {["استلام طلبات غير محدودة", "100% من رسوم التوصيل لك", "دعم فني مستمر"].map((f) => (
-                <View key={f} style={styles.featureRow}>
-                  <MaterialIcons name="check-circle" size={16} color="#16a34a" />
-                  <Text style={[styles.featureText, { color: colors.foreground, fontFamily: fontMedium }]}>{f}</Text>
-                </View>
-              ))}
-            </View>
+          </View>
+        ) : (
+          <View style={{ width: "100%", gap: 12, marginBottom: 8 }}>
+            {plans.map((plan) => {
+              const selected = plan.id === selectedPlanId;
+              return (
+                <TouchableOpacity
+                  key={plan.id}
+                  onPress={() => setSelectedPlanId(plan.id)}
+                  style={[
+                    styles.planCard,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: selected ? colors.primary : colors.border,
+                      borderWidth: selected ? 2 : 1,
+                    },
+                  ]}
+                >
+                  <View style={styles.planHeader}>
+                    <MaterialIcons
+                      name={selected ? "radio-button-checked" : "radio-button-unchecked"}
+                      size={22}
+                      color={selected ? colors.primary : colors.mutedForeground}
+                    />
+                    <Text style={[styles.planTitle, { color: colors.foreground, fontFamily: fontBold }]}>
+                      {plan.name}
+                    </Text>
+                    <View style={[styles.periodBadge, { backgroundColor: colors.primary + "18" }]}>
+                      <Text style={[styles.periodBadgeText, { color: colors.primary, fontFamily: fontMedium }]}>
+                        {PERIOD_LABEL[plan.period] ?? plan.period}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.planPrice, { color: colors.primary, fontFamily: fontBold }]}>
+                    {plan.price.toLocaleString("ar-SY")} ل.س
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
 
+        <View style={styles.planFeatures}>
+          {["استلام طلبات غير محدودة", "100% من رسوم التوصيل لك", "دعم فني مستمر"].map((f) => (
+            <View key={f} style={styles.featureRow}>
+              <MaterialIcons name="check-circle" size={16} color="#16a34a" />
+              <Text style={[styles.featureText, { color: colors.foreground, fontFamily: fontMedium }]}>{f}</Text>
+            </View>
+          ))}
+        </View>
+
         <TouchableOpacity
-          style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
+          style={[styles.primaryBtn, { backgroundColor: colors.primary, opacity: selectedPlan ? 1 : 0.5 }]}
           onPress={() => setStep("payment")}
+          disabled={!selectedPlan}
         >
           <Text style={[styles.primaryBtnText, { fontFamily: fontBold }]}>اشترك الآن</Text>
         </TouchableOpacity>
@@ -377,14 +442,20 @@ export default function CourierSubscribeScreen() {
         تعليمات الدفع
       </Text>
       <Text style={[styles.subtitle, { color: colors.mutedForeground, fontFamily: fontMedium }]}>
-        ادفع المبلغ كاشاً في مكتبنا، ثم ارفع صورة الوصل
+        حوّل المبلغ خارجياً، ثم ارفع صورة الوصل
       </Text>
 
       <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={styles.infoRowView}>
+          <MaterialIcons name="card-membership" size={18} color={colors.primary} />
+          <Text style={[styles.infoText, { color: colors.foreground, fontFamily: fontBold }]}>
+            الباقة: {selectedPlan?.name} ({PERIOD_LABEL[selectedPlan?.period ?? "monthly"]})
+          </Text>
+        </View>
+        <View style={styles.infoRowView}>
           <MaterialIcons name="payments" size={18} color={colors.primary} />
           <Text style={[styles.infoText, { color: colors.foreground, fontFamily: fontBold }]}>
-            المبلغ المطلوب: {(subStatus?.monthlyPrice ?? 0).toLocaleString("ar-SY")} ل.س
+            المبلغ المطلوب: {(selectedPlan?.price ?? 0).toLocaleString("ar-SY")} ل.س
           </Text>
         </View>
       </View>
@@ -421,7 +492,7 @@ export default function CourierSubscribeScreen() {
           color: colors.foreground,
           fontFamily: fontMedium,
         }]}
-        placeholder={`مثلاً: ${(subStatus?.monthlyPrice ?? 0).toLocaleString("ar-SY")}`}
+        placeholder={`مثلاً: ${(selectedPlan?.price ?? 0).toLocaleString("ar-SY")}`}
         placeholderTextColor={colors.mutedForeground}
         keyboardType="numeric"
         value={paidAmountText}
@@ -484,11 +555,13 @@ const styles = StyleSheet.create({
   icon: { marginBottom: 12 },
   bigTitle: { fontSize: 22, textAlign: "center", marginBottom: 8 },
   subtitle: { fontSize: 14, textAlign: "center", marginBottom: 24, lineHeight: 22 },
-  planCard: { width: "100%", borderRadius: 16, borderWidth: 2, padding: 20, marginBottom: 24 },
+  planCard: { width: "100%", borderRadius: 16, padding: 16 },
   planHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 },
-  planTitle: { fontSize: 17 },
-  planPrice: { fontSize: 24, marginBottom: 16 },
-  planFeatures: { gap: 8 },
+  planTitle: { fontSize: 16, flex: 1 },
+  periodBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  periodBadgeText: { fontSize: 12 },
+  planPrice: { fontSize: 22 },
+  planFeatures: { gap: 8, width: "100%", marginBottom: 16, marginTop: 8 },
   featureRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   featureText: { fontSize: 14 },
   primaryBtn: { width: "100%", borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 8, marginBottom: 12 },

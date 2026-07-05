@@ -494,6 +494,8 @@ export const ORDER_STATUSES = [
   "cancelled",
 ] as const;
 
+export type SubscriptionPeriod = "weekly" | "monthly" | "yearly";
+
 export type CourierSubRow = {
   courierId: string;
   name: string;
@@ -502,6 +504,8 @@ export type CourierSubRow = {
   subscriptionId: string | null;
   isActive: boolean;
   status: "paid" | "waived" | "pending";
+  planName: string | null;
+  planPeriod: SubscriptionPeriod | null;
   amount: number;
   gifted: boolean;
   startsAt: string | null;
@@ -513,7 +517,9 @@ export type CourierSubRow = {
 export type CourierSubRecord = {
   id: string;
   courierId: string;
-  vehicleType: "bicycle" | "motorcycle" | "car";
+  planId: string;
+  planName: string;
+  planPeriod: SubscriptionPeriod;
   startsAt: string;
   endsAt: string;
   amount: number;
@@ -525,26 +531,18 @@ export type CourierSubRecord = {
   createdAt: string;
 };
 
-export type CourierSubPlans = {
-  bicycle: number;
-  motorcycle: number;
-  car: number;
+export type CourierSubPlan = {
+  id: string;
+  name: string;
+  period: SubscriptionPeriod;
+  price: number;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type SystemSettings = Record<string, string>;
-
-export type WalletDepositRequest = {
-  id: string;
-  courierId: string;
-  courierName: string;
-  courierPhone: string;
-  walletBalance: number;
-  amount: number;
-  type: string;
-  status: string;
-  note: string | null;
-  createdAt: string;
-};
 
 export type CourierApplicationItem = {
   id: string;
@@ -862,8 +860,7 @@ export const api = {
   getCourierSubscriptions: () => apiFetch<CourierSubRow[]>("/admin/courier-subscriptions"),
   createCourierSubscription: (data: {
     courierId: string;
-    vehicleType?: "bicycle" | "motorcycle" | "car";
-    months: number;
+    planId: string;
     gifted: boolean;
     note?: string | null;
   }) =>
@@ -873,7 +870,7 @@ export const api = {
     }),
   extendCourierSubscription: (
     id: string,
-    data: { months?: number; note?: string | null; status?: "paid" | "waived" | "pending" }
+    data: { days?: number; note?: string | null; status?: "paid" | "waived" | "pending" }
   ) =>
     apiFetch<CourierSubRecord>(`/admin/courier-subscriptions/${id}`, {
       method: "PATCH",
@@ -883,23 +880,22 @@ export const api = {
     apiFetch<void>(`/admin/courier-subscriptions/${id}`, { method: "DELETE" }),
   getCourierSubscriptionHistory: (courierId: string) =>
     apiFetch<CourierSubRecord[]>(`/admin/subscriptions/history/${courierId}`),
-  getCourierSubPlans: () => apiFetch<CourierSubPlans>("/admin/courier-subscription-plans"),
-  updateCourierSubPlans: (data: CourierSubPlans) =>
-    apiFetch<CourierSubPlans>("/admin/courier-subscription-plans", {
+  getCourierSubPlans: () => apiFetch<CourierSubPlan[]>("/admin/courier-subscription-plans"),
+  createCourierSubPlan: (data: { name: string; period: SubscriptionPeriod; price: number; isActive?: boolean; sortOrder?: number }) =>
+    apiFetch<CourierSubPlan>("/admin/courier-subscription-plans", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateCourierSubPlan: (
+    id: string,
+    data: Partial<{ name: string; period: SubscriptionPeriod; price: number; isActive: boolean; sortOrder: number }>
+  ) =>
+    apiFetch<CourierSubPlan>(`/admin/courier-subscription-plans/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
-
-  getWalletDepositRequests: () =>
-    apiFetch<WalletDepositRequest[]>("/admin/wallet/deposit-requests"),
-  approveDepositRequest: (id: string) =>
-    apiFetch<{ ok: boolean; newBalance: number }>(`/admin/wallet/deposit-requests/${id}/approve`, {
-      method: "POST",
-    }),
-  rejectDepositRequest: (id: string) =>
-    apiFetch<{ ok: boolean }>(`/admin/wallet/deposit-requests/${id}/reject`, {
-      method: "POST",
-    }),
+  deleteCourierSubPlan: (id: string) =>
+    apiFetch<void>(`/admin/courier-subscription-plans/${id}`, { method: "DELETE" }),
 
   getCourierApplications: () =>
     apiFetch<CourierApplicationItem[]>("/admin/courier-applications"),
@@ -1237,8 +1233,10 @@ export type AvailableTabType = {
 export type CourierSubscriptionRequest = {
   id: string;
   courierId: string;
-  vehicleType: string;
-  planAmount: number;
+  planId: string;
+  planName: string;
+  planPeriod: SubscriptionPeriod;
+  planPrice: number;
   paidAmount: number;
   receiptUrl: string | null;
   status: "pending" | "approved" | "rejected";

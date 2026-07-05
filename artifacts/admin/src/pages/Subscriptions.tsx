@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import type { CourierSubRow, CourierSubRecord, CourierSubPlans, PaymentInfo } from "@/lib/api";
+import type { CourierSubRow, CourierSubRecord, CourierSubPlan, SubscriptionPeriod, PaymentInfo } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,91 +36,192 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "
   pending: "destructive",
 };
 
-const VEHICLE_LABEL: Record<string, string> = {
-  bicycle: "دراجة هوائية 🚲",
-  motorcycle: "دراجة نارية 🏍️",
-  car: "سيارة 🚗",
+const PERIOD_LABEL: Record<SubscriptionPeriod, string> = {
+  weekly: "أسبوعي",
+  monthly: "شهري",
+  yearly: "سنوي",
 };
+
+const PERIOD_OPTIONS: SubscriptionPeriod[] = ["weekly", "monthly", "yearly"];
 
 function fmtDate(iso: string | null) {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("ar-SY", { year: "numeric", month: "short", day: "numeric" });
 }
 
-function PricingDialog({
+function PlanManagerDialog({
   open,
   plans,
   onClose,
 }: {
   open: boolean;
-  plans: CourierSubPlans | undefined;
+  plans: CourierSubPlan[] | undefined;
   onClose: () => void;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [bicycle, setBicycle] = useState(String(plans?.bicycle ?? 0));
-  const [motorcycle, setMotorcycle] = useState(String(plans?.motorcycle ?? 0));
-  const [car, setCar] = useState(String(plans?.car ?? 0));
+  const [name, setName] = useState("");
+  const [period, setPeriod] = useState<SubscriptionPeriod>("monthly");
+  const [price, setPrice] = useState("0");
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const resetForm = () => {
+    setName("");
+    setPeriod("monthly");
+    setPrice("0");
+    setEditingId(null);
+  };
 
   useEffect(() => {
-    if (open) {
-      setBicycle(String(plans?.bicycle ?? 0));
-      setMotorcycle(String(plans?.motorcycle ?? 0));
-      setCar(String(plans?.car ?? 0));
-    }
-  }, [open, plans]);
+    if (open) resetForm();
+  }, [open]);
 
-  const mut = useMutation({
-    mutationFn: api.updateCourierSubPlans,
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["admin", "courier-sub-plans"] });
+
+  const createMut = useMutation({
+    mutationFn: api.createCourierSubPlan,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "courier-sub-plans"] });
-      toast({ title: "تم تحديث الأسعار" });
-      onClose();
+      invalidate();
+      toast({ title: "تم إنشاء الباقة" });
+      resetForm();
     },
     onError: (err: Error) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
   });
 
+  const updateMut = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<{ name: string; period: SubscriptionPeriod; price: number; isActive: boolean }> }) =>
+      api.updateCourierSubPlan(id, data),
+    onSuccess: () => {
+      invalidate();
+      toast({ title: "تم تحديث الباقة" });
+      resetForm();
+    },
+    onError: (err: Error) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: api.deleteCourierSubPlan,
+    onSuccess: () => {
+      invalidate();
+      toast({ title: "تم حذف الباقة" });
+    },
+    onError: (err: Error) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
+  });
+
+  const startEdit = (plan: CourierSubPlan) => {
+    setEditingId(plan.id);
+    setName(plan.name);
+    setPeriod(plan.period);
+    setPrice(String(plan.price));
+  };
+
+  const handleSubmit = () => {
+    const data = { name: name.trim(), period, price: parseInt(price, 10) || 0 };
+    if (!data.name) {
+      toast({ title: "أدخل اسم الباقة", variant: "destructive" });
+      return;
+    }
+    if (editingId) {
+      updateMut.mutate({ id: editingId, data });
+    } else {
+      createMut.mutate(data);
+    }
+  };
+
   if (!open) return null;
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-sm" dir="rtl">
+      <DialogContent className="max-w-lg" dir="rtl">
         <DialogHeader>
-          <DialogTitle className="text-right">أسعار الاشتراك الشهري</DialogTitle>
+          <DialogTitle className="text-right">إدارة باقات الاشتراك</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
-          {(
-            [
-              { label: "دراجة هوائية 🚲", value: bicycle, set: setBicycle },
-              { label: "دراجة نارية 🏍️", value: motorcycle, set: setMotorcycle },
-              { label: "سيارة 🚗", value: car, set: setCar },
-            ] as { label: string; value: string; set: (v: string) => void }[]
-          ).map(({ label, value, set }) => (
-            <div key={label} className="space-y-1">
-              <Label className="text-right block">{label} (ل.س / شهر)</Label>
-              <Input
-                type="number"
-                min={0}
-                value={value}
-                onChange={(e) => set(e.target.value)}
-                className="text-right"
-              />
+          <div className="border rounded-lg p-3 space-y-3">
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1 col-span-3 sm:col-span-1">
+                <Label className="text-right block text-xs">اسم الباقة</Label>
+                <Input value={name} onChange={(e) => setName(e.target.value)} className="text-right" dir="rtl" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-right block text-xs">المدة</Label>
+                <select
+                  value={period}
+                  onChange={(e) => setPeriod(e.target.value as SubscriptionPeriod)}
+                  className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm text-right"
+                >
+                  {PERIOD_OPTIONS.map((p) => (
+                    <option key={p} value={p}>{PERIOD_LABEL[p]}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-right block text-xs">السعر (ل.س)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  className="text-right"
+                />
+              </div>
             </div>
-          ))}
+            <div className="flex justify-end gap-2">
+              {editingId && (
+                <Button variant="outline" size="sm" onClick={resetForm}>إلغاء التعديل</Button>
+              )}
+              <Button
+                size="sm"
+                onClick={handleSubmit}
+                disabled={createMut.isPending || updateMut.isPending}
+              >
+                {editingId ? "حفظ التعديل" : "إضافة باقة"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {!plans?.length ? (
+              <div className="text-center text-muted-foreground text-sm py-4">لا توجد باقات بعد</div>
+            ) : (
+              plans.map((plan) => (
+                <div key={plan.id} className="flex items-center justify-between border rounded-lg p-2.5 text-sm">
+                  <div className="flex gap-1.5">
+                    <Button size="sm" variant="ghost" onClick={() => startEdit(plan)}>تعديل</Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        updateMut.mutate({ id: plan.id, data: { isActive: !plan.isActive } })
+                      }
+                    >
+                      {plan.isActive ? "تعطيل" : "تفعيل"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => {
+                        if (confirm(`حذف باقة ${plan.name}؟`)) deleteMut.mutate(plan.id);
+                      }}
+                    >
+                      حذف
+                    </Button>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-semibold flex items-center gap-2 justify-end">
+                      {!plan.isActive && <Badge variant="outline">معطلة</Badge>}
+                      {plan.name}
+                    </div>
+                    <div className="text-muted-foreground text-xs">
+                      {PERIOD_LABEL[plan.period]} · {plan.price.toLocaleString("ar-SY")} ل.س
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>إلغاء</Button>
-          <Button
-            onClick={() =>
-              mut.mutate({
-                bicycle: parseInt(bicycle, 10) || 0,
-                motorcycle: parseInt(motorcycle, 10) || 0,
-                car: parseInt(car, 10) || 0,
-              })
-            }
-            disabled={mut.isPending}
-          >
-            {mut.isPending ? "جاري الحفظ..." : "حفظ"}
-          </Button>
+          <Button variant="outline" onClick={onClose}>إغلاق</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -135,18 +236,26 @@ function GrantDialog({
 }: {
   open: boolean;
   courier: CourierSubRow | null;
-  plans: CourierSubPlans | undefined;
+  plans: CourierSubPlan[] | undefined;
   onClose: () => void;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [months, setMonths] = useState("1");
+  const activePlans = (plans ?? []).filter((p) => p.isActive);
+  const [planId, setPlanId] = useState<string>(activePlans[0]?.id ?? "");
   const [gifted, setGifted] = useState(false);
   const [note, setNote] = useState("");
 
-  const vt = courier?.vehicleType ?? "motorcycle";
-  const pricePerMonth = plans?.[vt] ?? 0;
-  const totalAmount = (parseInt(months, 10) || 1) * pricePerMonth;
+  useEffect(() => {
+    if (open) {
+      setPlanId(activePlans[0]?.id ?? "");
+      setGifted(false);
+      setNote("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const selectedPlan = activePlans.find((p) => p.id === planId);
 
   const mut = useMutation({
     mutationFn: api.createCourierSubscription,
@@ -166,20 +275,20 @@ function GrantDialog({
           <DialogTitle className="text-right">منح اشتراك — {courier.name}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
-          <div className="bg-muted rounded-lg p-3 text-sm text-right space-y-1">
-            <div>نوع المركبة: <span className="font-semibold">{VEHICLE_LABEL[vt]}</span></div>
-            <div>السعر الشهري: <span className="font-semibold">{pricePerMonth.toLocaleString("ar-SY")} ل.س</span></div>
-          </div>
           <div className="space-y-1">
-            <Label className="text-right block">عدد الأشهر</Label>
-            <Input
-              type="number"
-              min={1}
-              max={12}
-              value={months}
-              onChange={(e) => setMonths(e.target.value)}
-              className="text-right"
-            />
+            <Label className="text-right block">الباقة</Label>
+            <select
+              value={planId}
+              onChange={(e) => setPlanId(e.target.value)}
+              className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm text-right"
+            >
+              {activePlans.length === 0 && <option value="">لا توجد باقات فعّالة</option>}
+              {activePlans.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} — {PERIOD_LABEL[p.period]} — {p.price.toLocaleString("ar-SY")} ل.س
+                </option>
+              ))}
+            </select>
           </div>
           <div className="flex gap-2">
             <button
@@ -188,7 +297,7 @@ function GrantDialog({
                 !gifted ? "bg-primary text-primary-foreground border-primary" : "bg-background text-foreground border-input hover:bg-muted"
               }`}
             >
-              مدفوع من المحفظة ({totalAmount.toLocaleString("ar-SY")} ل.س)
+              مدفوع ({(selectedPlan?.price ?? 0).toLocaleString("ar-SY")} ل.س)
             </button>
             <button
               onClick={() => setGifted(true)}
@@ -216,12 +325,12 @@ function GrantDialog({
             onClick={() =>
               mut.mutate({
                 courierId: courier.courierId,
-                months: parseInt(months, 10) || 1,
+                planId,
                 gifted,
                 note: note || null,
               })
             }
-            disabled={mut.isPending}
+            disabled={mut.isPending || !planId}
           >
             {mut.isPending ? "جاري المعالجة..." : "تأكيد"}
           </Button>
@@ -244,10 +353,10 @@ function ExtendDialog({
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [months, setMonths] = useState("1");
+  const [days, setDays] = useState("30");
 
   const mut = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { months: number } }) =>
+    mutationFn: ({ id, data }: { id: string; data: { days: number } }) =>
       api.extendCourierSubscription(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "courier-subscriptions"] });
@@ -266,13 +375,13 @@ function ExtendDialog({
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-1">
-            <Label className="text-right block">تمديد بعدد شهور</Label>
+            <Label className="text-right block">تمديد بعدد أيام</Label>
             <Input
               type="number"
               min={1}
-              max={12}
-              value={months}
-              onChange={(e) => setMonths(e.target.value)}
+              max={400}
+              value={days}
+              onChange={(e) => setDays(e.target.value)}
               className="text-right"
             />
           </div>
@@ -281,7 +390,7 @@ function ExtendDialog({
           <Button variant="outline" onClick={onClose}>إلغاء</Button>
           <Button
             onClick={() =>
-              mut.mutate({ id: subscriptionId, data: { months: parseInt(months, 10) || 1 } })
+              mut.mutate({ id: subscriptionId, data: { days: parseInt(days, 10) || 1 } })
             }
             disabled={mut.isPending}
           >
@@ -330,7 +439,7 @@ function HistoryDialog({
                       {STATUS_LABEL[r.status]}
                       {r.gifted ? " (هدية)" : ""}
                     </Badge>
-                    <span className="font-semibold">{VEHICLE_LABEL[r.vehicleType] ?? r.vehicleType}</span>
+                    <span className="font-semibold">{r.planName} — {PERIOD_LABEL[r.planPeriod] ?? r.planPeriod}</span>
                   </div>
                   <div className="text-muted-foreground">
                     {fmtDate(r.startsAt)} ← {fmtDate(r.endsAt)}
@@ -424,7 +533,7 @@ export default function Subscriptions() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [pricingOpen, setPricingOpen] = useState(false);
+  const [planManagerOpen, setPlanManagerOpen] = useState(false);
   const [grantCourier, setGrantCourier] = useState<CourierSubRow | null>(null);
   const [extendSub, setExtendSub] = useState<{ id: string; name: string } | null>(null);
   const [historyCourier, setHistoryCourier] = useState<{ id: string; name: string } | null>(null);
@@ -459,10 +568,10 @@ export default function Subscriptions() {
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold">اشتراكات السائقين</h1>
-          <p className="text-muted-foreground text-sm mt-1">رسوم العمل الشهرية على المنصة</p>
+          <p className="text-muted-foreground text-sm mt-1">رسوم العمل على المنصة</p>
         </div>
-        <Button variant="outline" onClick={() => setPricingOpen(true)}>
-          💰 أسعار الاشتراك
+        <Button variant="outline" onClick={() => setPlanManagerOpen(true)}>
+          💰 إدارة الباقات
         </Button>
       </div>
 
@@ -499,7 +608,7 @@ export default function Subscriptions() {
             <TableHeader>
               <TableRow>
                 <TableHead className="text-right">السائق</TableHead>
-                <TableHead className="text-right">المركبة</TableHead>
+                <TableHead className="text-right">الباقة</TableHead>
                 <TableHead className="text-right">الحالة</TableHead>
                 <TableHead className="text-right">تاريخ الانتهاء</TableHead>
                 <TableHead className="text-right">الأيام المتبقية</TableHead>
@@ -514,7 +623,9 @@ export default function Subscriptions() {
                     <div className="text-xs text-muted-foreground" dir="ltr">{courier.phone}</div>
                   </TableCell>
                   <TableCell className="text-right text-sm">
-                    {VEHICLE_LABEL[courier.vehicleType] ?? courier.vehicleType}
+                    {courier.planName
+                      ? `${courier.planName} — ${PERIOD_LABEL[courier.planPeriod as SubscriptionPeriod] ?? courier.planPeriod}`
+                      : "—"}
                   </TableCell>
                   <TableCell className="text-right">
                     {courier.isActive ? (
@@ -589,10 +700,10 @@ export default function Subscriptions() {
         )}
       </div>
 
-      <PricingDialog
-        open={pricingOpen}
+      <PlanManagerDialog
+        open={planManagerOpen}
         plans={plans}
-        onClose={() => setPricingOpen(false)}
+        onClose={() => setPlanManagerOpen(false)}
       />
 
       <GrantDialog

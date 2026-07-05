@@ -338,13 +338,27 @@ export default function CourierProfileScreen() {
           <View style={[styles.menuSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <TouchableOpacity
               style={styles.menuRow}
-              onPress={() => router.push("/(courier)/wallet")}
+              onPress={() => router.push("/courier-subscribe")}
               activeOpacity={0.8}
             >
               <View style={[styles.menuIcon, { backgroundColor: "#fff7ed" }]}>
-                <MaterialIcons name="account-balance-wallet" size={20} color="#DC2626" />
+                <MaterialIcons name="card-membership" size={20} color="#DC2626" />
               </View>
-              <Text style={[styles.menuText, { color: colors.foreground }]}>محفظتي</Text>
+              <Text style={[styles.menuText, { color: colors.foreground }]}>الباقات</Text>
+              <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
+            </TouchableOpacity>
+
+            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+
+            <TouchableOpacity
+              style={styles.menuRow}
+              onPress={() => router.push("/(courier)/subscription-requests")}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.menuIcon, { backgroundColor: "#eff6ff" }]}>
+                <MaterialIcons name="receipt-long" size={20} color="#3b82f6" />
+              </View>
+              <Text style={[styles.menuText, { color: colors.foreground }]}>سجل طلبات</Text>
               <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
             </TouchableOpacity>
 
@@ -480,9 +494,9 @@ export default function CourierProfileScreen() {
                   <MaterialIcons name="credit-card" size={24} color="#DC2626" />
                 </View>
                 <View style={styles.howText}>
-                  <Text style={[styles.howTitle, { color: colors.foreground }]}>الاشتراك الشهري</Text>
+                  <Text style={[styles.howTitle, { color: colors.foreground }]}>باقة الاشتراك</Text>
                   <Text style={[styles.howBody, { color: colors.mutedForeground }]}>
-                    تدفع رسوم اشتراك شهرية للمنصة. يمكنك الدفع مسبقاً عبر المحفظة أو التسوية مع الإدارة.
+                    اختر باقة اشتراك من صفحة "الباقات"، حوّل المبلغ خارجياً وارفع صورة وصل الدفع لتتم مراجعته من الإدارة.
                   </Text>
                 </View>
               </View>
@@ -495,18 +509,6 @@ export default function CourierProfileScreen() {
                   <Text style={[styles.howTitle, { color: colors.foreground }]}>رسوم التوصيل</Text>
                   <Text style={[styles.howBody, { color: colors.mutedForeground }]}>
                     تستلم رسوم التوصيل كاملةً نقداً من الزبون. 100% من رسوم التوصيل تذهب إليك مباشرةً.
-                  </Text>
-                </View>
-              </View>
-
-              <View style={[styles.howStep, { borderColor: colors.border }]}>
-                <View style={[styles.howIcon, { backgroundColor: "#eff6ff" }]}>
-                  <MaterialIcons name="account-balance-wallet" size={24} color="#3b82f6" />
-                </View>
-                <View style={styles.howText}>
-                  <Text style={[styles.howTitle, { color: colors.foreground }]}>المحفظة</Text>
-                  <Text style={[styles.howBody, { color: colors.mutedForeground }]}>
-                    ادفع رصيداً في مكتب الإدارة وأودعه في محفظتك. يُستخدم لتسديد رسوم الاشتراك الشهري.
                   </Text>
                 </View>
               </View>
