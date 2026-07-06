@@ -118,7 +118,7 @@ Expo app connects via `EXPO_PUBLIC_API_HOST` env var (see `artifacts/marsool/.en
 ## Order Auto-Expiry
 
 Background job (`artifacts/api-server/src/lib/orderExpiry.ts`) runs every 5 minutes on server startup.
-- Finds orders with `status='searching'` older than 30 minutes
+- Finds orders with `status='searching'` older than 10 minutes
 - Cancels them, records `note='auto_expired'` in `order_status_history`
 - Sends push notification to customer: "لم يتوفر سائق لطلبك"
 - Emits socket event via `notifyOrderUpdate`
