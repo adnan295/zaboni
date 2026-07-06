@@ -30,6 +30,9 @@ RUN pnpm --filter @workspace/zaboni-web run build
 FROM deps AS build-restaurant-portal
 ENV NODE_ENV=production
 ENV BASE_PATH=/restaurant-portal/
+# restaurant-portal's vite.config.ts refuses to load without PORT, even for
+# `vite build` where it is only read by the unused dev-server/preview blocks.
+ENV PORT=5173
 RUN pnpm --filter @workspace/restaurant-portal run build
 
 FROM nginx:1.27-alpine AS runtime
