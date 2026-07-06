@@ -337,7 +337,11 @@
       "goOnline": "Go Online",
       "hasActiveOrder": "You have an active order",
       "errorTitle": "Could Not Load Orders",
-      "errorBody": "Check your connection and try again"
+      "errorBody": "Check your connection and try again",
+      "forbiddenTitle": "Your courier account isn't active",
+      "forbiddenBody": "This feature isn't available for your account right now, contact support to check your status",
+      "serverErrorTitle": "Something went wrong on our end",
+      "serverErrorBody": "This isn't a connection issue, please try again shortly"
     },
     "active": {
       "title": "Active Order",
