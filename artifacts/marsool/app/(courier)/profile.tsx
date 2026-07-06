@@ -33,13 +33,6 @@ interface CourierStats {
   avatarUrl?: string | null;
 }
 
-interface SubscriptionStatus {
-  status: "paid" | "no_subscription";
-  amount: number;
-  date: string;
-  isMonthlySubscriber: boolean;
-}
-
 interface ContactConfig {
   phone: string;
   whatsapp: string;
@@ -101,7 +94,6 @@ export default function CourierProfileScreen() {
   };
 
   const [stats, setStats] = useState<CourierStats | null>(null);
-  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -111,17 +103,14 @@ export default function CourierProfileScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const [statsData, subData, appData] = await Promise.all([
+        const [statsData, appData] = await Promise.all([
           customFetch("/api/courier/stats") as Promise<CourierStats>,
-          customFetch("/api/courier/subscription/today") as Promise<SubscriptionStatus>,
           customFetch("/api/courier/my-application").catch(() => null) as Promise<CourierApplication | null>,
         ]);
         setStats(statsData);
-        setSubscription(subData);
         setApplication(appData);
       } catch {
         setStats(null);
-        setSubscription(null);
       } finally {
         setLoading(false);
       }
@@ -293,47 +282,6 @@ export default function CourierProfileScreen() {
               />
             )}
           </View>
-
-          {subscription !== null && (
-            <TouchableOpacity
-              style={[
-                styles.subscriptionCard,
-                {
-                  backgroundColor: subscription.isMonthlySubscriber ? "#f0fdf4" : "#fff7ed",
-                  borderColor: subscription.isMonthlySubscriber ? "#bbf7d0" : "#fed7aa",
-                },
-              ]}
-              onPress={() => router.push("/(courier)/subscription-history")}
-              activeOpacity={0.8}
-            >
-              <View style={styles.subscriptionLeft}>
-                <MaterialIcons
-                  name={subscription.isMonthlySubscriber ? "verified" : "warning-amber"}
-                  size={22}
-                  color={subscription.isMonthlySubscriber ? "#16a34a" : "#ea580c"}
-                />
-                <View>
-                  <Text style={[
-                    styles.subscriptionTitle,
-                    { color: subscription.isMonthlySubscriber ? "#15803d" : "#c2410c" },
-                  ]}>
-                    {subscription.isMonthlySubscriber
-                      ? "مشترك شهري ✓"
-                      : "لا يوجد اشتراك شهري"}
-                  </Text>
-                  <Text style={[
-                    styles.subscriptionSub,
-                    { color: subscription.isMonthlySubscriber ? "#166534" : "#9a3412" },
-                  ]}>
-                    {subscription.isMonthlySubscriber
-                      ? "الاشتراك الشهري مفعّل"
-                      : "تواصل مع الإدارة لتفعيل الاشتراك"}
-                  </Text>
-                </View>
-              </View>
-              <MaterialIcons name="chevron-left" size={20} color={subscription.isMonthlySubscriber ? "#16a34a" : "#ea580c"} />
-            </TouchableOpacity>
-          )}
 
           <View style={[styles.menuSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <TouchableOpacity
@@ -699,19 +647,6 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   signOutText: { fontSize: 15, fontWeight: "700", color: "#ef4444" },
-  subscriptionCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-  },
-  subscriptionLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
-  subscriptionTitle: { fontSize: 15, fontWeight: "700" },
-  subscriptionSub: { fontSize: 12, marginTop: 2 },
   modalOverlay: {
     flex: 1,
     justifyContent: "flex-end",
