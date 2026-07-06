@@ -152,7 +152,7 @@ router.post("/restaurant-portal/auth/request-otp", async (req, res) => {
     try {
       await sendSmsViaGateway(parsed.data.phone, message);
     } catch (err) {
-      console.warn("[restaurant-portal] SMS skipped (no gateway configured):", (err as Error).message);
+      req.log.warn({ err: (err as Error).message }, "SMS skipped (no gateway configured)");
     }
   }
 

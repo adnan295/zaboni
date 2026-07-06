@@ -122,16 +122,16 @@ router.post("/auth/send-otp", async (req, res) => {
     const waSent = await whatsappManager.sendMessage(phone, message);
     if (waSent) {
       channel = "whatsapp";
-      console.log(`[auth] OTP sent via WhatsApp to ${phone}`);
+      req.log.info({ phone }, "OTP sent via WhatsApp");
     }
   }
 
   if (channel === "sms") {
     try {
       await sendOtpSms(phone, code);
-      console.log(`[auth] OTP sent via SMS to ${phone}`);
+      req.log.info({ phone }, "OTP sent via SMS");
     } catch (err) {
-      console.warn("[auth] SMS skipped (no gateway configured):", (err as Error).message);
+      req.log.warn({ err: (err as Error).message }, "SMS skipped (no gateway configured)");
     }
   }
 

@@ -759,13 +759,13 @@ router.put("/admin/restaurants/:restaurantId/menu/:itemId", async (req, res) => 
       )
       .returning();
     if (!row) {
-      console.error(`[PUT menu item] Not found: itemId=${itemId} restaurantId=${restaurantId}`);
+      req.log.error({ itemId, restaurantId }, "PUT menu item: not found");
       res.status(404).json({ error: "Not found" });
       return;
     }
     res.json(row);
   } catch (err) {
-    console.error("[PUT menu item] DB error:", err);
+    req.log.error({ err }, "PUT menu item: DB error");
     res.status(500).json({ error: err instanceof Error ? err.message : "Database error" });
   }
 });

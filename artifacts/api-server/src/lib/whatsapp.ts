@@ -7,6 +7,7 @@ import QRCode from "qrcode";
 import fs from "node:fs";
 import path from "node:path";
 import { sendAdminAlert } from "./waverifyMonitor";
+import { logger } from "./logger";
 
 export interface WAAccountStatus {
   id: string;
@@ -45,11 +46,11 @@ class WhatsAppManager {
       const ids: string[] = JSON.parse(fs.readFileSync(ACCOUNTS_FILE, "utf-8"));
       for (const id of ids) {
         this.initSession(id, false).catch((err) =>
-          console.error(`[whatsapp] Failed to restore session ${id}:`, err),
+          logger.error({ err, id }, "[whatsapp] Failed to restore session"),
         );
       }
     } catch (err) {
-      console.error("[whatsapp] Failed to load persisted accounts:", err);
+      logger.error({ err }, "[whatsapp] Failed to load persisted accounts");
     }
   }
 
@@ -114,7 +115,7 @@ class WhatsAppManager {
             account.qrDataUrl = await QRCode.toDataURL(qr);
             account.status = "qr";
           } catch (err) {
-            console.error(`[whatsapp] QR generation failed for ${id}:`, err);
+            logger.error({ err, id }, "[whatsapp] QR generation failed");
           }
         }
 
@@ -123,7 +124,7 @@ class WhatsAppManager {
           account.qrDataUrl = undefined;
           const rawId = sock.user?.id?.split(":")[0] ?? "";
           account.phone = rawId ? `+${rawId}` : undefined;
-          console.log(`[whatsapp] Account ${id} connected — phone: ${account.phone}`);
+          logger.info({ id, phone: account.phone }, "[whatsapp] Account connected");
           this.allDownAlertSent = false;
           this.allDownAlertInFlight = false;
         }
@@ -131,7 +132,7 @@ class WhatsAppManager {
         if (connection === "close") {
           const statusCode = (lastDisconnect?.error as { output?: { statusCode?: number } })?.output?.statusCode;
           const loggedOut = statusCode === DisconnectReason.loggedOut;
-          console.log(`[whatsapp] Account ${id} closed (code=${statusCode}, loggedOut=${loggedOut})`);
+          logger.info({ id, statusCode, loggedOut }, "[whatsapp] Account closed");
 
           account.sock = undefined;
 
@@ -143,7 +144,7 @@ class WhatsAppManager {
             account.status = "connecting";
             account.reconnectTimer = setTimeout(() => {
               this.initSession(id, false).catch((err) =>
-                console.error(`[whatsapp] Reconnect failed for ${id}:`, err),
+                logger.error({ err, id }, "[whatsapp] Reconnect failed"),
               );
             }, 5000);
           }
@@ -159,18 +160,18 @@ class WhatsAppManager {
               `الأرقام المتصلة: ${connectedCount}\n` +
               `الأرقام المنقطعة: ${disconnectedCount}\n` +
               `الوقت: ${now}`;
-            console.warn(`[whatsapp] All accounts offline — sending admin alert`);
+            logger.warn("[whatsapp] All accounts offline — sending admin alert");
             sendAdminAlert(alertMsg)
               .then((delivered) => {
                 if (delivered) this.allDownAlertSent = true;
               })
-              .catch((err) => console.error("[whatsapp] Failed to send all-down alert:", err))
+              .catch((err) => logger.error({ err }, "[whatsapp] Failed to send all-down alert"))
               .finally(() => { this.allDownAlertInFlight = false; });
           }
         }
       });
     } catch (err) {
-      console.error(`[whatsapp] initSession error for ${id}:`, err);
+      logger.error({ err, id }, "[whatsapp] initSession error");
       account.status = "disconnected";
     }
   }
@@ -232,10 +233,10 @@ class WhatsAppManager {
     for (const account of ordered) {
       try {
         await account.sock!.sendMessage(jid, { text });
-        console.log(`[whatsapp] Sent OTP to ${phone} via account ${account.id}`);
+        logger.info({ phone, accountId: account.id }, "[whatsapp] Sent OTP");
         return true;
       } catch (err) {
-        console.warn(`[whatsapp] Send failed via ${account.id}:`, (err as Error).message);
+        logger.warn({ accountId: account.id, err: (err as Error).message }, "[whatsapp] Send failed");
       }
     }
 

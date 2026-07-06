@@ -1,5 +1,6 @@
 import { db } from "@workspace/db";
 import { systemSettingsTable } from "@workspace/db";
+import { logger } from "./logger";
 
 export interface SmsGatewayConfig {
   url: string;
@@ -41,7 +42,7 @@ export async function sendSmsViaGateway(phone: string, message: string): Promise
 
   if (!config) {
     if (process.env["NODE_ENV"] !== "production") {
-      console.log(`[sms] DEV MODE — SMS to ${phone}: ${message}`);
+      logger.info({ phone, message }, "[sms] DEV MODE — SMS");
       return;
     }
     throw new Error(
@@ -72,7 +73,7 @@ export async function sendSmsViaGateway(phone: string, message: string): Promise
       const body = await res.text();
       throw new Error(`SMS gateway responded with ${res.status}: ${body}`);
     }
-    console.log(`[sms] GET SMS sent to ${phone} — status ${res.status}`);
+    logger.info({ phone, status: res.status }, "[sms] GET SMS sent");
   } else {
     const resolvedUrl = interpolatePlain(config.url, vars);
     const res = await fetch(resolvedUrl, {
@@ -84,7 +85,7 @@ export async function sendSmsViaGateway(phone: string, message: string): Promise
       const body = await res.text();
       throw new Error(`SMS gateway responded with ${res.status}: ${body}`);
     }
-    console.log(`[sms] POST SMS sent to ${phone} — status ${res.status}`);
+    logger.info({ phone, status: res.status }, "[sms] POST SMS sent");
   }
 }
 
