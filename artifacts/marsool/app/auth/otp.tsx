@@ -37,6 +37,7 @@ export default function OtpScreen() {
   const [canResend, setCanResend] = useState(false);
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<TextInput>(null);
+  const resendingRef = useRef(false);
 
   useEffect(() => {
     if (countdown === 0) { setCanResend(true); return; }
@@ -88,7 +89,8 @@ export default function OtpScreen() {
   };
 
   const handleResend = async (preferSms?: boolean) => {
-    if (!canResend && !preferSms) return;
+    if ((!canResend && !preferSms) || resendingRef.current) return;
+    resendingRef.current = true;
     setCountdown(60);
     setCanResend(false);
     setOtp("");
@@ -100,7 +102,10 @@ export default function OtpScreen() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone, ...(preferSms ? { preferSms: true } : {}) }),
       });
-    } catch {}
+    } catch {
+    } finally {
+      resendingRef.current = false;
+    }
   };
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;

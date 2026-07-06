@@ -107,11 +107,12 @@ router.post("/auth/send-otp", async (req, res) => {
   const id = `${Date.now()}${Math.random().toString(36).slice(2, 8)}`;
   const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
 
-  await db
-    .update(otpCodesTable)
-    .set({ used: true })
-    .where(and(eq(otpCodesTable.phone, phone), eq(otpCodesTable.used, false)));
-
+  // Do NOT invalidate previously-issued unused codes here. A resend (double
+  // tap, client retry, or a slow-arriving earlier message) must not brick a
+  // code that's still in flight — verify-otp already scopes matches to
+  // phone + code + unused + unexpired, so any code sent within the last
+  // OTP_TTL_MINUTES for this phone stays independently valid until it's
+  // actually used or expires.
   await db.insert(otpCodesTable).values({ id, phone, code, expiresAt });
 
   const message = `رمز التحقق الخاص بك في زبوني: ${code}`;

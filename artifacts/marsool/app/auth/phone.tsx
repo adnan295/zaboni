@@ -34,6 +34,7 @@ export default function PhoneScreen() {
   const [countrySearch, setCountrySearch] = useState("");
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<TextInput>(null);
+  const submittingRef = useRef(false);
 
   const filteredCountries = countrySearch.trim()
     ? COUNTRY_CODES.filter((c) => {
@@ -54,7 +55,8 @@ export default function PhoneScreen() {
   })();
 
   const handleContinue = async () => {
-    if (!isValid || loading) return;
+    if (!isValid || submittingRef.current) return;
+    submittingRef.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLoading(true);
     try {
@@ -81,6 +83,7 @@ export default function PhoneScreen() {
     } catch {
       Alert.alert(t("auth.phone.errorTitle"), t("auth.phone.errorMsg"));
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   };
