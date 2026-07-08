@@ -177,7 +177,10 @@ const locationSchema = z.object({
 
 const MAX_SPEED_KMH = 150;
 const MAX_SINGLE_JUMP_KM = 50;
-const SERVICE_AREA_MAX_KM = 100;
+// Sanity bound on a courier's first location, measured from Damascus. Wide enough to
+// cover the whole country (Homs ~140km, Aleppo ~350km, Qamishli ~600km) — it only exists
+// to drop obviously bogus coordinates, not to gate which city a courier works in.
+const SERVICE_AREA_MAX_KM = 600;
 
 router.patch("/courier/location", requireCourier, async (req, res) => {
   const body = locationSchema.safeParse(req.body);
