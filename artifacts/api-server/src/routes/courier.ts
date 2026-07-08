@@ -200,29 +200,32 @@ router.patch("/courier/location", requireCourier, async (req, res) => {
     prev?.courierLat !== undefined && prev?.courierLon !== undefined &&
     prev?.courierLocationUpdatedAt !== undefined;
 
+  // Anti-abuse checks are advisory: an implausible ping is dropped (not persisted),
+  // but the request still succeeds with 200. The courier app treats a non-2xx location
+  // response as fatal and shows a crash screen — a rejected background ping must never
+  // do that. Suspicious data simply isn't stored.
+  let acceptUpdate = true;
   if (hasPriorLocation) {
     const elapsedHours = (Date.now() - prev!.courierLocationUpdatedAt!.getTime()) / 3_600_000;
     const distKm = haversineKm(prev!.courierLat!, prev!.courierLon!, body.data.lat, body.data.lon);
-    if (distKm > MAX_SINGLE_JUMP_KM) {
-      res.status(429).json({ error: "Location update rejected: distance jump too large" });
-      return;
-    }
-    if (elapsedHours > 0 && distKm / elapsedHours > MAX_SPEED_KMH) {
-      res.status(429).json({ error: "Location update rejected: movement speed exceeds physical limit" });
-      return;
+    if (distKm > MAX_SINGLE_JUMP_KM || (elapsedHours > 0 && distKm / elapsedHours > MAX_SPEED_KMH)) {
+      acceptUpdate = false;
+      req.log.warn({ courierId, distKm, elapsedHours }, "Dropping implausible courier location update");
     }
   } else {
     const distFromCenter = haversineKm(DAMASCUS_LAT, DAMASCUS_LON, body.data.lat, body.data.lon);
     if (distFromCenter > SERVICE_AREA_MAX_KM) {
-      res.status(400).json({ error: "Location is outside the service area" });
-      return;
+      acceptUpdate = false;
+      req.log.warn({ courierId, distFromCenter }, "Dropping first courier location outside service area");
     }
   }
 
-  await db
-    .update(usersTable)
-    .set({ courierLat: body.data.lat, courierLon: body.data.lon, courierLocationUpdatedAt: new Date() })
-    .where(eq(usersTable.id, courierId));
+  if (acceptUpdate) {
+    await db
+      .update(usersTable)
+      .set({ courierLat: body.data.lat, courierLon: body.data.lon, courierLocationUpdatedAt: new Date() })
+      .where(eq(usersTable.id, courierId));
+  }
 
   res.json({ ok: true });
 });
