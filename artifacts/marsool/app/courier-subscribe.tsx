@@ -18,6 +18,7 @@ import { useTypography } from "@/hooks/useTypography";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "expo-router";
 import { customFetch } from "@workspace/api-client-react";
+import { uploadImageToStorage } from "@/lib/uploadImage";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 type SubscriptionPeriod = "weekly" | "monthly" | "yearly";
@@ -62,37 +63,6 @@ const PERIOD_LABEL: Record<SubscriptionPeriod, string> = {
   monthly: "شهري",
   yearly: "سنوي",
 };
-
-async function uploadReceiptToStorage(imageUri: string): Promise<string> {
-  const filename = imageUri.split("/").pop() ?? "receipt.jpg";
-  const match = /\.(\w+)$/.exec(filename);
-  const ext = match ? match[1].toLowerCase() : "jpg";
-  const contentType = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
-
-  const blob = await (await fetch(imageUri)).blob();
-  const size = blob.size > 0 ? blob.size : 1;
-
-  const urlRes = await customFetch<{ uploadURL: string; objectPath: string }>(
-    "/api/storage/uploads/request-url",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: filename, size, contentType }),
-    }
-  );
-
-  const uploadResponse = await fetch(urlRes.uploadURL, {
-    method: "PUT",
-    headers: { "Content-Type": contentType },
-    body: blob,
-  });
-
-  if (!uploadResponse.ok) {
-    throw new Error("فشل رفع صورة الوصل");
-  }
-
-  return urlRes.objectPath;
-}
 
 export default function CourierSubscribeScreen() {
   const colors = useColors();
@@ -181,7 +151,7 @@ export default function CourierSubscribeScreen() {
       setUploading(true);
       let receiptUrl: string;
       try {
-        receiptUrl = await uploadReceiptToStorage(receiptImageUri);
+        receiptUrl = await uploadImageToStorage(receiptImageUri, "receipt.jpg");
       } finally {
         setUploading(false);
       }
