@@ -19,6 +19,7 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
 import { customFetch } from "@workspace/api-client-react";
+import { buildAvatarUrl } from "@/lib/apiConfig";
 import { useCourier } from "@/context/CourierContext";
 import { useRouter } from "expo-router";
 
@@ -145,10 +146,7 @@ export default function CourierProfileScreen() {
             <TouchableOpacity style={styles.avatarWrapper} onPress={() => router.push("/edit-profile")} activeOpacity={0.8}>
               {(user?.avatarUrl || stats?.avatarUrl) ? (
                 <Image
-                  source={{ uri: (() => {
-                    const url = user?.avatarUrl || stats?.avatarUrl || "";
-                    return url.startsWith("/") ? `/api${url}` : url;
-                  })() }}
+                  source={{ uri: buildAvatarUrl(user?.avatarUrl || stats?.avatarUrl) }}
                   style={[styles.avatar, { borderRadius: 42 }]}
                   contentFit="cover"
                 />

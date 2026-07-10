@@ -55,7 +55,7 @@ export default function FavoritesTab() {
           </Text>
           <TouchableOpacity
             style={[styles.browseBtn, { backgroundColor: colors.primary }]}
-            onPress={() => router.replace("/(tabs)")}
+            onPress={() => router.navigate("/(tabs)")}
           >
             <Text style={styles.browseBtnText}>{t("favorites.empty.browse")}</Text>
           </TouchableOpacity>

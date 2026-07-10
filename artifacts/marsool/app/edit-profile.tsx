@@ -21,6 +21,7 @@ import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
 import { customFetch } from "@workspace/api-client-react";
 import { uploadImageToStorage } from "@/lib/uploadImage";
+import { buildAvatarUrl } from "@/lib/apiConfig";
 
 export default function EditProfileScreen() {
   const colors = useColors();
@@ -119,7 +120,7 @@ export default function EditProfileScreen() {
           <TouchableOpacity style={styles.avatarContainer} onPress={pickImage} activeOpacity={0.8}>
             {currentAvatarUrl ? (
               <Image
-                source={{ uri: currentAvatarUrl.startsWith("/") ? `/api${currentAvatarUrl}` : currentAvatarUrl }}
+                source={{ uri: buildAvatarUrl(currentAvatarUrl) }}
                 style={styles.avatar}
                 contentFit="cover"
               />
