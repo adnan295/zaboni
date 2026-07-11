@@ -74,6 +74,15 @@ export default function CourierTabLayout() {
     );
   }
 
+  if (gateState === "blocked") {
+    // No auth token — a logged-out user should never reach the courier tabs.
+    // Render nothing and let the root AuthGate redirect to auth/onboarding
+    // instead of mounting the courier screens, which require a token.
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }} />
+    );
+  }
+
   if (gateState === "error") {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background, padding: 32 }}>

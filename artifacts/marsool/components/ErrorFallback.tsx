@@ -24,6 +24,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
   const insets = useSafeAreaInsets();
 
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   const handleRestart = async () => {
     try {
@@ -97,6 +98,30 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
             Try Again
           </Text>
         </Pressable>
+
+        <Pressable
+          onPress={() => setShowDetails((v) => !v)}
+          accessibilityRole="button"
+          hitSlop={8}
+        >
+          <Text style={[styles.detailsToggle, { color: colors.mutedForeground }]}>
+            {showDetails ? "إخفاء التفاصيل" : "عرض التفاصيل"}
+          </Text>
+        </Pressable>
+
+        {showDetails ? (
+          <ScrollView
+            style={[styles.detailsBox, { backgroundColor: colors.card, borderColor: colors.border }]}
+            contentContainerStyle={{ padding: 12 }}
+          >
+            <Text
+              selectable
+              style={[styles.errorText, { color: colors.foreground, fontFamily: monoFont }]}
+            >
+              {formatErrorDetails()}
+            </Text>
+          </ScrollView>
+        ) : null}
       </View>
 
       {__DEV__ ? (
@@ -197,6 +222,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: "center",
     lineHeight: 24,
+  },
+  detailsToggle: {
+    fontSize: 13,
+    textAlign: "center",
+    textDecorationLine: "underline",
+    marginTop: 4,
+  },
+  detailsBox: {
+    width: "100%",
+    maxHeight: 260,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 4,
   },
   topButton: {
     position: "absolute",

@@ -20,37 +20,8 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
 import { customFetch } from "@workspace/api-client-react";
-
-async function uploadAvatarToStorage(localUri: string): Promise<string> {
-  const filename = localUri.split("/").pop() ?? "avatar.jpg";
-  const match = /\.(\w+)$/.exec(filename);
-  const ext = match ? match[1].toLowerCase() : "jpg";
-  const contentType = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
-
-  const blob = await (await fetch(localUri)).blob();
-  const size = blob.size > 0 ? blob.size : 1;
-
-  const urlRes = await customFetch<{ uploadURL: string; objectPath: string }>(
-    "/api/storage/uploads/request-url",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: filename, size, contentType }),
-    }
-  );
-
-  const uploadResponse = await fetch(urlRes.uploadURL, {
-    method: "PUT",
-    headers: { "Content-Type": contentType },
-    body: blob,
-  });
-
-  if (!uploadResponse.ok) {
-    throw new Error("فشل رفع الصورة");
-  }
-
-  return urlRes.objectPath;
-}
+import { uploadImageToStorage } from "@/lib/uploadImage";
+import { buildAvatarUrl } from "@/lib/apiConfig";
 
 export default function EditProfileScreen() {
   const colors = useColors();
@@ -93,7 +64,7 @@ export default function EditProfileScreen() {
     try {
       let uploadedAvatarUrl: string | null | undefined = undefined;
       if (avatarUri) {
-        uploadedAvatarUrl = await uploadAvatarToStorage(avatarUri);
+        uploadedAvatarUrl = await uploadImageToStorage(avatarUri, "avatar.jpg");
       }
 
       const payload: Record<string, string | null> = { name: trimmedName };
@@ -149,7 +120,7 @@ export default function EditProfileScreen() {
           <TouchableOpacity style={styles.avatarContainer} onPress={pickImage} activeOpacity={0.8}>
             {currentAvatarUrl ? (
               <Image
-                source={{ uri: currentAvatarUrl.startsWith("/") ? `/api${currentAvatarUrl}` : currentAvatarUrl }}
+                source={{ uri: buildAvatarUrl(currentAvatarUrl) }}
                 style={styles.avatar}
                 contentFit="cover"
               />

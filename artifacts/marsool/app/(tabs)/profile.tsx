@@ -29,6 +29,7 @@ import { useFavorites } from "@/context/FavoritesContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import { useRatings } from "@/context/RatingsContext";
 import { customFetch } from "@workspace/api-client-react";
+import { buildAvatarUrl } from "@/lib/apiConfig";
 
 interface MenuItemDef {
   icon: keyof typeof MaterialIcons.glyphMap;
@@ -351,7 +352,7 @@ export default function ProfileScreen() {
         <TouchableOpacity style={styles.avatarContainer} onPress={() => router.push("/edit-profile")} activeOpacity={0.8}>
           {user?.avatarUrl ? (
             <Image
-              source={{ uri: user.avatarUrl.startsWith("/") ? `/api${user.avatarUrl}` : user.avatarUrl }}
+              source={{ uri: buildAvatarUrl(user.avatarUrl) }}
               style={styles.avatar}
               contentFit="cover"
             />

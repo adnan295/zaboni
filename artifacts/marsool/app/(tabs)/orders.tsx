@@ -407,7 +407,7 @@ export default function OrdersTab() {
           </Text>
           <TouchableOpacity
             style={[styles.browseBtn, { backgroundColor: colors.primary }]}
-            onPress={() => router.replace("/(tabs)")}
+            onPress={() => router.navigate("/(tabs)")}
           >
             <Text style={styles.browseBtnText}>{t("orders.empty.browse")}</Text>
           </TouchableOpacity>

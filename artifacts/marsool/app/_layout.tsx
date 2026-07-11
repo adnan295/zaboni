@@ -40,6 +40,17 @@ import ToastBanner from "@/components/ToastBanner";
 
 SplashScreen.preventAutoHideAsync();
 
+// Anchor the root navigator to the customer tabs. Without an explicit
+// `app/index.tsx`, the `/` route is served from inside the `(tabs)` group,
+// and on a cold start Expo Router would otherwise fall back to the
+// alphabetically-first sibling group — `(courier)` — dropping a freshly
+// installed, logged-out user straight onto the (broken, token-less) courier
+// screen. Pinning the anchor to `(tabs)` makes the entry deterministic; the
+// AuthGate below then redirects to onboarding / auth / courier as needed.
+export const unstable_settings = {
+  initialRouteName: "(tabs)",
+};
+
 const queryClient = new QueryClient();
 
 function AuthGate({ children }: { children: React.ReactNode }) {
