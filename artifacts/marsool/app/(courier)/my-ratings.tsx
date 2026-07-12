@@ -15,6 +15,7 @@ import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import { customFetch } from "@workspace/api-client-react";
 import { useRouter } from "expo-router";
+import { formatDateTime } from "@/utils/date";
 
 interface RatingItem {
   id: string;
@@ -44,15 +45,6 @@ function Stars({ count }: { count: number }) {
       ))}
     </View>
   );
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("ar-SY", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 export default function MyRatingsScreen() {
@@ -173,7 +165,7 @@ export default function MyRatingsScreen() {
                 <View style={styles.ratingHeader}>
                   <Stars count={item.stars} />
                   <Text style={[styles.ratingDate, { color: colors.mutedForeground }]}>
-                    {formatDate(item.createdAt)}
+                    {formatDateTime(item.createdAt)}
                   </Text>
                 </View>
                 {item.restaurantName ? (

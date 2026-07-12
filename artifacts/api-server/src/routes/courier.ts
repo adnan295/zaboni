@@ -15,6 +15,16 @@ function resolveUserId(req: Request): string {
   return req.auth!.userId;
 }
 
+// Raw SQL (db.execute) can hand back timestamps as Postgres-format strings
+// ("2026-06-24 21:00:00+00"). React Native's Hermes engine can only parse
+// strict ISO, so it renders those as "Invalid Date". Normalize every date we
+// send to the clients into an ISO string (Node parses the Postgres format fine).
+function toIsoString(v: string | Date | null | undefined): string | null {
+  if (v == null) return null;
+  const d = v instanceof Date ? v : new Date(v);
+  return isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 async function requireCourier(req: Request, res: Response, next: NextFunction): Promise<void> {
   const userId = resolveUserId(req);
   const users = await db
@@ -792,7 +802,7 @@ router.get("/courier/earnings", requireCourier, async (req, res) => {
     id: row.id,
     restaurantName: row.restaurantName,
     address: row.address,
-    updatedAt: typeof row.updatedAt === "string" ? row.updatedAt : (row.updatedAt as Date).toISOString(),
+    updatedAt: toIsoString(row.updatedAt),
     earnings: Number(row.deliveryFee),
   }));
 
@@ -986,8 +996,8 @@ router.get("/courier/orders/history", requireCourier, async (req, res) => {
     orderText: r.orderText || "",
     status: r.status,
     deliveryFee: Number(r.deliveryFee),
-    updatedAt: typeof r.updatedAt === "string" ? r.updatedAt : (r.updatedAt as Date).toISOString(),
-    createdAt: typeof r.createdAt === "string" ? r.createdAt : (r.createdAt as Date).toISOString(),
+    updatedAt: toIsoString(r.updatedAt),
+    createdAt: toIsoString(r.createdAt),
     customerRating: Number(r.customerRating),
   }));
 
@@ -1027,7 +1037,7 @@ router.get("/courier/my-ratings", requireCourier, async (req, res) => {
     stars: Number(r.courierStars),
     comment: r.comment || "",
     restaurantName: r.restaurantName || "",
-    createdAt: typeof r.createdAt === "string" ? r.createdAt : (r.createdAt as unknown as Date).toISOString(),
+    createdAt: toIsoString(r.createdAt),
   }));
 
   const avgStars = rows.length > 0

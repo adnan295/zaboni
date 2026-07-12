@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { customFetch } from "@workspace/api-client-react";
+import { formatDateTime as fmtDate } from "@/utils/date";
 
 interface SubscriptionRequestRecord {
   id: string;
@@ -40,11 +41,6 @@ const PERIOD_LABEL: Record<string, string> = {
   monthly: "شهري",
   yearly: "سنوي",
 };
-
-function fmtDate(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString("ar-SY", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-}
 
 export default function SubscriptionRequestsScreen() {
   const colors = useColors();

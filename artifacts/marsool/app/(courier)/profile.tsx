@@ -22,6 +22,7 @@ import { customFetch } from "@workspace/api-client-react";
 import { buildAvatarUrl } from "@/lib/apiConfig";
 import { useCourier } from "@/context/CourierContext";
 import { useRouter } from "expo-router";
+import { formatDate } from "@/utils/date";
 
 const DEFAULT_ADMIN_PHONE = "+963999000111";
 
@@ -241,11 +242,7 @@ export default function CourierProfileScreen() {
                   <View style={styles.infoContent}>
                     <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>عضو منذ</Text>
                     <Text style={[styles.infoValue, { color: colors.foreground }]}>
-                      {new Date(application.createdAt).toLocaleDateString("ar-SY", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}
+                      {formatDate(application.createdAt)}
                     </Text>
                   </View>
                 </View>

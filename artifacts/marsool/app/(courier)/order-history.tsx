@@ -16,6 +16,7 @@ import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import { customFetch } from "@workspace/api-client-react";
 import { useRouter } from "expo-router";
+import { formatDateTime } from "@/utils/date";
 
 interface OrderHistoryItem {
   id: string;
@@ -25,16 +26,6 @@ interface OrderHistoryItem {
   deliveryFee: number;
   updatedAt: string;
   customerRating: number;
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("ar-SY", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 function formatAmount(n: number) {
@@ -187,7 +178,7 @@ export default function OrderHistoryScreen() {
                       {item.address || "—"}
                     </Text>
                     <Text style={[styles.cardDate, { color: colors.mutedForeground }]}>
-                      {formatDate(item.updatedAt)}
+                      {formatDateTime(item.updatedAt)}
                     </Text>
                   </View>
                   <View style={styles.cardRight}>

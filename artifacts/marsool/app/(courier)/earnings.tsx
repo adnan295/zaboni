@@ -16,6 +16,7 @@ import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import { customFetch } from "@workspace/api-client-react";
 import { useRouter } from "expo-router";
+import { formatDateTime } from "@/utils/date";
 
 interface RecentDelivery {
   id: string;
@@ -96,15 +97,6 @@ export default function CourierEarningsScreen() {
 
   const handlePeriodChange = (p: Period) => {
     setPeriod(p);
-  };
-
-  const formatDate = (iso: string) => {
-    return new Date(iso).toLocaleDateString("ar-SY", {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
   };
 
   const getHeroLabel = () => {
@@ -252,7 +244,7 @@ export default function CourierEarningsScreen() {
                         {d.address}
                       </Text>
                       <Text style={[styles.deliveryDate, { color: colors.mutedForeground }]}>
-                        {formatDate(d.updatedAt)}
+                        {formatDateTime(d.updatedAt)}
                       </Text>
                     </View>
                     <View style={styles.deliveryEarnings}>
