@@ -179,6 +179,11 @@ const MAX_SPEED_KMH = 150;
 const MAX_SINGLE_JUMP_KM = 50;
 const SERVICE_AREA_MAX_KM = 100;
 
+// Proximity dispatch: a searching order is shown to every online courier, nearest
+// restaurant first, but capped to this radius so a courier never sees an order across
+// the city. An order or courier missing GPS is never hidden (shown, sorted last).
+const MAX_VISIBLE_RADIUS_KM = 15;
+
 router.patch("/courier/location", requireCourier, async (req, res) => {
   const body = locationSchema.safeParse(req.body);
   if (!body.success) {
@@ -234,7 +239,11 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
 
   const courierUser = await db
-    .select({ isOnline: usersTable.isOnline, zoneId: usersTable.zoneId })
+    .select({
+      isOnline: usersTable.isOnline,
+      lat: usersTable.courierLat,
+      lon: usersTable.courierLon,
+    })
     .from(usersTable)
     .where(eq(usersTable.id, courierId))
     .limit(1);
@@ -244,7 +253,8 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
     return;
   }
 
-  const courierZoneId = courierUser[0]?.zoneId ?? null;
+  const courierLat = courierUser[0]?.lat ?? null;
+  const courierLon = courierUser[0]?.lon ?? null;
 
   const rows = await db
     .select({
@@ -261,25 +271,39 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
       updatedAt: ordersTable.updatedAt,
       orderType: ordersTable.orderType,
       placeName: ordersTable.placeName,
-      restaurantZoneId: restaurantsTable.zoneId,
+      restaurantLat: restaurantsTable.lat,
+      restaurantLon: restaurantsTable.lon,
     })
     .from(ordersTable)
     .leftJoin(restaurantsTable, eq(ordersTable.restaurantId, restaurantsTable.id))
     .where(and(eq(ordersTable.status, "searching"), eq(ordersTable.courierId, "")))
     .orderBy(ordersTable.createdAt);
 
-  // Zone match: errand orders (no restaurantId) are visible to everyone. Restaurant
-  // orders are only visible to couriers whose zoneId equals the restaurant's zoneId
-  // AND is non-null — an unassigned restaurant or unassigned courier never matches
-  // (no null-to-null fallback), per spec.
+  const canMeasure = courierLat !== null && courierLon !== null;
+
+  // Proximity dispatch (zones removed): every online courier sees every searching
+  // order, sorted nearest-restaurant-first, with a soft radius cap. An order or
+  // courier missing GPS is never hidden (shown, sorted last). First to accept wins.
   const matching = rows
     .filter((o) => o.userId !== courierId)
-    .filter((o) =>
-      o.restaurantId
-        ? o.restaurantZoneId !== null && o.restaurantZoneId === courierZoneId
-        : true,
+    .map((o) => {
+      const distanceKm =
+        canMeasure && o.restaurantLat !== null && o.restaurantLon !== null
+          ? haversineKm(courierLat as number, courierLon as number, o.restaurantLat, o.restaurantLon)
+          : null;
+      return { o, distanceKm };
+    })
+    .filter(
+      ({ o, distanceKm }) =>
+        !o.restaurantId || distanceKm === null || distanceKm <= MAX_VISIBLE_RADIUS_KM,
     )
-    .map((o) => ({
+    .sort((a, b) => {
+      if (a.distanceKm === null && b.distanceKm === null) return 0;
+      if (a.distanceKm === null) return 1;
+      if (b.distanceKm === null) return -1;
+      return a.distanceKm - b.distanceKm;
+    })
+    .map(({ o, distanceKm }) => ({
       id: o.id,
       status: o.status,
       restaurantName: o.restaurantName,
@@ -292,6 +316,7 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
       updatedAt: o.updatedAt,
       orderType: o.orderType,
       placeName: o.placeName,
+      distanceKm: distanceKm === null ? null : Math.round(distanceKm * 10) / 10,
     }));
 
   res.json(matching);
@@ -406,7 +431,7 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   }
 
   const courierUsers = await db
-    .select({ name: usersTable.name, phone: usersTable.phone, isOnline: usersTable.isOnline, zoneId: usersTable.zoneId })
+    .select({ name: usersTable.name, phone: usersTable.phone, isOnline: usersTable.isOnline })
     .from(usersTable)
     .where(eq(usersTable.id, courierId))
     .limit(1);
@@ -414,20 +439,6 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   if (!courierUsers[0]?.isOnline) {
     res.status(409).json({ error: "You must be online to accept orders" });
     return;
-  }
-
-  if (order.restaurantId) {
-    const restaurantRows = await db
-      .select({ zoneId: restaurantsTable.zoneId })
-      .from(restaurantsTable)
-      .where(eq(restaurantsTable.id, order.restaurantId))
-      .limit(1);
-    const restaurantZoneId = restaurantRows[0]?.zoneId ?? null;
-    const courierZoneId = courierUsers[0]?.zoneId ?? null;
-    if (restaurantZoneId === null || restaurantZoneId !== courierZoneId) {
-      res.status(409).json({ error: "Order is outside your work zone" });
-      return;
-    }
   }
 
   const [activeSub] = await db
