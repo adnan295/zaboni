@@ -267,6 +267,17 @@ export default function ActiveOrderScreen() {
     openMapsTo(order.restaurantLat, order.restaurantLon, order.restaurantName || "المطعم");
   };
 
+  // One stateful navigation control. Before the courier has picked up (status
+  // "accepted") it routes to the restaurant to collect the order; once picked up
+  // it routes to the customer to deliver. Errand orders have no restaurant, so
+  // they always route to the customer.
+  const navigatesToRestaurant = !!order && order.status === "accepted" && order.orderType !== "errand";
+  const handleNavigate = () => {
+    if (!order) return;
+    if (navigatesToRestaurant) navigateToRestaurant();
+    else openNavigation();
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPadding + 16, backgroundColor: colors.primary }]}>
@@ -359,15 +370,17 @@ export default function ActiveOrderScreen() {
                 courierLat={courierLocation?.latitude}
                 courierLon={courierLocation?.longitude}
                 address={order.address}
-                onNavigate={openNavigation}
+                onNavigate={handleNavigate}
               />
               <TouchableOpacity
                 style={styles.mapNavigateBtn}
-                onPress={openNavigation}
+                onPress={handleNavigate}
                 activeOpacity={0.85}
               >
                 <MaterialIcons name="navigation" size={16} color="#fff" />
-                <Text style={styles.mapNavigateBtnText}>ابدأ الملاحة</Text>
+                <Text style={styles.mapNavigateBtnText}>
+                  {navigatesToRestaurant ? t("courier.active.toRestaurant") : t("courier.active.toCustomer")}
+                </Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -402,14 +415,6 @@ export default function ActiveOrderScreen() {
                     {order.restaurantName}
                   </Text>
                 </View>
-                <TouchableOpacity
-                  onPress={navigateToRestaurant}
-                  style={[styles.navChip, { backgroundColor: colors.primary + "15", borderColor: colors.primary }]}
-                  activeOpacity={0.7}
-                >
-                  <MaterialIcons name="directions" size={16} color={colors.primary} />
-                  <Text style={[styles.navChipText, { color: colors.primary }]}>{t("courier.active.toRestaurant")}</Text>
-                </TouchableOpacity>
               </View>
             ) : null}
 
@@ -550,16 +555,6 @@ export default function ActiveOrderScreen() {
               </Text>
             </TouchableOpacity>
 
-            {(order.destinationLat && order.destinationLon) || order.address ? (
-              <TouchableOpacity
-                style={[styles.navBtn, { backgroundColor: "#1a73e8" }]}
-                onPress={openNavigation}
-                activeOpacity={0.8}
-              >
-                <MaterialIcons name="navigation" size={20} color="#fff" />
-                <Text style={styles.navBtnText}>{t("courier.active.navigate")}</Text>
-              </TouchableOpacity>
-            ) : null}
           </View>
 
           {/* Cancel button — only before delivery */}
