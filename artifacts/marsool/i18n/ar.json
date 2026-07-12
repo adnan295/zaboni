@@ -228,6 +228,8 @@
     "alerts": {
       "missing": "تنبيه",
       "missingMsg": "يرجى تعبئة الاسم والعنوان",
+      "noLocation": "حدّد موقعك على الخريطة",
+      "noLocationMsg": "لازم تحدد موقعك على الخريطة قبل حفظ العنوان",
       "deleteTitle": "حذف العنوان",
       "deleteCancel": "إلغاء",
       "deleteConfirm": "حذف"

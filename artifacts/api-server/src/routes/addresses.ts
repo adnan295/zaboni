@@ -34,6 +34,11 @@ router.post("/addresses", async (req, res) => {
     return;
   }
 
+  if (body.data.latitude == null || body.data.longitude == null) {
+    res.status(400).json({ error: "location_required", message: "يرجى تحديد موقعك على الخريطة قبل حفظ العنوان." });
+    return;
+  }
+
   const id = `addr_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
   if (body.data.isDefault) {
@@ -68,6 +73,11 @@ router.put("/addresses/:id", async (req, res) => {
   const body = upsertAddressSchema.safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ error: "Invalid request body" });
+    return;
+  }
+
+  if (body.data.latitude == null || body.data.longitude == null) {
+    res.status(400).json({ error: "location_required", message: "يرجى تحديد موقعك على الخريطة قبل حفظ العنوان." });
     return;
   }
 

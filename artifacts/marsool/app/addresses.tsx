@@ -71,6 +71,12 @@ export default function AddressesScreen() {
       Alert.alert(t("addresses.alerts.missing"), t("addresses.alerts.missingMsg"));
       return;
     }
+    // An address is useless for delivery without exact coordinates — require the
+    // map pin before it can be saved.
+    if (editing.latitude == null || editing.longitude == null) {
+      Alert.alert(t("addresses.alerts.noLocation"), t("addresses.alerts.noLocationMsg"));
+      return;
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const coords = (editing.latitude != null && editing.longitude != null)
       ? { latitude: editing.latitude, longitude: editing.longitude }

@@ -228,6 +228,8 @@
     "alerts": {
       "missing": "Notice",
       "missingMsg": "Please fill in the name and address",
+      "noLocation": "Set your location on the map",
+      "noLocationMsg": "You must set your location on the map before saving the address",
       "deleteTitle": "Delete Address",
       "deleteCancel": "Cancel",
       "deleteConfirm": "Delete"
