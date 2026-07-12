@@ -7,8 +7,9 @@ import {
   RequestUploadUrlResponse,
 } from "@workspace/api-zod";
 import { createWriteStream } from "fs";
-import { mkdir, rm } from "fs/promises";
+import { mkdir, rm, writeFile } from "fs/promises";
 import path from "path";
+import sharp from "sharp";
 import {
   ObjectStorageService,
   ObjectNotFoundError,
@@ -314,6 +315,30 @@ router.put("/storage/local-upload/:token", async (req: Request, res: Response) =
       await rm(entry.absolutePath, { force: true });
       res.status(413).json({ error: "File too large" });
       return;
+    }
+
+    // Compress the image in place before it is ever served. Phone-camera photos
+    // are the main cause of slow image loading, so we cap the dimensions and
+    // re-encode at a web-friendly quality. Best-effort: on any failure (or if it
+    // wouldn't get smaller) we keep the original bytes untouched.
+    try {
+      const meta = await sharp(entry.absolutePath).metadata();
+      let pipeline = sharp(entry.absolutePath, { failOn: "none" })
+        .rotate()
+        .resize({ width: 1280, height: 1280, fit: "inside", withoutEnlargement: true });
+      if (meta.format === "png") {
+        pipeline = pipeline.png({ compressionLevel: 9, palette: true });
+      } else if (meta.format === "webp") {
+        pipeline = pipeline.webp({ quality: 76 });
+      } else {
+        pipeline = pipeline.jpeg({ quality: 76, mozjpeg: true });
+      }
+      const optimized = await pipeline.toBuffer();
+      if (optimized.length > 0 && optimized.length < bytesWritten) {
+        await writeFile(entry.absolutePath, optimized);
+      }
+    } catch (err) {
+      req.log.warn({ err }, "Image compression skipped — keeping original");
     }
 
     await writeLocalObjectMeta(entry.absolutePath, { contentType: entry.contentType });
