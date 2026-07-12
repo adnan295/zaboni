@@ -220,7 +220,7 @@
       "addTitle": "Add Address",
       "editTitle": "Edit Address",
       "labelPlaceholder": "Address name",
-      "addressPlaceholder": "Full address details",
+      "addressPlaceholder": "Details: building, floor, apartment, nearest landmark",
       "suggestions": "Suggestions: ",
       "cancel": "Cancel",
       "save": "Save"

@@ -220,7 +220,7 @@
       "addTitle": "إضافة عنوان",
       "editTitle": "تعديل العنوان",
       "labelPlaceholder": "اسم العنوان",
-      "addressPlaceholder": "العنوان بالتفصيل",
+      "addressPlaceholder": "وصف تفصيلي: بناء، طابق، شقة، أقرب علامة مميزة",
       "suggestions": "اقتراحات: ",
       "cancel": "إلغاء",
       "save": "حفظ"

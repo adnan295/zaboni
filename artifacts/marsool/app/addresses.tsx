@@ -108,10 +108,12 @@ export default function AddressesScreen() {
     setDefault(id);
   };
 
-  const handleMapSelect = (address: string, coords?: { latitude: number; longitude: number }) => {
+  const handleMapSelect = (_address: string, coords?: { latitude: number; longitude: number }) => {
+    // The map only drops the GPS pin — it must NOT overwrite the description the
+    // user typed. GPS is imprecise here, so the written details (building, floor,
+    // apartment, landmark) are what actually get the courier to the door.
     setEditing((e) => ({
       ...e,
-      address,
       latitude: coords?.latitude ?? e.latitude,
       longitude: coords?.longitude ?? e.longitude,
     }));
