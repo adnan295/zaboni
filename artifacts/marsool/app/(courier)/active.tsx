@@ -221,28 +221,32 @@ export default function ActiveOrderScreen() {
     if (phone) Linking.openURL(`https://wa.me/${phone}`);
   };
 
-  const openNavigation = () => {
-    if (!order) return;
-    const lat = order.destinationLat;
-    const lon = order.destinationLon;
-    const label = encodeURIComponent(order.address || "وجهة التوصيل");
-    const addressEnc = encodeURIComponent(order.address || "Homs, Syria");
-
-    const googleWebUrl = lat && lon
+  // Open turn-by-turn navigation to an exact pin (lat/lon) when available,
+  // falling back to a text query only if no coordinates exist. Passing
+  // coordinates makes Google/Apple Maps go to the precise point instead of
+  // geocoding free text (which lands on a wrong/approximate place).
+  const openMapsTo = (
+    lat: number | null | undefined,
+    lon: number | null | undefined,
+    fallbackText: string,
+  ) => {
+    const q = encodeURIComponent(fallbackText || "Homs, Syria");
+    const hasCoords = lat != null && lon != null;
+    const googleWebUrl = hasCoords
       ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`
-      : `https://www.google.com/maps/dir/?api=1&destination=${addressEnc}&travelmode=driving`;
+      : `https://www.google.com/maps/dir/?api=1&destination=${q}&travelmode=driving`;
 
     if (Platform.OS === "web") {
       Linking.openURL(googleWebUrl);
     } else if (Platform.OS === "ios") {
-      const appleUrl = lat && lon
-        ? `maps://maps.apple.com/?daddr=${lat},${lon}&q=${label}&dirflg=d`
-        : `maps://maps.apple.com/?daddr=${addressEnc}&dirflg=d`;
+      const appleUrl = hasCoords
+        ? `maps://maps.apple.com/?daddr=${lat},${lon}&dirflg=d`
+        : `maps://maps.apple.com/?daddr=${q}&dirflg=d`;
       Linking.canOpenURL("maps://").then((ok) => {
         Linking.openURL(ok ? appleUrl : googleWebUrl);
       });
     } else {
-      const deepLink = lat && lon ? `google.navigation:q=${lat},${lon}&mode=d` : null;
+      const deepLink = hasCoords ? `google.navigation:q=${lat},${lon}&mode=d` : null;
       if (deepLink) {
         Linking.canOpenURL(deepLink).then((ok) => {
           Linking.openURL(ok ? deepLink : googleWebUrl);
@@ -251,6 +255,16 @@ export default function ActiveOrderScreen() {
         Linking.openURL(googleWebUrl);
       }
     }
+  };
+
+  const openNavigation = () => {
+    if (!order) return;
+    openMapsTo(order.destinationLat, order.destinationLon, order.address || "وجهة التوصيل");
+  };
+
+  const navigateToRestaurant = () => {
+    if (!order) return;
+    openMapsTo(order.restaurantLat, order.restaurantLon, order.restaurantName || "المطعم");
   };
 
   return (
@@ -388,6 +402,14 @@ export default function ActiveOrderScreen() {
                     {order.restaurantName}
                   </Text>
                 </View>
+                <TouchableOpacity
+                  onPress={navigateToRestaurant}
+                  style={[styles.navChip, { backgroundColor: colors.primary + "15", borderColor: colors.primary }]}
+                  activeOpacity={0.7}
+                >
+                  <MaterialIcons name="directions" size={16} color={colors.primary} />
+                  <Text style={[styles.navChipText, { color: colors.primary }]}>{t("courier.active.toRestaurant")}</Text>
+                </TouchableOpacity>
               </View>
             ) : null}
 
@@ -649,6 +671,17 @@ const styles = StyleSheet.create({
   infoContent: { flex: 1, gap: 2 },
   infoLabel: { fontSize: 12 },
   infoValue: { fontSize: 15, lineHeight: 22 },
+  navChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignSelf: "center",
+  },
+  navChipText: { fontSize: 12, fontWeight: "700" },
   divider: { height: 1, marginHorizontal: 16 },
   actionRow: {
     flexDirection: "row",

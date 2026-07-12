@@ -33,6 +33,8 @@ export interface CourierOrder {
   distanceKm?: number;
   destinationLat?: number | null;
   destinationLon?: number | null;
+  restaurantLat?: number | null;
+  restaurantLon?: number | null;
   deliveryFee?: number | null;
   orderType?: string;
   placeName?: string | null;

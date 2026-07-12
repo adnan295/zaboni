@@ -306,9 +306,12 @@ router.get("/courier/orders/active", requireCourier, async (req, res) => {
       ...getTableColumns(ordersTable),
       customerName: usersTable.name,
       customerPhone: usersTable.phone,
+      restaurantLat: restaurantsTable.lat,
+      restaurantLon: restaurantsTable.lon,
     })
     .from(ordersTable)
     .leftJoin(usersTable, eq(ordersTable.userId, usersTable.id))
+    .leftJoin(restaurantsTable, eq(ordersTable.restaurantId, restaurantsTable.id))
     .where(eq(ordersTable.courierId, courierId))
     .orderBy(ordersTable.updatedAt);
 

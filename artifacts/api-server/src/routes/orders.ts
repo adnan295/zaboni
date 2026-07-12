@@ -244,6 +244,15 @@ router.post("/orders", async (req, res) => {
   }
 
   const userId = resolveUserId(req);
+
+  // Require the customer's map location on every order. Without it the delivery
+  // fee (distance-based) and the courier's navigation cannot be computed, so we
+  // reject rather than silently falling back to a default city-center point.
+  if (body.data.lat == null || body.data.lon == null) {
+    res.status(400).json({ error: "location_required", message: "يرجى تحديد موقعك على الخريطة قبل إرسال الطلب." });
+    return;
+  }
+
   const id = `${Date.now()}${Math.random().toString(36).slice(2, 9)}`;
   const estimatedMinutes = Math.floor(Math.random() * 15) + 30;
 

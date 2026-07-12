@@ -47,6 +47,13 @@ export default function ErrandRequestScreen() {
       router.push("/addresses");
       return;
     }
+    if (defaultAddress.latitude == null || defaultAddress.longitude == null) {
+      Alert.alert(t("orderRequest.noLocationTitle"), t("orderRequest.noLocationBody"), [
+        { text: t("orderRequest.setLocation"), onPress: () => router.push("/addresses"), style: "default" },
+        { text: t("common.cancel"), style: "cancel" },
+      ]);
+      return;
+    }
 
     setSubmitting(true);
     try {

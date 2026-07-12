@@ -251,9 +251,22 @@ export default function OrderRequestScreen() {
       );
       return;
     }
+    if (defaultAddress.latitude == null || defaultAddress.longitude == null) {
+      Alert.alert(
+        t("orderRequest.noLocationTitle"),
+        t("orderRequest.noLocationBody"),
+        [
+          { text: t("orderRequest.setLocation"), onPress: () => router.push("/addresses"), style: "default" },
+          { text: t("common.cancel"), style: "cancel" },
+        ]
+      );
+      return;
+    }
     setIsSubmitting(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const address = defaultAddress.label;
+    const address = defaultAddress.address?.trim()
+      ? `${defaultAddress.label} — ${defaultAddress.address.trim()}`
+      : defaultAddress.label;
     const appliedPromo = promoStatus === "valid" && promoCode.trim() ? promoCode.trim() : undefined;
     const lat = defaultAddress.latitude ?? undefined;
     const lon = defaultAddress.longitude ?? undefined;
