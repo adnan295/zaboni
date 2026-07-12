@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { db, usersTable, ordersTable, orderItemsTable, orderItemOptionsTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, courierSubscriptionPlansTable, courierCustomerRatingsTable, courierApplicationsTable, referralsTable, courierSubscriptionRequestsTable, systemSettingsTable, restaurantsTable } from "@workspace/db";
+import { db, usersTable, ordersTable, orderItemsTable, orderItemOptionsTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, courierSubscriptionPlansTable, courierCustomerRatingsTable, courierApplicationsTable, referralsTable, courierSubscriptionRequestsTable, systemSettingsTable, restaurantsTable, restaurantUsersTable } from "@workspace/db";
 import { and, eq, ne, inArray, notInArray, avg, count, sql, desc, getTableColumns } from "drizzle-orm";
 import { haversineKm as _haversineKm } from "../lib/deliveryZones";
 import { z } from "zod";
@@ -177,7 +177,10 @@ const locationSchema = z.object({
 
 const MAX_SPEED_KMH = 150;
 const MAX_SINGLE_JUMP_KM = 50;
-const SERVICE_AREA_MAX_KM = 100;
+// Sanity bound on a courier's first location, measured from Damascus. Wide enough to
+// cover the whole country (Homs ~140km, Aleppo ~350km, Qamishli ~600km) — it only exists
+// to drop obviously bogus coordinates, not to gate which city a courier works in.
+const SERVICE_AREA_MAX_KM = 600;
 
 router.patch("/courier/location", requireCourier, async (req, res) => {
   const body = locationSchema.safeParse(req.body);
@@ -200,29 +203,32 @@ router.patch("/courier/location", requireCourier, async (req, res) => {
     prev?.courierLat !== undefined && prev?.courierLon !== undefined &&
     prev?.courierLocationUpdatedAt !== undefined;
 
+  // Anti-abuse checks are advisory: an implausible ping is dropped (not persisted),
+  // but the request still succeeds with 200. The courier app treats a non-2xx location
+  // response as fatal and shows a crash screen — a rejected background ping must never
+  // do that. Suspicious data simply isn't stored.
+  let acceptUpdate = true;
   if (hasPriorLocation) {
     const elapsedHours = (Date.now() - prev!.courierLocationUpdatedAt!.getTime()) / 3_600_000;
     const distKm = haversineKm(prev!.courierLat!, prev!.courierLon!, body.data.lat, body.data.lon);
-    if (distKm > MAX_SINGLE_JUMP_KM) {
-      res.status(429).json({ error: "Location update rejected: distance jump too large" });
-      return;
-    }
-    if (elapsedHours > 0 && distKm / elapsedHours > MAX_SPEED_KMH) {
-      res.status(429).json({ error: "Location update rejected: movement speed exceeds physical limit" });
-      return;
+    if (distKm > MAX_SINGLE_JUMP_KM || (elapsedHours > 0 && distKm / elapsedHours > MAX_SPEED_KMH)) {
+      acceptUpdate = false;
+      req.log.warn({ courierId, distKm, elapsedHours }, "Dropping implausible courier location update");
     }
   } else {
     const distFromCenter = haversineKm(DAMASCUS_LAT, DAMASCUS_LON, body.data.lat, body.data.lon);
     if (distFromCenter > SERVICE_AREA_MAX_KM) {
-      res.status(400).json({ error: "Location is outside the service area" });
-      return;
+      acceptUpdate = false;
+      req.log.warn({ courierId, distFromCenter }, "Dropping first courier location outside service area");
     }
   }
 
-  await db
-    .update(usersTable)
-    .set({ courierLat: body.data.lat, courierLon: body.data.lon, courierLocationUpdatedAt: new Date() })
-    .where(eq(usersTable.id, courierId));
+  if (acceptUpdate) {
+    await db
+      .update(usersTable)
+      .set({ courierLat: body.data.lat, courierLon: body.data.lon, courierLocationUpdatedAt: new Date() })
+      .where(eq(usersTable.id, courierId));
+  }
 
   res.json({ ok: true });
 });
@@ -230,11 +236,20 @@ router.patch("/courier/location", requireCourier, async (req, res) => {
 const DAMASCUS_LAT = 33.5138;
 const DAMASCUS_LON = 36.2765;
 
+// Restaurant orders are shown to every online courier, nearest-restaurant-first.
+// A soft distance cap keeps a courier from seeing orders across the city; an order
+// or courier missing GPS coordinates is never hidden (fallback: visible, sorted last).
+const MAX_VISIBLE_RADIUS_KM = 15;
+
 router.get("/courier/orders/available", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
 
   const courierUser = await db
-    .select({ isOnline: usersTable.isOnline, zoneId: usersTable.zoneId })
+    .select({
+      isOnline: usersTable.isOnline,
+      lat: usersTable.courierLat,
+      lon: usersTable.courierLon,
+    })
     .from(usersTable)
     .where(eq(usersTable.id, courierId))
     .limit(1);
@@ -244,7 +259,8 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
     return;
   }
 
-  const courierZoneId = courierUser[0]?.zoneId ?? null;
+  const courierLat = courierUser[0]?.lat ?? null;
+  const courierLon = courierUser[0]?.lon ?? null;
 
   const rows = await db
     .select({
@@ -261,25 +277,39 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
       updatedAt: ordersTable.updatedAt,
       orderType: ordersTable.orderType,
       placeName: ordersTable.placeName,
-      restaurantZoneId: restaurantsTable.zoneId,
+      restaurantLat: restaurantsTable.lat,
+      restaurantLon: restaurantsTable.lon,
     })
     .from(ordersTable)
     .leftJoin(restaurantsTable, eq(ordersTable.restaurantId, restaurantsTable.id))
     .where(and(eq(ordersTable.status, "searching"), eq(ordersTable.courierId, "")))
     .orderBy(ordersTable.createdAt);
 
-  // Zone match: errand orders (no restaurantId) are visible to everyone. Restaurant
-  // orders are only visible to couriers whose zoneId equals the restaurant's zoneId
-  // AND is non-null — an unassigned restaurant or unassigned courier never matches
-  // (no null-to-null fallback), per spec.
+  const canMeasure = courierLat !== null && courierLon !== null;
+
+  // Every online courier can see every searching order. Restaurant orders get a soft
+  // proximity cap and are sorted nearest-first; errand orders (no restaurant) and any
+  // order we cannot measure stay visible (sorted after measurable ones).
   const matching = rows
     .filter((o) => o.userId !== courierId)
-    .filter((o) =>
-      o.restaurantId
-        ? o.restaurantZoneId !== null && o.restaurantZoneId === courierZoneId
-        : true,
+    .map((o) => {
+      const distanceKm =
+        canMeasure && o.restaurantLat !== null && o.restaurantLon !== null
+          ? _haversineKm(courierLat as number, courierLon as number, o.restaurantLat, o.restaurantLon)
+          : null;
+      return { o, distanceKm };
+    })
+    .filter(
+      ({ o, distanceKm }) =>
+        !o.restaurantId || distanceKm === null || distanceKm <= MAX_VISIBLE_RADIUS_KM,
     )
-    .map((o) => ({
+    .sort((a, b) => {
+      if (a.distanceKm === null && b.distanceKm === null) return 0;
+      if (a.distanceKm === null) return 1;
+      if (b.distanceKm === null) return -1;
+      return a.distanceKm - b.distanceKm;
+    })
+    .map(({ o, distanceKm }) => ({
       id: o.id,
       status: o.status,
       restaurantName: o.restaurantName,
@@ -292,6 +322,7 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
       updatedAt: o.updatedAt,
       orderType: o.orderType,
       placeName: o.placeName,
+      distanceKm: distanceKm === null ? null : Math.round(distanceKm * 10) / 10,
     }));
 
   res.json(matching);
@@ -306,13 +337,36 @@ router.get("/courier/orders/active", requireCourier, async (req, res) => {
       ...getTableColumns(ordersTable),
       customerName: usersTable.name,
       customerPhone: usersTable.phone,
+      restaurantPhone: restaurantsTable.phone,
+      restaurantLat: restaurantsTable.lat,
+      restaurantLon: restaurantsTable.lon,
     })
     .from(ordersTable)
     .leftJoin(usersTable, eq(ordersTable.userId, usersTable.id))
+    .leftJoin(restaurantsTable, eq(ordersTable.restaurantId, restaurantsTable.id))
     .where(eq(ordersTable.courierId, courierId))
     .orderBy(ordersTable.updatedAt);
 
   const active = rows.filter((o) => o.status !== "delivered" && o.status !== "searching");
+
+  // Which of these restaurants have an active portal account? The courier uses this to
+  // know whether the order was pushed to the restaurant's portal, or they must phone it in.
+  const activeRestaurantIds = [
+    ...new Set(active.map((o) => o.restaurantId).filter((x): x is string => !!x)),
+  ];
+  let portalRestaurantIds = new Set<string>();
+  if (activeRestaurantIds.length > 0) {
+    const portalRows = await db
+      .select({ restaurantId: restaurantUsersTable.restaurantId })
+      .from(restaurantUsersTable)
+      .where(
+        and(
+          inArray(restaurantUsersTable.restaurantId, activeRestaurantIds),
+          eq(restaurantUsersTable.isActive, true),
+        ),
+      );
+    portalRestaurantIds = new Set(portalRows.map((r) => r.restaurantId));
+  }
 
   // Fetch structured items + options for active orders
   const activeIds = active.map((o) => o.id);
@@ -357,6 +411,7 @@ router.get("/courier/orders/active", requireCourier, async (req, res) => {
       ...o,
       customerName: contactRevealed ? o.customerName : null,
       customerPhone: contactRevealed ? o.customerPhone : null,
+      restaurantHasPortal: o.restaurantId ? portalRestaurantIds.has(o.restaurantId) : false,
       items: itemsByOrderId.get(o.id) ?? [],
     };
   });
@@ -403,7 +458,7 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   }
 
   const courierUsers = await db
-    .select({ name: usersTable.name, phone: usersTable.phone, isOnline: usersTable.isOnline, zoneId: usersTable.zoneId })
+    .select({ name: usersTable.name, phone: usersTable.phone, isOnline: usersTable.isOnline })
     .from(usersTable)
     .where(eq(usersTable.id, courierId))
     .limit(1);
@@ -411,20 +466,6 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   if (!courierUsers[0]?.isOnline) {
     res.status(409).json({ error: "You must be online to accept orders" });
     return;
-  }
-
-  if (order.restaurantId) {
-    const restaurantRows = await db
-      .select({ zoneId: restaurantsTable.zoneId })
-      .from(restaurantsTable)
-      .where(eq(restaurantsTable.id, order.restaurantId))
-      .limit(1);
-    const restaurantZoneId = restaurantRows[0]?.zoneId ?? null;
-    const courierZoneId = courierUsers[0]?.zoneId ?? null;
-    if (restaurantZoneId === null || restaurantZoneId !== courierZoneId) {
-      res.status(409).json({ error: "Order is outside your work zone" });
-      return;
-    }
   }
 
   const [activeSub] = await db

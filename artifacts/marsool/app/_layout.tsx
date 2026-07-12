@@ -1,6 +1,26 @@
 import "@/i18n";
-import { initApiClient } from "@/lib/apiConfig";
+import { initApiClient, getApiBaseUrl } from "@/lib/apiConfig";
 initApiClient();
+
+// Report client-side render crashes (invisible in a production build) to the
+// server so they surface in the API log. Runs above every provider, so it can
+// only use plain fetch — no hooks or context here.
+function reportClientError(error: Error, componentStack: string): void {
+  try {
+    void fetch(`${getApiBaseUrl()}/api/client-error`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: error?.message ?? String(error),
+        stack: error?.stack ?? null,
+        componentStack,
+        context: "error-boundary",
+      }),
+    }).catch(() => {});
+  } catch {
+    /* never let reporting throw */
+  }
+}
 import {
   Tajawal_400Regular,
   Tajawal_500Medium,
@@ -173,7 +193,7 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <ErrorBoundary>
+      <ErrorBoundary onError={reportClientError}>
         <QueryClientProvider client={queryClient}>
           <LanguageProvider>
             <LanguageGate>

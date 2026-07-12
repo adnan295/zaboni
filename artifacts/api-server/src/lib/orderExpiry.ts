@@ -9,19 +9,27 @@ const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 async function expireStaleOrders(): Promise<void> {
   const cutoff = new Date(Date.now() - EXPIRY_MINUTES * 60 * 1000);
 
-  const stale = await db
-    .select({
-      id: ordersTable.id,
-      userId: ordersTable.userId,
-      restaurantName: ordersTable.restaurantName,
-    })
-    .from(ordersTable)
-    .where(
-      and(
-        eq(ordersTable.status, "searching"),
-        lt(ordersTable.createdAt, cutoff),
-      ),
-    );
+  let stale: { id: string; userId: string; restaurantName: string }[];
+  try {
+    stale = await db
+      .select({
+        id: ordersTable.id,
+        userId: ordersTable.userId,
+        restaurantName: ordersTable.restaurantName,
+      })
+      .from(ordersTable)
+      .where(
+        and(
+          eq(ordersTable.status, "searching"),
+          lt(ordersTable.createdAt, cutoff),
+        ),
+      );
+  } catch (err) {
+    // A transient DB failure (e.g. connection blip) must never crash the whole
+    // server. Log and retry on the next interval.
+    logger.error({ err }, "Order expiry check failed — will retry next interval");
+    return;
+  }
 
   if (stale.length === 0) return;
 

@@ -239,12 +239,30 @@ export default function AvailableOrdersScreen() {
             <View style={styles.empty}>
               {isOnline && availableOrdersError ? (
                 <>
-                  <MaterialIcons name="wifi-off" size={56} color="#ef4444" />
+                  <MaterialIcons
+                    name={
+                      availableOrdersError === "network"
+                        ? "wifi-off"
+                        : availableOrdersError === "forbidden"
+                        ? "person-off"
+                        : "error-outline"
+                    }
+                    size={56}
+                    color="#ef4444"
+                  />
                   <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-                    {t("courier.available.errorTitle")}
+                    {availableOrdersError === "network"
+                      ? t("courier.available.errorTitle")
+                      : availableOrdersError === "forbidden"
+                      ? t("courier.available.forbiddenTitle")
+                      : t("courier.available.serverErrorTitle")}
                   </Text>
                   <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
-                    {t("courier.available.errorBody")}
+                    {availableOrdersError === "network"
+                      ? t("courier.available.errorBody")
+                      : availableOrdersError === "forbidden"
+                      ? t("courier.available.forbiddenBody")
+                      : t("courier.available.serverErrorBody")}
                   </Text>
                   <TouchableOpacity
                     style={[styles.goOnlineBtn, { backgroundColor: colors.primary }]}

@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import { AppState, AppStateStatus, Platform, Vibration } from "react-native";
 import { io } from "socket.io-client";
-import { customFetch } from "@workspace/api-client-react";
+import { customFetch, ApiError } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
 import { getApiBaseUrl } from "@/lib/apiConfig";
 
@@ -40,10 +40,23 @@ export interface CourierOrder {
 
 export type CourierDeliveryStatus = "picked_up" | "on_way" | "delivered";
 
+// "network": the request never reached the server (offline, DNS, timeout).
+// "forbidden": server reachable, but this account isn't authorized as a courier
+// (e.g. role reverted, courier application not yet approved).
+// "server": server reachable but returned an unexpected error (5xx, etc).
+export type AvailableOrdersErrorKind = "network" | "forbidden" | "server" | null;
+
+function classifyOrdersError(err: unknown): Exclude<AvailableOrdersErrorKind, null> {
+  if (err instanceof ApiError) {
+    return err.status === 403 ? "forbidden" : "server";
+  }
+  return "network";
+}
+
 interface CourierContextValue {
   availableOrders: CourierOrder[];
   activeOrders: CourierOrder[];
-  availableOrdersError: boolean;
+  availableOrdersError: AvailableOrdersErrorKind;
   isLoadingAvailable: boolean;
   isLoadingActive: boolean;
   isOnline: boolean;
@@ -65,7 +78,7 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
   const { user, isCourier, token } = useAuth();
   const [availableOrders, setAvailableOrders] = useState<CourierOrder[]>([]);
   const [activeOrders, setActiveOrders] = useState<CourierOrder[]>([]);
-  const [availableOrdersError, setAvailableOrdersError] = useState(false);
+  const [availableOrdersError, setAvailableOrdersError] = useState<AvailableOrdersErrorKind>(null);
   const [isLoadingAvailable, setIsLoadingAvailable] = useState(false);
   const [isLoadingActive, setIsLoadingActive] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
@@ -98,9 +111,9 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
 
       lastKnownIdsRef.current = new Set(newOrders.map((o) => o.id));
       setAvailableOrders(newOrders);
-      setAvailableOrdersError(false);
-    } catch {
-      setAvailableOrdersError(true);
+      setAvailableOrdersError(null);
+    } catch (err) {
+      setAvailableOrdersError(classifyOrdersError(err));
     } finally {
       setIsLoadingAvailable(false);
     }
