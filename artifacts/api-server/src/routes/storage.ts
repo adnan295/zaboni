@@ -145,8 +145,15 @@ router.post("/storage/uploads/request-url", requireUploadAuth, uploadRateLimit, 
     // Local-disk upload URLs are server-relative paths. Web clients can fetch()
     // a relative URL fine (resolved against the page origin), but the Expo/React
     // Native client has no page origin, so it needs an absolute URL.
+    // Force https for any non-localhost host: the API is only served over https
+    // in production, and a cleartext http:// upload URL is blocked by Android and
+    // by browsers (mixed content). Guarantees it even if the proxy omits
+    // X-Forwarded-Proto, so `trust proxy` alone couldn't recover the scheme.
+    const host = req.get("host") ?? "";
+    const isLocalHost = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host);
+    const scheme = isLocalHost ? req.protocol : "https";
     const absoluteUploadURL = isLocalStorageMode
-      ? `${req.protocol}://${req.get("host")}${uploadURL}`
+      ? `${scheme}://${host}${uploadURL}`
       : uploadURL;
 
     res.json(
