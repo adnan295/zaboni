@@ -8,6 +8,14 @@ import { logger } from "./lib/logger";
 
 const app: Express = express();
 
+// Behind an SSL-terminating reverse proxy (nginx/Caddy/Cloudflare). Trust it so
+// `req.protocol`/`req.secure` reflect the original HTTPS request (via
+// X-Forwarded-Proto) and `req.ip` is the real client. Without this, local-mode
+// storage upload URLs were built as cleartext `http://…`, which Android blocks
+// (and browsers block as mixed-content) → "Network request failed" on receipt
+// and admin image uploads.
+app.set("trust proxy", true);
+
 app.use(
   pinoHttp({
     logger,
