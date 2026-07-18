@@ -1,14 +1,15 @@
-import React from "react";
+import React, { useCallback } from "react";
 import {
   View,
   StyleSheet,
   FlatList,
   TouchableOpacity,
   Platform,
+  RefreshControl,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
@@ -111,11 +112,19 @@ export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const backIcon = useBackIcon();
-  const { notifications, markRead, markAllRead, deleteNotification, clearAll } = useNotifications();
+  const { notifications, refreshing, refresh, markRead, markAllRead, deleteNotification, clearAll } = useNotifications();
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
 
   const unread = notifications.filter((n) => !n.read).length;
+
+  // Pull the latest notifications from the server every time this screen opens,
+  // so items that arrived while the app was backgrounded/closed show up.
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh]),
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -133,34 +142,42 @@ export default function NotificationsScreen() {
         )}
       </View>
 
-      {notifications.length === 0 ? (
-        <View style={styles.empty}>
-          <MaterialIcons name="notifications-off" size={64} color={colors.mutedForeground} />
-          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>{t("notifications.empty.title")}</Text>
-          <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
-            {t("notifications.empty.body")}
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={notifications}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ padding: 16, paddingBottom: bottomPadding + 20 }}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item: notif }) => (
-            <NotifCard
-              notif={notif}
-              onPress={() => {
-                markRead(notif.id);
-                if (notif.orderId && (notif.type === "order_status" || notif.type === "rating_request")) {
-                  router.push({ pathname: "/order-tracking/[id]", params: { id: notif.orderId } });
-                }
-                // system/promo: just mark as read (no specific destination)
-              }}
-              onDelete={() => deleteNotification(notif.id)}
-            />
-          )}
-          ListFooterComponent={
+      <FlatList
+        data={notifications}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={
+          notifications.length === 0
+            ? styles.emptyContainer
+            : { padding: 16, paddingBottom: bottomPadding + 20 }
+        }
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} />
+        }
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <MaterialIcons name="notifications-off" size={64} color={colors.mutedForeground} />
+            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>{t("notifications.empty.title")}</Text>
+            <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
+              {t("notifications.empty.body")}
+            </Text>
+          </View>
+        }
+        renderItem={({ item: notif }) => (
+          <NotifCard
+            notif={notif}
+            onPress={() => {
+              markRead(notif.id);
+              if (notif.orderId && (notif.type === "order_status" || notif.type === "rating_request")) {
+                router.push({ pathname: "/order-tracking/[id]", params: { id: notif.orderId } });
+              }
+              // system/promo: just mark as read (no specific destination)
+            }}
+            onDelete={() => deleteNotification(notif.id)}
+          />
+        )}
+        ListFooterComponent={
+          notifications.length > 0 ? (
             <TouchableOpacity
               style={[styles.clearBtn, { borderColor: colors.border }]}
               onPress={clearAll}
@@ -169,9 +186,9 @@ export default function NotificationsScreen() {
               <MaterialIcons name="delete-sweep" size={18} color={colors.mutedForeground} />
               <Text style={[styles.clearText, { color: colors.mutedForeground }]}>{t("notifications.clearAll")}</Text>
             </TouchableOpacity>
-          }
-        />
-      )}
+          ) : null
+        }
+      />
     </View>
   );
 }
@@ -189,7 +206,8 @@ const styles = StyleSheet.create({
   headerTitle: { flex: 1, textAlign: "center", fontSize: 18, fontWeight: "800" },
   markAllBtn: { width: 72, alignItems: "flex-end" },
   markAllText: { fontSize: 13, fontWeight: "600" },
-  empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, paddingHorizontal: 32 },
+  emptyContainer: { flexGrow: 1 },
+  empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, paddingHorizontal: 32, paddingVertical: 80 },
   emptyTitle: { fontSize: 20, fontWeight: "800" },
   emptyBody: { fontSize: 14, textAlign: "center" },
   cardWrapper: {

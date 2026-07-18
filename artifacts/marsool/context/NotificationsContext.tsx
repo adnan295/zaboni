@@ -30,6 +30,8 @@ interface NotificationsContextValue {
   notifications: AppNotification[];
   unreadCount: number;
   toast: ToastPayload | null;
+  refreshing: boolean;
+  refresh: () => Promise<void>;
   dismissToast: () => void;
   addNotification: (n: Omit<AppNotification, "id" | "read" | "createdAt">) => void;
   markRead: (id: string) => void;
@@ -168,61 +170,89 @@ async function addManyToDismissed(newIds: string[]): Promise<void> {
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [toast, setToast] = useState<ToastPayload | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const authTokenRef = useRef<string | null>(null);
+
+  // Pull the latest notifications from the server and merge them with any
+  // live, local-only items (e.g. a push received while the app was open that
+  // isn't persisted server-side yet). Returns true when server data was
+  // applied. Safe to call repeatedly — on every screen focus / pull-to-refresh.
+  const loadFromServer = useCallback(async (): Promise<boolean> => {
+    const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+    authTokenRef.current = token;
+    if (!token) return false;
+
+    const [serverItems, dismissedIds, readIds] = await Promise.all([
+      fetchServerNotifications(token),
+      getDismissedIds(),
+      getReadIds(),
+    ]);
+    if (serverItems.length === 0) return false;
+
+    const serverIds = new Set(serverItems.map((n) => n.id));
+
+    // Trim dismissed set to only IDs still on server (prevent unbounded growth)
+    const trimmedDismissed = [...dismissedIds].filter((id) => serverIds.has(id));
+    if (trimmedDismissed.length !== dismissedIds.size) {
+      AsyncStorage.setItem(DISMISSED_IDS_KEY, JSON.stringify(trimmedDismissed)).catch(() => {});
+    }
+
+    const mapped = serverItems
+      .filter((n) => !dismissedIds.has(n.id))
+      .map((n) => ({
+        ...serverToApp(n),
+        read: readIds.has(n.id) || (n.isRead ?? false),
+      }));
+    const mappedIds = new Set(mapped.map((n) => n.id));
+
+    setNotifications((prev) => {
+      // Keep live, local-only entries that aren't represented on the server,
+      // but drop ones that clearly duplicate a server item (same title+body,
+      // created within a few minutes) to avoid showing the notification twice.
+      const isServerDup = (local: AppNotification) =>
+        mapped.some(
+          (s) =>
+            s.title === local.title &&
+            s.body === local.body &&
+            Math.abs(s.createdAt - local.createdAt) < 5 * 60_000,
+        );
+      const localOnly = prev.filter((n) => !mappedIds.has(n.id) && !isServerDup(n));
+      return [...mapped, ...localOnly]
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .slice(0, 60);
+    });
+    return true;
+  }, []);
+
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadFromServer();
+    } catch {
+      // silent — keep whatever is currently shown
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadFromServer]);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function load() {
-      const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
-      authTokenRef.current = token;
-
-      if (token) {
-        const [serverItems, dismissedIds, readIds] = await Promise.all([
-          fetchServerNotifications(token),
-          getDismissedIds(),
-          getReadIds(),
-        ]);
-        if (cancelled) return;
-
-        if (serverItems.length > 0) {
-          // Apply local dismissed/read overrides to server data
-          const serverIds = new Set(serverItems.map((n) => n.id));
-
-          // Trim dismissed set to only IDs still on server (prevent unbounded growth)
-          const trimmedDismissed = [...dismissedIds].filter((id) => serverIds.has(id));
-          if (trimmedDismissed.length !== dismissedIds.size) {
-            AsyncStorage.setItem(DISMISSED_IDS_KEY, JSON.stringify(trimmedDismissed)).catch(() => {});
-          }
-
-          const mapped = serverItems
-            .filter((n) => !dismissedIds.has(n.id))
-            .map((n) => ({
-              ...serverToApp(n),
-              read: readIds.has(n.id) || (n.isRead ?? false),
-            }));
-
-          setNotifications(mapped);
-          return;
-        }
-      }
-
-      // Fallback: read from AsyncStorage cache
+    (async () => {
+      const hadServer = await loadFromServer().catch(() => false);
+      if (cancelled || hadServer) return;
+      // Fallback: read from AsyncStorage cache when the server has nothing
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
-      if (cancelled) return;
-      if (raw) {
-        setNotifications(JSON.parse(raw) as AppNotification[]);
-      }
-    }
-
-    load().catch(() => {});
+      if (cancelled || !raw) return;
+      setNotifications(JSON.parse(raw) as AppNotification[]);
+    })().catch(() => {});
 
     return () => {
       cancelled = true;
       if (toastTimer.current) clearTimeout(toastTimer.current);
     };
-  }, []);
+  }, [loadFromServer]);
 
   const dismissToast = useCallback(() => {
     setToast(null);
@@ -308,7 +338,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
 
   return (
     <NotificationsContext.Provider
-      value={{ notifications, unreadCount, toast, dismissToast, addNotification, markRead, markAllRead, deleteNotification, clearAll }}
+      value={{ notifications, unreadCount, toast, refreshing, refresh, dismissToast, addNotification, markRead, markAllRead, deleteNotification, clearAll }}
     >
       {children}
     </NotificationsContext.Provider>
