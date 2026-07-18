@@ -6,6 +6,7 @@ import { logger } from "../lib/logger";
 import { sendPushToTokens, sendPushToUsers } from "../lib/push";
 import { sendWebPushToRestaurant } from "../lib/webPush";
 import type { AuthPayload } from "../middleware/auth";
+import { verifyAdminToken } from "../middleware/adminAuth";
 
 interface RestaurantPortalSocketPayload {
   tokenType: "restaurant_portal";
@@ -206,18 +207,22 @@ export function setupOrdersNamespace(io: SocketServer): void {
   const ns = io.of("/orders");
   _ordersNs = ns;
 
-  ns.use((socket: AuthenticatedSocket, next) => {
+  ns.use(async (socket: AuthenticatedSocket, next) => {
     const token =
       socket.handshake.auth?.token ||
       socket.handshake.headers?.authorization?.replace("Bearer ", "");
 
     if (!token) return next(new Error("Authentication required"));
 
-    // Allow admin panel connections via ADMIN_SECRET
-    const adminSecret = process.env["ADMIN_SECRET"];
-    if (adminSecret && token === adminSecret) {
-      socket.isAdmin = true;
-      return next();
+    // Allow admin panel connections via the admin password (DB-stored or the
+    // bootstrap ADMIN_SECRET).
+    try {
+      if (await verifyAdminToken(token)) {
+        socket.isAdmin = true;
+        return next();
+      }
+    } catch {
+      return next(new Error("Authentication error"));
     }
 
     const secret = getJwtSecret();

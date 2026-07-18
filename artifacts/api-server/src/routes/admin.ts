@@ -42,7 +42,7 @@ import { sendPushToAllCustomers, isFlashDealImminent } from "../lib/push";
 import { sendSmsViaGateway, isSmsGatewayConfigured } from "../lib/sms";
 import { sendAdminAlertWebhook } from "../lib/waverifyMonitor";
 import { z } from "zod";
-import { requireAdmin } from "../middleware/adminAuth";
+import { requireAdmin, verifyAdminToken, setAdminPassword, hasAdminPassword } from "../middleware/adminAuth";
 
 const ORDER_STATUSES = [
   "searching",
@@ -71,6 +71,35 @@ router.get("/public/payment-info", async (_req, res) => {
 });
 
 router.use("/admin", requireAdmin);
+
+// Whether a DB admin password has been set (vs. still using the bootstrap
+// ADMIN_SECRET). Lets the UI nudge the operator to set a real password.
+router.get("/admin/password-status", async (_req, res) => {
+  res.json({ isSet: await hasAdminPassword() });
+});
+
+// Change the admin password. Requires the current password (defence in depth,
+// on top of requireAdmin). The new password is bcrypt-hashed and stored in the
+// DB, after which it fully replaces the previous credential.
+router.post("/admin/change-password", async (req, res) => {
+  const currentPassword = (req.body as { currentPassword?: unknown })?.currentPassword;
+  const newPassword = (req.body as { newPassword?: unknown })?.newPassword;
+  if (typeof currentPassword !== "string" || typeof newPassword !== "string") {
+    res.status(400).json({ error: "invalid_input" });
+    return;
+  }
+  if (newPassword.length < 8) {
+    res.status(400).json({ error: "weak_password", message: "كلمة السر يجب أن تكون 8 أحرف على الأقل" });
+    return;
+  }
+  const ok = await verifyAdminToken(currentPassword);
+  if (!ok) {
+    res.status(401).json({ error: "wrong_current_password", message: "كلمة السر الحالية غير صحيحة" });
+    return;
+  }
+  await setAdminPassword(newPassword);
+  res.json({ ok: true });
+});
 
 router.get("/admin/stats", async (_req, res) => {
   const todayStart = new Date();

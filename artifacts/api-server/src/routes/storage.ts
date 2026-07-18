@@ -2,6 +2,7 @@ import { Router, type IRouter, type Request, type Response, type NextFunction } 
 import { Readable } from "stream";
 import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
+import { verifyAdminToken } from "../middleware/adminAuth";
 import {
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
@@ -59,7 +60,7 @@ function getJwtSecret(): string {
   return secret;
 }
 
-function requireUploadAuth(req: Request, res: Response, next: NextFunction): void {
+async function requireUploadAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers["authorization"];
   const token =
     typeof authHeader === "string" && authHeader.startsWith("Bearer ")
@@ -71,8 +72,7 @@ function requireUploadAuth(req: Request, res: Response, next: NextFunction): voi
     return;
   }
 
-  const adminSecret = process.env["ADMIN_SECRET"];
-  if (adminSecret && token === adminSecret) {
+  if (await verifyAdminToken(token)) {
     res.locals["isAdmin"] = true;
     next();
     return;

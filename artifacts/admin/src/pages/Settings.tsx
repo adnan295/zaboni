@@ -51,6 +51,10 @@ export default function Settings() {
 
   const [paymentQrUrl, setPaymentQrUrl] = useState("");
 
+  const [pwCurrent, setPwCurrent] = useState("");
+  const [pwNew, setPwNew] = useState("");
+  const [pwConfirm, setPwConfirm] = useState("");
+
   useEffect(() => {
     if (settings) {
       setGatewayUrl(settings["sms_gateway_url"] ?? "");
@@ -118,6 +122,51 @@ export default function Settings() {
     qrSaveMutation.mutate({ payment_qr_url: "" });
   }
 
+  const changePasswordMutation = useMutation({
+    mutationFn: () => api.changeAdminPassword(pwCurrent, pwNew),
+    onSuccess: () => {
+      setPwCurrent("");
+      setPwNew("");
+      setPwConfirm("");
+      toast({
+        title: "تم تغيير كلمة السر",
+        description: "تم تحديث كلمة سر الإدارة بنجاح. استخدمها في تسجيل الدخول القادم.",
+      });
+    },
+    onError: (err: Error) => {
+      const map: Record<string, string> = {
+        wrong_current_password: "كلمة السر الحالية غير صحيحة",
+        weak_password: "كلمة السر الجديدة يجب أن تكون 8 أحرف على الأقل",
+        invalid_input: "يرجى تعبئة الحقول بشكل صحيح",
+      };
+      toast({
+        title: "خطأ",
+        description: map[err.message] ?? err.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  function handleChangePassword() {
+    if (!pwCurrent || !pwNew || !pwConfirm) {
+      toast({ title: "خطأ", description: "يرجى تعبئة جميع الحقول", variant: "destructive" });
+      return;
+    }
+    if (pwNew.length < 8) {
+      toast({
+        title: "خطأ",
+        description: "كلمة السر الجديدة يجب أن تكون 8 أحرف على الأقل",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (pwNew !== pwConfirm) {
+      toast({ title: "خطأ", description: "كلمة السر الجديدة وتأكيدها غير متطابقين", variant: "destructive" });
+      return;
+    }
+    changePasswordMutation.mutate();
+  }
+
   async function handleWebhookTest() {
     const url = alertWebhookUrl.trim();
     if (!url) {
@@ -173,6 +222,59 @@ export default function Settings() {
         <h1 className="text-2xl font-bold">الإعدادات</h1>
         <p className="text-muted-foreground text-sm mt-1">إعدادات بوابة SMS والأمان</p>
       </div>
+
+      {/* Admin Password Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🔐</span>
+            <div>
+              <CardTitle>تغيير كلمة سر الإدارة</CardTitle>
+              <CardDescription>
+                كلمة السر هذه تُستخدم لتسجيل الدخول إلى لوحة الإدارة. غيّرها إلى كلمة قوية قبل الإطلاق.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="space-y-2">
+            <Label htmlFor="pw-current">كلمة السر الحالية</Label>
+            <Input
+              id="pw-current"
+              type="password"
+              autoComplete="current-password"
+              value={pwCurrent}
+              onChange={(e) => setPwCurrent(e.target.value)}
+              placeholder="أدخل كلمة السر الحالية"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="pw-new">كلمة السر الجديدة</Label>
+            <Input
+              id="pw-new"
+              type="password"
+              autoComplete="new-password"
+              value={pwNew}
+              onChange={(e) => setPwNew(e.target.value)}
+              placeholder="8 أحرف على الأقل"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="pw-confirm">تأكيد كلمة السر الجديدة</Label>
+            <Input
+              id="pw-confirm"
+              type="password"
+              autoComplete="new-password"
+              value={pwConfirm}
+              onChange={(e) => setPwConfirm(e.target.value)}
+              placeholder="أعد إدخال كلمة السر الجديدة"
+            />
+          </div>
+          <Button onClick={handleChangePassword} disabled={changePasswordMutation.isPending}>
+            {changePasswordMutation.isPending ? "جاري الحفظ..." : "تغيير كلمة السر"}
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* SMS Gateway Section */}
       <Card>
