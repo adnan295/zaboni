@@ -9,24 +9,9 @@ import {
 import { and, desc, eq, isNull, count, sql } from "drizzle-orm";
 import { z } from "zod/v4";
 import { requireAuth } from "../middleware/auth";
+import { requireAdmin } from "../middleware/adminAuth";
 import { logger } from "../lib/logger";
 import { notifySupportMessage, notifyAdminSupportMessage } from "../orders/server";
-
-const ADMIN_SECRET = process.env["ADMIN_SECRET"];
-
-function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  if (!ADMIN_SECRET) {
-    res.status(503).json({ error: "admin_not_configured" });
-    return;
-  }
-  const auth = req.headers.authorization ?? "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : auth;
-  if (!token || token !== ADMIN_SECRET) {
-    res.status(401).json({ error: "unauthorized" });
-    return;
-  }
-  next();
-}
 
 const router = Router();
 

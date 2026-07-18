@@ -567,6 +567,22 @@ export const api = {
   patch: <T>(path: string, body: unknown) => apiFetch<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
   del: (path: string) => apiFetch<void>(path, { method: "DELETE" }),
 
+  async changeAdminPassword(currentPassword: string, newPassword: string): Promise<void> {
+    const token = getAdminToken();
+    const res = await fetch(`${API_BASE}/admin/change-password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
+      throw new Error(body.message ?? body.error ?? "فشل تغيير كلمة السر");
+    }
+  },
+
   async verifyToken(token: string): Promise<boolean> {
     const res = await fetch(`${API_BASE}/admin/stats`, {
       headers: { Authorization: `Bearer ${token}` },
