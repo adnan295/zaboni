@@ -527,9 +527,53 @@
         cursor: pointer;
         text-decoration: underline;
       }
+
+      /* ─── VPN notice ticker ─── */
+      .vpn-ticker {
+        background: #111827;
+        color: #fff;
+        overflow: hidden;
+        white-space: nowrap;
+        padding: 9px 0;
+        font-size: 14px;
+        font-weight: 700;
+        position: relative;
+        z-index: 101;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+      }
+      .vpn-ticker__track {
+        display: inline-block;
+        white-space: nowrap;
+        will-change: transform;
+        animation: vpn-marquee 22s linear infinite;
+      }
+      .vpn-ticker__track span {
+        display: inline-block;
+        padding: 0 36px;
+      }
+      .vpn-ticker__track span b { color: #fca5a5; }
+      .vpn-ticker:hover .vpn-ticker__track { animation-play-state: paused; }
+      @keyframes vpn-marquee {
+        from { transform: translateX(0); }
+        to   { transform: translateX(-50%); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .vpn-ticker__track { animation: none; white-space: normal; }
+        .vpn-ticker { text-align: center; padding: 9px 16px; }
+      }
     </style>
   </head>
   <body>
+
+    <!-- ── VPN notice ticker ── -->
+    <div class="vpn-ticker" dir="rtl" aria-label="تنبيه تحميل التطبيق">
+      <div class="vpn-ticker__track">
+        <span>📢 في حال لم يفتح رابط التحميل، الرجاء تشغيل الـ <b>VPN</b> ثم إعادة المحاولة لتحميل التطبيق</span>
+        <span>📢 في حال لم يفتح رابط التحميل، الرجاء تشغيل الـ <b>VPN</b> ثم إعادة المحاولة لتحميل التطبيق</span>
+        <span>📢 في حال لم يفتح رابط التحميل، الرجاء تشغيل الـ <b>VPN</b> ثم إعادة المحاولة لتحميل التطبيق</span>
+        <span>📢 في حال لم يفتح رابط التحميل، الرجاء تشغيل الـ <b>VPN</b> ثم إعادة المحاولة لتحميل التطبيق</span>
+      </div>
+    </div>
 
     <!-- ── Deep-link overlay ── -->
     <div class="dl-overlay" id="dlOverlay">
