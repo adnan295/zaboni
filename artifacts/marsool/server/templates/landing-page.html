@@ -742,12 +742,7 @@
       <div class="qr-wrap" id="qrWrap" style="display:none">
         <div class="qr-inner" id="qrCode"></div>
       </div>
-      <span class="qr-label" id="qrLabel" style="display:none">امسح QR بالكاميرا أو Expo Go</span>
-      <div style="margin-top:20px">
-        <a href="#" id="expoGoBtn" style="color:rgba(255,255,255,0.6);font-size:13px;text-decoration:underline;text-underline-offset:3px;">
-          فتح في Expo Go (للمطورين)
-        </a>
-      </div>
+      <span class="qr-label" id="qrLabel" style="display:none">امسح QR بالكاميرا</span>
     </section>
 
     <!-- ── Footer ── -->
@@ -783,19 +778,6 @@
             document.getElementById('download').scrollIntoView({ behavior: 'smooth' });
           });
         });
-
-        /* Expo deep-link: only from the explicit "Open in Expo Go" button */
-        var expoBtn = document.getElementById('expoGoBtn');
-        if (expoBtn) {
-          expoBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            document.getElementById('dlOverlay').classList.add('active');
-            window.location.href = deepLink;
-            setTimeout(function() {
-              document.getElementById('dlOverlay').classList.remove('active');
-            }, 1800);
-          });
-        }
 
         /* Desktop: show QR code */
         if (!isMobile && typeof QRCodeStyling !== 'undefined') {
