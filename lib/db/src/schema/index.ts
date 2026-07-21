@@ -43,3 +43,4 @@ export * from "./order_item_options";
 export * from "./restaurant_push_subscriptions";
 export * from "./promo_images";
 export * from "./work_zones";
+export * from "./coverage_areas";

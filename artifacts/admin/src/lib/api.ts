@@ -443,6 +443,14 @@ export type WorkZone = {
   createdAt: string;
 };
 
+export type CoverageArea = {
+  id: string;
+  name: string;
+  points: [number, number][];
+  isActive: boolean;
+  createdAt: string;
+};
+
 export type PromoBanner = {
   id: string;
   image: string;
@@ -743,6 +751,23 @@ export const api = {
     }),
   deleteDeliveryZone: (id: string) =>
     apiFetch<void>(`/admin/delivery-zones/${id}`, { method: "DELETE" }),
+
+  getCoverageAreas: () => apiFetch<CoverageArea[]>("/admin/coverage-areas"),
+  createCoverageArea: (data: { name: string; points: [number, number][]; isActive?: boolean }) =>
+    apiFetch<CoverageArea>("/admin/coverage-areas", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateCoverageArea: (
+    id: string,
+    data: Partial<{ name: string; points: [number, number][]; isActive: boolean }>,
+  ) =>
+    apiFetch<CoverageArea>(`/admin/coverage-areas/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteCoverageArea: (id: string) =>
+    apiFetch<void>(`/admin/coverage-areas/${id}`, { method: "DELETE" }),
 
   getWorkZones: () => apiFetch<WorkZone[]>("/admin/work-zones"),
   createWorkZone: (data: Omit<WorkZone, "id" | "createdAt">) =>

@@ -17,6 +17,7 @@ import Promos from "@/pages/Promos";
 import Notifications from "@/pages/Notifications";
 import Financial from "@/pages/Financial";
 import DeliveryZones from "@/pages/DeliveryZones";
+import CoverageArea from "@/pages/CoverageArea";
 import WorkZones from "@/pages/WorkZones";
 import Subscriptions from "@/pages/Subscriptions";
 import Settings from "@/pages/Settings";
@@ -64,6 +65,7 @@ function Router({ onLogout }: { onLogout: () => void }) {
         <Route path="/notifications" component={Notifications} />
         <Route path="/financial" component={Financial} />
         <Route path="/delivery-zones" component={DeliveryZones} />
+        <Route path="/coverage-area" component={CoverageArea} />
         <Route path="/work-zones" component={WorkZones} />
         <Route path="/subscriptions" component={Subscriptions} />
         <Route path="/settings" component={Settings} />
