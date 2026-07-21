@@ -29,7 +29,8 @@
     "./migrations/add-referral-system": "./src/migrations/add-referral-system.ts",
     "./migrations/add-errand-orders": "./src/migrations/add-errand-orders.ts",
     "./migrations/add-courier-monthly-subscriptions": "./src/migrations/add-courier-monthly-subscriptions.ts",
-    "./migrations/add-restaurant-push-subscriptions": "./src/migrations/add-restaurant-push-subscriptions.ts"
+    "./migrations/add-restaurant-push-subscriptions": "./src/migrations/add-restaurant-push-subscriptions.ts",
+    "./migrations/add-coverage-areas": "./src/migrations/add-coverage-areas.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",
