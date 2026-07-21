@@ -636,7 +636,8 @@
     "locating": "Locating...",
     "pickLocation": "Tap to pick a location",
     "searchPlaceholder": "Search for a neighborhood or street...",
-    "webFallback": "Type your address manually or search above"
+    "webFallback": "Type your address manually or search above",
+    "outsideCoverage": "This location is outside the delivery area. Pick a spot inside the red area."
   },
   "support": {
     "title": "Support",
