@@ -43,12 +43,13 @@ const createOrderSchema = z
     { message: "items_or_orderText_required" },
   );
 
-async function validatePromoForUser(code: string, userId: string, deliveryFee?: number, restaurantId?: string): Promise<{
+async function validatePromoForUser(code: string, userId: string, deliveryFee?: number, itemsTotal?: number, restaurantId?: string): Promise<{
   valid: false; error: string;
 } | {
   valid: true;
   promo: typeof promoCodesTable.$inferSelect;
   discountAmount: number;
+  target: "food" | "delivery";
 }> {
   const now = new Date();
   const promos = await db
@@ -81,12 +82,18 @@ async function validatePromoForUser(code: string, userId: string, deliveryFee?: 
   const userUses = Number(userUseRow?.c ?? 0);
   if (userUses >= promo.maxUsesPerUser) return { valid: false, error: "already_used" };
 
-  const base = deliveryFee ?? DEFAULT_DELIVERY_FEE_SYP;
+  // A restaurant-specific code is the restaurant's own promotion, so it discounts
+  // the food. A platform-wide code (no restaurant) discounts the delivery fee.
+  const isRestaurantCode = promo.restaurantId != null;
+  const base = isRestaurantCode
+    ? (itemsTotal ?? 0)
+    : (deliveryFee ?? DEFAULT_DELIVERY_FEE_SYP);
   const discountAmount = promo.type === "percent"
     ? Math.min(Math.round((base * promo.value) / 100), base)
     : Math.min(promo.value, base);
+  const target: "food" | "delivery" = isRestaurantCode ? "food" : "delivery";
 
-  return { valid: true, promo, discountAmount };
+  return { valid: true, promo, discountAmount, target };
 }
 
 router.get("/delivery-fee-preview", async (req, res) => {
@@ -201,6 +208,7 @@ router.post("/orders/validate-promo", async (req, res) => {
   const body = z.object({
     code: z.string().min(1),
     deliveryFee: z.number().positive().optional(),
+    itemsTotal: z.number().nonnegative().optional(),
     lat: z.number().optional(),
     lon: z.number().optional(),
     restaurantId: z.string().optional(),
@@ -228,7 +236,7 @@ router.post("/orders/validate-promo", async (req, res) => {
     const { fee } = await getFeeForDistance(distKm);
     feeForPromo = fee;
   }
-  const result = await validatePromoForUser(body.data.code, userId, feeForPromo, body.data.restaurantId);
+  const result = await validatePromoForUser(body.data.code, userId, feeForPromo, body.data.itemsTotal, body.data.restaurantId);
   if (!result.valid) {
     res.status(422).json({ valid: false, error: result.error });
     return;
@@ -238,6 +246,7 @@ router.post("/orders/validate-promo", async (req, res) => {
     type: result.promo.type,
     value: result.promo.value,
     discountAmount: result.discountAmount,
+    target: result.target,
     code: result.promo.code,
   });
 });
@@ -506,14 +515,14 @@ router.post("/orders", async (req, res) => {
   ]);
   const effectiveDeliveryFee = subscribed ? subSettings.subscriberDeliveryFee : zoneFee;
 
-  let promoUseData: { promoId: string; discountAmount: number } | null = null;
+  let promoUseData: { promoId: string; discountAmount: number; target: "food" | "delivery" } | null = null;
   if (body.data.promoCode) {
-    const promoResult = await validatePromoForUser(body.data.promoCode, userId, zoneFee, effectiveRestaurantId ?? undefined);
+    const promoResult = await validatePromoForUser(body.data.promoCode, userId, zoneFee, itemsTotal ?? undefined, effectiveRestaurantId ?? undefined);
     if (!promoResult.valid) {
       res.status(422).json({ error: "invalid_promo", reason: promoResult.error });
       return;
     }
-    promoUseData = { promoId: promoResult.promo.id, discountAmount: promoResult.discountAmount };
+    promoUseData = { promoId: promoResult.promo.id, discountAmount: promoResult.discountAmount, target: promoResult.target };
   }
 
   let flashDealSnapshot: { id: string; discountType: string; discountValue: number } | null = null;
@@ -645,10 +654,22 @@ router.post("/orders", async (req, res) => {
     // courier collects the full (undiscounted) amount. Cap at the fee left after
     // any flash-deal discount.
     if (promoUseData) {
-      const applied = Math.min(promoUseData.discountAmount, newOrder.deliveryFee);
-      newOrder.deliveryFee = Math.max(0, newOrder.deliveryFee - applied);
-      promoUseData.discountAmount = applied;
-      newOrder.courierFeeDiscount += applied;
+      if (promoUseData.target === "food") {
+        // Restaurant-funded code → discount the food; the courier's fee is untouched.
+        const applied = newOrder.totalPrice != null
+          ? Math.min(promoUseData.discountAmount, newOrder.totalPrice)
+          : 0;
+        if (newOrder.totalPrice != null) {
+          newOrder.totalPrice = Math.max(0, newOrder.totalPrice - applied);
+        }
+        promoUseData.discountAmount = applied;
+      } else {
+        // Platform code → discount the delivery fee and compensate the courier.
+        const applied = Math.min(promoUseData.discountAmount, newOrder.deliveryFee);
+        newOrder.deliveryFee = Math.max(0, newOrder.deliveryFee - applied);
+        promoUseData.discountAmount = applied;
+        newOrder.courierFeeDiscount += applied;
+      }
     }
 
     // Loyalty-points redemption also discounts the delivery fee. Same fix: the
