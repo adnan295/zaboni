@@ -171,7 +171,9 @@ export default function OrderRequestScreen() {
     return Math.max(0, base - flashDeal.discountValue);
   };
 
-  const effectiveDeliveryFee = deliveryFee != null ? applyFlashDiscount(deliveryFee) : undefined;
+  // Flash deals are the restaurant's promotion: they discount the food only,
+  // never the delivery fee. The fee shown here stays the full delivery fee.
+  const effectiveDeliveryFee = deliveryFee;
   const flashItemDiscount = flashDeal && subtotal > 0 ? subtotal - applyFlashDiscount(subtotal) : 0;
   const effectiveSubtotal = subtotal - flashItemDiscount;
 
