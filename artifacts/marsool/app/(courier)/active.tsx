@@ -448,12 +448,6 @@ export default function ActiveOrderScreen() {
                           ) : null}
                         </View>
                       ))}
-                      {typedOrder.restaurantNote ? (
-                        <View style={[{ backgroundColor: colors.secondary, borderRadius: 8, padding: 8, marginTop: 4 }]}>
-                          <Text style={[{ color: colors.mutedForeground, fontSize: 12, fontWeight: "700" }]}>ملاحظة للمطعم:</Text>
-                          <Text style={[{ color: colors.foreground, fontSize: 13 }]}>{typedOrder.restaurantNote}</Text>
-                        </View>
-                      ) : null}
                     </View>
                   </View>
                 );
@@ -472,6 +466,18 @@ export default function ActiveOrderScreen() {
                 </View>
               );
             })()}
+
+            {(order as typeof order & { restaurantNote?: string | null }).restaurantNote ? (
+              <View style={[styles.infoRow, { backgroundColor: "#FEF3C7", borderRadius: 10, padding: 10, marginTop: 4 }]}>
+                <MaterialIcons name="sticky-note-2" size={18} color="#B45309" />
+                <View style={styles.infoContent}>
+                  <Text style={[styles.infoLabel, { color: "#B45309", fontWeight: "700" }]}>ملاحظة الزبون</Text>
+                  <Text style={[styles.infoValue, { color: "#78350F" }]}>
+                    {(order as typeof order & { restaurantNote?: string | null }).restaurantNote}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
 
             {order.address ? (
               <>
