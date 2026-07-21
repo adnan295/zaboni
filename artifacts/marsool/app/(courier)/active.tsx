@@ -81,7 +81,16 @@ export default function ActiveOrderScreen() {
   const locationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const locationPermGrantedRef = useRef<boolean | null>(null);
 
-  const order = activeOrders[0] ?? null;
+  // Order stacking: a courier can hold up to 2 orders. The "current" one is the
+  // most-advanced (on_way > picked_up > accepted) — the one to finish first — and
+  // the rest wait in the queue. When the current is delivered the next takes over
+  // and the map/nav automatically point at its restaurant.
+  const STATUS_RANK: Record<string, number> = { on_way: 0, picked_up: 1, accepted: 2 };
+  const sortedActive = [...activeOrders].sort(
+    (a, b) => (STATUS_RANK[a.status] ?? 3) - (STATUS_RANK[b.status] ?? 3),
+  );
+  const order = sortedActive[0] ?? null;
+  const queuedOrders = sortedActive.slice(1);
 
   useEffect(() => {
     if (Platform.OS === "web" || !order) return;
@@ -278,6 +287,17 @@ export default function ActiveOrderScreen() {
     else openNavigation();
   };
 
+  // The in-app map points wherever the nav button does: the restaurant while the
+  // order still needs pickup, the customer once picked up. So when the current
+  // order is delivered and the next (accepted) one takes over, the map switches
+  // to that restaurant automatically.
+  const mapTargetLat = navigatesToRestaurant
+    ? order?.restaurantLat ?? order?.destinationLat ?? null
+    : order?.destinationLat ?? null;
+  const mapTargetLon = navigatesToRestaurant
+    ? order?.restaurantLon ?? order?.destinationLon ?? null
+    : order?.destinationLon ?? null;
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPadding + 16, backgroundColor: colors.primary }]}>
@@ -300,6 +320,45 @@ export default function ActiveOrderScreen() {
           contentContainerStyle={{ paddingBottom: bottomPadding + 20 }}
           showsVerticalScrollIndicator={false}
         >
+          {/* Queued next order(s) — shown while the current one is still in progress */}
+          {queuedOrders.map((q) => (
+            <View
+              key={q.id}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 10,
+                backgroundColor: "#fff7ed",
+                borderColor: "#f97316",
+                borderWidth: 1,
+                borderRadius: 12,
+                padding: 12,
+                marginHorizontal: 12,
+                marginTop: 12,
+              }}
+            >
+              <MaterialIcons name="playlist-add-check" size={22} color="#f97316" />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: "#9a3412", fontWeight: "700", fontSize: 13 }}>الطلب التالي بالطابور</Text>
+                <Text style={{ color: colors.foreground, fontSize: 14 }} numberOfLines={1}>
+                  {q.orderType === "errand" ? (q.placeName ?? "مشوار") : q.restaurantName} — {q.address}
+                </Text>
+                <Text style={{ color: colors.mutedForeground, fontSize: 11, marginTop: 2 }}>
+                  رح توصّلو بعد ما تسلّم الطلب الحالي
+                </Text>
+              </View>
+              {q.restaurantPhone ? (
+                <TouchableOpacity
+                  onPress={() => Linking.openURL(`tel:${q.restaurantPhone}`)}
+                  style={{ backgroundColor: "#f97316", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, flexDirection: "row", alignItems: "center", gap: 4 }}
+                >
+                  <MaterialIcons name="call" size={16} color="#fff" />
+                  <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>المطعم</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ))}
+
           {/* Stepper */}
           <View style={[styles.stepperCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             {STEPS.map((step, idx) => {
@@ -362,14 +421,14 @@ export default function ActiveOrderScreen() {
           </View>
 
           {/* Map */}
-          {order.destinationLat && order.destinationLon ? (
+          {mapTargetLat != null && mapTargetLon != null ? (
             <View style={[styles.mapCard, { borderColor: colors.border }]}>
               <CourierMap
-                destinationLat={order.destinationLat}
-                destinationLon={order.destinationLon}
+                destinationLat={mapTargetLat}
+                destinationLon={mapTargetLon}
                 courierLat={courierLocation?.latitude}
                 courierLon={courierLocation?.longitude}
-                address={order.address}
+                address={navigatesToRestaurant ? (order.restaurantName || order.address) : order.address}
                 onNavigate={handleNavigate}
               />
               <TouchableOpacity

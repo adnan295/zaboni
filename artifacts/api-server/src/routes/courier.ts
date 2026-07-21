@@ -430,14 +430,22 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
     return;
   }
 
+  // Order stacking: a courier may hold up to MAX_ACTIVE_ORDERS at once, but a
+  // second order can only be taken once the current one has been picked up from
+  // its restaurant (status picked_up / on_way) — so they finish the current run
+  // before juggling a new pickup.
+  const MAX_ACTIVE_ORDERS = 2;
   const existingActive = await db
-    .select({ id: ordersTable.id })
+    .select({ id: ordersTable.id, status: ordersTable.status })
     .from(ordersTable)
-    .where(and(eq(ordersTable.courierId, courierId), notInArray(ordersTable.status, ["delivered", "cancelled"])))
-    .limit(1);
+    .where(and(eq(ordersTable.courierId, courierId), notInArray(ordersTable.status, ["delivered", "cancelled"])));
 
-  if (existingActive.length > 0) {
-    res.status(409).json({ error: "You already have an active order. Complete it first." });
+  if (existingActive.length >= MAX_ACTIVE_ORDERS) {
+    res.status(409).json({ error: "max_active_orders", message: "لا يمكنك استلام أكثر من طلبين في نفس الوقت." });
+    return;
+  }
+  if (existingActive.length > 0 && !existingActive.every((o) => o.status === "picked_up" || o.status === "on_way")) {
+    res.status(409).json({ error: "pickup_current_first", message: "استلم طلبك الحالي من المطعم أولاً قبل قبول طلب إضافي." });
     return;
   }
 
