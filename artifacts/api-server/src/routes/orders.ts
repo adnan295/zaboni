@@ -115,10 +115,12 @@ router.get("/delivery-fee-preview", async (req, res) => {
   }
 
   const distanceKm = haversineKm(originLat, originLon, latRaw, lonRaw);
-  const { fee, zone } = await getFeeForDistance(distanceKm);
+  const feeResult = await getFeeForDistance(distanceKm);
+  const { fee, zone } = feeResult;
 
   res.json({
     fee,
+    outOfRange: feeResult.outOfRange,
     distanceKm: Number(distanceKm.toFixed(2)),
     zoneLabel: zone?.label ?? null,
     fromKm: zone?.fromKm ?? null,
@@ -267,6 +269,19 @@ router.post("/orders", async (req, res) => {
     const errandOrderText = itemsText ? `${placeName}: ${itemsText}` : placeName;
     const destLat = body.data.lat ?? DAMASCUS_CENTER_LAT;
     const destLon = body.data.lon ?? DAMASCUS_CENTER_LON;
+
+    // Reject errands whose destination is outside the delivery coverage area
+    // (measured from the city center, since an errand has no restaurant origin).
+    const errandDistanceKm = haversineKm(DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON, destLat, destLon);
+    const errandFeeResult = await getFeeForDistance(errandDistanceKm);
+    if (errandFeeResult.outOfRange) {
+      res.status(422).json({
+        error: "outside_delivery_area",
+        message: "عذراً, موقعك خارج نطاق التوصيل المتاح حالياً، لا يمكن إتمام الطلب لهذا الموقع.",
+      });
+      return;
+    }
+
     const errandOrder = {
       id,
       userId,
@@ -460,7 +475,15 @@ router.post("/orders", async (req, res) => {
   }
 
   const distanceKm = haversineKm(originLat, originLon, destLat, destLon);
-  const { fee: zoneFee } = await getFeeForDistance(distanceKm);
+  const feeResult = await getFeeForDistance(distanceKm);
+  if (feeResult.outOfRange) {
+    res.status(422).json({
+      error: "outside_delivery_area",
+      message: "عذراً، موقعك خارج نطاق التوصيل المتاح حالياً، لا يمكن إتمام الطلب لهذا الموقع.",
+    });
+    return;
+  }
+  const zoneFee = feeResult.fee;
 
   const [subscribed, subSettings] = await Promise.all([
     isUserSubscribed(userId),

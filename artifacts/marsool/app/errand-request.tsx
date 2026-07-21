@@ -67,8 +67,10 @@ export default function ErrandRequestScreen() {
         lon: defaultAddress.longitude ?? undefined,
       });
       router.replace(`/order-tracking/${order.id}` as any);
-    } catch {
-      Alert.alert(t("errand.errorTitle"), t("errand.errorMsg"));
+    } catch (err: unknown) {
+      // Surface the server's message when present (e.g. out-of-delivery-area).
+      const apiErr = err as { data?: { message?: string } };
+      Alert.alert(t("errand.errorTitle"), apiErr?.data?.message ?? t("errand.errorMsg"));
     } finally {
       setSubmitting(false);
     }

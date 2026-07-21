@@ -295,8 +295,11 @@ export default function OrderRequestScreen() {
         pathname: "/order-tracking/[id]",
         params: { id: order.id },
       });
-    } catch {
-      Alert.alert(t("common.error"), t("common.retry"));
+    } catch (err: unknown) {
+      // Surface the server's message when present (e.g. out-of-delivery-area,
+      // location required) so the customer sees the real reason.
+      const apiErr = err as { data?: { message?: string } };
+      Alert.alert(t("common.error"), apiErr?.data?.message ?? t("common.retry"));
     } finally {
       setIsSubmitting(false);
     }
