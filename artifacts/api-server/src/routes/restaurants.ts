@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request } from "express";
 import { db, restaurantsTable, menuItemsTable, restaurantHoursTable, promoBannersTable, restaurantCategoriesTable, restaurantCategorySortOrdersTable, homeSectionItemsTable, categoryRestaurantExclusionsTable, flashDealsTable, menuItemOptionGroupsTable, menuItemOptionsTable } from "@workspace/db";
 import { and, asc, desc, eq, gt, inArray, isNull, lt, lte, notInArray, or, sql } from "drizzle-orm";
+import { getActiveCoverageAreas, areaIdsContaining, pointInAllowedArea } from "../lib/coverage";
 
 const router: IRouter = Router();
 
@@ -128,7 +129,27 @@ router.get("/restaurants", async (req, res) => {
     }
   }
 
-  const rows = await query;
+  let rows = await query;
+
+  // Geographic scoping: when coverage areas (regions/cities) are configured and
+  // the customer's location is known, only show restaurants that sit in the same
+  // area as the customer — so e.g. Homs restaurants never appear to an Aleppo
+  // customer. With no areas configured, nothing is filtered (backward compatible).
+  if (hasLocation) {
+    const areas = await getActiveCoverageAreas();
+    if (areas.length > 0) {
+      const customerAreaIds = areaIdsContaining(lat!, lon!, areas);
+      rows =
+        customerAreaIds.size === 0
+          ? []
+          : rows.filter(
+              (r) =>
+                r.lat != null &&
+                r.lon != null &&
+                pointInAllowedArea(r.lat, r.lon, areas, customerAreaIds),
+            );
+    }
+  }
 
   let categorySortMap = new Map<string, number>();
   if (hasCategoryId) {

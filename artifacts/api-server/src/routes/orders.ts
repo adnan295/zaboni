@@ -4,7 +4,7 @@ import { and, count, desc, eq, gt, inArray, isNull, lt, lte, or, sql } from "dri
 import { z } from "zod";
 import { notifyOrderUpdate, notifyNearbyCouriers, notifyRestaurantNewOrder } from "../orders/server";
 import { haversineKm, getFeeForDistance, DEFAULT_DELIVERY_FEE_SYP, DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON } from "../lib/deliveryZones";
-import { checkCoverage } from "../lib/coverage";
+import { checkCoverage, getActiveCoverageAreas, areaIdsContaining, pointInAllowedArea } from "../lib/coverage";
 import { getLoyaltySettings, calculateRedeemDiscount, redeemLoyaltyPoints } from "../lib/loyalty";
 import { checkAndAwardAchievements } from "../lib/achievements";
 import { isUserSubscribed, getSubscriptionSettings } from "../lib/customerSubscription";
@@ -477,6 +477,7 @@ router.post("/orders", async (req, res) => {
   let originLat = DAMASCUS_CENTER_LAT;
   let originLon = DAMASCUS_CENTER_LON;
   let restaurantPhone = "";
+  let restaurantHasCoords = false;
   if (effectiveRestaurantId) {
     const restaurant = await db
       .select({ lat: restaurantsTable.lat, lon: restaurantsTable.lon, phone: restaurantsTable.phone })
@@ -487,6 +488,7 @@ router.post("/orders", async (req, res) => {
     if (r?.lat != null && r?.lon != null) {
       originLat = r.lat;
       originLon = r.lon;
+      restaurantHasCoords = true;
     }
     if (r?.phone) {
       restaurantPhone = r.phone;
@@ -496,11 +498,32 @@ router.post("/orders", async (req, res) => {
   const distanceKm = haversineKm(originLat, originLon, destLat, destLon);
   const feeResult = await getFeeForDistance(distanceKm);
 
-  // Coverage gate: an admin-drawn coverage area (polygon) is authoritative when
-  // configured; otherwise fall back to the distance-based cutoff.
-  const coverage = await checkCoverage(destLat, destLon);
-  const outOfArea = coverage.hasCoverage ? !coverage.inside : feeResult.outOfRange;
-  if (outOfArea) {
+  // Coverage gate. When coverage areas (regions/cities) are configured the
+  // customer AND the restaurant must be in the SAME area — so a customer can't
+  // order from a restaurant in another city. With no areas configured we fall
+  // back to the distance-based cutoff.
+  const coverageAreas = await getActiveCoverageAreas();
+  if (coverageAreas.length > 0) {
+    const customerAreaIds = areaIdsContaining(destLat, destLon, coverageAreas);
+    if (customerAreaIds.size === 0) {
+      res.status(422).json({
+        error: "outside_delivery_area",
+        message: "عذراً، موقعك خارج نطاق التوصيل المتاح حالياً، لا يمكن إتمام الطلب لهذا الموقع.",
+      });
+      return;
+    }
+    // The restaurant must sit in the customer's area. A restaurant with no
+    // coordinates can't be verified, so it's blocked while scoping is active —
+    // matching the listing, which hides un-located restaurants. (Errand orders
+    // have no restaurant and skip this whole block.)
+    if (effectiveRestaurantId && (!restaurantHasCoords || !pointInAllowedArea(originLat, originLon, coverageAreas, customerAreaIds))) {
+      res.status(422).json({
+        error: "restaurant_out_of_area",
+        message: "عذراً، هذا المطعم لا يوصّل إلى منطقتك.",
+      });
+      return;
+    }
+  } else if (feeResult.outOfRange) {
     res.status(422).json({
       error: "outside_delivery_area",
       message: "عذراً، موقعك خارج نطاق التوصيل المتاح حالياً، لا يمكن إتمام الطلب لهذا الموقع.",

@@ -57,3 +57,49 @@ export async function checkCoverage(lat: number, lon: number): Promise<CoverageC
   const inside = polygons.some((poly) => pointInPolygon(lat, lon, poly));
   return { hasCoverage: true, inside };
 }
+
+export interface CoverageAreaPolygon {
+  id: string;
+  points: [number, number][];
+}
+
+/**
+ * All active coverage areas with their polygons. Each area is a region/city.
+ * Returns [] when none are configured (or on DB error) — callers treat an empty
+ * list as "no geographic scoping", so nothing gets hidden by accident.
+ */
+export async function getActiveCoverageAreas(): Promise<CoverageAreaPolygon[]> {
+  try {
+    const areas = await db
+      .select({ id: coverageAreasTable.id, points: coverageAreasTable.points })
+      .from(coverageAreasTable)
+      .where(eq(coverageAreasTable.isActive, true));
+    return areas.filter(
+      (a): a is CoverageAreaPolygon => Array.isArray(a.points) && a.points.length >= 3,
+    );
+  } catch {
+    return [];
+  }
+}
+
+/** IDs of the areas whose polygon contains the given point. */
+export function areaIdsContaining(lat: number, lon: number, areas: CoverageAreaPolygon[]): Set<string> {
+  const ids = new Set<string>();
+  for (const a of areas) {
+    if (pointInPolygon(lat, lon, a.points)) ids.add(a.id);
+  }
+  return ids;
+}
+
+/** Whether the point falls inside at least one of the allowed areas. */
+export function pointInAllowedArea(
+  lat: number,
+  lon: number,
+  areas: CoverageAreaPolygon[],
+  allowedIds: Set<string>,
+): boolean {
+  for (const a of areas) {
+    if (allowedIds.has(a.id) && pointInPolygon(lat, lon, a.points)) return true;
+  }
+  return false;
+}
