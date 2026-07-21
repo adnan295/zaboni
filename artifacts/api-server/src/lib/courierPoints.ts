@@ -1,50 +1,65 @@
-import { db, usersTable, courierPointsTransactionsTable, courierSubscriptionsTable, systemSettingsTable } from "@workspace/db";
+import { db, usersTable, courierPointsTransactionsTable, courierSubscriptionsTable, courierSubscriptionPlansTable } from "@workspace/db";
 import { and, eq, sql, desc } from "drizzle-orm";
+import { getLoyaltySettings } from "./loyalty";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const DEFAULT_POINTS_PER_DAY = 5000;
+const PERIOD_DAYS: Record<string, number> = { weekly: 7, monthly: 30, yearly: 365 };
+const DEFAULT_DAILY_RATE = 5000; // SYP/day fallback when no plans are configured
 
-export interface CourierPointsSettings {
-  /** How many points a courier spends for one day of subscription. */
-  pointsPerDay: number;
+/**
+ * Courier points share the customer point value (loyalty_point_value) — one
+ * admin setting governs both. A courier point is worth exactly `pointValue` SYP,
+ * same as a customer point.
+ */
+export async function getCourierPointValue(): Promise<number> {
+  const { pointValue } = await getLoyaltySettings();
+  return pointValue > 0 ? pointValue : 1;
 }
 
-export async function getCourierPointsSettings(): Promise<CourierPointsSettings> {
-  const rows = await db
+/**
+ * Price of one subscription day in SYP, derived from the cheapest active courier
+ * plan (price ÷ days-in-period). No dedicated setting — it follows the courier
+ * subscription plans configured in admin.
+ */
+export async function getCourierDailyRate(): Promise<number> {
+  const plans = await db
     .select()
-    .from(systemSettingsTable)
-    .where(sql`${systemSettingsTable.key} IN ('courier_points_per_day')`);
-  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-  return {
-    pointsPerDay: Number(map["courier_points_per_day"] ?? DEFAULT_POINTS_PER_DAY),
-  };
+    .from(courierSubscriptionPlansTable)
+    .where(eq(courierSubscriptionPlansTable.isActive, true));
+  let best = Infinity;
+  for (const p of plans) {
+    const days = PERIOD_DAYS[p.period] ?? 30;
+    if (days > 0 && p.price > 0) best = Math.min(best, p.price / days);
+  }
+  return Number.isFinite(best) ? Math.max(1, Math.round(best)) : DEFAULT_DAILY_RATE;
 }
 
-export async function saveCourierPointsSettings(settings: CourierPointsSettings): Promise<void> {
-  await db
-    .insert(systemSettingsTable)
-    .values([{ key: "courier_points_per_day", value: String(Math.max(1, Math.round(settings.pointsPerDay))) }])
-    .onConflictDoUpdate({
-      target: systemSettingsTable.key,
-      set: { value: sql`excluded.value`, updatedAt: new Date() },
-    });
+/** Points a courier must spend for one subscription day. */
+export async function getCourierPointsPerDay(): Promise<{ pointsPerDay: number; pointValue: number; dailyRate: number }> {
+  const [pointValue, dailyRate] = await Promise.all([getCourierPointValue(), getCourierDailyRate()]);
+  return { pointsPerDay: Math.max(1, Math.ceil(dailyRate / pointValue)), pointValue, dailyRate };
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /**
- * Award reward points to the courier that delivered an order — used to
- * compensate for the delivery-fee discount the customer received. Best-effort:
- * callers wrap this so a failure never blocks order completion.
+ * Award reward points to the courier that delivered an order, to compensate for
+ * a delivery-fee discount the customer used. `feeDiscountSyp` is the lost fee in
+ * SYP; it's converted to points at the shared point value so the points are
+ * worth exactly the amount lost. Best-effort — callers must not let it block
+ * order completion.
  */
 export async function awardCourierPointsInTx(
   tx: Tx,
   courierId: string,
   orderId: string,
-  points: number,
+  feeDiscountSyp: number,
+  pointValue: number,
   description?: string,
 ): Promise<number> {
-  if (!courierId || points <= 0) return 0;
+  if (!courierId || feeDiscountSyp <= 0) return 0;
+  const points = Math.round(feeDiscountSyp / (pointValue > 0 ? pointValue : 1));
+  if (points <= 0) return 0;
   await tx.insert(courierPointsTransactionsTable).values({
     id: `crp_earn_${Date.now()}${Math.random().toString(36).slice(2, 7)}`,
     courierId,
@@ -65,14 +80,15 @@ export type RedeemResult =
   | { ok: false; error: "invalid_days" | "insufficient_points" };
 
 /**
- * Redeem a courier's points for extra subscription days. Extends the courier's
- * latest subscription from max(now, endsAt); if they never had one, a waived
- * subscription is created to hold the redeemed days. Points are deducted
- * atomically (guarded by balance >= cost) so a double-tap can't overspend.
+ * Redeem a courier's points for extra subscription days. Days cost
+ * ceil(dailyRate / pointValue) points each, both taken from admin config
+ * (subscription plans + the shared point value). Extends the courier's latest
+ * subscription from max(now, endsAt); creates a waived one if they never had a
+ * subscription. Points are deducted atomically so a double-tap can't overspend.
  */
 export async function redeemCourierPointsForDays(courierId: string, days: number): Promise<RedeemResult> {
   if (!Number.isInteger(days) || days <= 0) return { ok: false, error: "invalid_days" };
-  const { pointsPerDay } = await getCourierPointsSettings();
+  const { pointsPerDay } = await getCourierPointsPerDay();
   const cost = days * pointsPerDay;
 
   return await db.transaction(async (tx): Promise<RedeemResult> => {

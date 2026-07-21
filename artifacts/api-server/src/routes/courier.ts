@@ -5,7 +5,7 @@ import { haversineKm as _haversineKm } from "../lib/deliveryZones";
 import { z } from "zod";
 import { notifyOrderUpdate, sendOrderPush, notifyCouriersOrderTaken } from "../orders/server";
 import { getLoyaltySettings, awardPointsInTx } from "../lib/loyalty";
-import { awardCourierPointsInTx, getCourierPointsSettings, redeemCourierPointsForDays } from "../lib/courierPoints";
+import { awardCourierPointsInTx, getCourierPointValue, getCourierPointsPerDay, redeemCourierPointsForDays } from "../lib/courierPoints";
 import { checkAndAwardAchievements } from "../lib/achievements";
 import { awardReferralCommissionInTx } from "../lib/referral";
 import { sendPushToUsers } from "../lib/push";
@@ -579,7 +579,8 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
       // courier income. Best-effort — never block completion.
       if (order.courierFeeDiscount > 0) {
         try {
-          await awardCourierPointsInTx(tx, courierId, orderId, order.courierFeeDiscount);
+          const pointValue = await getCourierPointValue();
+          await awardCourierPointsInTx(tx, courierId, orderId, order.courierFeeDiscount, pointValue);
         } catch {
           // courier points award must not block order completion
         }
@@ -1264,9 +1265,9 @@ router.get("/courier/payment-qr", async (_req, res) => {
 // Courier reward points: balance + redeem for subscription days.
 router.get("/courier/points", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
-  const [userRow, settings, txs] = await Promise.all([
+  const [userRow, conv, txs] = await Promise.all([
     db.select({ courierPoints: usersTable.courierPoints }).from(usersTable).where(eq(usersTable.id, courierId)).limit(1),
-    getCourierPointsSettings(),
+    getCourierPointsPerDay(),
     db
       .select()
       .from(courierPointsTransactionsTable)
@@ -1277,8 +1278,9 @@ router.get("/courier/points", requireCourier, async (req, res) => {
   const balance = userRow[0]?.courierPoints ?? 0;
   res.json({
     balance,
-    pointsPerDay: settings.pointsPerDay,
-    redeemableDays: settings.pointsPerDay > 0 ? Math.floor(balance / settings.pointsPerDay) : 0,
+    pointsPerDay: conv.pointsPerDay,
+    pointValue: conv.pointValue,
+    redeemableDays: conv.pointsPerDay > 0 ? Math.floor(balance / conv.pointsPerDay) : 0,
     transactions: txs.map((t) => ({
       id: t.id,
       type: t.type,
