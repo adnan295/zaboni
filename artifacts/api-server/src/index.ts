@@ -30,6 +30,7 @@ import { addSupportTickets } from "@workspace/db/migrations/add-support-tickets"
 import { addReferralSystem } from "@workspace/db/migrations/add-referral-system";
 import { addErrandOrders } from "@workspace/db/migrations/add-errand-orders";
 import { addRestaurantPushSubscriptions } from "@workspace/db/migrations/add-restaurant-push-subscriptions";
+import { addCoverageAreas } from "@workspace/db/migrations/add-coverage-areas";
 
 const rawPort = process.env["PORT"];
 
@@ -134,5 +135,8 @@ httpServer.listen(port, (err?: Error) => {
   );
   addRestaurantPushSubscriptions().catch((e: unknown) =>
     logger.error({ err: e }, "Failed to run restaurant push subscriptions migration"),
+  );
+  addCoverageAreas().catch((e: unknown) =>
+    logger.error({ err: e }, "Failed to run coverage areas migration"),
   );
 });

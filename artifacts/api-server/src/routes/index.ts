@@ -16,6 +16,7 @@ import achievementsRouter from "./achievements";
 import subscriptionsRouter from "./subscriptions";
 import supportRouter from "./support";
 import referralRouter from "./referral";
+import coverageRouter from "./coverage";
 import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
@@ -30,6 +31,7 @@ router.use(storageRouter);
 router.use(restaurantPortalRouter);
 
 router.use(supportRouter);
+router.use(coverageRouter);
 
 router.use(requireAuth);
 router.use(ordersRouter);

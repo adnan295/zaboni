@@ -39,6 +39,7 @@ const navItems = [
   { href: "/notifications", label: "الإشعارات", icon: "🔔" },
   { href: "/financial", label: "التقارير المالية", icon: "💰" },
   { href: "/delivery-zones", label: "نطاقات التوصيل", icon: "📍" },
+  { href: "/coverage-area", label: "منطقة التغطية", icon: "🗺️" },
   { href: "/work-zones", label: "مناطق العمل", icon: "🗺️" },
   { href: "/subscriptions", label: "الاشتراكات", icon: "💳" },
   { href: "/restaurant-accounts", label: "حسابات المطاعم", icon: "🔐" },

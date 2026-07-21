@@ -4,6 +4,7 @@ import { and, count, desc, eq, gt, inArray, isNull, lt, lte, or, sql } from "dri
 import { z } from "zod";
 import { notifyOrderUpdate, notifyNearbyCouriers, notifyRestaurantNewOrder } from "../orders/server";
 import { haversineKm, getFeeForDistance, DEFAULT_DELIVERY_FEE_SYP, DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON } from "../lib/deliveryZones";
+import { checkCoverage } from "../lib/coverage";
 import { getLoyaltySettings, calculateRedeemDiscount, redeemLoyaltyPoints } from "../lib/loyalty";
 import { checkAndAwardAchievements } from "../lib/achievements";
 import { isUserSubscribed, getSubscriptionSettings } from "../lib/customerSubscription";
@@ -118,9 +119,12 @@ router.get("/delivery-fee-preview", async (req, res) => {
   const feeResult = await getFeeForDistance(distanceKm);
   const { fee, zone } = feeResult;
 
+  const coverage = await checkCoverage(latRaw, lonRaw);
+  const outOfArea = coverage.hasCoverage ? !coverage.inside : feeResult.outOfRange;
+
   res.json({
     fee,
-    outOfRange: feeResult.outOfRange,
+    outOfRange: outOfArea,
     distanceKm: Number(distanceKm.toFixed(2)),
     zoneLabel: zone?.label ?? null,
     fromKm: zone?.fromKm ?? null,
@@ -270,14 +274,20 @@ router.post("/orders", async (req, res) => {
     const destLat = body.data.lat ?? DAMASCUS_CENTER_LAT;
     const destLon = body.data.lon ?? DAMASCUS_CENTER_LON;
 
-    // Reject errands whose destination is outside the delivery coverage area
-    // (measured from the city center, since an errand has no restaurant origin).
+    // Reject errands whose destination is outside the delivery coverage area.
+    // A drawn coverage polygon is authoritative; otherwise fall back to the
+    // distance-based cutoff (measured from the city center, since an errand has
+    // no restaurant origin).
+    const errandCoverage = await checkCoverage(destLat, destLon);
     const errandDistanceKm = haversineKm(DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON, destLat, destLon);
     const errandFeeResult = await getFeeForDistance(errandDistanceKm);
-    if (errandFeeResult.outOfRange) {
+    const errandOutOfArea = errandCoverage.hasCoverage
+      ? !errandCoverage.inside
+      : errandFeeResult.outOfRange;
+    if (errandOutOfArea) {
       res.status(422).json({
         error: "outside_delivery_area",
-        message: "عذراً, موقعك خارج نطاق التوصيل المتاح حالياً، لا يمكن إتمام الطلب لهذا الموقع.",
+        message: "عذراً، موقعك خارج نطاق التوصيل المتاح حالياً، لا يمكن إتمام الطلب لهذا الموقع.",
       });
       return;
     }
@@ -476,7 +486,12 @@ router.post("/orders", async (req, res) => {
 
   const distanceKm = haversineKm(originLat, originLon, destLat, destLon);
   const feeResult = await getFeeForDistance(distanceKm);
-  if (feeResult.outOfRange) {
+
+  // Coverage gate: an admin-drawn coverage area (polygon) is authoritative when
+  // configured; otherwise fall back to the distance-based cutoff.
+  const coverage = await checkCoverage(destLat, destLon);
+  const outOfArea = coverage.hasCoverage ? !coverage.inside : feeResult.outOfRange;
+  if (outOfArea) {
     res.status(422).json({
       error: "outside_delivery_area",
       message: "عذراً، موقعك خارج نطاق التوصيل المتاح حالياً، لا يمكن إتمام الطلب لهذا الموقع.",
