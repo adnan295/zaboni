@@ -626,19 +626,17 @@ router.post("/orders", async (req, res) => {
             ? Math.max(0, Math.min(Math.round((base * flashDealSnapshot!.discountValue) / 100), base))
             : Math.max(0, Math.min(Math.round(flashDealSnapshot!.discountValue), base));
 
+        // Flash deals are the restaurant's own promotion, so they discount the
+        // food only. The delivery fee — and therefore the courier's pay — is
+        // never touched by a flash deal.
         const discountOnItems = itemsTotal !== null ? applyDiscount(itemsTotal) : 0;
-        const discountOnFee = applyDiscount(newOrder.deliveryFee);
-        const totalDiscount = discountOnItems + discountOnFee;
 
-        appliedFlashDeal = { id: flashDealSnapshot.id, discountAmount: totalDiscount };
+        appliedFlashDeal = { id: flashDealSnapshot.id, discountAmount: discountOnItems };
         newOrder.flashDealId = flashDealSnapshot.id;
-        newOrder.flashDealDiscount = totalDiscount;
+        newOrder.flashDealDiscount = discountOnItems;
         if (itemsTotal !== null) {
           newOrder.totalPrice = Math.max(0, itemsTotal - discountOnItems);
         }
-        newOrder.deliveryFee = Math.max(0, newOrder.deliveryFee - discountOnFee);
-        // Compensate the courier for the fee they lose to this promotion.
-        newOrder.courierFeeDiscount += discountOnFee;
       }
     }
 
