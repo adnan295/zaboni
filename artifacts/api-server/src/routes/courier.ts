@@ -1,10 +1,11 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { db, usersTable, ordersTable, orderItemsTable, orderItemOptionsTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, courierSubscriptionPlansTable, courierCustomerRatingsTable, courierApplicationsTable, referralsTable, courierSubscriptionRequestsTable, systemSettingsTable, restaurantsTable } from "@workspace/db";
+import { db, usersTable, ordersTable, orderItemsTable, orderItemOptionsTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, courierSubscriptionPlansTable, courierCustomerRatingsTable, courierApplicationsTable, referralsTable, courierSubscriptionRequestsTable, systemSettingsTable, restaurantsTable, courierPointsTransactionsTable } from "@workspace/db";
 import { and, eq, ne, inArray, notInArray, avg, count, sql, desc, getTableColumns } from "drizzle-orm";
 import { haversineKm as _haversineKm } from "../lib/deliveryZones";
 import { z } from "zod";
 import { notifyOrderUpdate, sendOrderPush, notifyCouriersOrderTaken } from "../orders/server";
 import { getLoyaltySettings, awardPointsInTx } from "../lib/loyalty";
+import { awardCourierPointsInTx, getCourierPointsSettings, redeemCourierPointsForDays } from "../lib/courierPoints";
 import { checkAndAwardAchievements } from "../lib/achievements";
 import { awardReferralCommissionInTx } from "../lib/referral";
 import { sendPushToUsers } from "../lib/push";
@@ -571,6 +572,16 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
           await awardPointsInTx(tx, currentOrder.userId, orderId, totalForPoints, settings);
         } catch {
           // points award failure must not block order completion
+        }
+      }
+      // Reward the courier with points equal to the delivery-fee discount the
+      // customer used on this order, so a customer promotion never costs the
+      // courier income. Best-effort — never block completion.
+      if (order.courierFeeDiscount > 0) {
+        try {
+          await awardCourierPointsInTx(tx, courierId, orderId, order.courierFeeDiscount);
+        } catch {
+          // courier points award must not block order completion
         }
       }
       // Referral commission: award 5% of itemsTotal to referrer on FIRST delivered order only.
@@ -1248,6 +1259,58 @@ router.get("/courier/payment-qr", async (_req, res) => {
     .where(eq(systemSettingsTable.key, "payment_qr_url"));
   const url = rows[0]?.value ?? null;
   res.json({ url });
+});
+
+// Courier reward points: balance + redeem for subscription days.
+router.get("/courier/points", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+  const [userRow, settings, txs] = await Promise.all([
+    db.select({ courierPoints: usersTable.courierPoints }).from(usersTable).where(eq(usersTable.id, courierId)).limit(1),
+    getCourierPointsSettings(),
+    db
+      .select()
+      .from(courierPointsTransactionsTable)
+      .where(eq(courierPointsTransactionsTable.courierId, courierId))
+      .orderBy(desc(courierPointsTransactionsTable.createdAt))
+      .limit(50),
+  ]);
+  const balance = userRow[0]?.courierPoints ?? 0;
+  res.json({
+    balance,
+    pointsPerDay: settings.pointsPerDay,
+    redeemableDays: settings.pointsPerDay > 0 ? Math.floor(balance / settings.pointsPerDay) : 0,
+    transactions: txs.map((t) => ({
+      id: t.id,
+      type: t.type,
+      points: t.points,
+      orderId: t.orderId,
+      description: t.description,
+      createdAt: toIsoString(t.createdAt),
+    })),
+  });
+});
+
+const redeemPointsSchema = z.object({ days: z.number().int().positive().max(365) });
+
+router.post("/courier/points/redeem", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+  const body = redeemPointsSchema.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "invalid_days" });
+    return;
+  }
+  const result = await redeemCourierPointsForDays(courierId, body.data.days);
+  if (!result.ok) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+  res.json({
+    ok: true,
+    daysAdded: result.daysAdded,
+    pointsSpent: result.pointsSpent,
+    newBalance: result.newBalance,
+    newEndsAt: result.newEndsAt.toISOString(),
+  });
 });
 
 export default router;

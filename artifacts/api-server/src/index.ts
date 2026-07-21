@@ -31,6 +31,7 @@ import { addReferralSystem } from "@workspace/db/migrations/add-referral-system"
 import { addErrandOrders } from "@workspace/db/migrations/add-errand-orders";
 import { addRestaurantPushSubscriptions } from "@workspace/db/migrations/add-restaurant-push-subscriptions";
 import { addCoverageAreas } from "@workspace/db/migrations/add-coverage-areas";
+import { addCourierPoints } from "@workspace/db/migrations/add-courier-points";
 
 const rawPort = process.env["PORT"];
 
@@ -138,5 +139,8 @@ httpServer.listen(port, (err?: Error) => {
   );
   addCoverageAreas().catch((e: unknown) =>
     logger.error({ err: e }, "Failed to run coverage areas migration"),
+  );
+  addCourierPoints().catch((e: unknown) =>
+    logger.error({ err: e }, "Failed to run courier points migration"),
   );
 });

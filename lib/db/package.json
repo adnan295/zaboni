@@ -30,7 +30,8 @@
     "./migrations/add-errand-orders": "./src/migrations/add-errand-orders.ts",
     "./migrations/add-courier-monthly-subscriptions": "./src/migrations/add-courier-monthly-subscriptions.ts",
     "./migrations/add-restaurant-push-subscriptions": "./src/migrations/add-restaurant-push-subscriptions.ts",
-    "./migrations/add-coverage-areas": "./src/migrations/add-coverage-areas.ts"
+    "./migrations/add-coverage-areas": "./src/migrations/add-coverage-areas.ts",
+    "./migrations/add-courier-points": "./src/migrations/add-courier-points.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",

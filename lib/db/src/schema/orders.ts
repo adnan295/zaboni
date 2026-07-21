@@ -36,6 +36,10 @@ export const ordersTable = pgTable("orders", {
   destinationLat: doublePrecision("destination_lat").default(DAMASCUS_CENTER_LAT),
   destinationLon: doublePrecision("destination_lon").default(DAMASCUS_CENTER_LON),
   deliveryFee: integer("delivery_fee").notNull().default(0),
+  // Amount the delivery fee was discounted by customer promotions (promo code,
+  // loyalty points, flash deal). Awarded to the courier as reward points on
+  // delivery so a customer discount never costs the courier income.
+  courierFeeDiscount: integer("courier_fee_discount").notNull().default(0),
   totalPrice: integer("total_price"),
   flashDealId: text("flash_deal_id"),
   flashDealDiscount: integer("flash_deal_discount"),

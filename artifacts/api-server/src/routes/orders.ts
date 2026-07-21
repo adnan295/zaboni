@@ -558,6 +558,7 @@ router.post("/orders", async (req, res) => {
     destinationLat: destLat,
     destinationLon: destLon,
     deliveryFee: effectiveDeliveryFee,
+    courierFeeDiscount: 0,
     totalPrice: itemsTotal ?? null,
     flashDealId: null as string | null,
     flashDealDiscount: null as number | null,
@@ -636,6 +637,8 @@ router.post("/orders", async (req, res) => {
           newOrder.totalPrice = Math.max(0, itemsTotal - discountOnItems);
         }
         newOrder.deliveryFee = Math.max(0, newOrder.deliveryFee - discountOnFee);
+        // Compensate the courier for the fee they lose to this promotion.
+        newOrder.courierFeeDiscount += discountOnFee;
       }
     }
 
@@ -647,6 +650,7 @@ router.post("/orders", async (req, res) => {
       const applied = Math.min(promoUseData.discountAmount, newOrder.deliveryFee);
       newOrder.deliveryFee = Math.max(0, newOrder.deliveryFee - applied);
       promoUseData.discountAmount = applied;
+      newOrder.courierFeeDiscount += applied;
     }
 
     // Loyalty-points redemption also discounts the delivery fee. Same fix: the
@@ -659,6 +663,7 @@ router.post("/orders", async (req, res) => {
         loyaltyRedeemData = null;
       } else {
         newOrder.deliveryFee = Math.max(0, newOrder.deliveryFee - applied);
+        newOrder.courierFeeDiscount += applied;
         const pointsForApplied =
           loyaltyPointValue > 0
             ? Math.min(Math.ceil(applied / loyaltyPointValue), loyaltyRedeemData.points)

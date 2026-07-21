@@ -28,6 +28,7 @@ export * from "./restaurant_users";
 export * from "./admin_notes";
 export * from "./flash_deals";
 export * from "./loyalty_transactions";
+export * from "./courier_points_transactions";
 export * from "./achievements";
 export * from "./user_achievements";
 export * from "./customer_subscriptions";
