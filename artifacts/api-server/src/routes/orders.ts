@@ -582,12 +582,14 @@ router.post("/orders", async (req, res) => {
   }
 
   let loyaltyRedeemData: { points: number; discountAmount: number } | null = null;
+  let loyaltyPointValue = 0;
   if (body.data.usePoints) {
     const [loyaltySettings, userRow] = await Promise.all([
       getLoyaltySettings(),
       db.select({ loyaltyPoints: usersTable.loyaltyPoints }).from(usersTable).where(eq(usersTable.id, userId)).limit(1),
     ]);
     const userPoints = userRow[0]?.loyaltyPoints ?? 0;
+    loyaltyPointValue = loyaltySettings.pointValue;
     if (userPoints > 0 && loyaltySettings.pointValue > 0) {
       const fullDiscountAmount = calculateRedeemDiscount(userPoints, loyaltySettings.pointValue);
       // Cap discount at the actual payable delivery fee so we never over-redeem points.
@@ -637,10 +639,47 @@ router.post("/orders", async (req, res) => {
       }
     }
 
+    // Promo-code discount reduces the delivery fee. It's recorded separately in
+    // promo_uses, but it must ALSO come off the stored fee — otherwise the
+    // courier collects the full (undiscounted) amount. Cap at the fee left after
+    // any flash-deal discount.
+    if (promoUseData) {
+      const applied = Math.min(promoUseData.discountAmount, newOrder.deliveryFee);
+      newOrder.deliveryFee = Math.max(0, newOrder.deliveryFee - applied);
+      promoUseData.discountAmount = applied;
+    }
+
+    // Loyalty-points redemption also discounts the delivery fee. Same fix: the
+    // points were being burned while the discount never came off the stored fee.
+    // Cap at the remaining fee and re-derive the points actually spent so we
+    // never burn more points than the discount granted.
+    if (loyaltyRedeemData) {
+      const applied = Math.min(loyaltyRedeemData.discountAmount, newOrder.deliveryFee);
+      if (applied <= 0) {
+        loyaltyRedeemData = null;
+      } else {
+        newOrder.deliveryFee = Math.max(0, newOrder.deliveryFee - applied);
+        const pointsForApplied =
+          loyaltyPointValue > 0
+            ? Math.min(Math.ceil(applied / loyaltyPointValue), loyaltyRedeemData.points)
+            : loyaltyRedeemData.points;
+        loyaltyRedeemData = { points: pointsForApplied, discountAmount: applied };
+      }
+    }
+
     // Wallet deduction MUST happen before the order insert so the persisted
     // delivery fee already reflects the discount. Atomicity is preserved by the
     // WHERE walletBalance >= deductAmount guard; if it fails we clear walletDeductData
     // and insert the order at full fee.
+    if (walletDeductData) {
+      // The fee may have shrunk from flash-deal / promo / points discounts above,
+      // so re-cap the wallet spend to what's still payable — never pull more from
+      // the balance than the order now costs.
+      const payableNow = newOrder.deliveryFee + (newOrder.totalPrice ?? 0);
+      const capped = Math.min(walletDeductData.deductAmount, payableNow);
+      walletDeductData = capped > 0 ? { deductAmount: capped } : null;
+    }
+
     if (walletDeductData) {
       try {
         const deducted = await tx
@@ -725,7 +764,7 @@ router.post("/orders", async (req, res) => {
 
   const flashDealData = rows.appliedFlashDeal;
 
-  void notifyNearbyCouriers(id, effectiveRestaurantId, body.data.restaurantName, effectiveDeliveryFee);
+  void notifyNearbyCouriers(id, effectiveRestaurantId, body.data.restaurantName, newOrder.deliveryFee);
 
   if (effectiveRestaurantId) {
     notifyRestaurantNewOrder(effectiveRestaurantId, rows.inserted[0]);
