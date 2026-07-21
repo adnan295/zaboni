@@ -240,6 +240,9 @@ router.get("/restaurants", async (req, res) => {
   });
 
   result.sort((a, b) => {
+    // Closed restaurants always sink to the bottom; open ones stay on top.
+    // Within each group (open / closed) the configured ordering below applies.
+    if (a.isOpen !== b.isOpen) return a.isOpen ? -1 : 1;
     if (hasCategoryId) {
       // 1. category-specific order (nulls last)
       const aCs = a.categorySortOrder ?? null;
