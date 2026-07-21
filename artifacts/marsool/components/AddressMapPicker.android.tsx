@@ -11,7 +11,8 @@ import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
-import { Coords, HOMS_CENTER } from "@/utils/geo";
+import { Coords, HOMS_CENTER, isWithinCoverage } from "@/utils/geo";
+import { useCoverageAreas } from "@/hooks/useCoverageAreas";
 import WebView, { WebViewMessageEvent } from "react-native-webview";
 
 const MAP_HTML = `<!DOCTYPE html>
@@ -66,6 +67,16 @@ window.moveMarker = function(lat, lng) {
   send('location', { lat: lat, lng: lng });
 };
 
+window.__coverage = [];
+window.setCoverage = function(polys) {
+  (window.__coverage || []).forEach(function(p){ map.removeLayer(p); });
+  window.__coverage = [];
+  (polys || []).forEach(function(pts) {
+    var poly = L.polygon(pts, { color: '#DC2626', fillColor: '#DC2626', fillOpacity: 0.15, weight: 2 }).addTo(map);
+    window.__coverage.push(poly);
+  });
+};
+
 send('ready', {});
 <\/script>
 </body>
@@ -88,6 +99,9 @@ export function AddressMapPicker({ visible, onClose, onSelect, initialAddress }:
   const [mapReady, setMapReady] = useState(false);
   const geocodeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedCoordsRef = useRef<Coords>(HOMS_CENTER);
+  const coverageAreas = useCoverageAreas(visible);
+  const coverage = isWithinCoverage(selectedCoords, coverageAreas);
+  const outsideCoverage = coverage.hasCoverage && !coverage.inside;
 
   useEffect(() => {
     if (!visible) {
@@ -95,6 +109,13 @@ export function AddressMapPicker({ visible, onClose, onSelect, initialAddress }:
       setResolvedAddress(initialAddress ?? "");
     }
   }, [visible]);
+
+  // Draw the red coverage polygons inside the WebView once the map is ready.
+  useEffect(() => {
+    if (!mapReady) return;
+    const polys = coverageAreas.filter((a) => a.points.length >= 3).map((a) => a.points);
+    webViewRef.current?.injectJavaScript(`window.setCoverage(${JSON.stringify(polys)}); true;`);
+  }, [mapReady, coverageAreas]);
 
   useEffect(() => {
     if (!mapReady) return;
@@ -218,10 +239,17 @@ export function AddressMapPicker({ visible, onClose, onSelect, initialAddress }:
             </View>
           </View>
 
+          {outsideCoverage && (
+            <View style={styles.outOfAreaBox}>
+              <MaterialIcons name="error-outline" size={18} color="#DC2626" />
+              <Text style={styles.outOfAreaText}>{t("map.outsideCoverage")}</Text>
+            </View>
+          )}
+
           <TouchableOpacity
-            style={[styles.confirmBtn, { backgroundColor: "#DC2626", opacity: resolvedAddress && !geocoding ? 1 : 0.5 }]}
+            style={[styles.confirmBtn, { backgroundColor: "#DC2626", opacity: resolvedAddress && !geocoding && !outsideCoverage ? 1 : 0.5 }]}
             onPress={handleConfirm}
-            disabled={!resolvedAddress || geocoding}
+            disabled={!resolvedAddress || geocoding || outsideCoverage}
           >
             <MaterialIcons name="check" size={20} color="#fff" />
             <Text style={styles.confirmBtnText}>{t("map.confirmLocation")}</Text>
@@ -292,6 +320,16 @@ const styles = StyleSheet.create({
   geocodingRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   geocodingText: { fontSize: 13 },
   resolvedText: { fontSize: 14, lineHeight: 20, textAlign: "left" },
+  outOfAreaBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#FEE2E2",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  outOfAreaText: { flex: 1, color: "#DC2626", fontSize: 13, fontWeight: "600", textAlign: "left" },
   confirmBtn: {
     flexDirection: "row",
     alignItems: "center",

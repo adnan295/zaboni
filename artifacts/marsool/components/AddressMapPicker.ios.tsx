@@ -12,8 +12,9 @@ import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
-import { Coords, HOMS_CENTER } from "@/utils/geo";
-import MapView, { Marker } from "react-native-maps";
+import { Coords, HOMS_CENTER, isWithinCoverage } from "@/utils/geo";
+import { useCoverageAreas } from "@/hooks/useCoverageAreas";
+import MapView, { Marker, Polygon } from "react-native-maps";
 
 interface AddressMapPickerProps {
   visible: boolean;
@@ -29,6 +30,9 @@ export function AddressMapPicker({ visible, onClose, onSelect, initialAddress }:
   const [resolvedAddress, setResolvedAddress] = useState<string>(initialAddress ?? "");
   const [geocoding, setGeocoding] = useState(false);
   const geocodeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const coverageAreas = useCoverageAreas(visible);
+  const coverage = isWithinCoverage(selectedCoords, coverageAreas);
+  const outsideCoverage = coverage.hasCoverage && !coverage.inside;
 
   useEffect(() => {
     if (!visible) return;
@@ -109,6 +113,17 @@ export function AddressMapPicker({ visible, onClose, onSelect, initialAddress }:
             showsUserLocation
             showsMyLocationButton={false}
           >
+            {coverageAreas
+              .filter((a) => a.points.length >= 3)
+              .map((a) => (
+                <Polygon
+                  key={a.id}
+                  coordinates={a.points.map(([latitude, longitude]) => ({ latitude, longitude }))}
+                  strokeColor="#DC2626"
+                  strokeWidth={2}
+                  fillColor="rgba(220,38,38,0.15)"
+                />
+              ))}
             <Marker
               coordinate={selectedCoords}
               draggable
@@ -142,10 +157,17 @@ export function AddressMapPicker({ visible, onClose, onSelect, initialAddress }:
             </View>
           </View>
 
+          {outsideCoverage && (
+            <View style={styles.outOfAreaBox}>
+              <MaterialIcons name="error-outline" size={18} color="#DC2626" />
+              <Text style={styles.outOfAreaText}>{t("map.outsideCoverage")}</Text>
+            </View>
+          )}
+
           <TouchableOpacity
-            style={[styles.confirmBtn, { backgroundColor: "#DC2626", opacity: resolvedAddress && !geocoding ? 1 : 0.5 }]}
+            style={[styles.confirmBtn, { backgroundColor: "#DC2626", opacity: resolvedAddress && !geocoding && !outsideCoverage ? 1 : 0.5 }]}
             onPress={handleConfirm}
-            disabled={!resolvedAddress || geocoding}
+            disabled={!resolvedAddress || geocoding || outsideCoverage}
           >
             <MaterialIcons name="check" size={20} color="#fff" />
             <Text style={styles.confirmBtnText}>{t("map.confirmLocation")}</Text>
@@ -209,6 +231,16 @@ const styles = StyleSheet.create({
   geocodingRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   geocodingText: { fontSize: 13 },
   resolvedText: { fontSize: 14, lineHeight: 20, textAlign: "left" },
+  outOfAreaBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#FEE2E2",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  outOfAreaText: { flex: 1, color: "#DC2626", fontSize: 13, fontWeight: "600", textAlign: "left" },
   confirmBtn: {
     flexDirection: "row",
     alignItems: "center",

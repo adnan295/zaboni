@@ -34,6 +34,42 @@ export function interpolateCoords(from: Coords, to: Coords, t: number): Coords {
 
 export const HOMS_CENTER: Coords = { latitude: 34.7324, longitude: 36.7137 };
 
+export interface CoverageArea {
+  id: string;
+  name: string;
+  points: [number, number][];
+}
+
+// Ray-casting point-in-polygon. `polygon` is a ring of [lat, lon] pairs.
+export function pointInPolygon(point: Coords, polygon: [number, number][]): boolean {
+  if (!Array.isArray(polygon) || polygon.length < 3) return false;
+  const x = point.longitude;
+  const y = point.latitude;
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const yi = polygon[i][0];
+    const xi = polygon[i][1];
+    const yj = polygon[j][0];
+    const xj = polygon[j][1];
+    const intersect = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+// Whether a point is covered. When no area is configured, coverage is treated
+// as unlimited (inside = true) so the picker never blocks by accident.
+export function isWithinCoverage(
+  point: Coords,
+  areas: CoverageArea[],
+): { hasCoverage: boolean; inside: boolean } {
+  const polygons = areas
+    .map((a) => a.points)
+    .filter((p) => Array.isArray(p) && p.length >= 3);
+  if (polygons.length === 0) return { hasCoverage: false, inside: true };
+  return { hasCoverage: true, inside: polygons.some((p) => pointInPolygon(point, p)) };
+}
+
 export function simulateCourierStart(user: Coords, offsetKm = 2): Coords {
   const deltaLat = offsetKm / 111;
   const deltaLng = offsetKm / (111 * Math.cos(toRad(user.latitude)));
