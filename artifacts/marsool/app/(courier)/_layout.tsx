@@ -161,6 +161,15 @@ export default function CourierTabLayout() {
         }}
       />
       <Tabs.Screen
+        name="points"
+        options={{
+          title: "النقاط",
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons name="stars" size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: t("courierTabs.profile"),
