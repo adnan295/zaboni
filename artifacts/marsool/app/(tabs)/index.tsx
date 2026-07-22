@@ -170,9 +170,10 @@ async function fetchAppConfig(): Promise<{ showAllTab: boolean }> {
   }
 }
 
-async function fetchHomeSection(section: "popular" | "deals"): Promise<RestaurantItem[]> {
+async function fetchHomeSection(section: "popular" | "deals", lat?: number, lon?: number): Promise<RestaurantItem[]> {
   const base = getApiBaseUrl();
-  const res = await fetch(`${base}/api/home-sections/${section}`);
+  const q = lat != null && lon != null ? `?lat=${lat}&lon=${lon}` : "";
+  const res = await fetch(`${base}/api/home-sections/${section}${q}`);
   if (!res.ok) return [];
   return res.json();
 }
@@ -234,15 +235,21 @@ export default function HomeScreen() {
     })();
   }, []);
 
+  // The fee a customer pays is priced from their DELIVERY address, so price the
+  // home lists from it too (GPS as fallback) — keeps the fee shown here in sync
+  // with checkout instead of using a different reference point.
+  const feeLat = defaultAddress?.latitude ?? userLocation?.lat ?? undefined;
+  const feeLon = defaultAddress?.longitude ?? userLocation?.lon ?? undefined;
+
   const { data: allRestaurantsData = [], isLoading, refetch } = useQuery<RestaurantItem[]>({
-    queryKey: ["restaurants", userLocation?.lat, userLocation?.lon],
-    queryFn: () => fetchRestaurants(userLocation?.lat, userLocation?.lon),
+    queryKey: ["restaurants", feeLat, feeLon],
+    queryFn: () => fetchRestaurants(feeLat, feeLon),
     staleTime: 2 * 60 * 1000,
   });
 
   const { data: categoryRestaurantsData = [], isLoading: isCategoryLoading } = useQuery<RestaurantItem[]>({
-    queryKey: ["restaurants-by-category", selectedCategory, userLocation?.lat, userLocation?.lon],
-    queryFn: () => fetchRestaurants(userLocation?.lat, userLocation?.lon, selectedCategory),
+    queryKey: ["restaurants-by-category", selectedCategory, feeLat, feeLon],
+    queryFn: () => fetchRestaurants(feeLat, feeLon, selectedCategory),
     staleTime: 2 * 60 * 1000,
     enabled: selectedCategory !== "all",
   });
@@ -304,14 +311,14 @@ export default function HomeScreen() {
   }, [refetch]);
 
   const { data: popularRestaurants = [], isLoading: isPopularLoading } = useQuery<RestaurantItem[]>({
-    queryKey: ["home-sections", "popular"],
-    queryFn: () => fetchHomeSection("popular"),
+    queryKey: ["home-sections", "popular", feeLat, feeLon],
+    queryFn: () => fetchHomeSection("popular", feeLat, feeLon),
     staleTime: 2 * 60 * 1000,
   });
 
   const { data: dealRestaurants = [], isLoading: isDealsLoading } = useQuery<RestaurantItem[]>({
-    queryKey: ["home-sections", "deals"],
-    queryFn: () => fetchHomeSection("deals"),
+    queryKey: ["home-sections", "deals", feeLat, feeLon],
+    queryFn: () => fetchHomeSection("deals", feeLat, feeLon),
     staleTime: 2 * 60 * 1000,
   });
 

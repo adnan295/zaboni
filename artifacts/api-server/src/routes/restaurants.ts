@@ -2,6 +2,7 @@ import { Router, type IRouter, type Request } from "express";
 import { db, restaurantsTable, menuItemsTable, restaurantHoursTable, promoBannersTable, restaurantCategoriesTable, restaurantCategorySortOrdersTable, homeSectionItemsTable, categoryRestaurantExclusionsTable, flashDealsTable, menuItemOptionGroupsTable, menuItemOptionsTable } from "@workspace/db";
 import { and, asc, desc, eq, gt, inArray, isNull, lt, lte, notInArray, or, sql } from "drizzle-orm";
 import { getActiveCoverageAreas, areaIdsContaining, pointInAllowedArea } from "../lib/coverage";
+import { makeFeeCalculator } from "../lib/deliveryZones";
 
 const router: IRouter = Router();
 
@@ -223,6 +224,12 @@ router.get("/restaurants", async (req, res) => {
     }
   }
 
+  // Price every restaurant with the SAME distance-based calculator the checkout
+  // uses, so the fee shown in the list matches what the customer pays — no more
+  // "list said 80, checkout said 150" surprise. Falls back to the stored fee when
+  // we can't measure distance (no customer location / no restaurant coords).
+  const feeForKm = hasLocation ? await makeFeeCalculator() : null;
+
   const result = rows.map((r) => {
     const byDay = hoursMap.get(r.id);
     const distanceKm =
@@ -231,6 +238,7 @@ router.get("/restaurants", async (req, res) => {
         : null;
     return {
       ...r,
+      deliveryFee: distanceKm != null && feeForKm ? feeForKm(distanceKm) : r.deliveryFee,
       isOpen: computeIsOpenFromHours(byDay?.get(dayOfWeek), byDay?.get(prevDayOfWeek), nowMinutes, r.isOpen),
       distanceKm,
       categorySortOrder: hasCategoryId ? (categorySortMap.get(r.id) ?? null) : null,
@@ -419,6 +427,10 @@ router.get("/home-sections/:section", async (req, res) => {
     return;
   }
 
+  const lat = typeof req.query["lat"] === "string" ? parseFloat(req.query["lat"]) : null;
+  const lon = typeof req.query["lon"] === "string" ? parseFloat(req.query["lon"]) : null;
+  const hasLocation = lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon);
+
   const manualItems = await db
     .select({ restaurantId: homeSectionItemsTable.restaurantId })
     .from(homeSectionItemsTable)
@@ -469,14 +481,21 @@ router.get("/home-sections/:section", async (req, res) => {
     .from(restaurantsTable)
     .where(inArray(restaurantsTable.id, restaurantIds));
 
+  // Same distance-based pricing as the main list, so carousel cards match checkout.
+  const feeForKm = hasLocation ? await makeFeeCalculator() : null;
+
   const map = new Map(restaurants.map((r) => [r.id, r]));
   const ordered = restaurantIds
     .map((id) => {
       const r = map.get(id);
       if (!r) return null;
       const endsAt = flashDealEndsAtMap.get(id);
+      const distanceKm =
+        hasLocation && r.lat != null && r.lon != null ? haversineKm(lat!, lon!, r.lat, r.lon) : null;
       return {
         ...r,
+        deliveryFee: distanceKm != null && feeForKm ? feeForKm(distanceKm) : r.deliveryFee,
+        distanceKm,
         hasFlashDeal: flashRestaurantIds.has(id),
         flashDealEndsAt: endsAt ? endsAt.toISOString() : null,
       };

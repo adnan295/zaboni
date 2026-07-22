@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
 import { getApiBaseUrl } from "@/lib/apiConfig";
+import { useAddresses } from "@/context/AddressContext";
 import RestaurantCard, { RestaurantCardSkeleton } from "@/components/RestaurantCard";
 
 type RestaurantItem = {
@@ -38,10 +39,14 @@ type RestaurantItem = {
   maxDealPercent?: number | null;
 };
 
-async function fetchDeals(): Promise<RestaurantItem[]> {
+function locQuery(lat?: number, lon?: number): string {
+  return lat != null && lon != null ? `?lat=${lat}&lon=${lon}` : "";
+}
+
+async function fetchDeals(lat?: number, lon?: number): Promise<RestaurantItem[]> {
   try {
     const base = getApiBaseUrl();
-    const res = await fetch(`${base}/api/home-sections/deals`);
+    const res = await fetch(`${base}/api/home-sections/deals${locQuery(lat, lon)}`);
     if (!res.ok) return [];
     return res.json();
   } catch {
@@ -49,10 +54,10 @@ async function fetchDeals(): Promise<RestaurantItem[]> {
   }
 }
 
-async function fetchDiscounted(): Promise<RestaurantItem[]> {
+async function fetchDiscounted(lat?: number, lon?: number): Promise<RestaurantItem[]> {
   try {
     const base = getApiBaseUrl();
-    const res = await fetch(`${base}/api/restaurants`);
+    const res = await fetch(`${base}/api/restaurants${locQuery(lat, lon)}`);
     if (!res.ok) return [];
     const all: RestaurantItem[] = await res.json();
     return all.filter((r) => r.discount || r.hasFlashDeal);
@@ -66,17 +71,22 @@ export default function OffersScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const { defaultAddress } = useAddresses();
   const [refreshing, setRefreshing] = useState(false);
 
+  // Price cards from the delivery address so the fee matches checkout.
+  const feeLat = defaultAddress?.latitude ?? undefined;
+  const feeLon = defaultAddress?.longitude ?? undefined;
+
   const { data: deals = [], isLoading: isDealsLoading, refetch: refetchDeals } = useQuery<RestaurantItem[]>({
-    queryKey: ["offers-deals"],
-    queryFn: fetchDeals,
+    queryKey: ["offers-deals", feeLat, feeLon],
+    queryFn: () => fetchDeals(feeLat, feeLon),
     staleTime: 2 * 60 * 1000,
   });
 
   const { data: discounted = [], isLoading: isDiscountedLoading, refetch: refetchDisc } = useQuery<RestaurantItem[]>({
-    queryKey: ["offers-discounted"],
-    queryFn: fetchDiscounted,
+    queryKey: ["offers-discounted", feeLat, feeLon],
+    queryFn: () => fetchDiscounted(feeLat, feeLon),
     staleTime: 2 * 60 * 1000,
   });
 

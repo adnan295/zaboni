@@ -65,3 +65,25 @@ export async function getFeeForDistance(distanceKm: number): Promise<ZoneFeeResu
     zone: null,
   };
 }
+
+/**
+ * Build a delivery-fee calculator once (zones fetched a single time) so many
+ * restaurants can be priced in one pass without a query each. The returned fee
+ * matches getFeeForDistance exactly, so the restaurant list shows the same fee
+ * the customer pays at checkout.
+ */
+export async function makeFeeCalculator(): Promise<(distanceKm: number) => number> {
+  const zones = await db
+    .select()
+    .from(deliveryZonesTable)
+    .where(eq(deliveryZonesTable.isActive, true))
+    .orderBy(asc(deliveryZonesTable.fromKm));
+  const highestFee = zones.length ? Math.max(...zones.map((z) => z.fee)) : DEFAULT_DELIVERY_FEE_SYP;
+  return (distanceKm: number): number => {
+    const effectiveKm = distanceKm * ROAD_DISTANCE_FACTOR;
+    for (const zone of zones) {
+      if (effectiveKm >= zone.fromKm && effectiveKm < zone.toKm) return zone.fee;
+    }
+    return zones.length === 0 ? DEFAULT_DELIVERY_FEE_SYP : highestFee;
+  };
+}

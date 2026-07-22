@@ -18,6 +18,7 @@ import { useColors } from "@/hooks/useColors";
 import { useRouter, useNavigation } from "expo-router";
 import RestaurantCard from "@/components/RestaurantCard";
 import { customFetch } from "@workspace/api-client-react";
+import { useAddresses } from "@/context/AddressContext";
 
 type SortOption = "priority" | "fastest" | "rating" | "delivery_fee";
 
@@ -87,13 +88,19 @@ export default function SearchTabScreen() {
   const inputRef = useRef<TextInput>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const { defaultAddress } = useAddresses();
+  // Price cards from the delivery address so the fee matches checkout.
+  const feeLat = defaultAddress?.latitude ?? undefined;
+  const feeLon = defaultAddress?.longitude ?? undefined;
+  const locParam = feeLat != null && feeLon != null ? `&lat=${feeLat}&lon=${feeLon}` : "";
+
   // Fetch popular restaurants on mount (used in empty state)
   useEffect(() => {
-    customFetch<RestaurantItem[]>("/api/restaurants?sortBy=rating&limit=6")
+    customFetch<RestaurantItem[]>(`/api/restaurants?sortBy=rating&limit=6${locParam}`)
       .then((data) => setPopular(data ?? []))
       .catch(() => setPopular([]))
       .finally(() => setPopularLoading(false));
-  }, []);
+  }, [locParam]);
 
   const doSearch = useCallback(async (q: string, opts?: {
     sort?: SortOption;
@@ -109,6 +116,7 @@ export default function SearchTabScreen() {
       if (opts?.open ?? openOnly) params.set("openOnly", "1");
       if (opts?.free ?? freeDelivery) params.set("freeDelivery", "1");
       if (opts?.top ?? topRated) params.set("minRating", "4");
+      if (feeLat != null && feeLon != null) { params.set("lat", String(feeLat)); params.set("lon", String(feeLon)); }
       const data = await customFetch<RestaurantItem[]>(`/api/restaurants?${params.toString()}`);
       setResults(data ?? []);
     } catch {
@@ -116,7 +124,7 @@ export default function SearchTabScreen() {
     } finally {
       setLoading(false);
     }
-  }, [sortBy, openOnly, freeDelivery, topRated]);
+  }, [sortBy, openOnly, freeDelivery, topRated, feeLat, feeLon]);
 
   const handleChange = (text: string) => {
     setQuery(text);
