@@ -14,7 +14,7 @@ import {
 import { Image } from "expo-image";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useNavigation } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
@@ -325,6 +325,17 @@ export default function HomeScreen() {
   const mainListRef = useRef<FlatList<RestaurantItem>>(null);
   const popularSectionY = useRef<number>(0);
   const dealsSectionY = useRef<number>(0);
+
+  // Tapping the Home tab (whether arriving from another tab or already on Home
+  // and scrolled down) snaps the list back to the top — the expected behaviour
+  // in every major app.
+  const navigation = useNavigation();
+  useEffect(() => {
+    const unsub = navigation.addListener("tabPress" as any, () => {
+      mainListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    });
+    return unsub;
+  }, [navigation]);
 
   const bannerScrollRef = useRef<ScrollView>(null);
   const bannerTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
