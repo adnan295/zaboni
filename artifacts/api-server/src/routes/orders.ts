@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request } from "express";
 import { db, ordersTable, orderItemsTable, menuItemsTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable, promoCodesTable, promoUsesTable, usersTable, flashDealsTable, loyaltyTransactionsTable, menuItemOptionsTable, menuItemOptionGroupsTable, orderItemOptionsTable } from "@workspace/db";
-import { and, count, desc, eq, gt, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
+import { and, avg, count, desc, eq, gt, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { notifyOrderUpdate, notifyNearbyCouriers, notifyRestaurantNewOrder } from "../orders/server";
 import { haversineKm, getFeeForDistance, DEFAULT_DELIVERY_FEE_SYP, DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON } from "../lib/deliveryZones";
@@ -943,8 +943,12 @@ router.post("/orders/:id/rate", async (req, res) => {
   const o = order[0]!;
   const restaurantName = o.restaurantName || body.data.restaurantName;
 
-  let restaurantId: string | null = null;
-  if (restaurantName) {
+  // Attribute the rating to the restaurant stored on the order itself. Matching
+  // by name is unreliable (two restaurants can share a name, and a rename breaks
+  // the link), so we trust the order's restaurantId and only fall back to a name
+  // lookup for legacy orders saved before restaurantId was recorded.
+  let restaurantId: string | null = o.restaurantId ?? null;
+  if (!restaurantId && restaurantName) {
     const found = await db
       .select({ id: restaurantsTable.id })
       .from(restaurantsTable)
@@ -973,6 +977,26 @@ router.post("/orders/:id/rate", async (req, res) => {
       restaurantName,
     })
     .returning();
+
+  // Roll the new rating up into the restaurant's displayed score. The list and
+  // restaurant page read restaurantsTable.rating, so without this the star shown
+  // to customers never reflects the ratings they actually leave. Best-effort:
+  // a failure here must not fail the rating that was already saved.
+  if (restaurantId) {
+    try {
+      const [agg] = await db
+        .select({ avgStars: avg(orderRatingsTable.restaurantStars) })
+        .from(orderRatingsTable)
+        .where(eq(orderRatingsTable.restaurantId, restaurantId));
+      const newAvg = Number(agg?.avgStars ?? 0);
+      await db
+        .update(restaurantsTable)
+        .set({ rating: Math.round(newAvg * 10) / 10 })
+        .where(eq(restaurantsTable.id, restaurantId));
+    } catch {
+      // ignore — rating is saved; restaurant aggregate will catch up next time
+    }
+  }
 
   void checkAndAwardAchievements(userId);
 
