@@ -2,7 +2,7 @@
   "expo": {
     "name": "زبوني",
     "slug": "zaboni",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "zaboni",
@@ -47,7 +47,7 @@
     },
     "android": {
       "package": "com.zaboni.delivery",
-      "versionCode": 100,
+      "versionCode": 101,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
