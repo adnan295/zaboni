@@ -72,3 +72,6 @@ scripts/export-images/
 *.tar.gz
 
 storage/
+# Google Play service account key (secret — never commit)
+artifacts/marsool/google-service-account.json
+**/google-service-account*.json
