@@ -816,6 +816,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     overflow: "hidden",
+    // Inside a ScrollView a flex:1 map collapses to zero height, so the map card
+    // needs an explicit height to actually render.
+    height: 240,
   },
   map: {
     width: "100%",

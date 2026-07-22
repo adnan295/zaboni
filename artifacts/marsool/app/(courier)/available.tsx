@@ -31,11 +31,11 @@ function timeAgo(isoString: string): string {
 function OrderCard({
   order,
   onAccept,
-  hasActiveOrder,
+  blockReason,
 }: {
   order: CourierOrder;
   onAccept: (id: string) => void;
-  hasActiveOrder: boolean;
+  blockReason: "max" | "pickup_first" | null;
 }) {
   const colors = useColors();
   const { t } = useTranslation();
@@ -50,7 +50,7 @@ function OrderCard({
     }
   };
 
-  const isBlocked = hasActiveOrder || accepting;
+  const isBlocked = blockReason !== null || accepting;
 
   const age = ageMinutes(order.createdAt);
   const isOld = age > 20;
@@ -123,10 +123,12 @@ function OrderCard({
         disabled={isBlocked}
         activeOpacity={0.8}
       >
-        <MaterialIcons name={hasActiveOrder ? "block" : "check-circle"} size={20} color="#fff" />
+        <MaterialIcons name={blockReason ? "block" : "check-circle"} size={20} color="#fff" />
         <Text style={styles.acceptBtnText}>
-          {hasActiveOrder
-            ? t("courier.available.hasActiveOrder")
+          {blockReason === "max"
+            ? "عندك طلبين بالفعل"
+            : blockReason === "pickup_first"
+            ? "استلم طلبك الحالي من المطعم أولاً"
             : accepting
             ? t("courier.available.accepting")
             : t("courier.available.accept")}
@@ -152,7 +154,17 @@ export default function AvailableOrdersScreen() {
     toggleAvailability,
   } = useCourier();
 
-  const hasActiveOrder = activeOrders.length > 0;
+  // Mirror the server's stacking rule: a courier can hold up to 2 orders, and a
+  // 2nd can only be taken once the current one is picked up (picked_up/on_way).
+  const MAX_ACTIVE_ORDERS = 2;
+  const activeCount = activeOrders.length;
+  const allPickedUp = activeOrders.every((o) => o.status === "picked_up" || o.status === "on_way");
+  const blockReason: "max" | "pickup_first" | null =
+    activeCount >= MAX_ACTIVE_ORDERS
+      ? "max"
+      : activeCount > 0 && !allPickedUp
+      ? "pickup_first"
+      : null;
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
@@ -219,7 +231,7 @@ export default function AvailableOrdersScreen() {
         data={availableOrders}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <OrderCard order={item} onAccept={handleAccept} hasActiveOrder={hasActiveOrder} />
+          <OrderCard order={item} onAccept={handleAccept} blockReason={blockReason} />
         )}
         contentContainerStyle={[
           styles.list,
