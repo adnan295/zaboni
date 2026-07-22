@@ -29,7 +29,6 @@ export interface PlaceOrderInput {
   lon?: number;
   restaurantId?: string;
   usePoints?: boolean;
-  useWallet?: boolean;
   flashDealId?: string;
   orderType?: "restaurant" | "errand";
   placeName?: string;
@@ -175,7 +174,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
 
   const placeOrder = useCallback(
     async (input: PlaceOrderInput): Promise<Order> => {
-      const { items, orderText, restaurantName, address, promoCode, lat, lon, restaurantId, usePoints, useWallet, flashDealId, orderType, placeName, restaurantNote } = input;
+      const { items, orderText, restaurantName, address, promoCode, lat, lon, restaurantId, usePoints, flashDealId, orderType, placeName, restaurantNote } = input;
       const result = await customFetch("/api/orders", {
         method: "POST",
         body: JSON.stringify({
@@ -188,7 +187,6 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
           ...(lon != null ? { lon } : {}),
           ...(restaurantId ? { restaurantId } : {}),
           ...(usePoints ? { usePoints: true } : {}),
-          ...(useWallet ? { useWallet: true } : {}),
           ...(flashDealId ? { flashDealId } : {}),
           ...(orderType ? { orderType } : {}),
           ...(placeName ? { placeName } : {}),

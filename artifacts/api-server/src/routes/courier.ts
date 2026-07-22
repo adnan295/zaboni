@@ -7,7 +7,7 @@ import { notifyOrderUpdate, sendOrderPush, notifyCouriersOrderTaken } from "../o
 import { getLoyaltySettings, awardPointsInTx } from "../lib/loyalty";
 import { awardCourierPointsInTx, getCourierPointValue, getCourierPointsPerDay, redeemCourierPointsForDays } from "../lib/courierPoints";
 import { checkAndAwardAchievements } from "../lib/achievements";
-import { awardReferralCommissionInTx } from "../lib/referral";
+import { awardReferralPointsInTx } from "../lib/referral";
 import { sendPushToUsers } from "../lib/push";
 
 const router: IRouter = Router();
@@ -593,10 +593,11 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
           // courier points award must not block order completion
         }
       }
-      // Referral commission: award 5% of itemsTotal to referrer on FIRST delivered order only.
-      // We filter status = 'pending' so a referral is only paid once even if the referred
-      // user has multiple delivered orders in the future.
-      if (order.totalPrice != null && order.totalPrice > 0) {
+      // Referral reward: award flat loyalty points to the referrer on the
+      // referred friend's FIRST delivered order only. We filter status = 'pending'
+      // so a referral is only paid once even if the referred user has multiple
+      // delivered orders later. Fires for any completed order (restaurant or errand).
+      {
         try {
           const [pendingReferral] = await tx
             .select({ id: referralsTable.id, referrerId: referralsTable.referrerId })
@@ -609,15 +610,15 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
             )
             .limit(1);
           if (pendingReferral && pendingReferral.referrerId !== currentOrder.userId) {
-            const commission = await awardReferralCommissionInTx(tx, pendingReferral.id, pendingReferral.referrerId, orderId, order.totalPrice);
-            if (commission > 0) {
+            const points = await awardReferralPointsInTx(tx, pendingReferral.id, pendingReferral.referrerId, orderId);
+            if (points > 0) {
               // Notify referrer after the transaction commits (non-blocking)
               const referrerId = pendingReferral.referrerId;
-              const commissionAmt = commission;
+              const earnedPoints = points;
               setImmediate(() => {
                 void sendPushToUsers(
                   [referrerId],
-                  `💰 حصلت على ${commissionAmt.toLocaleString()} ل.س عمولة إحالة!`,
+                  `🎁 ربحت ${earnedPoints.toLocaleString()} نقطة من الإحالة!`,
                   "تهانينا! صديقك أكمل أول طلب بنجاح 🎉",
                   { type: "referral" }
                 );
@@ -625,7 +626,7 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
             }
           }
         } catch {
-          // referral commission failure must not block order completion
+          // referral reward failure must not block order completion
         }
       }
     }

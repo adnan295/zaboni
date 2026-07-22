@@ -1207,6 +1207,7 @@ export type FlashDealStats = {
 export type LoyaltySettings = {
   earnRate: number;
   pointValue: number;
+  referralRewardPoints: number;
 };
 
 export type LoyaltyUser = {

@@ -52,9 +52,9 @@ export default function Referrals() {
             </div>
             <div className="bg-card border rounded-xl p-4">
               <div className="text-2xl font-bold text-primary">
-                {(data?.totalCommissions ?? 0).toLocaleString("ar-SY")} ل.س
+                {(data?.totalCommissions ?? 0).toLocaleString("ar-SY")} نقطة
               </div>
-              <div className="text-sm text-muted-foreground mt-1">إجمالي العمولات</div>
+              <div className="text-sm text-muted-foreground mt-1">إجمالي النقاط الممنوحة</div>
             </div>
             <div className="bg-card border rounded-xl p-4">
               <div className="text-2xl font-bold">{data?.topReferrers?.length ?? 0}</div>
@@ -71,7 +71,7 @@ export default function Referrals() {
                     <th className="text-right py-2 px-2">الاسم</th>
                     <th className="text-right py-2 px-2">الهاتف</th>
                     <th className="text-right py-2 px-2">عدد الإحالات</th>
-                    <th className="text-right py-2 px-2">إجمالي المكسب</th>
+                    <th className="text-right py-2 px-2">إجمالي النقاط</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -80,7 +80,7 @@ export default function Referrals() {
                       <td className="py-2 px-2 font-medium">{r.name || "—"}</td>
                       <td className="py-2 px-2 font-mono text-xs">{r.phone}</td>
                       <td className="py-2 px-2">{r.count}</td>
-                      <td className="py-2 px-2 text-green-600 font-semibold">{r.earned.toLocaleString("ar-SY")} ل.س</td>
+                      <td className="py-2 px-2 text-green-600 font-semibold">{r.earned.toLocaleString("ar-SY")} نقطة</td>
                     </tr>
                   ))}
                 </tbody>
@@ -99,7 +99,7 @@ export default function Referrals() {
                     <tr className="border-b text-muted-foreground">
                       <th className="text-right py-2 px-2">المُحيل</th>
                       <th className="text-right py-2 px-2">المُحال</th>
-                      <th className="text-right py-2 px-2">العمولة</th>
+                      <th className="text-right py-2 px-2">النقاط</th>
                       <th className="text-right py-2 px-2">الحالة</th>
                       <th className="text-right py-2 px-2">التاريخ</th>
                     </tr>
@@ -116,7 +116,7 @@ export default function Referrals() {
                           <div className="text-xs text-muted-foreground font-mono">{r.referredPhone}</div>
                         </td>
                         <td className="py-2 px-2 font-semibold">
-                          {r.commissionAmount > 0 ? `${r.commissionAmount.toLocaleString("ar-SY")} ل.س` : "—"}
+                          {r.commissionAmount > 0 ? `${r.commissionAmount.toLocaleString("ar-SY")} نقطة` : "—"}
                         </td>
                         <td className="py-2 px-2">
                           <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusColor(r.status)}`}>

@@ -3010,14 +3010,22 @@ router.put("/admin/loyalty-settings", async (req, res) => {
   const body = z.object({
     earnRate: z.number().min(0).max(1000),
     pointValue: z.number().min(0).max(100),
+    referralRewardPoints: z.number().min(0).max(100000).optional(),
   }).safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ error: "earnRate and pointValue required" });
     return;
   }
-  const { saveLoyaltySettings } = await import("../lib/loyalty");
-  await saveLoyaltySettings(body.data);
-  res.json(body.data);
+  const { getLoyaltySettings, saveLoyaltySettings } = await import("../lib/loyalty");
+  // referralRewardPoints is optional in the request; keep the stored value when omitted.
+  const current = await getLoyaltySettings();
+  const merged = {
+    earnRate: body.data.earnRate,
+    pointValue: body.data.pointValue,
+    referralRewardPoints: body.data.referralRewardPoints ?? current.referralRewardPoints,
+  };
+  await saveLoyaltySettings(merged);
+  res.json(merged);
 });
 
 router.get("/admin/loyalty-users", async (_req, res) => {

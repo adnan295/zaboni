@@ -3,14 +3,13 @@ import {
   usersTable,
   referralCodesTable,
   referralsTable,
-  customerWalletTransactionsTable,
+  loyaltyTransactionsTable,
 } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
+import { getReferralRewardPoints } from "./loyalty";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const CODE_LENGTH = 8;
-
-export const REFERRAL_COMMISSION_RATE = 0.05;
 
 export function generateReferralCode(): string {
   let code = "";
@@ -49,36 +48,47 @@ export async function getOrCreateReferralCode(userId: string): Promise<string> {
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-export async function awardReferralCommissionInTx(
+/**
+ * Reward the referrer with loyalty points (not cash) when their referred friend
+ * completes their first order. The amount is a flat admin-configured number of
+ * points, independent of the order value. `commissionAmount` on the referral row
+ * now records the points granted, so referral history/reporting keeps working.
+ */
+export async function awardReferralPointsInTx(
   tx: Tx,
   referralId: string,
   referrerId: string,
-  orderId: string,
-  itemsTotal: number
+  orderId: string
 ): Promise<number> {
-  const commission = Math.floor(itemsTotal * REFERRAL_COMMISSION_RATE);
-  if (commission <= 0) return 0;
+  const points = await getReferralRewardPoints();
+  if (points <= 0) {
+    // Still mark the referral resolved so it isn't retried on every future order.
+    await tx
+      .update(referralsTable)
+      .set({ status: "paid", orderId, commissionAmount: 0 })
+      .where(eq(referralsTable.id, referralId));
+    return 0;
+  }
 
   await tx
     .update(referralsTable)
-    .set({ status: "paid", orderId, commissionAmount: commission })
+    .set({ status: "paid", orderId, commissionAmount: points })
     .where(eq(referralsTable.id, referralId));
 
   await tx
     .update(usersTable)
-    .set({ walletBalance: sql`${usersTable.walletBalance} + ${commission}` })
+    .set({ loyaltyPoints: sql`${usersTable.loyaltyPoints} + ${points}` })
     .where(eq(usersTable.id, referrerId));
 
-  const txId = `cwt_ref_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
-  await tx.insert(customerWalletTransactionsTable).values({
+  const txId = `loy_ref_${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+  await tx.insert(loyaltyTransactionsTable).values({
     id: txId,
     userId: referrerId,
-    amount: commission,
-    type: "referral_commission",
-    description: `عمولة إحالة من طلب #${orderId.slice(-6)}`,
-    referralId,
+    type: "earn",
+    points,
     orderId,
+    description: `نقاط إحالة — صديقك أكمل أول طلب 🎉`,
   });
 
-  return commission;
+  return points;
 }

@@ -60,14 +60,6 @@ interface LoyaltyBalance {
   earnRate: number;
 }
 
-interface WalletTransaction {
-  id: string;
-  type: string;
-  amount: number;
-  note: string | null;
-  createdAt: string;
-}
-
 interface Achievement {
   key: string;
   icon: string;
@@ -108,8 +100,6 @@ export default function ProfileScreen() {
 
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loyaltyData, setLoyaltyData] = useState<LoyaltyBalance | null>(null);
-  const [walletBalance, setWalletBalance] = useState<number | null>(null);
-  const [walletTransactions, setWalletTransactions] = useState<WalletTransaction[]>([]);
   const [referralCode, setReferralCode] = useState<string | null>(null);
   const [referralStats, setReferralStats] = useState<{ totalReferrals: number; totalEarned: number } | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
@@ -171,17 +161,6 @@ export default function ProfileScreen() {
       setLoyaltyData(data);
     } catch {
       setLoyaltyData(null);
-    }
-  }, [user?.id, isCourier]);
-
-  const fetchWallet = useCallback(async () => {
-    if (!user || isCourier) return;
-    try {
-      const data = await customFetch("/api/wallet/transactions") as { balance: number; transactions: WalletTransaction[] };
-      setWalletBalance(data.balance);
-      setWalletTransactions(data.transactions ?? []);
-    } catch {
-      setWalletBalance(null);
     }
   }, [user?.id, isCourier]);
 
@@ -252,9 +231,8 @@ export default function ProfileScreen() {
       fetchAchievements();
       fetchSubscriptionStatus();
       void fetchSupportUnread();
-      void fetchWallet();
       void fetchReferral();
-    }, [fetchApplication, fetchCustomerStats, fetchLoyalty, fetchAchievements, fetchSubscriptionStatus, fetchSupportUnread, fetchWallet, fetchReferral])
+    }, [fetchApplication, fetchCustomerStats, fetchLoyalty, fetchAchievements, fetchSubscriptionStatus, fetchSupportUnread, fetchReferral])
   );
 
   useEffect(() => {
@@ -445,54 +423,6 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Wallet card */}
-        {!isCourier && walletBalance !== null && (
-          <View style={[styles.loyaltyCard, { backgroundColor: "#15803d" }]}>
-            <View style={styles.loyaltyLeft}>
-              <MaterialIcons name="account-balance-wallet" size={28} color="#fff" />
-              <View>
-                <Text style={styles.loyaltyLabel}>{t("wallet.balance")}</Text>
-                <Text style={styles.loyaltyPoints}>
-                  {walletBalance.toLocaleString()} {t("wallet.currency")}
-                </Text>
-                {walletBalance === 0 && (
-                  <Text style={styles.loyaltyValue}>{t("wallet.noBalanceHint")}</Text>
-                )}
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* Wallet transactions */}
-        {!isCourier && walletTransactions.length > 0 && (
-          <View style={[styles.achievementsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.achievementsSectionTitle, { color: colors.foreground }]}>
-              {t("wallet.transactionsTitle")}
-            </Text>
-            {walletTransactions.slice(0, 5).map((tx) => (
-              <View key={tx.id} style={[styles.infoRow, { paddingVertical: 8 }]}>
-                <MaterialIcons
-                  name={tx.amount > 0 ? "add-circle-outline" : "remove-circle-outline"}
-                  size={18}
-                  color={tx.amount > 0 ? "#16a34a" : "#dc2626"}
-                />
-                <View style={styles.infoContent}>
-                  <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>
-                    {tx.type === "referral_commission"
-                      ? t("wallet.typeCommission")
-                      : tx.type === "order_payment"
-                      ? t("wallet.typePayment")
-                      : t("wallet.typeAdjustment")}
-                  </Text>
-                  <Text style={[styles.infoValue, { color: tx.amount > 0 ? "#16a34a" : "#dc2626", fontWeight: "700" }]}>
-                    {tx.amount > 0 ? "+" : ""}{tx.amount.toLocaleString()} {t("wallet.currency")}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-
         {/* Referral card */}
         {!isCourier && referralCode !== null && (
           <View style={[styles.achievementsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -545,7 +475,7 @@ export default function ProfileScreen() {
                 <View style={[styles.referralStatDivider, { backgroundColor: colors.border }]} />
                 <View style={styles.referralStatItem}>
                   <Text style={[styles.referralStatValue, { color: "#16a34a" }]}>
-                    {referralStats.totalEarned.toLocaleString()} {t("wallet.currency")}
+                    {referralStats.totalEarned.toLocaleString()} {t("loyalty.points")}
                   </Text>
                   <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>{t("referral.totalEarned")}</Text>
                 </View>

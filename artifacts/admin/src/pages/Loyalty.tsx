@@ -21,16 +21,20 @@ export default function Loyalty() {
 
   const [earnRate, setEarnRate] = useState<string>("");
   const [pointValue, setPointValue] = useState<string>("");
+  const [referralRewardPoints, setReferralRewardPoints] = useState<string>("");
 
   const hasInit = settings !== undefined;
   const displayEarnRate = earnRate !== "" ? earnRate : String(settings?.earnRate ?? "10");
   const displayPointValue = pointValue !== "" ? pointValue : String(settings?.pointValue ?? "1");
+  const displayReferralRewardPoints =
+    referralRewardPoints !== "" ? referralRewardPoints : String(settings?.referralRewardPoints ?? "500");
 
   const saveMutation = useMutation({
     mutationFn: () =>
       api.saveLoyaltySettings({
         earnRate: Number(displayEarnRate),
         pointValue: Number(displayPointValue),
+        referralRewardPoints: Number(displayReferralRewardPoints),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "loyalty-settings"] });
@@ -97,6 +101,23 @@ export default function Loyalty() {
               />
               <p className="text-xs text-muted-foreground">
                 مثال: 1 ← 500 نقطة = خصم 500 ل.س
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                نقاط الإحالة <span className="text-muted-foreground">(نقاط يكسبها المُحيل عند أول طلب لصديقه)</span>
+              </label>
+              <Input
+                type="number"
+                min={0}
+                max={100000}
+                value={displayReferralRewardPoints}
+                onChange={(e) => setReferralRewardPoints(e.target.value)}
+                placeholder="500"
+              />
+              <p className="text-xs text-muted-foreground">
+                عند إكمال الصديق أول طلب، يحصل صاحب الكود على هذا العدد من النقاط
               </p>
             </div>
 

@@ -3,10 +3,14 @@ import { and, eq, sql } from "drizzle-orm";
 
 const DEFAULT_EARN_RATE = 10;
 const DEFAULT_POINT_VALUE = 1;
+// Points awarded to the referrer when a referred friend completes their first
+// order. Admin-configurable; this is only the fallback when unset.
+const DEFAULT_REFERRAL_REWARD_POINTS = 500;
 
 export interface LoyaltySettings {
   earnRate: number;
   pointValue: number;
+  referralRewardPoints: number;
 }
 
 export async function getLoyaltySettings(): Promise<LoyaltySettings> {
@@ -14,7 +18,7 @@ export async function getLoyaltySettings(): Promise<LoyaltySettings> {
     .select()
     .from(systemSettingsTable)
     .where(
-      sql`${systemSettingsTable.key} IN ('loyalty_earn_rate', 'loyalty_point_value')`
+      sql`${systemSettingsTable.key} IN ('loyalty_earn_rate', 'loyalty_point_value', 'referral_reward_points')`
     );
 
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
@@ -22,6 +26,7 @@ export async function getLoyaltySettings(): Promise<LoyaltySettings> {
   return {
     earnRate: Number(map["loyalty_earn_rate"] ?? DEFAULT_EARN_RATE),
     pointValue: Number(map["loyalty_point_value"] ?? DEFAULT_POINT_VALUE),
+    referralRewardPoints: Number(map["referral_reward_points"] ?? DEFAULT_REFERRAL_REWARD_POINTS),
   };
 }
 
@@ -31,11 +36,23 @@ export async function saveLoyaltySettings(settings: LoyaltySettings): Promise<vo
     .values([
       { key: "loyalty_earn_rate", value: String(settings.earnRate) },
       { key: "loyalty_point_value", value: String(settings.pointValue) },
+      { key: "referral_reward_points", value: String(settings.referralRewardPoints) },
     ])
     .onConflictDoUpdate({
       target: systemSettingsTable.key,
       set: { value: sql`excluded.value`, updatedAt: new Date() },
     });
+}
+
+/** Points a referrer earns per successful referral (admin-configurable). */
+export async function getReferralRewardPoints(): Promise<number> {
+  const [row] = await db
+    .select({ value: systemSettingsTable.value })
+    .from(systemSettingsTable)
+    .where(eq(systemSettingsTable.key, "referral_reward_points"))
+    .limit(1);
+  const n = Number(row?.value ?? DEFAULT_REFERRAL_REWARD_POINTS);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n) : DEFAULT_REFERRAL_REWARD_POINTS;
 }
 
 export function calculateEarnedPoints(totalPriceSyp: number, earnRate: number): number {
