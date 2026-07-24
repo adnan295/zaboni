@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, type HomeFilter, type TabBarItem, type AvailableTabType } from "@/lib/api";
+import { api, setAdminToken, type HomeFilter, type TabBarItem, type AvailableTabType } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -123,14 +123,19 @@ export default function Settings() {
   }
 
   const changePasswordMutation = useMutation({
-    mutationFn: () => api.changeAdminPassword(pwCurrent, pwNew),
+    mutationFn: () => api.changeAdminPassword(pwCurrent.trim(), pwNew.trim()),
     onSuccess: () => {
+      // The new password immediately replaces the old credential on the server,
+      // so refresh the stored token to the new one — otherwise the current
+      // session keeps sending the old token and gets logged out on the next
+      // request. Trim to match how the login screen sends the password.
+      setAdminToken(pwNew.trim());
       setPwCurrent("");
       setPwNew("");
       setPwConfirm("");
       toast({
         title: "تم تغيير كلمة السر",
-        description: "تم تحديث كلمة سر الإدارة بنجاح. استخدمها في تسجيل الدخول القادم.",
+        description: "تم تحديث كلمة سر الإدارة بنجاح.",
       });
     },
     onError: (err: Error) => {

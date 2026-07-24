@@ -82,12 +82,17 @@ router.get("/admin/password-status", async (_req, res) => {
 // on top of requireAdmin). The new password is bcrypt-hashed and stored in the
 // DB, after which it fully replaces the previous credential.
 router.post("/admin/change-password", async (req, res) => {
-  const currentPassword = (req.body as { currentPassword?: unknown })?.currentPassword;
-  const newPassword = (req.body as { newPassword?: unknown })?.newPassword;
-  if (typeof currentPassword !== "string" || typeof newPassword !== "string") {
+  const currentRaw = (req.body as { currentPassword?: unknown })?.currentPassword;
+  const newRaw = (req.body as { newPassword?: unknown })?.newPassword;
+  if (typeof currentRaw !== "string" || typeof newRaw !== "string") {
     res.status(400).json({ error: "invalid_input" });
     return;
   }
+  // Trim both so the stored credential matches exactly what the login screen
+  // sends (it trims too). Without this a trailing space would be hashed in on
+  // change but stripped on login, so the new password would never work.
+  const currentPassword = currentRaw.trim();
+  const newPassword = newRaw.trim();
   if (newPassword.length < 8) {
     res.status(400).json({ error: "weak_password", message: "كلمة السر يجب أن تكون 8 أحرف على الأقل" });
     return;
