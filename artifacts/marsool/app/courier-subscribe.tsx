@@ -73,6 +73,11 @@ export default function CourierSubscribeScreen() {
   const qc = useQueryClient();
 
   const [step, setStep] = useState<"plan" | "payment">("plan");
+  // Set when the courier taps "retry" on a rejected request, so we bypass the
+  // rejected screen and show the plan/payment form again (the stored request
+  // stays "rejected" until a new one is submitted, so without this flag the
+  // rejected screen would immediately re-render and trap them).
+  const [retrying, setRetrying] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [receiptImageUri, setReceiptImageUri] = useState<string | null>(null);
   const [paidAmountText, setPaidAmountText] = useState("");
@@ -167,6 +172,9 @@ export default function CourierSubscribeScreen() {
       });
     },
     onSuccess: () => {
+      // New request submitted (now "pending"); clear the retry bypass so a future
+      // rejection of THIS request shows its rejected screen normally.
+      setRetrying(false);
       qc.invalidateQueries({ queryKey: ["courier", "subscription", "request", "status"] });
     },
     onError: (err: Error) => {
@@ -206,10 +214,12 @@ export default function CourierSubscribeScreen() {
   }, []);
 
   const handleRetry = () => {
-    qc.invalidateQueries({ queryKey: ["courier", "subscription", "request", "status"] });
+    setRetrying(true);
     setStep("plan");
+    setSelectedPlanId(null);
     setReceiptImageUri(null);
     setPaidAmountText("");
+    qc.invalidateQueries({ queryKey: ["courier", "subscription", "request", "status"] });
   };
 
   if (loadingStatus || loadingRequest || loadingPlans) {
@@ -294,7 +304,7 @@ export default function CourierSubscribeScreen() {
     );
   }
 
-  if (latestRequest?.status === "rejected") {
+  if (latestRequest?.status === "rejected" && !retrying) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <MaterialIcons name="cancel" size={64} color="#dc2626" />
