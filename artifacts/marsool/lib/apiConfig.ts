@@ -1,7 +1,7 @@
 import { Platform } from "react-native";
 import { setBaseUrl } from "@workspace/api-client-react";
 
-const PROD_HOST = process.env.EXPO_PUBLIC_API_HOST ?? "zaboni.app";
+const PROD_HOST = process.env.EXPO_PUBLIC_API_HOST ?? "zaboni.site";
 const PROD = `https://${PROD_HOST}`;
 const DEV_HOST = process.env.EXPO_PUBLIC_DOMAIN;
 const DEV_BASE = DEV_HOST ? `https://${DEV_HOST}` : "http://localhost:8080";
