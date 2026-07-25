@@ -333,7 +333,10 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
   res.json(matching);
 });
 
-const CUSTOMER_CONTACT_STATUSES: string[] = ["on_way", "delivered"];
+// Reveal the customer's contact to the assigned courier from the moment they
+// accept the order — so the courier can call/WhatsApp about any issue before
+// even picking it up from the restaurant, not only once they're on the way.
+const CUSTOMER_CONTACT_STATUSES: string[] = ["accepted", "picked_up", "on_way", "delivered"];
 
 router.get("/courier/orders/active", requireCourier, async (req, res) => {
   const courierId = resolveUserId(req);
