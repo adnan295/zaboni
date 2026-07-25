@@ -47,7 +47,7 @@
     },
     "android": {
       "package": "com.zaboni.delivery",
-      "versionCode": 101,
+      "versionCode": 102,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
