@@ -28,9 +28,19 @@ const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secon
 
 const API_BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
+function receiptUrlFor(objectPath: string): string {
+  // Receipts are uploaded as public objects, so the stored path looks like
+  // "uploads/<id>" and is served from /storage/public-objects/<path> — NOT the
+  // private /storage/objects/ route (which resolves a different prefix and 404s).
+  if (/^https?:\/\//.test(objectPath)) return objectPath;
+  if (objectPath.startsWith("/api/")) return `${API_BASE}${objectPath}`;
+  const clean = objectPath.replace(/^\/+/, "");
+  return `${API_BASE}/api/storage/public-objects/${clean}`;
+}
+
 async function openReceiptInTab(objectPath: string) {
   const token = getAdminToken();
-  const url = `${API_BASE}/api/storage/objects/${objectPath}`;
+  const url = receiptUrlFor(objectPath);
   const res = await fetch(url, token ? { headers: { Authorization: `Bearer ${token}` } } : {});
   if (!res.ok) {
     alert("تعذّر فتح الوصل. تحقق من الرابط.");
