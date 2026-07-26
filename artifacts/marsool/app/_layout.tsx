@@ -1,5 +1,7 @@
 import "@/i18n";
 import { initApiClient } from "@/lib/apiConfig";
+import { installCrashReporter } from "@/lib/crashReporter";
+installCrashReporter();
 initApiClient();
 import {
   Tajawal_400Regular,
@@ -25,6 +27,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import FatalErrorOverlay from "@/components/FatalErrorOverlay";
 import { OrderProvider } from "@/context/OrderContext";
 import { CartProvider } from "@/context/CartContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
@@ -204,6 +207,9 @@ export default function RootLayout() {
           </LanguageProvider>
         </QueryClientProvider>
       </ErrorBoundary>
+      {/* Diagnostic overlay — renders above everything to surface otherwise-silent
+          fatal errors (async/global) that <ErrorBoundary> cannot catch. */}
+      <FatalErrorOverlay />
     </SafeAreaProvider>
   );
 }
