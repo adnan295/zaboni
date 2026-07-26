@@ -14,19 +14,41 @@ import { getApiBaseUrl } from "@/lib/apiConfig";
 type SubStatusResult =
   | { state: "active" }
   | { state: "inactive" }
-  | { state: "error" };
+  | { state: "error"; kind: "network" | "http" | "parse"; detail: string };
 
 async function checkCourierSubStatus(token: string): Promise<SubStatusResult> {
+  const base = getApiBaseUrl();
+  const url = `${base}/api/courier/subscription/status`;
+
+  let res: Response;
   try {
-    const base = getApiBaseUrl();
-    const res = await fetch(`${base}/api/courier/subscription/status`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return { state: "error" };
+    res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  } catch (e) {
+    // The request never reached the server. On most phones this means a weak /
+    // absent internet connection; on OLD Android (< 7.1.1) it is the TLS
+    // certificate — the Let's Encrypt / ISRG root is missing from the system
+    // trust store, so the HTTPS handshake fails here even though Chrome (which
+    // ships its own roots) still loads the same site.
+    const msg = e instanceof Error ? e.message : String(e);
+    return { state: "error", kind: "network", detail: `${msg} @ ${url}` };
+  }
+
+  if (!res.ok) {
+    let bodyText = "";
+    try {
+      bodyText = (await res.text()).slice(0, 140);
+    } catch {
+      // ignore
+    }
+    return { state: "error", kind: "http", detail: `HTTP ${res.status} ${res.statusText} — ${bodyText}` };
+  }
+
+  try {
     const body = await res.json();
     return body?.isActive === true ? { state: "active" } : { state: "inactive" };
-  } catch {
-    return { state: "error" };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { state: "error", kind: "parse", detail: msg };
   }
 }
 
@@ -44,6 +66,7 @@ export default function CourierTabLayout() {
   const { token } = useAuth();
 
   const [gateState, setGateState] = useState<"loading" | "allowed" | "blocked" | "error">("loading");
+  const [errorDetail, setErrorDetail] = useState<string>("");
 
   const checkSub = () => {
     if (!token) {
@@ -57,6 +80,13 @@ export default function CourierTabLayout() {
       } else if (result.state === "inactive") {
         router.replace("/courier-subscribe" as never);
       } else {
+        const label =
+          result.kind === "network"
+            ? "تعذّر الوصول إلى الخادم (إنترنت أو شهادة أمان)"
+            : result.kind === "http"
+            ? "رفض الخادم الطلب"
+            : "ردّ غير متوقع من الخادم";
+        setErrorDetail(`${label}\n[${result.kind}] ${result.detail}\n${Platform.OS} ${String(Platform.Version)}`);
         setGateState("error");
       }
     });
@@ -90,9 +120,17 @@ export default function CourierTabLayout() {
         <Text style={{ color: colors.foreground, fontFamily: fontBold, fontSize: 18, textAlign: "center", marginTop: 16, marginBottom: 8 }}>
           تعذّر التحقق من الاشتراك
         </Text>
-        <Text style={{ color: colors.mutedForeground, fontFamily: fontMedium, fontSize: 14, textAlign: "center", marginBottom: 24 }}>
+        <Text style={{ color: colors.mutedForeground, fontFamily: fontMedium, fontSize: 14, textAlign: "center", marginBottom: 16 }}>
           تأكد من اتصالك بالإنترنت ثم حاول مجدداً
         </Text>
+        {errorDetail ? (
+          <Text
+            selectable
+            style={{ color: colors.mutedForeground, fontFamily: fontMedium, fontSize: 11, textAlign: "center", marginBottom: 24, opacity: 0.85, paddingHorizontal: 8 }}
+          >
+            {errorDetail}
+          </Text>
+        ) : null}
         <TouchableOpacity
           onPress={checkSub}
           style={{ backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 28, paddingVertical: 12 }}
