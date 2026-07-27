@@ -48,6 +48,7 @@ export function installCrashReporter(): void {
   if (installed) return;
   installed = true;
 
+  try {
   // `ErrorUtils` is a React Native global present in both JSC and Hermes.
   const g = global as unknown as {
     ErrorUtils?: {
@@ -93,4 +94,7 @@ export function installCrashReporter(): void {
       }
     }
   });
+  } catch {
+    // Diagnostics must never prevent the app from starting.
+  }
 }

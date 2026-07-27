@@ -26,7 +26,7 @@ interface Props {
   flashPercent?: number | null;
 }
 
-export default function MenuItemCard({ item, quantity = 0, onAdd, onRemove, isDeal, dealPrice, dealDiscountPercent, flashPercent }: Props) {
+export default function MenuItemCard({ item, quantity = 0, onAdd, onRemove, isDeal, dealPrice, flashPercent }: Props) {
   const colors = useColors();
   const { t } = useTranslation();
 
