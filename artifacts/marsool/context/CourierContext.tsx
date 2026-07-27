@@ -36,6 +36,8 @@ export interface CourierOrder {
   restaurantLat?: number | null;
   restaurantLon?: number | null;
   deliveryFee?: number | null;
+  flashDealDiscount?: number | null;
+  totalPrice?: number | null;
   orderType?: string;
   placeName?: string | null;
 }

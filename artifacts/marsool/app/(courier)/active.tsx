@@ -565,6 +565,40 @@ export default function ActiveOrderScreen() {
                 </View>
               </>
             ) : null}
+
+            {(order.flashDealDiscount ?? 0) > 0 ? (
+              <>
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                <View style={styles.infoRow}>
+                  <MaterialIcons name="bolt" size={18} color="#c2410c" />
+                  <View style={styles.infoContent}>
+                    <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>
+                      خصم الفلاش (على الأكل)
+                    </Text>
+                    <Text style={[styles.infoValue, { color: "#c2410c", fontWeight: "800" }]}>
+                      − {(order.flashDealDiscount ?? 0).toLocaleString("ar-SY")} ل.س
+                    </Text>
+                  </View>
+                </View>
+              </>
+            ) : null}
+
+            {order.orderType !== "errand" && order.totalPrice != null ? (
+              <>
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                <View style={styles.infoRow}>
+                  <MaterialIcons name="payments" size={18} color="#16a34a" />
+                  <View style={styles.infoContent}>
+                    <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>
+                      المطلوب تحصيله من الزبون (الدفع نقداً)
+                    </Text>
+                    <Text style={[styles.infoValue, { color: "#16a34a", fontWeight: "800", fontSize: 17 }]}>
+                      {((order.totalPrice ?? 0) + (order.deliveryFee ?? 0)).toLocaleString("ar-SY")} ل.س
+                    </Text>
+                  </View>
+                </View>
+              </>
+            ) : null}
           </View>
 
           <View style={styles.actionRow}>

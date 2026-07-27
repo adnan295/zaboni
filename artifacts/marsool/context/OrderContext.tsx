@@ -54,6 +54,8 @@ export interface Order {
   pointsEarned?: number;
   pointsRedeemed?: number;
   flashDealDiscount?: number;
+  deliveryFee?: number | null;
+  totalPrice?: number | null;
   orderType?: string;
   placeName?: string | null;
 }
@@ -88,6 +90,8 @@ function apiOrderToLocal(apiOrder: {
   pointsEarned?: number;
   pointsRedeemed?: number;
   flashDealDiscount?: number | null;
+  deliveryFee?: number | null;
+  totalPrice?: number | null;
 }): Order {
   return {
     id: apiOrder.id,
@@ -111,6 +115,8 @@ function apiOrderToLocal(apiOrder: {
     pointsEarned: apiOrder.pointsEarned ?? 0,
     pointsRedeemed: apiOrder.pointsRedeemed ?? 0,
     flashDealDiscount: apiOrder.flashDealDiscount ?? undefined,
+    deliveryFee: apiOrder.deliveryFee ?? undefined,
+    totalPrice: apiOrder.totalPrice ?? undefined,
   };
 }
 

@@ -597,14 +597,41 @@ export default function OrderTrackingScreen() {
           </View>
         </View>
 
-        {(order.flashDealDiscount ?? 0) > 0 && (
-          <View style={[styles.pointsBanner, { backgroundColor: "#fff7ed", borderColor: "#fed7aa" }]}>
-            <Text style={{ fontSize: 18 }}>⚡</Text>
-            <Text style={[styles.pointsBannerText, { color: "#c2410c" }]}>
-              وفّرت {(order.flashDealDiscount ?? 0).toLocaleString()} ل.س بعرض الفلاش على رسوم التوصيل
-            </Text>
-          </View>
-        )}
+        {order.items && order.items.length > 0 ? (() => {
+          const flashDiscount = order.flashDealDiscount ?? 0;
+          const delivery = order.deliveryFee ?? 0;
+          const foodOriginal = order.items.reduce((s, it) => s + (it.lineTotal ?? 0), 0);
+          // totalPrice is the food total AFTER the flash discount (server-computed);
+          // fall back to deriving it if the field is missing on older orders.
+          const foodNet = order.totalPrice ?? Math.max(0, foodOriginal - flashDiscount);
+          const grandTotal = foodNet + delivery;
+          const rowStyle = { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const };
+          return (
+            <View style={[styles.summaryCard, { backgroundColor: colors.card, marginTop: 12 }]}>
+              <View style={rowStyle}>
+                <Text style={[styles.orderText, { color: colors.mutedForeground }]}>مجموع الطلب</Text>
+                <Text style={[styles.orderText, { color: colors.foreground }]}>{foodOriginal.toLocaleString()} ل.س</Text>
+              </View>
+              {flashDiscount > 0 ? (
+                <View style={[rowStyle, { marginTop: 6 }]}>
+                  <Text style={[styles.orderText, { color: "#c2410c" }]}>⚡ خصم الفلاش</Text>
+                  <Text style={[styles.orderText, { color: "#c2410c", fontWeight: "700" }]}>− {flashDiscount.toLocaleString()} ل.س</Text>
+                </View>
+              ) : null}
+              {delivery > 0 ? (
+                <View style={[rowStyle, { marginTop: 6 }]}>
+                  <Text style={[styles.orderText, { color: colors.mutedForeground }]}>رسوم التوصيل</Text>
+                  <Text style={[styles.orderText, { color: colors.foreground }]}>{delivery.toLocaleString()} ل.س</Text>
+                </View>
+              ) : null}
+              <View style={[styles.divider, { backgroundColor: colors.border, marginVertical: 10 }]} />
+              <View style={rowStyle}>
+                <Text style={[styles.orderText, { color: colors.foreground, fontWeight: "800" }]}>الإجمالي (يُدفع عند الاستلام)</Text>
+                <Text style={[styles.orderText, { color: colors.primary, fontWeight: "800" }]}>{grandTotal.toLocaleString()} ل.س</Text>
+              </View>
+            </View>
+          );
+        })() : null}
 
         {isDelivered && (order.pointsEarned ?? 0) > 0 && (
           <View style={[styles.pointsBanner, { backgroundColor: "#a855f711", borderColor: "#a855f730" }]}>
