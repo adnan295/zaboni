@@ -151,6 +151,17 @@ export default function RestaurantScreen() {
   const allTabsRef = useRef<string[]>(allTabs);
   allTabsRef.current = allTabs;
 
+  // Restaurant-wide flash discount as a percent, for DISPLAY on menu prices
+  // only. Fixed-amount flash deals apply once to the whole order (not per item),
+  // so they stay 0 here and surface only at checkout. The cart always stores the
+  // pre-flash price, so the discount is never applied twice.
+  const flashPercent =
+    flashDeal && flashDeal.discountType === "percent" && flashDeal.discountValue > 0
+      ? flashDeal.discountValue
+      : 0;
+  const flashUnit = (base: number): number =>
+    flashPercent > 0 ? Math.round(base * (1 - flashPercent / 100)) : base;
+
   const addToCart = (itemId: string, nameAr: string, price: number, originalPrice?: number) => {
     if (!restaurant) return;
     cartCtx.addItem(restaurant.id, restaurant.nameAr, { menuItemId: itemId, nameAr, price, originalPrice });
@@ -526,7 +537,7 @@ export default function RestaurantScreen() {
                           {item.price.toLocaleString()} ل.س
                         </Text>
                         <Text style={styles.dealNewPrice}>
-                          {dealPrice.toLocaleString()} ل.س
+                          {flashUnit(dealPrice).toLocaleString()} ل.س
                         </Text>
                       </View>
                     </View>
@@ -595,13 +606,24 @@ export default function RestaurantScreen() {
                             {item.price.toLocaleString()} ل.س
                           </Text>
                           <Text style={styles.dealNewPrice}>
-                            {effectivePrice.toLocaleString()} ل.س
+                            {flashUnit(effectivePrice).toLocaleString()} ل.س
                           </Text>
                         </View>
                       ) : item.price > 0 ? (
-                        <Text style={[styles.popularItemPrice, { color: colors.primary }]}>
-                          {item.price.toLocaleString()} ل.س
-                        </Text>
+                        flashPercent > 0 ? (
+                          <View style={styles.dealPriceRow}>
+                            <Text style={[styles.dealOriginalPrice, { color: colors.mutedForeground }]}>
+                              {item.price.toLocaleString()} ل.س
+                            </Text>
+                            <Text style={styles.dealNewPrice}>
+                              {flashUnit(item.price).toLocaleString()} ل.س
+                            </Text>
+                          </View>
+                        ) : (
+                          <Text style={[styles.popularItemPrice, { color: colors.primary }]}>
+                            {item.price.toLocaleString()} ل.س
+                          </Text>
+                        )
                       ) : null}
                     </View>
                   </TouchableOpacity>
@@ -645,6 +667,7 @@ export default function RestaurantScreen() {
                       isDeal={itemIsDeal}
                       dealPrice={itemDealPrice}
                       dealDiscountPercent={typedItem.dealDiscountPercent ?? null}
+                      flashPercent={flashPercent}
                     />
                   </View>
                 );
@@ -693,7 +716,7 @@ export default function RestaurantScreen() {
               </Text>
             </View>
             <Text style={[styles.cartTotal, { color: colors.primary }]}>
-              ~{estimatedTotal.toLocaleString()} ل.س
+              ~{flashUnit(estimatedTotal).toLocaleString()} ل.س
             </Text>
           </View>
         )}

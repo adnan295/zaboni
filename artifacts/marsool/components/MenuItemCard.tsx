@@ -22,9 +22,11 @@ interface Props {
   isDeal?: boolean;
   dealPrice?: number | null;
   dealDiscountPercent?: number | null;
+  /** Restaurant-wide flash-deal percent, applied to the DISPLAYED price only. */
+  flashPercent?: number | null;
 }
 
-export default function MenuItemCard({ item, quantity = 0, onAdd, onRemove, isDeal, dealPrice, dealDiscountPercent }: Props) {
+export default function MenuItemCard({ item, quantity = 0, onAdd, onRemove, isDeal, dealPrice, dealDiscountPercent, flashPercent }: Props) {
   const colors = useColors();
   const { t } = useTranslation();
 
@@ -49,24 +51,29 @@ export default function MenuItemCard({ item, quantity = 0, onAdd, onRemove, isDe
   const hasPrice = item.price != null && item.price > 0;
   const inCart = quantity > 0;
   const showDeal = isDeal && dealPrice != null && dealPrice > 0;
-  const dealPct = showDeal
-    ? (dealDiscountPercent != null
-        ? Math.round(dealDiscountPercent)
-        : (item.price > 0 ? Math.round((1 - dealPrice! / item.price) * 100) : null))
-    : null;
+  const flashOn = (flashPercent ?? 0) > 0;
+  // Pre-flash unit price actually charged for this item (its per-item deal
+  // price, or the regular price). The restaurant-wide flash discount is layered
+  // on top for DISPLAY only — the cart still adds this pre-flash price through
+  // the parent's onAdd, so the discount is applied exactly once at checkout,
+  // never doubled here.
+  const baseUnit = showDeal ? dealPrice! : item.price;
+  const finalUnit = flashOn && hasPrice ? Math.round(baseUnit * (1 - (flashPercent ?? 0) / 100)) : baseUnit;
+  const showAnyDiscount = hasPrice && (showDeal || flashOn) && finalUnit < item.price;
+  const dealPct = showAnyDiscount && item.price > 0 ? Math.round((1 - finalUnit / item.price) * 100) : null;
 
   return (
     <Animated.View style={[styles.card, { backgroundColor: colors.card, borderColor: inCart ? colors.primary : (showDeal ? "#FF6B00" : colors.border), transform: [{ scale: scaleRef }] }]}>
       <View style={styles.content}>
         <View style={styles.topRow}>
-          {showDeal && (
+          {showAnyDiscount && (
             <View style={styles.dealBadge}>
               <Text style={styles.dealBadgeText}>
                 {dealPct != null && dealPct > 0 ? `خصم ${dealPct}%` : "عرض 🔥"}
               </Text>
             </View>
           )}
-          {!showDeal && item.isPopular && (
+          {!showAnyDiscount && item.isPopular && (
             <View style={[styles.popularBadge, { backgroundColor: colors.accent }]}>
               <Text style={[styles.popularText, { color: colors.primary }]}>{t("restaurant.popular")}</Text>
             </View>
@@ -80,14 +87,14 @@ export default function MenuItemCard({ item, quantity = 0, onAdd, onRemove, isDe
         ) : null}
 
         <View style={styles.bottomRow}>
-          {showDeal ? (
+          {showAnyDiscount ? (
             <View style={styles.dealPriceWrap}>
               <Text style={[styles.originalPrice, { color: colors.mutedForeground }]}>
-                {hasPrice ? `${item.price.toLocaleString()} ل.س` : ""}
+                {item.price.toLocaleString()} ل.س
               </Text>
               <View style={styles.dealPriceBadge}>
                 <Text style={styles.dealPrice}>
-                  {dealPrice!.toLocaleString()} ل.س
+                  {finalUnit.toLocaleString()} ل.س
                 </Text>
               </View>
             </View>
@@ -125,7 +132,7 @@ export default function MenuItemCard({ item, quantity = 0, onAdd, onRemove, isDe
 
       <View style={styles.imageWrap}>
         <Image source={{ uri: buildImageUrl(item.image) }} style={styles.image} contentFit="cover" />
-        {showDeal && (
+        {showAnyDiscount && (
           <View style={styles.imageDealBadge}>
             <Text style={styles.imageDealBadgeText}>
               {dealPct != null && dealPct > 0 ? `خصم ${dealPct}%` : "عرض 🔥"}
