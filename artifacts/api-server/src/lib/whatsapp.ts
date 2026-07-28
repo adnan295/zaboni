@@ -20,6 +20,17 @@ export interface WAAccountStatus {
 interface WAAccountInternal extends WAAccountStatus {
   sock?: ReturnType<typeof makeWASocket>;
   reconnectTimer?: ReturnType<typeof setTimeout>;
+  reconnectAttempts?: number;
+}
+
+// Reconnect backoff: start at 5s and double up to 5 minutes. A tight fixed-delay
+// reconnect loop hammers WhatsApp and can itself trigger repeated 405
+// "Connection Failure" rejections, so we back off instead.
+const RECONNECT_BASE_MS = 5000;
+const RECONNECT_MAX_MS = 5 * 60 * 1000;
+
+function reconnectDelay(attempts: number): number {
+  return Math.min(RECONNECT_BASE_MS * 2 ** Math.max(0, attempts - 1), RECONNECT_MAX_MS);
 }
 
 const SESSION_BASE = path.resolve(process.cwd(), "whatsapp-session");
@@ -70,6 +81,7 @@ class WhatsAppManager {
       id,
       status: "connecting",
       createdAt: existing?.createdAt ?? new Date().toISOString(),
+      reconnectAttempts: existing?.reconnectAttempts ?? 0,
     };
     this.accounts.set(id, account);
 
@@ -80,8 +92,9 @@ class WhatsAppManager {
       const sock = makeWASocket({
         version,
         auth: state,
-        printQRInTerminal: false,
-        browser: ["مرسول", "Chrome", "1.0.0"],
+        // ASCII, realistic browser signature. A non-ASCII name / unrealistic
+        // version can make WhatsApp's handshake pickier.
+        browser: ["Marsool", "Chrome", "121.0.0"],
         logger: {
           level: "silent",
           trace: () => {},
@@ -122,6 +135,7 @@ class WhatsAppManager {
         if (connection === "open") {
           account.status = "connected";
           account.qrDataUrl = undefined;
+          account.reconnectAttempts = 0;
           const rawId = sock.user?.id?.split(":")[0] ?? "";
           account.phone = rawId ? `+${rawId}` : undefined;
           logger.info({ id, phone: account.phone }, "[whatsapp] Account connected");
@@ -138,15 +152,20 @@ class WhatsAppManager {
 
           if (loggedOut) {
             account.status = "disconnected";
+            account.reconnectAttempts = 0;
             fs.rmSync(sessionPath, { recursive: true, force: true });
             ensureDir(sessionPath);
           } else {
             account.status = "connecting";
+            const attempts = (account.reconnectAttempts ?? 0) + 1;
+            account.reconnectAttempts = attempts;
+            const delay = reconnectDelay(attempts);
+            logger.info({ id, attempts, delayMs: delay }, "[whatsapp] Scheduling reconnect");
             account.reconnectTimer = setTimeout(() => {
               this.initSession(id, false).catch((err) =>
                 logger.error({ err, id }, "[whatsapp] Reconnect failed"),
               );
-            }, 5000);
+            }, delay);
           }
 
           if (!this.allDownAlertSent && !this.allDownAlertInFlight && !this.isAnyConnected()) {
