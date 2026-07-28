@@ -6,8 +6,26 @@ import makeWASocket, {
 import QRCode from "qrcode";
 import fs from "node:fs";
 import path from "node:path";
+import type { Agent } from "node:http";
+import { SocksProxyAgent } from "socks-proxy-agent";
+import { HttpsProxyAgent } from "https-proxy-agent";
 import { sendAdminAlert } from "./waverifyMonitor";
 import { logger } from "./logger";
+
+// Optional outbound proxy for the WhatsApp connection. WhatsApp blocks
+// connections from some regions (returning statusCode 405), so operators in a
+// blocked region can route WhatsApp through a proxy in an allowed region by
+// setting WA_PROXY_URL (e.g. socks5://user:pass@host:1080 or http://host:8080).
+function makeProxyAgent(): Agent | undefined {
+  const url = process.env["WA_PROXY_URL"]?.trim();
+  if (!url) return undefined;
+  try {
+    return /^socks/i.test(url) ? new SocksProxyAgent(url) : new HttpsProxyAgent(url);
+  } catch (err) {
+    logger.error({ err }, "[whatsapp] Invalid WA_PROXY_URL — ignoring proxy");
+    return undefined;
+  }
+}
 
 export interface WAAccountStatus {
   id: string;
@@ -89,9 +107,13 @@ class WhatsAppManager {
       const { version } = await fetchLatestBaileysVersion();
       const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
 
+      const proxyAgent = makeProxyAgent();
+      if (proxyAgent) logger.info({ id }, "[whatsapp] Routing WhatsApp connection through WA_PROXY_URL");
+
       const sock = makeWASocket({
         version,
         auth: state,
+        ...(proxyAgent ? { agent: proxyAgent, fetchAgent: proxyAgent } : {}),
         // ASCII, realistic browser signature. A non-ASCII name / unrealistic
         // version can make WhatsApp's handshake pickier.
         browser: ["Marsool", "Chrome", "121.0.0"],
