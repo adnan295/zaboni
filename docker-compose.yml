@@ -24,9 +24,15 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      warp:
+        condition: service_started
     environment:
       NODE_ENV: production
       PORT: "8080"
+      # Route the WhatsApp connection through the WARP proxy so WhatsApp sees a
+      # non-blocked IP (the server's own IP is region-blocked → statusCode 405).
+      # Override in .env to point at any other socks5:// or http:// proxy.
+      WA_PROXY_URL: ${WA_PROXY_URL:-socks5://warp:1080}
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-zaboni}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-zaboni}}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       ADMIN_SECRET: ${ADMIN_SECRET:?ADMIN_SECRET is required}
@@ -56,6 +62,20 @@ services:
       timeout: 5s
       retries: 10
 
+  # Cloudflare WARP as a SOCKS5 proxy (listens on warp:1080 inside the compose
+  # network). Only the WhatsApp connection is routed through it, to bypass the
+  # region block on the server's own IP.
+  warp:
+    image: caomingjun/warp
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv4.conf.all.src_valid_mark=1
+    volumes:
+      - warp-data:/var/lib/cloudflare-warp
+
   marsool:
     build:
       context: .
@@ -81,3 +101,4 @@ volumes:
   storage-public:
   storage-private:
   whatsapp-session:
+  warp-data:
