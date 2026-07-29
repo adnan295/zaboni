@@ -50,6 +50,32 @@ export async function sendSmsViaGateway(phone: string, message: string): Promise
     );
   }
 
+  // android-sms-gateway (sms-gate.app): a phone running the SMS Gate app relays
+  // the message over its own SIM. Its cloud API speaks a fixed shape that the
+  // generic gateway can't produce — HTTP Basic Auth plus a
+  // { message, phoneNumbers: [...] } body (not { phone, message, apiKey, sender }).
+  // The admin's "API Key" field holds the cloud credentials as
+  // "username:password" (we also accept them split across sender/apiKey).
+  if (/sms-gate\.app/i.test(config.url)) {
+    const creds = config.apiKey.includes(":")
+      ? config.apiKey
+      : `${config.sender}:${config.apiKey}`;
+    const res = await fetch(config.url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Basic ${Buffer.from(creds).toString("base64")}`,
+      },
+      body: JSON.stringify({ message, phoneNumbers: [phone] }),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`SMS gateway (sms-gate.app) responded with ${res.status}: ${body}`);
+    }
+    logger.info({ phone, status: res.status }, "[sms] sms-gate.app SMS sent");
+    return;
+  }
+
   const vars: Record<string, string> = {
     phone,
     message,
