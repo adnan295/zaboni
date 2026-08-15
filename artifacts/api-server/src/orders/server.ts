@@ -184,14 +184,30 @@ export async function notifyNearbyCouriers(
   try {
     const zoneFilter: ZoneFilter =
       restaurantId === null ? { type: "all" } : { type: "zone", zoneId: await getRestaurantZoneId(restaurantId) };
-    const couriers = await getFreeOnlineCouriers(zoneFilter);
+    let couriers = await getFreeOnlineCouriers(zoneFilter);
+
+    // Fallback: if zone dispatch matched nobody — the restaurant has no work
+    // zone assigned, or no courier is assigned to that zone — broadcast to ALL
+    // free online couriers instead of dropping the order silently. Without this
+    // a restaurant order was never announced (no push at all), so a courier only
+    // saw it if they happened to have the orders board open. Errand orders
+    // already broadcast to everyone; this makes restaurant orders behave the
+    // same when zones aren't configured, while still preferring the matching
+    // zone whenever one IS set up.
+    if (couriers.length === 0 && zoneFilter.type === "zone") {
+      couriers = await getFreeOnlineCouriers({ type: "all" });
+      if (couriers.length > 0) {
+        logger.info({ orderId }, "Zone dispatch: no zone match — falling back to all free couriers");
+      }
+    }
+
     if (couriers.length === 0) {
-      logger.info({ orderId, zoneFilter }, "Zone dispatch: no free online couriers in matching zone");
+      logger.info({ orderId, zoneFilter }, "Zone dispatch: no free online couriers");
       return;
     }
     const tokens = extractTokens(couriers);
     const totals = await sendPushToTokens(tokens, title, body, data);
-    logger.info({ count: couriers.length, orderId, zoneFilter, totals }, "Zone dispatch: broadcast to all matching couriers");
+    logger.info({ count: couriers.length, orderId, zoneFilter, totals }, "Zone dispatch: broadcast to couriers");
   } catch (err) {
     logger.warn({ err, orderId }, "Failed to notify zone couriers");
   }
