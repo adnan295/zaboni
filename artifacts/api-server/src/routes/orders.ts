@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { db, ordersTable, orderItemsTable, menuItemsTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable, promoCodesTable, promoUsesTable, usersTable, flashDealsTable, loyaltyTransactionsTable, menuItemOptionsTable, menuItemOptionGroupsTable, orderItemOptionsTable, systemSettingsTable } from "@workspace/db";
+import { db, ordersTable, orderItemsTable, menuItemsTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable, promoCodesTable, promoUsesTable, promoTargetsTable, usersTable, flashDealsTable, loyaltyTransactionsTable, menuItemOptionsTable, menuItemOptionGroupsTable, orderItemOptionsTable, systemSettingsTable } from "@workspace/db";
 import { and, avg, count, desc, eq, gt, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { notifyOrderUpdate, notifyNearbyCouriers, notifyRestaurantNewOrder } from "../orders/server";
@@ -70,6 +70,110 @@ function estimateMinutesFromDistance(distanceKm: number): number {
   return Math.max(15, Math.min(mins, 120));
 }
 
+type PromoContext = {
+  userId: string;
+  userPhone: string;
+  deliveredCount: number;
+  lastDeliveredAt: Date | null;
+  deliveryFee: number;
+  itemsTotal: number;
+  restaurantId: string;
+};
+
+async function loadPromoContext(
+  userId: string,
+  deliveryFee: number,
+  itemsTotal: number,
+  restaurantId: string,
+): Promise<PromoContext> {
+  const [userRow] = await db
+    .select({ phone: usersTable.phone })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
+  const [statsRow] = await db
+    .select({ c: count(), last: sql<string | null>`max(${ordersTable.updatedAt})` })
+    .from(ordersTable)
+    .where(and(eq(ordersTable.userId, userId), eq(ordersTable.status, "delivered")));
+  return {
+    userId,
+    userPhone: userRow?.phone ?? "",
+    deliveredCount: Number(statsRow?.c ?? 0),
+    lastDeliveredAt: statsRow?.last ? new Date(statsRow.last) : null,
+    deliveryFee,
+    itemsTotal,
+    restaurantId,
+  };
+}
+
+// Single source of truth for whether a promo applies to an order and how much it
+// discounts. Shared by manual code redemption AND automatic promos, so the rules
+// (window, limits, min order, first-order, audience, cap) live in one place.
+async function evaluatePromo(
+  promo: typeof promoCodesTable.$inferSelect,
+  ctx: PromoContext,
+): Promise<{ ok: false; error: string } | { ok: true; discountAmount: number; target: "food" | "delivery" }> {
+  const now = new Date();
+  if (!promo.isActive) return { ok: false, error: "invalid" };
+  if (promo.startsAt && promo.startsAt > now) return { ok: false, error: "not_started" };
+  if (promo.expiresAt && promo.expiresAt < now) return { ok: false, error: "expired" };
+  if (promo.restaurantId != null && promo.restaurantId !== ctx.restaurantId) {
+    return { ok: false, error: "wrong_restaurant" };
+  }
+  if (promo.minOrderValue != null && ctx.itemsTotal < promo.minOrderValue) {
+    return { ok: false, error: "min_order" };
+  }
+
+  const [globalUseRow] = await db
+    .select({ c: count() })
+    .from(promoUsesTable)
+    .where(eq(promoUsesTable.promoId, promo.id));
+  if (promo.maxUses != null && Number(globalUseRow?.c ?? 0) >= promo.maxUses) {
+    return { ok: false, error: "exhausted" };
+  }
+  const [userUseRow] = await db
+    .select({ c: count() })
+    .from(promoUsesTable)
+    .where(and(eq(promoUsesTable.promoId, promo.id), eq(promoUsesTable.userId, ctx.userId)));
+  if (Number(userUseRow?.c ?? 0) >= promo.maxUsesPerUser) {
+    return { ok: false, error: "already_used" };
+  }
+
+  if (promo.firstOrderOnly && ctx.deliveredCount > 0) return { ok: false, error: "not_first_order" };
+
+  if (promo.audience === "new" && ctx.deliveredCount > 0) return { ok: false, error: "not_eligible" };
+  if (promo.audience === "inactive") {
+    const days = promo.inactiveDays ?? 30;
+    const cutoff = new Date(Date.now() - days * 86_400_000);
+    if (ctx.lastDeliveredAt && ctx.lastDeliveredAt > cutoff) return { ok: false, error: "not_eligible" };
+  }
+  if (promo.audience === "specific") {
+    if (!ctx.userPhone) return { ok: false, error: "not_eligible" };
+    const [t] = await db
+      .select({ id: promoTargetsTable.id })
+      .from(promoTargetsTable)
+      .where(and(eq(promoTargetsTable.promoId, promo.id), eq(promoTargetsTable.phone, ctx.userPhone)))
+      .limit(1);
+    if (!t) return { ok: false, error: "not_eligible" };
+  }
+
+  // "delivery" discounts the fee (courier is compensated by the caller); anything
+  // else discounts the food. Free delivery = a 100% percent discount on delivery.
+  const target: "food" | "delivery" = promo.appliesTo === "delivery" ? "delivery" : "food";
+  const base = target === "delivery" ? ctx.deliveryFee : ctx.itemsTotal;
+  if (base <= 0) return { ok: false, error: "not_applicable" };
+  let discountAmount = promo.type === "percent"
+    ? Math.round((base * promo.value) / 100)
+    : Math.round(promo.value);
+  if (promo.type === "percent" && promo.maxDiscount != null) {
+    discountAmount = Math.min(discountAmount, promo.maxDiscount);
+  }
+  discountAmount = Math.max(0, Math.min(discountAmount, base));
+  if (discountAmount <= 0) return { ok: false, error: "not_applicable" };
+
+  return { ok: true, discountAmount, target };
+}
+
 async function validatePromoForUser(code: string, userId: string, deliveryFee?: number, itemsTotal?: number, restaurantId?: string): Promise<{
   valid: false; error: string;
 } | {
@@ -78,49 +182,41 @@ async function validatePromoForUser(code: string, userId: string, deliveryFee?: 
   discountAmount: number;
   target: "food" | "delivery";
 }> {
-  const now = new Date();
+  const [promo] = await db
+    .select()
+    .from(promoCodesTable)
+    .where(and(eq(promoCodesTable.code, code.toUpperCase()), eq(promoCodesTable.isActive, true)))
+    .limit(1);
+  if (!promo) return { valid: false, error: "invalid" };
+  const ctx = await loadPromoContext(userId, deliveryFee ?? DEFAULT_DELIVERY_FEE_SYP, itemsTotal ?? 0, restaurantId ?? "");
+  const result = await evaluatePromo(promo, ctx);
+  if (!result.ok) return { valid: false, error: result.error };
+  return { valid: true, promo, discountAmount: result.discountAmount, target: result.target };
+}
+
+// Best automatic promo for a user who did NOT enter a code (e.g. first-order free
+// delivery). Returns the same shape a validated code produces so the order flow
+// records it identically — no separate code path.
+async function findAutoApplyPromo(
+  userId: string,
+  deliveryFee: number,
+  itemsTotal: number,
+  restaurantId: string,
+): Promise<{ promo: typeof promoCodesTable.$inferSelect; discountAmount: number; target: "food" | "delivery" } | null> {
   const promos = await db
     .select()
     .from(promoCodesTable)
-    .where(and(
-      eq(promoCodesTable.code, code.toUpperCase()),
-      eq(promoCodesTable.isActive, true),
-    ))
-    .limit(1);
-
-  if (promos.length === 0) return { valid: false, error: "invalid" };
-  const promo = promos[0]!;
-  if (promo.expiresAt && promo.expiresAt < now) return { valid: false, error: "expired" };
-  if (promo.restaurantId != null && promo.restaurantId !== (restaurantId ?? "")) {
-    return { valid: false, error: "wrong_restaurant" };
+    .where(and(eq(promoCodesTable.isActive, true), eq(promoCodesTable.autoApply, true)));
+  if (promos.length === 0) return null;
+  const ctx = await loadPromoContext(userId, deliveryFee, itemsTotal, restaurantId);
+  let best: { promo: typeof promoCodesTable.$inferSelect; discountAmount: number; target: "food" | "delivery" } | null = null;
+  for (const promo of promos) {
+    const r = await evaluatePromo(promo, ctx);
+    if (r.ok && (!best || r.discountAmount > best.discountAmount)) {
+      best = { promo, discountAmount: r.discountAmount, target: r.target };
+    }
   }
-
-  const [globalUseRow] = await db
-    .select({ c: count() })
-    .from(promoUsesTable)
-    .where(eq(promoUsesTable.promoId, promo.id));
-  const globalUses = Number(globalUseRow?.c ?? 0);
-  if (promo.maxUses != null && globalUses >= promo.maxUses) return { valid: false, error: "exhausted" };
-
-  const [userUseRow] = await db
-    .select({ c: count() })
-    .from(promoUsesTable)
-    .where(and(eq(promoUsesTable.promoId, promo.id), eq(promoUsesTable.userId, userId)));
-  const userUses = Number(userUseRow?.c ?? 0);
-  if (userUses >= promo.maxUsesPerUser) return { valid: false, error: "already_used" };
-
-  // A restaurant-specific code is the restaurant's own promotion, so it discounts
-  // the food. A platform-wide code (no restaurant) discounts the delivery fee.
-  const isRestaurantCode = promo.restaurantId != null;
-  const base = isRestaurantCode
-    ? (itemsTotal ?? 0)
-    : (deliveryFee ?? DEFAULT_DELIVERY_FEE_SYP);
-  const discountAmount = promo.type === "percent"
-    ? Math.min(Math.round((base * promo.value) / 100), base)
-    : Math.min(promo.value, base);
-  const target: "food" | "delivery" = isRestaurantCode ? "food" : "delivery";
-
-  return { valid: true, promo, discountAmount, target };
+  return best;
 }
 
 router.get("/delivery-fee-preview", async (req, res) => {
@@ -576,6 +672,15 @@ router.post("/orders", async (req, res) => {
       return;
     }
     promoUseData = { promoId: promoResult.promo.id, discountAmount: promoResult.discountAmount, target: promoResult.target };
+  }
+
+  // No code entered → apply the best eligible AUTOMATIC promo (e.g. first-order
+  // free delivery). Recorded the same way as a code so it respects usage limits.
+  if (!promoUseData) {
+    const auto = await findAutoApplyPromo(userId, zoneFee, itemsTotal ?? 0, effectiveRestaurantId ?? "");
+    if (auto) {
+      promoUseData = { promoId: auto.promo.id, discountAmount: auto.discountAmount, target: auto.target };
+    }
   }
 
   let flashDealSnapshot: { id: string; discountType: string; discountValue: number } | null = null;

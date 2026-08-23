@@ -8,6 +8,7 @@ import {
   usersTable,
   orderRatingsTable,
   promoCodesTable,
+  promoTargetsTable,
   promoUsesTable,
   restaurantHoursTable,
   deliveryZonesTable,
@@ -1538,13 +1539,43 @@ const promoBodySchema = z.object({
   maxUsesPerUser: z.number().int().positive().default(1),
   expiresAt: z.string().datetime().nullable().optional(),
   isActive: z.boolean().default(true),
+  // --- discount engine ---
+  appliesTo: z.enum(["delivery", "food", "order"]).default("delivery"),
+  maxDiscount: z.number().int().nonnegative().nullable().optional(),
+  minOrderValue: z.number().int().nonnegative().nullable().optional(),
+  startsAt: z.string().datetime().nullable().optional(),
+  firstOrderOnly: z.boolean().default(false),
+  audience: z.enum(["all", "specific", "new", "inactive"]).default("all"),
+  inactiveDays: z.number().int().positive().nullable().optional(),
+  autoApply: z.boolean().default(false),
+  titleAr: z.string().max(120).default(""),
+  // Phone numbers a "specific" promo is limited to (replaces the target list).
+  targetPhones: z.array(z.string().min(3).max(20)).max(5000).optional(),
 });
+
+// Replace the phone list a "specific" promo targets. undefined = leave as-is
+// (field not sent); an array (even empty) = set exactly to that list.
+async function savePromoTargets(promoId: string, phones: string[] | undefined): Promise<void> {
+  if (phones === undefined) return;
+  await db.delete(promoTargetsTable).where(eq(promoTargetsTable.promoId, promoId));
+  const clean = Array.from(new Set(phones.map((p) => p.trim()).filter(Boolean)));
+  if (clean.length > 0) {
+    await db.insert(promoTargetsTable).values(
+      clean.map((phone, i) => ({
+        id: `pt_${Date.now()}_${i}_${Math.random().toString(36).slice(2, 6)}`,
+        promoId,
+        phone,
+      })),
+    );
+  }
+}
 
 router.get("/admin/promos", async (_req, res) => {
   const promos = await db
     .select({
       ...getTableColumns(promoCodesTable),
       usesCount: sql<number>`(SELECT COUNT(*) FROM promo_uses WHERE promo_id = ${promoCodesTable.id})`,
+      targetPhones: sql<string[]>`COALESCE((SELECT array_agg(phone) FROM promo_targets WHERE promo_id = ${promoCodesTable.id}), ARRAY[]::text[])`,
     })
     .from(promoCodesTable)
     .orderBy(desc(promoCodesTable.createdAt));
@@ -1578,8 +1609,18 @@ router.post("/admin/promos", async (req, res) => {
       maxUsesPerUser: parsed.data.maxUsesPerUser,
       expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null,
       isActive: parsed.data.isActive,
+      appliesTo: parsed.data.appliesTo,
+      maxDiscount: parsed.data.maxDiscount ?? null,
+      minOrderValue: parsed.data.minOrderValue ?? null,
+      startsAt: parsed.data.startsAt ? new Date(parsed.data.startsAt) : null,
+      firstOrderOnly: parsed.data.firstOrderOnly,
+      audience: parsed.data.audience,
+      inactiveDays: parsed.data.inactiveDays ?? null,
+      autoApply: parsed.data.autoApply,
+      titleAr: parsed.data.titleAr,
     })
     .returning();
+  await savePromoTargets(id, parsed.data.targetPhones);
   res.status(201).json(row);
 });
 
@@ -1590,10 +1631,10 @@ router.put("/admin/promos/:id", async (req, res) => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const update: Record<string, unknown> = { ...parsed.data };
-  if (parsed.data.expiresAt !== undefined) {
-    update["expiresAt"] = parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null;
-  }
+  const { targetPhones, expiresAt, startsAt, ...rest } = parsed.data;
+  const update: Record<string, unknown> = { ...rest };
+  if (expiresAt !== undefined) update["expiresAt"] = expiresAt ? new Date(expiresAt) : null;
+  if (startsAt !== undefined) update["startsAt"] = startsAt ? new Date(startsAt) : null;
   const [row] = await db
     .update(promoCodesTable)
     .set(update)
@@ -1603,6 +1644,7 @@ router.put("/admin/promos/:id", async (req, res) => {
     res.status(404).json({ error: "Promo not found" });
     return;
   }
+  await savePromoTargets(id, targetPhones);
   res.json(row);
 });
 
