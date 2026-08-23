@@ -19,7 +19,7 @@ import { useBackIcon } from "@/hooks/useTypography";
 import { useAddresses } from "@/context/AddressContext";
 import { useOrders } from "@/context/OrderContext";
 
-const ERRAND_DELIVERY_FEE = 10000;
+const ERRAND_DELIVERY_FEE = 150;
 
 export default function ErrandRequestScreen() {
   const colors = useColors();

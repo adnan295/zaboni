@@ -315,7 +315,7 @@ router.post("/orders", async (req, res) => {
       address: body.data.address,
       destinationLat: destLat,
       destinationLon: destLon,
-      deliveryFee: 10000,
+      deliveryFee: 150,
       totalPrice: null as number | null,
       flashDealId: null as string | null,
       flashDealDiscount: null as number | null,
