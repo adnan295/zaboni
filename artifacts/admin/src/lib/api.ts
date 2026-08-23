@@ -504,6 +504,15 @@ export type PromoCode = {
   targetPhones?: string[];
 };
 
+export type PromoUse = {
+  userId: string;
+  orderId: string;
+  discountAmount: number;
+  usedAt: string;
+  userName: string | null;
+  userPhone: string | null;
+};
+
 export const ORDER_STATUSES = [
   "searching",
   "accepted",
@@ -725,6 +734,13 @@ export const api = {
     }),
   deletePromo: (id: string) =>
     apiFetch<void>(`/admin/promos/${id}`, { method: "DELETE" }),
+  getPromoUses: (id: string) =>
+    apiFetch<PromoUse[]>(`/admin/promos/${id}/uses`),
+  sendPromo: (id: string, data: { phones: string[]; message?: string }) =>
+    apiFetch<{ sent: number; failed: number; failures: string[] }>(
+      `/admin/promos/${id}/send`,
+      { method: "POST", body: JSON.stringify(data) },
+    ),
 
   getRestaurantHours: (restaurantId: string) =>
     apiFetch<RestaurantHour[]>(`/admin/restaurants/${restaurantId}/hours`),

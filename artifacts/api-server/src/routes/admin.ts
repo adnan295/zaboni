@@ -1655,6 +1655,84 @@ router.delete("/admin/promos/:id", async (req, res) => {
   res.status(204).end();
 });
 
+// Who actually redeemed this code — name, phone, when, and how much they saved.
+// Lets the admin SEE usage per-customer instead of just a total count.
+router.get("/admin/promos/:id/uses", async (req, res) => {
+  const id = String(req.params["id"]);
+  const rows = await db
+    .select({
+      userId: promoUsesTable.userId,
+      orderId: promoUsesTable.orderId,
+      discountAmount: promoUsesTable.discountAmount,
+      usedAt: promoUsesTable.usedAt,
+      userName: usersTable.name,
+      userPhone: usersTable.phone,
+    })
+    .from(promoUsesTable)
+    .leftJoin(usersTable, eq(usersTable.id, promoUsesTable.userId))
+    .where(eq(promoUsesTable.promoId, id))
+    .orderBy(desc(promoUsesTable.usedAt));
+  res.json(rows.map((r) => ({ ...r, discountAmount: Number(r.discountAmount) })));
+});
+
+// Send a promo code straight to customers over WhatsApp (falling back to SMS),
+// reusing the same messaging infra as OTP. So the admin can create a targeted
+// code and deliver it from the same screen. {code} in a custom message is
+// replaced with the actual code.
+const sendPromoSchema = z.object({
+  phones: z.array(z.string().min(3)).min(1).max(500),
+  message: z.string().max(600).optional(),
+});
+router.post("/admin/promos/:id/send", async (req, res) => {
+  const id = String(req.params["id"]);
+  const parsed = sendPromoSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const [promo] = await db
+    .select()
+    .from(promoCodesTable)
+    .where(eq(promoCodesTable.id, id))
+    .limit(1);
+  if (!promo) {
+    res.status(404).json({ error: "Promo not found" });
+    return;
+  }
+
+  const custom = parsed.data.message?.trim();
+  const text = custom
+    ? custom.replace(/\{code\}/g, promo.code)
+    : `🎁 كود خصم خاص إلك من زبوني: ${promo.code}\nفعّلو عند الطلب واستفيد من الخصم!`;
+
+  // De-duplicate phones so a repeated number isn't messaged twice.
+  const phones = Array.from(
+    new Set(parsed.data.phones.map((p) => p.trim()).filter(Boolean)),
+  );
+
+  let sent = 0;
+  const failures: string[] = [];
+  for (const phone of phones) {
+    let ok = false;
+    try {
+      ok = await whatsappManager.sendMessage(phone, text);
+    } catch {
+      ok = false;
+    }
+    if (!ok) {
+      try {
+        await sendSmsViaGateway(phone, text);
+        ok = true;
+      } catch {
+        ok = false;
+      }
+    }
+    if (ok) sent++;
+    else failures.push(phone);
+  }
+  res.json({ sent, failed: failures.length, failures });
+});
+
 // Flash Deals CRUD
 const flashDealBodySchema = z.object({
   restaurantId: z.string().min(1),
