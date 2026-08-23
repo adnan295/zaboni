@@ -7,6 +7,7 @@ import React, {
   useRef,
 } from "react";
 import { AppState, AppStateStatus, Platform, Vibration } from "react-native";
+import * as Location from "expo-location";
 import { io } from "socket.io-client";
 import { customFetch } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
@@ -64,6 +65,9 @@ interface CourierContextValue {
 const CourierContext = createContext<CourierContextValue | null>(null);
 
 const POLL_INTERVAL_MS = 8000;
+// How often an online / actively-delivering courier reports its position so the
+// admin live map and the customer's tracking map can follow it.
+const LOCATION_PUSH_INTERVAL_MS = 15000;
 
 export function CourierProvider({ children }: { children: React.ReactNode }) {
   const { user, isCourier, token } = useAuth();
@@ -231,6 +235,38 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
     });
     return () => sub.remove();
   }, [isCourier, refreshAvailableOrders, refreshActiveOrders, startPolling, stopPolling]);
+
+  // Report the courier's live position whenever they're online OR mid-delivery,
+  // so the admin live map shows every available courier (not just those on an
+  // active order) and the customer's tracking map can follow theirs. One loop
+  // here is the single source of location pushing across all courier screens.
+  const locationPermRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (!isCourier || Platform.OS === "web") return;
+    const shouldTrack = isOnline || activeOrders.length > 0;
+    if (!shouldTrack) return;
+    let cancelled = false;
+    const push = async () => {
+      try {
+        if (locationPermRef.current === null) {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          locationPermRef.current = status === "granted";
+        }
+        if (!locationPermRef.current || cancelled) return;
+        const pos = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        if (!cancelled) void updateLocation(pos.coords.latitude, pos.coords.longitude);
+      } catch {
+      }
+    };
+    push();
+    const timer = setInterval(push, LOCATION_PUSH_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [isCourier, isOnline, activeOrders.length, user?.id, updateLocation]);
 
   useEffect(() => {
     if (!isCourier || !token) return;
