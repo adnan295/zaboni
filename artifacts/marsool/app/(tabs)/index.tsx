@@ -27,6 +27,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { getApiBaseUrl, buildImageUrl } from "@/lib/apiConfig";
 import { customFetch } from "@workspace/api-client-react";
+import AutoPromoBanner from "@/components/AutoPromoBanner";
 import { CATEGORIES } from "@/data/restaurants";
 import * as Location from "expo-location";
 
@@ -548,6 +549,9 @@ export default function HomeScreen() {
           );
         })}
       </ScrollView>
+
+      {/* ===== Auto-apply promos the user is eligible for (e.g. free first delivery) ===== */}
+      <AutoPromoBanner />
 
       {/* ===== Active Order Banner ===== */}
       {activeOrder && (

@@ -22,6 +22,7 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import MenuItemCard from "@/components/MenuItemCard";
+import AutoPromoBanner from "@/components/AutoPromoBanner";
 import ItemNoteModal, { type OptionGroup } from "@/components/ItemNoteModal";
 import type { SelectedOption } from "@/context/CartContext";
 import { useFavorites } from "@/context/FavoritesContext";
@@ -358,7 +359,7 @@ export default function RestaurantScreen() {
         contentContainerStyle={{ paddingBottom: 140 }}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        stickyHeaderIndices={allTabs.length > 0 ? [flashDeal ? 3 : 2] : undefined}
+        stickyHeaderIndices={allTabs.length > 0 ? [flashDeal ? 4 : 3] : undefined}
       >
         {/* [0] Hero */}
         <View style={styles.heroContainer}>
@@ -451,6 +452,9 @@ export default function RestaurantScreen() {
             ) : null}
           </View>
         ) : null}
+
+        {/* Auto-apply promos (e.g. free first delivery) — includes this restaurant's own */}
+        <AutoPromoBanner restaurantId={restaurant.id} />
 
         {/* [3 or 2] Sticky category tabs */}
         <View style={[styles.catTabsWrap, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>

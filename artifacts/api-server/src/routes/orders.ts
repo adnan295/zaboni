@@ -219,6 +219,77 @@ async function findAutoApplyPromo(
   return best;
 }
 
+// Which auto-apply promos is THIS user eligible for right now, so the app can
+// advertise them (e.g. "free delivery on your first order") BEFORE an order
+// exists. Reuses evaluatePromo so what the banner promises never diverges from
+// what the order flow actually charges. Authenticated (mounted after requireAuth).
+router.get("/promos/eligible", async (req, res) => {
+  const userId = req.auth!.userId;
+  const restaurantId = String(req.query["restaurantId"] ?? "");
+  const itemsTotalRaw = parseInt(String(req.query["itemsTotal"] ?? ""));
+  const deliveryFeeRaw = parseInt(String(req.query["deliveryFee"] ?? ""));
+
+  const promos = await db
+    .select()
+    .from(promoCodesTable)
+    .where(and(eq(promoCodesTable.isActive, true), eq(promoCodesTable.autoApply, true)));
+  if (promos.length === 0) {
+    res.json({ promos: [] });
+    return;
+  }
+
+  const out: Array<{
+    id: string;
+    titleAr: string | null;
+    appliesTo: string;
+    target: "food" | "delivery";
+    type: string;
+    value: number;
+    maxDiscount: number | null;
+    minOrderValue: number | null;
+    restaurantId: string | null;
+    firstOrderOnly: boolean;
+    discountAmount: number;
+  }> = [];
+
+  for (const promo of promos) {
+    // A restaurant-scoped promo only previews when the app is on that restaurant
+    // (passes restaurantId); on the home screen (no restaurantId) only global
+    // promos match, so we never advertise a restaurant deal in the wrong place.
+    if (promo.restaurantId != null && promo.restaurantId !== restaurantId) continue;
+
+    // Preview context: use the real cart when the app supplies it, otherwise
+    // generous defaults so the promo's OWN gating (audience / first-order /
+    // window / limits) decides visibility, not an absent cart.
+    const previewItems = Number.isFinite(itemsTotalRaw) && itemsTotalRaw > 0
+      ? itemsTotalRaw
+      : Math.max(promo.minOrderValue ?? 0, 1);
+    const previewFee = Number.isFinite(deliveryFeeRaw) && deliveryFeeRaw > 0
+      ? deliveryFeeRaw
+      : DEFAULT_DELIVERY_FEE_SYP;
+
+    const ctx = await loadPromoContext(userId, previewFee, previewItems, restaurantId);
+    const r = await evaluatePromo(promo, ctx);
+    if (!r.ok) continue;
+
+    out.push({
+      id: promo.id,
+      titleAr: promo.titleAr || null,
+      appliesTo: promo.appliesTo,
+      target: r.target,
+      type: promo.type,
+      value: promo.value,
+      maxDiscount: promo.maxDiscount ?? null,
+      minOrderValue: promo.minOrderValue ?? null,
+      restaurantId: promo.restaurantId ?? null,
+      firstOrderOnly: promo.firstOrderOnly,
+      discountAmount: r.discountAmount,
+    });
+  }
+
+  res.json({ promos: out });
+});
+
 router.get("/delivery-fee-preview", async (req, res) => {
   const latRaw = parseFloat(String(req.query["lat"] ?? ""));
   const lonRaw = parseFloat(String(req.query["lon"] ?? ""));
