@@ -46,6 +46,28 @@ router.get("/config/app", async (_req, res) => {
   }
 });
 
+export const DEFAULT_ERRAND_DELIVERY_FEE = 150;
+
+// Delivery fee for an errand ("free"/external) order, controlled from the admin
+// settings panel so it can be changed WITHOUT shipping a new app build. The app
+// reads this at order time; the server re-reads it authoritatively when creating
+// the order (see routes/orders.ts).
+router.get("/config/errand-fee", async (_req, res) => {
+  try {
+    const rows = await db
+      .select()
+      .from(systemSettingsTable)
+      .where(inArray(systemSettingsTable.key, ["errand_delivery_fee"]));
+    const map: Record<string, string> = {};
+    for (const r of rows) map[r.key] = r.value;
+    const raw = parseInt(map["errand_delivery_fee"] ?? "", 10);
+    const fee = Number.isFinite(raw) && raw >= 0 ? raw : DEFAULT_ERRAND_DELIVERY_FEE;
+    res.json({ fee });
+  } catch {
+    res.json({ fee: DEFAULT_ERRAND_DELIVERY_FEE });
+  }
+});
+
 const DEFAULT_HOME_FILTERS = [
   { key: "rating", labelAr: "تقييم", enabled: false, order: 0 },
   { key: "time", labelAr: "وقت", enabled: false, order: 1 },

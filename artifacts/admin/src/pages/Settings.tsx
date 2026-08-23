@@ -51,6 +51,8 @@ export default function Settings() {
 
   const [paymentQrUrl, setPaymentQrUrl] = useState("");
 
+  const [errandFee, setErrandFee] = useState("");
+
   const [pwCurrent, setPwCurrent] = useState("");
   const [pwNew, setPwNew] = useState("");
   const [pwConfirm, setPwConfirm] = useState("");
@@ -63,8 +65,29 @@ export default function Settings() {
       setMethod((settings["sms_gateway_method"] as "GET" | "POST") ?? "POST");
       setAlertWebhookUrl(settings["alert_webhook_url"] ?? "");
       setPaymentQrUrl(settings["payment_qr_url"] ?? "");
+      setErrandFee(settings["errand_delivery_fee"] ?? "150");
     }
   }, [settings]);
+
+  const errandFeeSaveMutation = useMutation({
+    mutationFn: (data: Record<string, string>) => api.updateSettings(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "settings"] });
+      toast({ title: "تم الحفظ", description: "تم حفظ رسوم الطلب الخارجي" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "خطأ", description: err.message, variant: "destructive" });
+    },
+  });
+
+  function handleErrandFeeSave() {
+    const n = parseInt(errandFee.replace(/[^0-9]/g, ""), 10);
+    if (!Number.isFinite(n) || n < 0) {
+      toast({ title: "خطأ", description: "أدخل رقمًا صحيحًا", variant: "destructive" });
+      return;
+    }
+    errandFeeSaveMutation.mutate({ errand_delivery_fee: String(n) });
+  }
 
   const saveMutation = useMutation({
     mutationFn: (data: Record<string, string>) => api.updateSettings(data),
@@ -598,6 +621,42 @@ export default function Settings() {
           <p className="text-xs text-muted-foreground">
             الصورة ستظهر للسائق في شاشة "محفظتي" تحت سجل المعاملات — فقط إذا كانت مرفوعة
           </p>
+        </CardContent>
+      </Card>
+
+      {/* Errand (external) order delivery fee */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🛍</span>
+            <div>
+              <CardTitle>رسوم الطلب الخارجي</CardTitle>
+              <CardDescription>
+                رسوم توصيل الطلب الحر (اطلب من أي مكان). يتغيّر فورًا للجميع بدون الحاجة لتحديث التطبيق.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="errand-fee">رسوم التوصيل (ل.س)</Label>
+            <Input
+              id="errand-fee"
+              dir="ltr"
+              className="text-left"
+              inputMode="numeric"
+              placeholder="150"
+              value={errandFee}
+              onChange={(e) => setErrandFee(e.target.value)}
+            />
+          </div>
+          <Button
+            onClick={handleErrandFeeSave}
+            disabled={errandFeeSaveMutation.isPending}
+            className="w-full bg-orange-500 hover:bg-orange-600"
+          >
+            {errandFeeSaveMutation.isPending ? "جاري الحفظ..." : "حفظ الرسوم"}
+          </Button>
         </CardContent>
       </Card>
 

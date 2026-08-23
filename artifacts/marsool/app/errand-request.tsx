@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -18,8 +18,13 @@ import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import { useAddresses } from "@/context/AddressContext";
 import { useOrders } from "@/context/OrderContext";
+import { customFetch } from "@workspace/api-client-react";
 
-const ERRAND_DELIVERY_FEE = 150;
+// Fallback shown until the server value loads. The real charged fee is always
+// read server-side at order time; this is just the displayed estimate and it is
+// refreshed from /api/config/errand-fee so the price is controlled from the
+// dashboard, never hard-coded into a shipped build.
+const ERRAND_DELIVERY_FEE_FALLBACK = 150;
 
 export default function ErrandRequestScreen() {
   const colors = useColors();
@@ -33,6 +38,15 @@ export default function ErrandRequestScreen() {
   const [placeName, setPlaceName] = useState("");
   const [itemsText, setItemsText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [errandFee, setErrandFee] = useState(ERRAND_DELIVERY_FEE_FALLBACK);
+
+  useEffect(() => {
+    customFetch<{ fee: number }>("/api/config/errand-fee")
+      .then((data) => {
+        if (typeof data?.fee === "number" && data.fee >= 0) setErrandFee(data.fee);
+      })
+      .catch(() => {});
+  }, []);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
@@ -171,7 +185,7 @@ export default function ErrandRequestScreen() {
             <View style={styles.feeRow}>
               <Text style={[styles.feeLabel, { color: colors.mutedForeground }]}>رسوم التوصيل</Text>
               <Text style={[styles.feeValue, { color: colors.primary }]}>
-                {ERRAND_DELIVERY_FEE.toLocaleString("ar-SY")} ل.س
+                {errandFee.toLocaleString("ar-SY")} ل.س
               </Text>
             </View>
             <View style={[styles.feeDivider, { backgroundColor: colors.border }]} />

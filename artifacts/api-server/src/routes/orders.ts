@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { db, ordersTable, orderItemsTable, menuItemsTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable, promoCodesTable, promoUsesTable, usersTable, flashDealsTable, loyaltyTransactionsTable, menuItemOptionsTable, menuItemOptionGroupsTable, orderItemOptionsTable } from "@workspace/db";
+import { db, ordersTable, orderItemsTable, menuItemsTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable, promoCodesTable, promoUsesTable, usersTable, flashDealsTable, loyaltyTransactionsTable, menuItemOptionsTable, menuItemOptionGroupsTable, orderItemOptionsTable, systemSettingsTable } from "@workspace/db";
 import { and, avg, count, desc, eq, gt, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { notifyOrderUpdate, notifyNearbyCouriers, notifyRestaurantNewOrder } from "../orders/server";
@@ -41,6 +41,25 @@ const createOrderSchema = z
       (d.orderType === "errand" && d.placeName != null && d.placeName.trim().length > 0),
     { message: "items_or_orderText_required" },
   );
+
+const DEFAULT_ERRAND_DELIVERY_FEE = 150;
+
+// Errand ("free"/external) order delivery fee, read from the admin-editable
+// settings (key: errand_delivery_fee) so the price can be changed from the
+// dashboard WITHOUT publishing a new app build. Falls back to the default.
+async function getErrandDeliveryFee(): Promise<number> {
+  try {
+    const [row] = await db
+      .select({ value: systemSettingsTable.value })
+      .from(systemSettingsTable)
+      .where(eq(systemSettingsTable.key, "errand_delivery_fee"))
+      .limit(1);
+    const raw = parseInt(row?.value ?? "", 10);
+    return Number.isFinite(raw) && raw >= 0 ? raw : DEFAULT_ERRAND_DELIVERY_FEE;
+  } catch {
+    return DEFAULT_ERRAND_DELIVERY_FEE;
+  }
+}
 
 async function validatePromoForUser(code: string, userId: string, deliveryFee?: number, itemsTotal?: number, restaurantId?: string): Promise<{
   valid: false; error: string;
@@ -300,6 +319,8 @@ router.post("/orders", async (req, res) => {
       return;
     }
 
+    const errandDeliveryFee = await getErrandDeliveryFee();
+
     const errandOrder = {
       id,
       userId,
@@ -315,7 +336,7 @@ router.post("/orders", async (req, res) => {
       address: body.data.address,
       destinationLat: destLat,
       destinationLon: destLon,
-      deliveryFee: 150,
+      deliveryFee: errandDeliveryFee,
       totalPrice: null as number | null,
       flashDealId: null as string | null,
       flashDealDiscount: null as number | null,
