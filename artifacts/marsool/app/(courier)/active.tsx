@@ -74,7 +74,7 @@ export default function ActiveOrderScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t } = useTranslation();
-  const { activeOrders, updateDeliveryStatus, refreshActiveOrders, refreshAvailableOrders } = useCourier();
+  const { activeOrders, updateDeliveryStatus, refreshActiveOrders, refreshAvailableOrders, updateLocation } = useCourier();
   const [updating, setUpdating] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [courierLocation, setCourierLocation] = useState<CourierCoord | null>(null);
@@ -112,6 +112,9 @@ export default function ActiveOrderScreen() {
             latitude: pos.coords.latitude,
             longitude: pos.coords.longitude,
           });
+          // Push the live location to the server so the customer's tracking map
+          // and the admin can follow the courier during the delivery.
+          void updateLocation(pos.coords.latitude, pos.coords.longitude);
         }
       } catch {
       }

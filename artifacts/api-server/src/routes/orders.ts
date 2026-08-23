@@ -61,6 +61,15 @@ async function getErrandDeliveryFee(): Promise<number> {
   }
 }
 
+// Rough delivery ETA from the trip distance: a base for prep/pickup handling
+// plus travel time. ~4 min/km reflects slow in-city delivery (road detours,
+// traffic, pickup), clamped to a sane 15–120 minute window. Replaces the old
+// random 30–44 min guess so the customer sees a distance-aware estimate.
+function estimateMinutesFromDistance(distanceKm: number): number {
+  const mins = 15 + Math.round((Number.isFinite(distanceKm) ? distanceKm : 0) * 4);
+  return Math.max(15, Math.min(mins, 120));
+}
+
 async function validatePromoForUser(code: string, userId: string, deliveryFee?: number, itemsTotal?: number, restaurantId?: string): Promise<{
   valid: false; error: string;
 } | {
@@ -287,7 +296,6 @@ router.post("/orders", async (req, res) => {
   }
 
   const id = `${Date.now()}${Math.random().toString(36).slice(2, 9)}`;
-  const estimatedMinutes = Math.floor(Math.random() * 15) + 30;
 
   // Errand (concierge) order: fixed 10,000 SYP delivery fee, no restaurant lookup.
   if (body.data.orderType === "errand") {
@@ -320,6 +328,7 @@ router.post("/orders", async (req, res) => {
     }
 
     const errandDeliveryFee = await getErrandDeliveryFee();
+    const estimatedMinutes = estimateMinutesFromDistance(errandDistanceKm);
 
     const errandOrder = {
       id,
@@ -517,6 +526,7 @@ router.post("/orders", async (req, res) => {
 
   const distanceKm = haversineKm(originLat, originLon, destLat, destLon);
   const feeResult = await getFeeForDistance(distanceKm);
+  const estimatedMinutes = estimateMinutesFromDistance(distanceKm);
 
   // Coverage gate. When coverage areas (regions/cities) are configured the
   // customer AND the restaurant must be in the SAME area — so a customer can't
