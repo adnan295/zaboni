@@ -491,6 +491,17 @@ export type PromoCode = {
   isActive: boolean;
   createdAt: string;
   usesCount?: number;
+  // discount engine
+  appliesTo: "delivery" | "food" | "order";
+  maxDiscount: number | null;
+  minOrderValue: number | null;
+  startsAt: string | null;
+  firstOrderOnly: boolean;
+  audience: "all" | "specific" | "new" | "inactive";
+  inactiveDays: number | null;
+  autoApply: boolean;
+  titleAr: string;
+  targetPhones?: string[];
 };
 
 export const ORDER_STATUSES = [

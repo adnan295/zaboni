@@ -34,6 +34,16 @@ function PromoFormDialog({
     maxUsesPerUser: String(p?.maxUsesPerUser ?? 1),
     expiresAt: p?.expiresAt ? new Date(p.expiresAt).toISOString().slice(0, 16) : "",
     isActive: p?.isActive ?? true,
+    appliesTo: (p?.appliesTo ?? "delivery") as "delivery" | "food" | "order",
+    maxDiscount: p?.maxDiscount != null ? String(p.maxDiscount) : "",
+    minOrderValue: p?.minOrderValue != null ? String(p.minOrderValue) : "",
+    startsAt: p?.startsAt ? new Date(p.startsAt).toISOString().slice(0, 16) : "",
+    firstOrderOnly: p?.firstOrderOnly ?? false,
+    audience: (p?.audience ?? "all") as "all" | "specific" | "new" | "inactive",
+    inactiveDays: p?.inactiveDays != null ? String(p.inactiveDays) : "30",
+    autoApply: p?.autoApply ?? false,
+    titleAr: p?.titleAr ?? "",
+    targetPhones: (p?.targetPhones ?? []).join("\n"),
   });
 
   const [form, setForm] = useState(buildForm(promo));
@@ -65,12 +75,25 @@ function PromoFormDialog({
       maxUsesPerUser: parseInt(form.maxUsesPerUser) || 1,
       expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null,
       isActive: form.isActive,
+      appliesTo: form.appliesTo,
+      maxDiscount: form.maxDiscount ? parseInt(form.maxDiscount) : null,
+      minOrderValue: form.minOrderValue ? parseInt(form.minOrderValue) : null,
+      startsAt: form.startsAt ? new Date(form.startsAt).toISOString() : null,
+      firstOrderOnly: form.firstOrderOnly,
+      audience: form.audience,
+      inactiveDays: form.audience === "inactive" ? (parseInt(form.inactiveDays) || 30) : null,
+      autoApply: form.autoApply,
+      titleAr: form.titleAr.trim(),
+      // Always send the list so switching away from "specific" clears old targets.
+      targetPhones: form.audience === "specific"
+        ? form.targetPhones.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean)
+        : [],
     });
   };
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? "تعديل كود الخصم" : "إنشاء كود خصم"}</DialogTitle>
         </DialogHeader>
@@ -150,6 +173,102 @@ function PromoFormDialog({
             />
             <label htmlFor="isActive" className="text-sm font-medium">مفعّل</label>
           </div>
+
+          <div className="border-t pt-3 space-y-4">
+            <div className="space-y-1">
+              <label className="text-sm font-medium">الخصم على</label>
+              <select
+                className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                value={form.appliesTo}
+                onChange={(e) => setForm((f) => ({ ...f, appliesTo: e.target.value as "delivery" | "food" | "order" }))}
+              >
+                <option value="delivery">رسوم التوصيل (للتوصيل المجاني: النوع نسبة % والقيمة 100)</option>
+                <option value="food">سعر الأكل</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">حد أدنى للطلب (ل.س)</label>
+                <Input type="number" min="0" value={form.minOrderValue}
+                  onChange={(e) => setForm((f) => ({ ...f, minOrderValue: e.target.value }))}
+                  placeholder="بدون" />
+              </div>
+              {form.type === "percent" && (
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">سقف الخصم (ل.س)</label>
+                  <Input type="number" min="0" value={form.maxDiscount}
+                    onChange={(e) => setForm((f) => ({ ...f, maxDiscount: e.target.value }))}
+                    placeholder="بدون سقف" />
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium">تاريخ البداية (اختياري)</label>
+              <Input type="datetime-local" value={form.startsAt}
+                onChange={(e) => setForm((f) => ({ ...f, startsAt: e.target.value }))} />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium">لمين هالكود؟</label>
+              <select
+                className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                value={form.audience}
+                onChange={(e) => setForm((f) => ({ ...f, audience: e.target.value as "all" | "specific" | "new" | "inactive" }))}
+              >
+                <option value="all">الكل</option>
+                <option value="specific">أرقام محدّدة</option>
+                <option value="new">زبائن جدد (ما طلبوا ولا مرة)</option>
+                <option value="inactive">زبائن غير نشطين</option>
+              </select>
+            </div>
+            {form.audience === "specific" && (
+              <div className="space-y-1">
+                <label className="text-sm font-medium">الأرقام (كل رقم بسطر، أو مفصولة بفاصلة)</label>
+                <textarea
+                  className="w-full border rounded-md px-3 py-2 text-sm bg-background min-h-[80px] font-mono"
+                  dir="ltr"
+                  value={form.targetPhones}
+                  onChange={(e) => setForm((f) => ({ ...f, targetPhones: e.target.value }))}
+                  placeholder={"+963991234567\n+963997654321"}
+                />
+              </div>
+            )}
+            {form.audience === "inactive" && (
+              <div className="space-y-1">
+                <label className="text-sm font-medium">غير نشط منذ (أيام)</label>
+                <Input type="number" min="1" value={form.inactiveDays}
+                  onChange={(e) => setForm((f) => ({ ...f, inactiveDays: e.target.value }))} />
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="firstOrderOnly" checked={form.firstOrderOnly}
+                onChange={(e) => setForm((f) => ({ ...f, firstOrderOnly: e.target.checked }))} className="w-4 h-4" />
+              <label htmlFor="firstOrderOnly" className="text-sm font-medium">أول طلب فقط</label>
+            </div>
+
+            <div className="rounded-md border p-3 space-y-2 bg-muted/30">
+              <div className="flex items-center gap-2">
+                <input type="checkbox" id="autoApply" checked={form.autoApply}
+                  onChange={(e) => setForm((f) => ({ ...f, autoApply: e.target.checked }))} className="w-4 h-4" />
+                <label htmlFor="autoApply" className="text-sm font-medium">⭐ تطبيق تلقائي (بدون كتابة كود)</label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                مثال: «توصيل مجاني لأول طلب» — بينطبق تلقائيًا للمؤهّلين. (لسا لازم تحط كود كمعرّف داخلي)
+              </p>
+              {form.autoApply && (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">العنوان اللي بيشوفه الزبون</label>
+                  <Input value={form.titleAr}
+                    onChange={(e) => setForm((f) => ({ ...f, titleAr: e.target.value }))}
+                    placeholder="توصيل مجاني لأول طلب 🎉" />
+                </div>
+              )}
+            </div>
+          </div>
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>إلغاء</Button>
             <Button type="submit" disabled={mutation.isPending}>
