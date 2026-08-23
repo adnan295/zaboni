@@ -32,6 +32,7 @@ import { addErrandOrders } from "@workspace/db/migrations/add-errand-orders";
 import { addRestaurantPushSubscriptions } from "@workspace/db/migrations/add-restaurant-push-subscriptions";
 import { addCoverageAreas } from "@workspace/db/migrations/add-coverage-areas";
 import { addCourierPoints } from "@workspace/db/migrations/add-courier-points";
+import { addPromoEngine } from "@workspace/db/migrations/add-promo-engine";
 
 const rawPort = process.env["PORT"];
 
@@ -142,5 +143,8 @@ httpServer.listen(port, (err?: Error) => {
   );
   addCourierPoints().catch((e: unknown) =>
     logger.error({ err: e }, "Failed to run courier points migration"),
+  );
+  addPromoEngine().catch((e: unknown) =>
+    logger.error({ err: e }, "Failed to run promo engine migration"),
   );
 });
