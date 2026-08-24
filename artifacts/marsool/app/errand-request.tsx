@@ -113,7 +113,7 @@ export default function ErrandRequestScreen() {
           <View style={[styles.infoBanner, { backgroundColor: "#fff7ed", borderColor: "#fed7aa" }]}>
             <MaterialIcons name="shopping-bag" size={28} color="#ea580c" />
             <View style={{ flex: 1, gap: 2 }}>
-              <Text style={[styles.infoTitle, { color: "#c2410c" }]}>{t("errand.feeNote")}</Text>
+              <Text style={[styles.infoTitle, { color: "#c2410c" }]}>{t("errand.feeNote", { fee: errandFee.toLocaleString("ar-SY") })}</Text>
               <Text style={[styles.infoDesc, { color: "#9a3412" }]}>{t("errand.feeDescription")}</Text>
             </View>
           </View>

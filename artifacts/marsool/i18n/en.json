@@ -97,7 +97,7 @@
     "addressLabel": "Delivery Address",
     "noAddress": "No address set",
     "changeAddress": "Change Address",
-    "feeNote": "Delivery fee: 10,000 SYP (fixed)",
+    "feeNote": "Delivery fee: {{fee}} SYP",
     "feeDescription": "The courier will buy items and add the actual invoice upon delivery",
     "submit": "Place Order",
     "submitting": "Submitting...",
