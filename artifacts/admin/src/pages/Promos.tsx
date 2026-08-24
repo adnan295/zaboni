@@ -481,12 +481,36 @@ function SendDialog({ promo, onClose }: { promo: PromoCode | null; onClose: () =
   const { toast } = useToast();
   const [phones, setPhones] = useState("");
   const [message, setMessage] = useState("");
+  const [loadingSeg, setLoadingSeg] = useState<string | null>(null);
+
+  // Pull a whole segment's phones so the admin never types numbers by hand.
+  const loadSegment = async (segment: "all" | "new" | "inactive", label: string) => {
+    setLoadingSeg(segment);
+    try {
+      const r = await api.getCustomerPhones(segment, segment === "inactive" ? (promo?.inactiveDays ?? 30) : undefined);
+      setPhones(r.phones.join("\n"));
+      toast({ title: `تم تحميل ${r.count} رقم (${label})` });
+    } catch (e) {
+      toast({ title: "خطأ", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setLoadingSeg(null);
+    }
+  };
 
   useEffect(() => {
-    if (promo) {
+    if (!promo) return;
+    setMessage("");
+    // Auto-fill recipients from the code's own audience so it opens ready to send.
+    if (promo.audience === "specific") {
       setPhones((promo.targetPhones ?? []).join("\n"));
-      setMessage("");
+    } else if (promo.audience === "new") {
+      void loadSegment("new", "زبائن جدد");
+    } else if (promo.audience === "inactive") {
+      void loadSegment("inactive", "غير نشطين");
+    } else {
+      setPhones("");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [promo]);
 
   const mutation = useMutation({
@@ -515,6 +539,27 @@ function SendDialog({ promo, onClose }: { promo: PromoCode | null; onClose: () =
           <DialogTitle>إرسال «{promo?.code}» للزباين</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 mt-2">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">تعبئة سريعة للأرقام</label>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" size="sm" variant="outline" disabled={!!loadingSeg}
+                onClick={() => loadSegment("all", "كل الزباين")}>
+                {loadingSeg === "all" ? "..." : "كل الزباين"}
+              </Button>
+              <Button type="button" size="sm" variant="outline" disabled={!!loadingSeg}
+                onClick={() => loadSegment("new", "زبائن جدد")}>
+                {loadingSeg === "new" ? "..." : "زبائن جدد"}
+              </Button>
+              <Button type="button" size="sm" variant="outline" disabled={!!loadingSeg}
+                onClick={() => loadSegment("inactive", "غير نشطين")}>
+                {loadingSeg === "inactive" ? "..." : "غير نشطين"}
+              </Button>
+              {phones && (
+                <Button type="button" size="sm" variant="ghost" onClick={() => setPhones("")}>مسح</Button>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground">اضغط زر لتعبئة أرقام الفئة تلقائيًا، أو اكتب أرقام يدويًا تحت.</p>
+          </div>
           <div className="space-y-1">
             <label className="text-sm font-medium">الأرقام ({count})</label>
             <textarea

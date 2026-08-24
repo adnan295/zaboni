@@ -741,6 +741,10 @@ export const api = {
       `/admin/promos/${id}/send`,
       { method: "POST", body: JSON.stringify(data) },
     ),
+  getCustomerPhones: (segment: "all" | "new" | "inactive", days?: number) =>
+    apiFetch<{ phones: string[]; count: number }>(
+      `/admin/customers/phones?segment=${segment}${days ? `&days=${days}` : ""}`,
+    ),
 
   getRestaurantHours: (restaurantId: string) =>
     apiFetch<RestaurantHour[]>(`/admin/restaurants/${restaurantId}/hours`),

@@ -1733,6 +1733,41 @@ router.post("/admin/promos/:id/send", async (req, res) => {
   res.json({ sent, failed: failures.length, failures });
 });
 
+// Customer phone numbers by segment, so the admin can fill a promo blast without
+// typing numbers by hand. Segments mirror the promo engine's audiences:
+//   all      → every customer
+//   new      → never completed an order
+//   inactive → no delivered order in the last `days` (default 30)
+router.get("/admin/customers/phones", async (req, res) => {
+  const segment = String(req.query["segment"] ?? "all");
+  const days = Math.max(1, parseInt(String(req.query["days"] ?? "30")) || 30);
+  const cutoff = new Date(Date.now() - days * 86_400_000);
+
+  let result;
+  if (segment === "new") {
+    result = await db.execute(sql`
+      SELECT u.phone FROM users u
+      WHERE u.role = 'customer' AND u.phone IS NOT NULL AND u.phone <> ''
+        AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id AND o.status = 'delivered')
+      ORDER BY u.phone`);
+  } else if (segment === "inactive") {
+    result = await db.execute(sql`
+      SELECT u.phone FROM users u
+      WHERE u.role = 'customer' AND u.phone IS NOT NULL AND u.phone <> ''
+        AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id AND o.status = 'delivered' AND o.updated_at >= ${cutoff})
+      ORDER BY u.phone`);
+  } else {
+    result = await db.execute(sql`
+      SELECT u.phone FROM users u
+      WHERE u.role = 'customer' AND u.phone IS NOT NULL AND u.phone <> ''
+      ORDER BY u.phone`);
+  }
+  const phones = result.rows
+    .map((r: Record<string, unknown>) => String(r["phone"] ?? "").trim())
+    .filter(Boolean);
+  res.json({ phones, count: phones.length });
+});
+
 // Flash Deals CRUD
 const flashDealBodySchema = z.object({
   restaurantId: z.string().min(1),
