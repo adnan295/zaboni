@@ -53,6 +53,11 @@ export default function Settings() {
 
   const [errandFee, setErrandFee] = useState("");
 
+  const [pointsMode, setPointsMode] = useState<"per_price" | "flat">("per_price");
+  const [earnRate, setEarnRate] = useState("");
+  const [flatRestaurant, setFlatRestaurant] = useState("");
+  const [flatErrand, setFlatErrand] = useState("");
+
   const [pwCurrent, setPwCurrent] = useState("");
   const [pwNew, setPwNew] = useState("");
   const [pwConfirm, setPwConfirm] = useState("");
@@ -66,8 +71,36 @@ export default function Settings() {
       setAlertWebhookUrl(settings["alert_webhook_url"] ?? "");
       setPaymentQrUrl(settings["payment_qr_url"] ?? "");
       setErrandFee(settings["errand_delivery_fee"] ?? "150");
+      setPointsMode(settings["loyalty_points_mode"] === "flat" ? "flat" : "per_price");
+      setEarnRate(settings["loyalty_earn_rate"] ?? "10");
+      setFlatRestaurant(settings["loyalty_flat_points_restaurant"] ?? "5");
+      setFlatErrand(settings["loyalty_flat_points_errand"] ?? "5");
     }
   }, [settings]);
+
+  const pointsSaveMutation = useMutation({
+    mutationFn: (data: Record<string, string>) => api.updateSettings(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "settings"] });
+      toast({ title: "تم الحفظ", description: "تم حفظ إعدادات نقاط الولاء" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "خطأ", description: err.message, variant: "destructive" });
+    },
+  });
+
+  function handlePointsSave() {
+    const clean = (v: string) => {
+      const n = parseInt(v.replace(/[^0-9]/g, ""), 10);
+      return Number.isFinite(n) && n >= 0 ? n : 0;
+    };
+    pointsSaveMutation.mutate({
+      loyalty_points_mode: pointsMode,
+      loyalty_earn_rate: String(clean(earnRate) || 10),
+      loyalty_flat_points_restaurant: String(clean(flatRestaurant)),
+      loyalty_flat_points_errand: String(clean(flatErrand)),
+    });
+  }
 
   const errandFeeSaveMutation = useMutation({
     mutationFn: (data: Record<string, string>) => api.updateSettings(data),
@@ -656,6 +689,75 @@ export default function Settings() {
             className="w-full bg-orange-500 hover:bg-orange-600"
           >
             {errandFeeSaveMutation.isPending ? "جاري الحفظ..." : "حفظ الرسوم"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Loyalty points earned per order */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">⭐</span>
+            <div>
+              <CardTitle>نقاط الولاء لكل طلب</CardTitle>
+              <CardDescription>
+                تحكّم بعدد النقاط اللي بياخدها الزبون عن كل طلب. يتغيّر فورًا بدون تحديث التطبيق.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>طريقة الاحتساب</Label>
+            <select
+              className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+              value={pointsMode}
+              onChange={(e) => setPointsMode(e.target.value as "per_price" | "flat")}
+            >
+              <option value="per_price">حسب سعر الطلب (كل 1000 ل.س = عدد نقاط)</option>
+              <option value="flat">نقاط ثابتة لكل طلب (تتحكّم فيها إنت)</option>
+            </select>
+          </div>
+
+          {pointsMode === "per_price" ? (
+            <div className="space-y-2">
+              <Label htmlFor="earn-rate">نقاط لكل 1000 ل.س</Label>
+              <Input
+                id="earn-rate" dir="ltr" className="text-left" inputMode="numeric" placeholder="10"
+                value={earnRate} onChange={(e) => setEarnRate(e.target.value)}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                مثال: 10 يعني طلب بـ 2000 ل.س = 20 نقطة. هون الطلب الأغلى بياخد نقاط أكتر.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="flat-restaurant">نقاط طلب المطعم</Label>
+                <Input
+                  id="flat-restaurant" dir="ltr" className="text-left" inputMode="numeric" placeholder="5"
+                  value={flatRestaurant} onChange={(e) => setFlatRestaurant(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="flat-errand">نقاط الطلب الحر</Label>
+                <Input
+                  id="flat-errand" dir="ltr" className="text-left" inputMode="numeric" placeholder="5"
+                  value={flatErrand} onChange={(e) => setFlatErrand(e.target.value)}
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground col-span-2">
+                كل طلب بياخد نفس العدد الثابت بغضّ النظر عن سعره. خلّي الرقمين متساويين لو بدك نفس النقاط للطلبين.
+              </p>
+            </div>
+          )}
+
+          <Button
+            onClick={handlePointsSave}
+            disabled={pointsSaveMutation.isPending}
+            className="w-full"
+          >
+            {pointsSaveMutation.isPending ? "جاري الحفظ..." : "حفظ إعدادات النقاط"}
           </Button>
         </CardContent>
       </Card>

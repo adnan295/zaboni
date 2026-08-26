@@ -580,7 +580,7 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
       if (totalForPoints > 0) {
         try {
           const settings = await getLoyaltySettings();
-          await awardPointsInTx(tx, currentOrder.userId, orderId, totalForPoints, settings);
+          await awardPointsInTx(tx, currentOrder.userId, orderId, totalForPoints, settings, order.orderType);
         } catch {
           // points award failure must not block order completion
         }
