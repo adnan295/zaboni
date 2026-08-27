@@ -22,12 +22,18 @@ export default function Loyalty() {
   const [earnRate, setEarnRate] = useState<string>("");
   const [pointValue, setPointValue] = useState<string>("");
   const [referralRewardPoints, setReferralRewardPoints] = useState<string>("");
+  const [pointsMode, setPointsMode] = useState<"per_price" | "flat" | "">("");
+  const [flatRestaurant, setFlatRestaurant] = useState<string>("");
+  const [flatErrand, setFlatErrand] = useState<string>("");
 
   const hasInit = settings !== undefined;
   const displayEarnRate = earnRate !== "" ? earnRate : String(settings?.earnRate ?? "10");
   const displayPointValue = pointValue !== "" ? pointValue : String(settings?.pointValue ?? "1");
   const displayReferralRewardPoints =
     referralRewardPoints !== "" ? referralRewardPoints : String(settings?.referralRewardPoints ?? "500");
+  const displayPointsMode = pointsMode !== "" ? pointsMode : (settings?.pointsMode ?? "per_price");
+  const displayFlatRestaurant = flatRestaurant !== "" ? flatRestaurant : String(settings?.flatPointsRestaurant ?? "5");
+  const displayFlatErrand = flatErrand !== "" ? flatErrand : String(settings?.flatPointsErrand ?? "5");
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -35,6 +41,9 @@ export default function Loyalty() {
         earnRate: Number(displayEarnRate),
         pointValue: Number(displayPointValue),
         referralRewardPoints: Number(displayReferralRewardPoints),
+        pointsMode: displayPointsMode,
+        flatPointsRestaurant: Number(displayFlatRestaurant),
+        flatPointsErrand: Number(displayFlatErrand),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "loyalty-settings"] });
@@ -71,21 +80,61 @@ export default function Loyalty() {
         ) : (
           <>
             <div className="space-y-2">
-              <label className="text-sm font-medium">
-                معدل الكسب <span className="text-muted-foreground">(نقاط لكل 1,000 ل.س من قيمة الطلب)</span>
-              </label>
-              <Input
-                type="number"
-                min={0}
-                max={1000}
-                value={displayEarnRate}
-                onChange={(e) => setEarnRate(e.target.value)}
-                placeholder="10"
-              />
-              <p className="text-xs text-muted-foreground">
-                مثال: 10 ← العميل يكسب 10 نقاط عن كل 1,000 ل.س في الطلب
-              </p>
+              <label className="text-sm font-medium">طريقة احتساب النقاط لكل طلب</label>
+              <select
+                className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                value={displayPointsMode}
+                onChange={(e) => setPointsMode(e.target.value as "per_price" | "flat")}
+              >
+                <option value="per_price">حسب سعر الطلب (كل 1,000 ل.س = نقاط)</option>
+                <option value="flat">نقاط ثابتة لكل طلب (تتحكّم فيها إنت)</option>
+              </select>
             </div>
+
+            {displayPointsMode === "per_price" ? (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  معدل الكسب <span className="text-muted-foreground">(نقاط لكل 1,000 ل.س من قيمة الطلب)</span>
+                </label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={1000}
+                  value={displayEarnRate}
+                  onChange={(e) => setEarnRate(e.target.value)}
+                  placeholder="10"
+                />
+                <p className="text-xs text-muted-foreground">
+                  مثال: 10 ← العميل يكسب 10 نقاط عن كل 1,000 ل.س في الطلب. الطلب الأغلى يكسب أكثر.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">نقاط طلب المطعم</label>
+                    <Input
+                      type="number" min={0} max={100000}
+                      value={displayFlatRestaurant}
+                      onChange={(e) => setFlatRestaurant(e.target.value)}
+                      placeholder="5"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">نقاط الطلب الحر</label>
+                    <Input
+                      type="number" min={0} max={100000}
+                      value={displayFlatErrand}
+                      onChange={(e) => setFlatErrand(e.target.value)}
+                      placeholder="5"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  كل طلب يكسب نفس العدد الثابت بغضّ النظر عن سعره. اجعل الرقمين متساويين لتوحيد النقاط بين النوعين.
+                </p>
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-sm font-medium">

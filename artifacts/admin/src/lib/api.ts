@@ -1239,6 +1239,9 @@ export type LoyaltySettings = {
   earnRate: number;
   pointValue: number;
   referralRewardPoints: number;
+  pointsMode?: "per_price" | "flat";
+  flatPointsRestaurant?: number;
+  flatPointsErrand?: number;
 };
 
 export type LoyaltyUser = {

@@ -3171,18 +3171,24 @@ router.put("/admin/loyalty-settings", async (req, res) => {
     earnRate: z.number().min(0).max(1000),
     pointValue: z.number().min(0).max(100),
     referralRewardPoints: z.number().min(0).max(100000).optional(),
+    pointsMode: z.enum(["per_price", "flat"]).optional(),
+    flatPointsRestaurant: z.number().min(0).max(100000).optional(),
+    flatPointsErrand: z.number().min(0).max(100000).optional(),
   }).safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ error: "earnRate and pointValue required" });
     return;
   }
   const { getLoyaltySettings, saveLoyaltySettings } = await import("../lib/loyalty");
-  // referralRewardPoints is optional in the request; keep the stored value when omitted.
+  // Optional fields keep their stored value when omitted from the request.
   const current = await getLoyaltySettings();
   const merged = {
     earnRate: body.data.earnRate,
     pointValue: body.data.pointValue,
     referralRewardPoints: body.data.referralRewardPoints ?? current.referralRewardPoints,
+    pointsMode: body.data.pointsMode ?? current.pointsMode,
+    flatPointsRestaurant: body.data.flatPointsRestaurant ?? current.flatPointsRestaurant,
+    flatPointsErrand: body.data.flatPointsErrand ?? current.flatPointsErrand,
   };
   await saveLoyaltySettings(merged);
   res.json(merged);
