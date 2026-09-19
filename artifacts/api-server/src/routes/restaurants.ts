@@ -350,7 +350,23 @@ router.get("/restaurants/:id/menu", async (req, res) => {
     return;
   }
 
-  const itemIds = items.map((i) => i.id);
+  // When the restaurant's offers section is switched off in admin, hide its
+  // deal items from customers (they stay in the DB, ready to relaunch).
+  const [rest] = await db
+    .select({ offersEnabled: restaurantsTable.offersEnabled })
+    .from(restaurantsTable)
+    .where(eq(restaurantsTable.id, id))
+    .limit(1);
+  const visibleItems = rest && rest.offersEnabled === false
+    ? items.filter((i) => !i.isDeal)
+    : items;
+
+  if (visibleItems.length === 0) {
+    res.json([]);
+    return;
+  }
+
+  const itemIds = visibleItems.map((i) => i.id);
   const groupRows = await db
     .select({
       groupId: menuItemOptionGroupsTable.id,
@@ -392,7 +408,7 @@ router.get("/restaurants/:id/menu", async (req, res) => {
     }
   }
 
-  const result = items.map((item) => {
+  const result = visibleItems.map((item) => {
     const groupMap = groupsByItemId.get(item.id);
     const optionGroups = groupMap ? Array.from(groupMap.values()) : [];
     return { ...item, optionGroups };

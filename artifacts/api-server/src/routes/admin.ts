@@ -463,6 +463,7 @@ const restaurantBody = z.object({
   tags: z.array(z.string()).default([]),
   isOpen: z.boolean().default(true),
   isLogo: z.boolean().default(false),
+  offersEnabled: z.boolean().optional(),
   discount: z.string().nullable().optional(),
   lat: z.number().min(-90).max(90).nullable().optional(),
   lon: z.number().min(-180).max(180).nullable().optional(),

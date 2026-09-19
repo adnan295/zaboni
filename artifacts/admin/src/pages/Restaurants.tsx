@@ -60,6 +60,7 @@ const emptyRestaurant: RestaurantForm = {
   lon: null,
   phone: null,
   isLogo: false,
+  offersEnabled: true,
   sortOrder: null,
   zoneId: null,
 };
@@ -270,6 +271,16 @@ function RestaurantFormDialog({
               className="w-4 h-4 accent-primary"
             />
             <Label htmlFor="isLogo">الصورة لوغو (تُعرض كاملةً بخلفية بيضاء)</Label>
+          </div>
+          <div className="col-span-2 flex items-center gap-2">
+            <input
+              id="offersEnabled"
+              type="checkbox"
+              checked={form.offersEnabled !== false}
+              onChange={(e) => set("offersEnabled", e.target.checked)}
+              className="w-4 h-4 accent-primary"
+            />
+            <Label htmlFor="offersEnabled">إظهار قسم العروض 🔥 (أطفئه لإخفاء العروض قبل الإطلاق)</Label>
           </div>
           <div className="col-span-2 space-y-1">
             <Label>منطقة العمل (اختياري)</Label>

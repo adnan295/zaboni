@@ -21,6 +21,9 @@ export const restaurantsTable = pgTable("restaurants", {
   lon: real("lon"),
   phone: text("phone"),
   isLogo: boolean("is_logo").notNull().default(false),
+  // When false, the restaurant's offers/deals section is hidden from customers
+  // (items stay in the DB) — an admin toggle to prepare offers before launch.
+  offersEnabled: boolean("offers_enabled").notNull().default(true),
   sortOrder: integer("sort_order"),
   zoneId: text("zone_id"),
 });

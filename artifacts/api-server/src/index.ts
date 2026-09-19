@@ -33,6 +33,7 @@ import { addRestaurantPushSubscriptions } from "@workspace/db/migrations/add-res
 import { addCoverageAreas } from "@workspace/db/migrations/add-coverage-areas";
 import { addCourierPoints } from "@workspace/db/migrations/add-courier-points";
 import { addPromoEngine } from "@workspace/db/migrations/add-promo-engine";
+import { addRestaurantOffersToggle } from "@workspace/db/migrations/add-restaurant-offers-toggle";
 
 const rawPort = process.env["PORT"];
 
@@ -146,5 +147,8 @@ httpServer.listen(port, (err?: Error) => {
   );
   addPromoEngine().catch((e: unknown) =>
     logger.error({ err: e }, "Failed to run promo engine migration"),
+  );
+  addRestaurantOffersToggle().catch((e: unknown) =>
+    logger.error({ err: e }, "Failed to run restaurant offers toggle migration"),
   );
 });

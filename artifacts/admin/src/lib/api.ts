@@ -68,6 +68,7 @@ export type Restaurant = {
   tags: string[];
   isOpen: boolean;
   isLogo: boolean;
+  offersEnabled?: boolean;
   discount: string | null;
   lat?: number | null;
   lon?: number | null;
