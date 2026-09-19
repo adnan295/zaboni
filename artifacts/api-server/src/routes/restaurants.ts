@@ -204,9 +204,11 @@ router.get("/restaurants", async (req, res) => {
           dealDiscountPercent: menuItemsTable.dealDiscountPercent,
         })
         .from(menuItemsTable)
+        .innerJoin(restaurantsTable, eq(restaurantsTable.id, menuItemsTable.restaurantId))
         .where(
           and(
             eq(menuItemsTable.isDeal, true),
+            eq(restaurantsTable.offersEnabled, true),
             inArray(menuItemsTable.restaurantId, rows.map((r) => r.id))
           )
         )
@@ -464,7 +466,8 @@ router.get("/home-sections/:section", async (req, res) => {
       db
         .select({ restaurantId: menuItemsTable.restaurantId })
         .from(menuItemsTable)
-        .where(eq(menuItemsTable.isDeal, true)),
+        .innerJoin(restaurantsTable, eq(restaurantsTable.id, menuItemsTable.restaurantId))
+        .where(and(eq(menuItemsTable.isDeal, true), eq(restaurantsTable.offersEnabled, true))),
       db
         .select({ restaurantId: flashDealsTable.restaurantId, endsAt: flashDealsTable.endsAt })
         .from(flashDealsTable)
