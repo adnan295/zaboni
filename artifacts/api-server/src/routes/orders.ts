@@ -387,8 +387,24 @@ router.get("/orders", async (req, res) => {
     (itemsMap[it.orderId] ??= []).push(it);
   }
 
+  // Live average rating per assigned courier, so lists show real stars, not the
+  // 0 that was snapshotted on the order at accept time.
+  const courierIds = [...new Set(allRows.map((o) => o.courierId).filter((c): c is string => !!c))];
+  const courierRatingMap: Record<string, number> = {};
+  if (courierIds.length > 0) {
+    const rrows = await db
+      .select({ courierId: orderRatingsTable.courierId, avg: avg(orderRatingsTable.courierStars) })
+      .from(orderRatingsTable)
+      .where(and(inArray(orderRatingsTable.courierId, courierIds), gt(orderRatingsTable.courierStars, 0)))
+      .groupBy(orderRatingsTable.courierId);
+    for (const r of rrows) {
+      if (r.avg != null) courierRatingMap[r.courierId] = Math.round(Number(r.avg) * 10) / 10;
+    }
+  }
+
   const orders = allRows.map((o) => ({
     ...o,
+    courierRating: courierRatingMap[o.courierId] ?? o.courierRating,
     pointsEarned: pointsMap[o.id]?.pointsEarned ?? 0,
     pointsRedeemed: pointsMap[o.id]?.pointsRedeemed ?? 0,
     items: itemsMap[o.id] ?? [],
@@ -998,6 +1014,18 @@ router.get("/orders/:id", async (req, res) => {
   }
   const order = rows[0]!;
 
+  // Show the courier's real, current average rating (not the value snapshotted on
+  // the order at accept time, which was historically 0). Fixes ⭐ 0 on the
+  // customer's tracking screen for in-progress orders too.
+  let courierRating = order.courierRating;
+  if (order.courierId) {
+    const [cr] = await db
+      .select({ avg: avg(orderRatingsTable.courierStars) })
+      .from(orderRatingsTable)
+      .where(and(eq(orderRatingsTable.courierId, order.courierId), gt(orderRatingsTable.courierStars, 0)));
+    if (cr?.avg != null) courierRating = Math.round(Number(cr.avg) * 10) / 10;
+  }
+
   const items = await db
     .select()
     .from(orderItemsTable)
@@ -1024,10 +1052,10 @@ router.get("/orders/:id", async (req, res) => {
       .orderBy(desc(orderStatusHistoryTable.createdAt))
       .limit(1);
     const note = history[0]?.note ?? null;
-    res.json({ ...order, cancelNote: note, pointsEarned, pointsRedeemed, items });
+    res.json({ ...order, courierRating, cancelNote: note, pointsEarned, pointsRedeemed, items });
     return;
   }
-  res.json({ ...order, pointsEarned, pointsRedeemed, items });
+  res.json({ ...order, courierRating, pointsEarned, pointsRedeemed, items });
 });
 
 router.get("/orders/:id/courier-location", async (req, res) => {
