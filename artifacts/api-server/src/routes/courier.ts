@@ -188,7 +188,11 @@ const locationSchema = z.object({
 
 const MAX_SPEED_KMH = 150;
 const MAX_SINGLE_JUMP_KM = 50;
-const SERVICE_AREA_MAX_KM = 100;
+// Sanity bound only (rejects GPS glitches like 0,0), NOT a business rule. Centered
+// on Damascus but wide enough to cover all of Syria — Zaboni operates in Homs
+// (~141 km from Damascus), so a 100 km bound wrongly rejected every Homs courier's
+// first location and left the customer stuck on "waiting for courier location".
+const SERVICE_AREA_MAX_KM = 500;
 
 // Proximity dispatch: a searching order is shown to every online courier, nearest
 // restaurant first, but capped to this radius so a courier never sees an order across
@@ -216,31 +220,27 @@ router.patch("/courier/location", requireCourier, async (req, res) => {
     prev?.courierLat !== undefined && prev?.courierLon !== undefined &&
     prev?.courierLocationUpdatedAt !== undefined;
 
+  // Drop obviously-bad pings (GPS glitches) silently instead of returning 4xx, so a
+  // single bad ping never blocks tracking. A normal ping is always stored.
+  let accept = true;
   if (hasPriorLocation) {
     const elapsedHours = (Date.now() - prev!.courierLocationUpdatedAt!.getTime()) / 3_600_000;
     const distKm = haversineKm(prev!.courierLat!, prev!.courierLon!, body.data.lat, body.data.lon);
-    if (distKm > MAX_SINGLE_JUMP_KM) {
-      res.status(429).json({ error: "Location update rejected: distance jump too large" });
-      return;
-    }
-    if (elapsedHours > 0 && distKm / elapsedHours > MAX_SPEED_KMH) {
-      res.status(429).json({ error: "Location update rejected: movement speed exceeds physical limit" });
-      return;
-    }
+    if (distKm > MAX_SINGLE_JUMP_KM) accept = false;
+    else if (elapsedHours > 0 && distKm / elapsedHours > MAX_SPEED_KMH) accept = false;
   } else {
     const distFromCenter = haversineKm(DAMASCUS_LAT, DAMASCUS_LON, body.data.lat, body.data.lon);
-    if (distFromCenter > SERVICE_AREA_MAX_KM) {
-      res.status(400).json({ error: "Location is outside the service area" });
-      return;
-    }
+    if (distFromCenter > SERVICE_AREA_MAX_KM) accept = false;
   }
 
-  await db
-    .update(usersTable)
-    .set({ courierLat: body.data.lat, courierLon: body.data.lon, courierLocationUpdatedAt: new Date() })
-    .where(eq(usersTable.id, courierId));
+  if (accept) {
+    await db
+      .update(usersTable)
+      .set({ courierLat: body.data.lat, courierLon: body.data.lon, courierLocationUpdatedAt: new Date() })
+      .where(eq(usersTable.id, courierId));
+  }
 
-  res.json({ ok: true });
+  res.json({ ok: true, stored: accept });
 });
 
 const DAMASCUS_LAT = 33.5138;
