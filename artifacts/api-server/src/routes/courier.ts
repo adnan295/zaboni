@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db, usersTable, ordersTable, orderItemsTable, orderItemOptionsTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, courierSubscriptionPlansTable, courierCustomerRatingsTable, courierApplicationsTable, referralsTable, courierSubscriptionRequestsTable, systemSettingsTable, restaurantsTable, courierPointsTransactionsTable } from "@workspace/db";
-import { and, eq, ne, inArray, notInArray, avg, count, sql, desc, getTableColumns } from "drizzle-orm";
+import { and, eq, ne, inArray, notInArray, avg, count, gt, sql, desc, getTableColumns } from "drizzle-orm";
 import { haversineKm as _haversineKm } from "../lib/deliveryZones";
 import { z } from "zod";
 import { notifyOrderUpdate, sendOrderPush, notifyCouriersOrderTaken } from "../orders/server";
@@ -481,9 +481,19 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   const courierName = courierUsers[0]?.name || "مندوب";
   const courierPhone = courierUsers[0]?.phone || "";
 
+  // Snapshot the courier's real average rating (from past rated orders) onto the
+  // order, so the customer's tracking screen shows the actual stars instead of 0.
+  const [courierRatingRow] = await db
+    .select({ avg: avg(orderRatingsTable.courierStars) })
+    .from(orderRatingsTable)
+    .where(and(eq(orderRatingsTable.courierId, courierId), gt(orderRatingsTable.courierStars, 0)));
+  const courierRating = courierRatingRow?.avg != null
+    ? Math.round(Number(courierRatingRow.avg) * 10) / 10
+    : 0;
+
   const updated = await db
     .update(ordersTable)
-    .set({ courierId, courierName, courierPhone, courierRating: 0, status: "accepted", updatedAt: new Date() })
+    .set({ courierId, courierName, courierPhone, courierRating, status: "accepted", updatedAt: new Date() })
     .where(and(eq(ordersTable.id, orderId), eq(ordersTable.courierId, ""), eq(ordersTable.status, "searching")))
     .returning();
 
