@@ -68,13 +68,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setToken(storedToken);
           setUser(parsedUser);
           setAuthTokenGetter(() => storedToken);
+          // Render the app immediately with the cached session; the /me refresh
+          // below then updates the role in the background without blocking startup.
+          setIsLoading(false);
 
-          // Refresh role from server in background to pick up any DB changes
+          // Refresh role from server in background to pick up any DB changes.
+          // Bounded by a timeout: without it, a hanging /me request on a flaky
+          // connection keeps isLoading true forever and the app is stuck on the
+          // loading spinner. On timeout/error we just keep the cached role.
           try {
             const { getApiBaseUrl } = await import("@/lib/apiClient");
-            const meRes = await fetch(`${getApiBaseUrl()}/api/auth/me`, {
-              headers: { Authorization: `Bearer ${storedToken}` },
-            });
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+            let meRes: Response;
+            try {
+              meRes = await fetch(`${getApiBaseUrl()}/api/auth/me`, {
+                headers: { Authorization: `Bearer ${storedToken}` },
+                signal: controller.signal,
+              });
+            } finally {
+              clearTimeout(timeoutId);
+            }
             const fresh = meRes.ok ? await meRes.json() : null;
             const freshRole = ((fresh?.role) as "customer" | "courier") ?? parsedUser.role;
             const freshUser: AuthUser = { ...parsedUser, role: freshRole };
