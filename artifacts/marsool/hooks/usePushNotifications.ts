@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { AppState, type AppStateStatus, Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import { useRouter } from "expo-router";
@@ -96,6 +97,9 @@ function getNotificationTargetRoute(
 
 const handledResponseIds = new Set<string>();
 const handledReceivedIds = new Set<string>();
+// Persisted id of the launch notification already routed, so a tap doesn't
+// re-open its screen on every subsequent cold start.
+const LAUNCH_NOTIF_KEY = "@zaboni_handled_launch_notif_v1";
 
 const REGISTRATION_COOLDOWN_MS = 30_000;
 
@@ -275,8 +279,18 @@ export function usePushNotifications(
       try {
         const lastResponse = await Notifications.getLastNotificationResponseAsync();
         if (lastResponse) {
-          const route = getNotificationTargetRoute(lastResponse, userRoleRef.current);
-          handleResponse(lastResponse, route);
+          // getLastNotificationResponseAsync keeps returning the SAME last-tapped
+          // notification on every cold start, so without a persistent guard the
+          // app re-navigates to that notification's screen (e.g. Notifications or
+          // a restaurant) on every launch instead of opening to Home. Persist the
+          // handled id so each tap only routes once, across restarts.
+          const id = lastResponse.notification.request.identifier;
+          const handled = await AsyncStorage.getItem(LAUNCH_NOTIF_KEY);
+          if (handled !== id) {
+            await AsyncStorage.setItem(LAUNCH_NOTIF_KEY, id);
+            const route = getNotificationTargetRoute(lastResponse, userRoleRef.current);
+            handleResponse(lastResponse, route);
+          }
         }
       } catch {
       }
