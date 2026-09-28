@@ -79,6 +79,10 @@ window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ready' }));
 export function DeliveryMap({ userCoords, courierCoords, isSearching, etaMinutes, height = 220 }: DeliveryMapProps) {
   const webViewRef = useRef<WebView>(null);
   const [mapReady, setMapReady] = useState(false);
+  // Android kills the WebView renderer process under memory pressure or on
+  // background/foreground. Without handling that, react-native-webview crashes
+  // the WHOLE app. We remount the WebView on that event and never let it crash.
+  const [webViewKey, setWebViewKey] = useState(0);
 
   const injectMarkers = useCallback((ready: boolean) => {
     if (!ready) return;
@@ -107,6 +111,7 @@ export function DeliveryMap({ userCoords, courierCoords, isSearching, etaMinutes
   return (
     <View style={{ height, overflow: "hidden" }}>
       <WebView
+        key={webViewKey}
         ref={webViewRef}
         source={{ html: MAP_HTML }}
         style={{ flex: 1 }}
@@ -115,6 +120,17 @@ export function DeliveryMap({ userCoords, courierCoords, isSearching, etaMinutes
         originWhitelist={["*"]}
         scrollEnabled={false}
         onMessage={handleMessage}
+        // Android-only: when the renderer process is gone, recover by remounting
+        // the WebView instead of letting it crash the app. Returning true marks
+        // the event handled so react-native-webview does not rethrow.
+        onRenderProcessGone={() => {
+          setMapReady(false);
+          setWebViewKey((k) => k + 1);
+          return true;
+        }}
+        onError={() => {
+          setMapReady(false);
+        }}
       />
       {etaMinutes != null && !isSearching && (
         <View style={styles.etaOverlay}>

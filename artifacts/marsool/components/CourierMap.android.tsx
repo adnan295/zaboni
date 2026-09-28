@@ -67,6 +67,10 @@ export function CourierMap({ destinationLat, destinationLon, courierLat, courier
   const webViewRef = useRef<WebView>(null);
   const htmlRef = useRef(makeMapHtml(destinationLat, destinationLon));
   const [mapReady, setMapReady] = useState(false);
+  // Android kills the WebView renderer process under memory pressure or on
+  // background/foreground; unhandled, react-native-webview crashes the whole
+  // app. Remount the WebView on that event instead of crashing.
+  const [webViewKey, setWebViewKey] = useState(0);
 
   const injectCourier = useCallback((ready: boolean) => {
     if (!ready || courierLat == null || courierLon == null) return;
@@ -92,6 +96,7 @@ export function CourierMap({ destinationLat, destinationLon, courierLat, courier
   return (
     <View style={styles.container}>
       <WebView
+        key={webViewKey}
         ref={webViewRef}
         source={{ html: htmlRef.current }}
         style={styles.map}
@@ -99,6 +104,14 @@ export function CourierMap({ destinationLat, destinationLon, courierLat, courier
         domStorageEnabled
         originWhitelist={["*"]}
         onMessage={handleMessage}
+        onRenderProcessGone={() => {
+          setMapReady(false);
+          setWebViewKey((k) => k + 1);
+          return true;
+        }}
+        onError={() => {
+          setMapReady(false);
+        }}
       />
     </View>
   );

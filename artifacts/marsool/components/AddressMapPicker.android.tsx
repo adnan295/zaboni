@@ -97,6 +97,9 @@ export function AddressMapPicker({ visible, onClose, onSelect, initialAddress }:
   const [resolvedAddress, setResolvedAddress] = useState<string>(initialAddress ?? "");
   const [geocoding, setGeocoding] = useState(false);
   const [mapReady, setMapReady] = useState(false);
+  // Android kills the WebView renderer under memory pressure / backgrounding;
+  // unhandled, react-native-webview crashes the whole app. Remount on that event.
+  const [webViewKey, setWebViewKey] = useState(0);
   const geocodeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedCoordsRef = useRef<Coords>(HOMS_CENTER);
   const coverageAreas = useCoverageAreas(visible);
@@ -208,6 +211,7 @@ export function AddressMapPicker({ visible, onClose, onSelect, initialAddress }:
             </View>
           )}
           <WebView
+            key={webViewKey}
             ref={webViewRef}
             source={{ html: MAP_HTML }}
             style={styles.map}
@@ -216,6 +220,14 @@ export function AddressMapPicker({ visible, onClose, onSelect, initialAddress }:
             originWhitelist={["*"]}
             mixedContentMode="always"
             onMessage={handleMessage}
+            onRenderProcessGone={() => {
+              setMapReady(false);
+              setWebViewKey((k) => k + 1);
+              return true;
+            }}
+            onError={() => {
+              setMapReady(false);
+            }}
           />
           <TouchableOpacity style={styles.myLocationBtn} onPress={handleMyLocation}>
             <MaterialIcons name="my-location" size={20} color="#DC2626" />
