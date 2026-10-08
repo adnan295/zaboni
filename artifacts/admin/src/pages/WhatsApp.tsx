@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, type WAAccount } from "@/lib/api";
+import { useWhatsAppAccounts, disconnectReason, timeAgo } from "@/lib/whatsappStatus";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,11 +26,7 @@ export default function WhatsApp() {
   const queryClient = useQueryClient();
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
 
-  const { data: accounts = [], isLoading } = useQuery<WAAccount[]>({
-    queryKey: ["admin", "whatsapp", "accounts"],
-    queryFn: api.getWhatsAppAccounts,
-    refetchInterval: 5000,
-  });
+  const { data: accounts = [], isLoading } = useWhatsAppAccounts();
 
   const addMutation = useMutation({
     mutationFn: api.addWhatsAppAccount,
@@ -79,6 +76,9 @@ export default function WhatsApp() {
         {connectedCount === 0 && accounts.length > 0 && (
           <span className="text-amber-600 mr-2">— الإرسال سيكون عبر SMS كبديل</span>
         )}
+        {connectedCount === 1 && (
+          <span className="text-amber-600 mr-2">— ضيف رقم احتياطي ليشتغل تلقائياً إذا وقف هالرقم</span>
+        )}
       </div>
 
       {isLoading && (
@@ -123,20 +123,21 @@ export default function WhatsApp() {
                 </div>
               )}
               {account.status === "connecting" && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground py-4 justify-center">
-                  <span className="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
-                  جاري الاتصال بواتساب...
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-4 justify-center text-center">
+                  <span className="animate-spin inline-block w-4 h-4 flex-shrink-0 border-2 border-current border-t-transparent rounded-full" />
+                  {disconnectReason(account)}
                 </div>
               )}
               {account.status === "connected" && (
-                <p className="text-sm text-green-600 font-medium py-2">
-                  ✅ الرقم متصل ويرسل رموز OTP
-                </p>
+                <div className="py-2 space-y-0.5">
+                  <p className="text-sm text-green-600 font-medium">✅ الرقم متصل ويرسل رموز OTP</p>
+                  <p className="text-xs text-muted-foreground">
+                    {account.sentCount ?? 0} رسالة منذ آخر تشغيل · آخر إرسال {timeAgo(account.lastSentAt)}
+                  </p>
+                </div>
               )}
               {account.status === "disconnected" && (
-                <p className="text-sm text-destructive py-2">
-                  انقطع الاتصال — أضف الرقم مجدداً لإعادة الربط
-                </p>
+                <p className="text-sm text-destructive py-2">{disconnectReason(account)}</p>
               )}
               <Button
                 variant="outline"

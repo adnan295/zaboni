@@ -1148,6 +1148,12 @@ export type WAAccount = {
   qrDataUrl?: string;
   phone?: string;
   createdAt: string;
+  reconnectAttempts?: number;
+  lastConnectedAt?: string;
+  lastDisconnectAt?: string;
+  lastDisconnectCode?: number;
+  sentCount?: number;
+  lastSentAt?: string;
 };
 
 export type AdminNote = {

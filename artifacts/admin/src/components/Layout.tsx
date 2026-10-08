@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { io, type Socket } from "socket.io-client";
+import WhatsAppAlertBanner from "@/components/WhatsAppAlertBanner";
+import { useWhatsAppAccounts, summarizeWhatsApp } from "@/lib/whatsappStatus";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -103,6 +105,15 @@ export default function Layout({ children, onLogout }: LayoutProps) {
   });
   const pendingSubCount = pendingSubRequests?.count ?? 0;
 
+  const { data: waAccounts } = useWhatsAppAccounts();
+  const waSummary = waAccounts ? summarizeWhatsApp(waAccounts) : null;
+  const waAlert =
+    waSummary?.health === "down" || waSummary?.health === "none"
+      ? "down"
+      : waSummary?.health === "degraded"
+        ? "degraded"
+        : null;
+
   const activeOrders =
     stats?.ordersByStatus
       .filter((s) => s.status !== "delivered" && s.status !== "cancelled")
@@ -199,6 +210,7 @@ export default function Layout({ children, onLogout }: LayoutProps) {
             const showSlaBadge = item.href === "/" && slaAlertCount > 0;
             const showSupportBadge = item.href === "/customer-support" && supportUnreadCount > 0;
             const showSubRequestsBadge = item.href === "/subscription-requests" && pendingSubCount > 0;
+            const showWaBadge = item.href === "/whatsapp" && waAlert !== null;
             return (
               <Link
                 key={item.href}
@@ -226,6 +238,9 @@ export default function Layout({ children, onLogout }: LayoutProps) {
                   )}
                   {showSubRequestsBadge && collapsed && (
                     <span className="absolute -top-1 -left-1 w-2 h-2 bg-yellow-500 rounded-full" />
+                  )}
+                  {showWaBadge && collapsed && (
+                    <span className={cn("absolute -top-1 -left-1 w-2 h-2 rounded-full", waAlert === "down" ? "bg-red-500 animate-pulse" : "bg-amber-500")} />
                   )}
                 </span>
                 {!collapsed && (
@@ -261,6 +276,16 @@ export default function Layout({ children, onLogout }: LayoutProps) {
                     {showSubRequestsBadge && (
                       <span className="flex items-center gap-1 text-xs font-bold bg-yellow-500 text-white rounded-full px-1.5 py-0.5 leading-none">
                         {pendingSubCount}
+                      </span>
+                    )}
+                    {showWaBadge && waSummary && (
+                      <span
+                        className={cn(
+                          "flex items-center gap-1 text-xs font-bold text-white rounded-full px-1.5 py-0.5 leading-none",
+                          waAlert === "down" ? "bg-red-600 animate-pulse" : "bg-amber-500",
+                        )}
+                      >
+                        {waAlert === "down" ? "واقف" : `${waSummary.connected}/${waSummary.total}`}
                       </span>
                     )}
                   </>
@@ -303,6 +328,7 @@ export default function Layout({ children, onLogout }: LayoutProps) {
       <main className="flex-1 overflow-y-auto">
         <div className="h-14 lg:hidden" />
         <div className="max-w-7xl mx-auto p-6">
+          <WhatsAppAlertBanner />
           {children}
         </div>
       </main>

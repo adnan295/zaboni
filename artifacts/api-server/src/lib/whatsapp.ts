@@ -33,6 +33,13 @@ export interface WAAccountStatus {
   qrDataUrl?: string;
   phone?: string;
   createdAt: string;
+  // Health details so the admin dashboard can explain *why* a number is down.
+  lastConnectedAt?: string;
+  lastDisconnectAt?: string;
+  /** Baileys disconnect status code: 401 logged out/unlinked, 403 banned, 405 region block. */
+  lastDisconnectCode?: number;
+  sentCount?: number;
+  lastSentAt?: string;
 }
 
 interface WAAccountInternal extends WAAccountStatus {
@@ -100,6 +107,12 @@ class WhatsAppManager {
       status: "connecting",
       createdAt: existing?.createdAt ?? new Date().toISOString(),
       reconnectAttempts: existing?.reconnectAttempts ?? 0,
+      phone: existing?.phone,
+      lastConnectedAt: existing?.lastConnectedAt,
+      lastDisconnectAt: existing?.lastDisconnectAt,
+      lastDisconnectCode: existing?.lastDisconnectCode,
+      sentCount: existing?.sentCount ?? 0,
+      lastSentAt: existing?.lastSentAt,
     };
     this.accounts.set(id, account);
 
@@ -158,6 +171,7 @@ class WhatsAppManager {
           account.status = "connected";
           account.qrDataUrl = undefined;
           account.reconnectAttempts = 0;
+          account.lastConnectedAt = new Date().toISOString();
           const rawId = sock.user?.id?.split(":")[0] ?? "";
           account.phone = rawId ? `+${rawId}` : undefined;
           logger.info({ id, phone: account.phone }, "[whatsapp] Account connected");
@@ -167,10 +181,16 @@ class WhatsAppManager {
 
         if (connection === "close") {
           const statusCode = (lastDisconnect?.error as { output?: { statusCode?: number } })?.output?.statusCode;
-          const loggedOut = statusCode === DisconnectReason.loggedOut;
+          // 401 = unlinked from the phone, 403 = number banned by WhatsApp.
+          // Neither recovers by reconnecting — retrying a banned number only
+          // loops forever — so both end the session and need a fresh number/QR.
+          const loggedOut =
+            statusCode === DisconnectReason.loggedOut || statusCode === DisconnectReason.forbidden;
           logger.info({ id, statusCode, loggedOut }, "[whatsapp] Account closed");
 
           account.sock = undefined;
+          account.lastDisconnectAt = new Date().toISOString();
+          if (statusCode != null) account.lastDisconnectCode = statusCode;
 
           if (loggedOut) {
             account.status = "disconnected";
@@ -274,6 +294,8 @@ class WhatsAppManager {
     for (const account of ordered) {
       try {
         await account.sock!.sendMessage(jid, { text });
+        account.sentCount = (account.sentCount ?? 0) + 1;
+        account.lastSentAt = new Date().toISOString();
         logger.info({ phone, accountId: account.id }, "[whatsapp] Sent OTP");
         return true;
       } catch (err) {
