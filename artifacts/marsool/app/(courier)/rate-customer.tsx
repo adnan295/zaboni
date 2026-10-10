@@ -14,7 +14,7 @@ import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useColors } from "@/hooks/useColors";
+import { useCourierColors as useColors, CourierHeader } from "@/components/CourierUI";
 import { customFetch } from "@workspace/api-client-react";
 
 const STAR_LABELS = ["", "سيئ", "مقبول", "جيد", "جيد جداً", "ممتاز"];
@@ -68,12 +68,7 @@ export default function RateCustomerScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={[styles.header, { paddingTop: topPadding + 16, backgroundColor: colors.primary }]}>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <MaterialIcons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>تقييم الزبون</Text>
-        </View>
+        <CourierHeader title={"تقييم الزبون"} back />
 
         <ScrollView
           contentContainerStyle={[styles.content, { paddingBottom: bottomPadding + 32 }]}

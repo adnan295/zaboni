@@ -12,7 +12,7 @@ import {
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useColors } from "@/hooks/useColors";
+import { useCourierColors as useColors, CourierHeader } from "@/components/CourierUI";
 import { useBackIcon } from "@/hooks/useTypography";
 import { customFetch } from "@workspace/api-client-react";
 import { useRouter } from "expo-router";
@@ -116,13 +116,7 @@ export default function CourierPointsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: topPadding + 16, backgroundColor: colors.primary }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <MaterialIcons name={backIcon} size={22} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>نقاط المكافآت</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <CourierHeader title={"نقاط المكافآت"} back />
 
       {loading ? (
         <View style={styles.center}>

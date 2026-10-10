@@ -16,7 +16,7 @@ import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import { useColors } from "@/hooks/useColors";
+import { useCourierColors as useColors, CourierHeader } from "@/components/CourierUI";
 import { useAuth } from "@/context/AuthContext";
 import { customFetch } from "@workspace/api-client-react";
 import { buildAvatarUrl } from "@/lib/apiConfig";
@@ -132,10 +132,7 @@ export default function CourierProfileScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: topPadding + 16, backgroundColor: colors.primary }]}>
-        <MaterialIcons name="person" size={24} color="#fff" />
-        <Text style={styles.headerTitle}>{t("courier.profile.title")}</Text>
-      </View>
+      <CourierHeader title={t("courier.profile.title")} />
 
       {loading ? (
         <View style={styles.center}>
@@ -143,7 +140,7 @@ export default function CourierProfileScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={{ paddingBottom: bottomPadding + 24 }}>
-          <View style={[styles.avatarSection, { backgroundColor: colors.primary }]}>
+          <View style={[styles.avatarSection, { backgroundColor: "#172B3A" }]}>
             <TouchableOpacity style={styles.avatarWrapper} onPress={() => router.push("/edit-profile")} activeOpacity={0.8}>
               {(user?.avatarUrl || stats?.avatarUrl) ? (
                 <Image
@@ -301,7 +298,7 @@ export default function CourierProfileScreen() {
               <View style={[styles.menuIcon, { backgroundColor: "#eff6ff" }]}>
                 <MaterialIcons name="receipt-long" size={20} color="#3b82f6" />
               </View>
-              <Text style={[styles.menuText, { color: colors.foreground }]}>سجل طلبات</Text>
+              <Text style={[styles.menuText, { color: colors.foreground }]}>طلبات الاشتراك</Text>
               <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
             </TouchableOpacity>
 
@@ -355,6 +352,43 @@ export default function CourierProfileScreen() {
               <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
             </TouchableOpacity>
           </View>
+
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={() => router.push("/(courier)/points")}
+            style={[
+              styles.menuSection,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                padding: 18,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+              },
+            ]}
+          >
+            <MaterialIcons name="stars" size={28} color="#B96510" />
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  color: colors.foreground,
+                  fontSize: 17,
+                  fontWeight: "700",
+                }}
+              >
+                نقاطي ومكافآتي
+              </Text>
+              <Text style={{ color: colors.mutedForeground, fontSize: 13 }}>
+                رصيد النقاط واستبدال أيام الاشتراك
+              </Text>
+            </View>
+            <MaterialIcons
+              name="chevron-left"
+              size={24}
+              color={colors.mutedForeground}
+            />
+          </TouchableOpacity>
 
           {/* Support */}
           <View style={[styles.menuSection, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 12 }]}>
@@ -470,7 +504,7 @@ export default function CourierProfileScreen() {
             </View>
 
             <TouchableOpacity
-              style={[styles.modalCloseBtn, { backgroundColor: colors.primary }]}
+              style={[styles.modalCloseBtn, { backgroundColor: "#172B3A" }]}
               onPress={() => setHowItWorksVisible(false)}
             >
               <Text style={styles.modalCloseBtnText}>فهمت، شكراً!</Text>

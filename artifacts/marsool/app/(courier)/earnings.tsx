@@ -12,10 +12,10 @@ import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import { useColors } from "@/hooks/useColors";
+import { useCourierColors as useColors, CourierHeader } from "@/components/CourierUI";
 import { useBackIcon } from "@/hooks/useTypography";
 import { customFetch } from "@workspace/api-client-react";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { formatDateTime } from "@/utils/date";
 
 interface RecentDelivery {
@@ -88,7 +88,7 @@ export default function CourierEarningsScreen() {
     }
   }, []);
 
-  useEffect(() => { loadData(period); }, [loadData, period]);
+  useFocusEffect(useCallback(() => { void loadData(period); }, [loadData, period]));
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -114,13 +114,10 @@ export default function CourierEarningsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: topPadding + 16, backgroundColor: colors.primary }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <MaterialIcons name={backIcon} size={22} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t("courier.earnings.title")}</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <CourierHeader
+        title={t("courier.earnings.title")}
+        subtitle="تابع دخل التوصيلات حسب الفترة"
+      />
 
       {/* Period filter tabs — always visible */}
       <View style={[styles.periodTabs, { backgroundColor: colors.primary }]}>
