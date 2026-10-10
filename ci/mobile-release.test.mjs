@@ -88,3 +88,14 @@ test('malformed service account does not echo its contents in the error', t => {
   assert.notEqual(result.status, 0);
   assert.ok(!`${result.stdout}${result.stderr}`.includes(secret));
 });
+
+
+test('build-only signs without Play credentials but publishing still requires them', t => {
+  const f = signingFixture(t);
+  const env = { ...f.env, PLAY_SERVICE_ACCOUNT_JSON: '', PLAY_TRACK: 'build-only' };
+  assert.equal(f.run('android-signing', env).status, 0);
+  assert.equal(fs.existsSync(path.join(f.root, 'temp/zaboni-signing/play-service-account.json')), false);
+  for (const track of ['internal', 'production']) {
+    assert.notEqual(f.run('android-signing', { ...env, PLAY_TRACK: track }).status, 0);
+  }
+});

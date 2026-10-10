@@ -26,7 +26,9 @@ Recover the original upload key from the previous Replit/EAS build environment.
 Do not run `setup-keystore.sh` to replace it casually: a different key cannot
 update the current app unless Google approves an upload-key reset.
 
-Run **Zaboni Android → Google Play** with the new version/build. `internal`
+Run **Zaboni Android → Google Play** with the new version/build. The default
+`build-only` signs and saves an AAB without uploading to Google; use it while an
+upload-key reset or Play permissions are pending. `internal`
 uploads for internal testing; `production` submits a completed full-rollout
 release, subject to Google's review and managed-publishing settings.
 

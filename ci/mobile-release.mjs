@@ -56,13 +56,16 @@ if (action === 'configure') {
   ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   const actual = cert.match(/SHA256:\s*([A-Fa-f0-9:]+)/)?.[1].replace(/:/g, '').toUpperCase();
   if (actual !== expected) throw new Error('Signing certificate does not match the Play upload certificate');
-  let account;
-  try { account = JSON.parse(required('PLAY_SERVICE_ACCOUNT_JSON')); }
-  catch { throw new Error('Invalid Play service account JSON'); }
-  if (account.type !== 'service_account' || !account.private_key || !account.client_email) throw new Error('Invalid Play service account');
-  const accountPath = writeSecret('play-service-account.json', JSON.stringify(account));
+  // A signed build can be tested while Google reviews an upload-key reset.
+  // Publication still requires a valid Play service account.
+  if (process.env.PLAY_TRACK !== 'build-only') {
+    let account;
+    try { account = JSON.parse(required('PLAY_SERVICE_ACCOUNT_JSON')); }
+    catch { throw new Error('Invalid Play service account JSON'); }
+    if (account.type !== 'service_account' || !account.private_key || !account.client_email) throw new Error('Invalid Play service account');
+    persistEnv('PLAY_JSON_PATH', writeSecret('play-service-account.json', JSON.stringify(account)));
+  }
   persistEnv('ANDROID_KEYSTORE_PATH', keystore);
-  persistEnv('PLAY_JSON_PATH', accountPath);
   persistEnv('ZABONI_SIGNING_GRADLE', path.join(root, 'ci/android-signing.gradle'));
   fs.appendFileSync(path.join(app, 'android/app/build.gradle'), '\napply from: file(System.getenv("ZABONI_SIGNING_GRADLE"))\n');
   console.log('Android upload certificate verified; release signing configured');

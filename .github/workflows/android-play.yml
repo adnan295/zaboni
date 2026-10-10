@@ -13,8 +13,8 @@ on:
         default: '109'
       track:
         type: choice
-        options: [internal, production]
-        default: production
+        options: [build-only, internal, production]
+        default: build-only
 
 permissions:
   contents: read
@@ -73,10 +73,12 @@ jobs:
           chmod +x gradlew
           ./gradlew :app:bundleRelease --no-daemon --max-workers=2
       - uses: ruby/setup-ruby@v1
+        if: inputs.track != 'build-only'
         with:
           ruby-version: '3.3'
           bundler-cache: true
       - name: Publish to selected Google Play track
+        if: inputs.track != 'build-only'
         run: bundle exec fastlane android publish
       - uses: actions/upload-artifact@v4
         with:
