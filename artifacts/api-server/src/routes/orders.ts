@@ -1075,6 +1075,10 @@ router.get("/orders/:id/courier-location", async (req, res) => {
   }
 
   const order = orders[0]!;
+  if (!["accepted", "picked_up", "on_way"].includes(order.status)) {
+    res.status(404).json({ error: "Courier location is only available during an active delivery" });
+    return;
+  }
   if (!order.courierId) {
     res.status(404).json({ error: "No courier assigned yet" });
     return;

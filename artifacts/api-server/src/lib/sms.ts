@@ -61,6 +61,7 @@ export async function sendSmsViaGateway(phone: string, message: string): Promise
       ? config.apiKey
       : `${config.sender}:${config.apiKey}`;
     const res = await fetch(config.url, {
+      signal: AbortSignal.timeout(15_000),
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -94,7 +95,7 @@ export async function sendSmsViaGateway(phone: string, message: string): Promise
       finalUrl = `${config.url}${separator}phone=${encodeURIComponent(phone)}&message=${encodeURIComponent(message)}&apiKey=${encodeURIComponent(config.apiKey)}&sender=${encodeURIComponent(config.sender)}`;
     }
 
-    const res = await fetch(finalUrl, { method: "GET" });
+    const res = await fetch(finalUrl, { method: "GET", signal: AbortSignal.timeout(15_000) });
     if (!res.ok) {
       const body = await res.text();
       throw new Error(`SMS gateway responded with ${res.status}: ${body}`);
@@ -103,6 +104,7 @@ export async function sendSmsViaGateway(phone: string, message: string): Promise
   } else {
     const resolvedUrl = interpolatePlain(config.url, vars);
     const res = await fetch(resolvedUrl, {
+      signal: AbortSignal.timeout(15_000),
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone, message, apiKey: config.apiKey, sender: config.sender }),

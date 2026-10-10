@@ -57,7 +57,8 @@ function computeIsOpenFromHours(
   if (openMinutes <= closeMinutes) {
     return nowMinutes >= openMinutes && nowMinutes < closeMinutes;
   }
-  return nowMinutes >= openMinutes || nowMinutes < closeMinutes;
+  // The early-morning portion belongs to yesterday's shift, checked above.
+  return nowMinutes >= openMinutes;
 }
 
 type HoursRow = { openTime: string; closeTime: string; isClosed: boolean };
