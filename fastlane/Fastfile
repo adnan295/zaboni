@@ -1,0 +1,82 @@
+require 'base64'
+require 'securerandom'
+require 'fileutils'
+
+ROOT = File.expand_path('..', __dir__)
+APP = File.join(ROOT, 'artifacts', 'marsool')
+BUNDLE_ID = 'com.zaboni.delivery'
+TEAM_ID = 'H5V2BKC8WA'
+
+platform :android do
+  lane :publish do
+    track = ENV.fetch('PLAY_TRACK')
+    UI.user_error!('Invalid Play track') unless %w[internal production].include?(track)
+    upload_to_play_store(
+      package_name: BUNDLE_ID,
+      json_key: ENV.fetch('PLAY_JSON_PATH'),
+      aab: File.join(APP, 'android/app/build/outputs/bundle/release/app-release.aab'),
+      track: track,
+      release_status: 'completed',
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+end
+
+platform :ios do
+  lane :publish do
+    destination = ENV.fetch('IOS_DESTINATION')
+    UI.user_error!('Invalid iOS destination') unless %w[testflight app-store].include?(destination)
+    pem = ENV.fetch('ASC_KEY_CONTENT').strip
+    pem = Base64.strict_decode64(pem) unless pem.include?('BEGIN PRIVATE KEY')
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch('ASC_KEY_ID'), issuer_id: ENV.fetch('ASC_ISSUER_ID'),
+      key_content: pem, in_house: false
+    )
+    profile = FastlaneCore::ProvisioningProfile.parse(ENV.fetch('IOS_PROFILE_PATH'))
+    entitlements = profile.fetch('Entitlements')
+    UI.user_error!('Profile belongs to another app/team') unless
+      entitlements['application-identifier'] == "#{TEAM_ID}.#{BUNDLE_ID}"
+    UI.user_error!('A production push profile is required') unless entitlements['aps-environment'] == 'production'
+    UI.user_error!('An App Store distribution profile is required') if
+      entitlements['get-task-allow'] || profile['ProvisionedDevices'] || profile['ProvisionsAllDevices']
+    UI.user_error!('Provisioning profile has expired') unless profile.fetch('ExpirationDate') > Time.now
+    keychain = "zaboni-#{ENV.fetch('GITHUB_RUN_ID', 'local')}.keychain"
+    password = SecureRandom.hex(24)
+    begin
+      create_keychain(name: keychain, password: password, unlock: true, timeout: 7200, add_to_search_list: true)
+      import_certificate(certificate_path: ENV.fetch('IOS_P12_PATH'), certificate_password: ENV.fetch('IOS_DISTRIBUTION_PASSWORD'), keychain_name: keychain, keychain_password: password)
+      install_provisioning_profile(path: ENV.fetch('IOS_PROFILE_PATH'))
+      projects = Dir[File.join(APP, 'ios', '*.xcodeproj')]
+      UI.user_error!('Expected one generated iOS project') unless projects.length == 1
+      project = projects.first
+      scheme = File.basename(project, '.xcodeproj')
+      update_code_signing_settings(
+        use_automatic_signing: false, path: project, team_id: TEAM_ID,
+        code_sign_identity: 'Apple Distribution', bundle_identifier: BUNDLE_ID,
+        profile_name: profile.fetch('Name'), build_configurations: ['Release']
+      )
+      build_app(
+        workspace: project.sub('.xcodeproj', '.xcworkspace'), scheme: scheme,
+        configuration: 'Release', export_method: 'app-store', clean: true,
+        output_directory: File.join(ROOT, 'build'), output_name: 'Zaboni.ipa',
+        export_options: { signingStyle: 'manual', teamID: TEAM_ID,
+          provisioningProfiles: { BUNDLE_ID => profile.fetch('Name') } }
+      )
+      if destination == 'testflight'
+        upload_to_testflight(api_key: api_key, app_identifier: BUNDLE_ID,
+          ipa: File.join(ROOT, 'build/Zaboni.ipa'), skip_waiting_for_build_processing: true,
+          distribute_external: false)
+      else
+        upload_to_app_store(api_key: api_key, app_identifier: BUNDLE_ID,
+          ipa: File.join(ROOT, 'build/Zaboni.ipa'), app_version: ENV.fetch('RELEASE_VERSION'),
+          metadata_path: File.join(ROOT, 'fastlane/metadata'), skip_screenshots: true,
+          force: true, submit_for_review: true, automatic_release: true,
+          precheck_include_in_app_purchases: false)
+      end
+    ensure
+      delete_keychain(name: keychain) if File.exist?(File.expand_path("~/Library/Keychains/#{keychain}-db"))
+    end
+  end
+end

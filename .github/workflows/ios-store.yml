@@ -1,0 +1,102 @@
+name: Zaboni iOS → App Store Connect
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Store version (x.y.z)'
+        required: true
+        default: '1.0.17'
+      build:
+        description: 'New iOS build number'
+        required: true
+        default: '28'
+      destination:
+        type: choice
+        options: [testflight, app-store]
+        default: app-store
+
+permissions:
+  contents: read
+concurrency:
+  group: zaboni-app-store-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: macos-15
+    timeout-minutes: 120
+    env:
+      CI: '1'
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_BUILD: ${{ inputs.build }}
+      IOS_DESTINATION: ${{ inputs.destination }}
+      EXPO_PUBLIC_API_HOST: zaboni.site
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Select installed Xcode 26 or newer
+        run: |
+          XCODE=$(python3 - <<'PY'
+          from pathlib import Path
+          import re
+          candidates = []
+          for p in Path('/Applications').glob('Xcode_*.app'):
+              if 'beta' in p.name.lower():
+                  continue
+              v = tuple(map(int, re.findall(r'\d+', p.name)))
+              if v and v[0] >= 26:
+                  candidates.append((v, str(p)))
+          if not candidates:
+              raise SystemExit('Runner has no supported release Xcode')
+          print(max(candidates)[1])
+          PY
+          )
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install locked dependencies
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.26.1 --activate
+          pnpm install --frozen-lockfile
+      - name: Validate release and generate iOS project
+        run: |
+          node --test ci/mobile-release.test.mjs
+          node ci/mobile-release.mjs configure
+          pnpm --filter @workspace/marsool exec expo prebuild --platform ios --no-install --skip-dependency-update expo,react,react-native
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - name: Install CocoaPods dependencies
+        run: bundle exec pod install --project-directory=artifacts/marsool/ios
+      - name: Prepare existing Zaboni signing credentials
+        env:
+          IOS_DISTRIBUTION_P12_BASE64: ${{ secrets.IOS_DISTRIBUTION_P12_BASE64 }}
+          IOS_DISTRIBUTION_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_PASSWORD }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+        run: node ci/mobile-release.mjs ios-signing
+      - name: Build and upload to Apple
+        env:
+          IOS_DISTRIBUTION_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_PASSWORD }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+        run: bundle exec fastlane ios publish
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zaboni-ios-${{ inputs.version }}-${{ inputs.build }}
+          path: build/*.ipa
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove temporary signing files
+        if: always()
+        run: node ci/mobile-release.mjs cleanup

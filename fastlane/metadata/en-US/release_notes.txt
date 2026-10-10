@@ -1,0 +1,1 @@
+Improved courier notification registration and recovery, clearer notification permission checks, and faster order refresh when opening an alert.
