@@ -45,3 +45,5 @@ export * from "./restaurant_push_subscriptions";
 export * from "./promo_images";
 export * from "./work_zones";
 export * from "./coverage_areas";
+
+export * from "./order_dispatch";

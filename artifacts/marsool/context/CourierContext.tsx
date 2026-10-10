@@ -1,3 +1,4 @@
+import { registerForPush } from "@/lib/pushRegistration";
 import React, {
   createContext,
   useContext,
@@ -174,6 +175,10 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
     const prevStatus = isOnline;
     try {
       const newStatus = !isOnline;
+      if (newStatus && token && Platform.OS !== "web") {
+        const registration = await registerForPush(token);
+        if (!registration.ready) throw new Error(registration.message);
+      }
       await customFetch("/api/courier/availability", {
         method: "PATCH",
         body: JSON.stringify({ isOnline: newStatus }),
@@ -188,13 +193,13 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
         lastKnownIdsRef.current = new Set();
         isFirstFetchRef.current = true;
       }
-    } catch {
+    } catch (err) {
       setIsOnline(prevStatus);
-      throw new Error("toggle_failed");
+      throw err;
     } finally {
       setIsTogglingOnline(false);
     }
-  }, [isOnline, refreshAvailableOrders]);
+  }, [isOnline, refreshAvailableOrders, token]);
 
   const startPolling = useCallback(() => {
     if (pollTimerRef.current) clearInterval(pollTimerRef.current);
@@ -279,6 +284,7 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
       reconnectionDelay: 3000,
       reconnectionAttempts: 5,
     });
+    socket.on("new_order", () => { void refreshAvailableOrders(); });
     socket.on("order_taken", ({ orderId }: { orderId: string }) => {
       setAvailableOrders((prev) => prev.filter((o) => o.id !== orderId));
       lastKnownIdsRef.current.delete(orderId);
@@ -286,7 +292,7 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
     return () => {
       socket.disconnect();
     };
-  }, [isCourier, token]);
+  }, [isCourier, token, refreshAvailableOrders]);
 
   return (
     <CourierContext.Provider

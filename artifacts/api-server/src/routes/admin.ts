@@ -900,8 +900,8 @@ router.get("/admin/orders/active", async (_req, res) => {
 });
 
 router.get("/admin/sla-alerts", async (req, res) => {
-  const minAgeMinutesRaw = parseInt(String(req.query["minAge"] ?? "5"));
-  const minAgeMinutes = Number.isFinite(minAgeMinutesRaw) && minAgeMinutesRaw >= 1 ? minAgeMinutesRaw : 5;
+  const minAgeMinutesRaw = parseInt(String(req.query["minAge"] ?? "2"));
+  const minAgeMinutes = Number.isFinite(minAgeMinutesRaw) && minAgeMinutesRaw >= 1 ? minAgeMinutesRaw : 2;
   const cutoff = new Date(Date.now() - minAgeMinutes * 60_000);
 
   const rows = await db.execute(sql`
@@ -910,12 +910,17 @@ router.get("/admin/sla-alerts", async (req, res) => {
       o.order_text AS "orderText",
       o.restaurant_name AS "restaurantName",
       o.address,
+      d.attempts AS "dispatchAttempts",
+      d.last_accepted AS "pushAccepted",
+      d.last_failed AS "pushFailed",
+      d.last_error AS "dispatchError",
       o.created_at AS "createdAt",
       EXTRACT(EPOCH FROM (NOW() - o.created_at)) / 60.0 AS "ageMinutes",
       u.name AS "customerName",
       u.phone AS "customerPhone"
     FROM orders o
     LEFT JOIN users u ON u.id = o.user_id
+    LEFT JOIN order_dispatch d ON d.order_id = o.id
     WHERE o.status = 'searching'
       AND o.created_at < ${cutoff}
     ORDER BY o.created_at ASC
