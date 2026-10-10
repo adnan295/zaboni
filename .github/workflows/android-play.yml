@@ -71,7 +71,8 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           chmod +x gradlew
-          ./gradlew :app:bundleRelease --no-daemon --max-workers=2
+          ./gradlew :app:bundleRelease --no-daemon --max-workers=2 \
+            -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=2g -XX:+HeapDumpOnOutOfMemoryError"
       - uses: ruby/setup-ruby@v1
         if: inputs.track != 'build-only'
         with:
