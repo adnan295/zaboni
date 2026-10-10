@@ -21,6 +21,7 @@ import { useForwardIcon } from "@/hooks/useTypography";
 import { useColors } from "@/hooks/useColors";
 import { getApiBaseUrl } from "@/lib/apiClient";
 import { isValidPhoneNumber } from "libphonenumber-js";
+import CountryFlag from "@/components/CountryFlag";
 import { COUNTRY_CODES } from "@/data/countryCodes";
 export default function PhoneScreen() {
   const colors = useColors();
@@ -115,7 +116,7 @@ export default function PhoneScreen() {
             onPress={() => setShowPicker((v) => !v)}
             activeOpacity={0.7}
           >
-            <Text style={styles.prefixFlag}>{selectedCountry.flag}</Text>
+            <CountryFlag country={selectedCountry} />
             <Text style={[styles.prefixText, { color: colors.foreground }]}>{selectedCountry.code}</Text>
             <MaterialIcons name="arrow-drop-down" size={18} color={colors.mutedForeground} />
           </TouchableOpacity>
@@ -151,7 +152,7 @@ export default function PhoneScreen() {
                   style={[styles.pickerRow, selectedCountry.country === c.country && { backgroundColor: colors.secondary }]}
                   onPress={() => { setSelectedCountry(c); setShowPicker(false); setCountrySearch(""); setPhone(""); inputRef.current?.focus(); }}
                 >
-                  <Text style={styles.prefixFlag}>{c.flag}</Text>
+                  <CountryFlag country={c} />
                   <Text style={[styles.pickerCode, { color: colors.mutedForeground }]}>{c.code}</Text>
                   <Text style={[styles.pickerCountry, { color: colors.foreground }]}>
                     {i18n.language === "ar" ? c.nameAr : c.nameEn}
@@ -209,7 +210,6 @@ const styles = StyleSheet.create({
     flexDirection: "row", alignItems: "center", paddingHorizontal: 12,
     gap: 4, borderRightWidth: 1, height: "100%",
   },
-  prefixFlag: { fontSize: 20 },
   prefixText: { fontSize: 15, fontWeight: "600" },
   input: { flex: 1, paddingHorizontal: 14, fontSize: 18, fontWeight: "600", letterSpacing: 1, height: "100%", textAlignVertical: "center" },
   pickerCard: {
