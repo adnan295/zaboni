@@ -29,12 +29,12 @@ router.post("/subscriptions/subscribe", async (req, res) => {
   endsAt.setMonth(endsAt.getMonth() + 1);
   const id = `csub_${Date.now()}${Math.random().toString(36).slice(2, 9)}`;
 
-  let outcome: "ok" | "not_found" | "insufficient_balance" | "already_subscribed" = "ok";
+  let outcome: "ok" | "not_found" | "insufficient_balance" | "already_subscribed";
   let newBalance = 0;
   let sub: (typeof customerSubscriptionsTable.$inferSelect) | null = null;
 
   try {
-    await db.transaction(async (tx) => {
+    outcome = await db.transaction(async (tx) => {
       // 0. Archive any expired-but-still-active rows so the partial unique index
       //    (user_id WHERE is_active=true) doesn't block a re-subscribe after expiry.
       await tx
@@ -63,8 +63,7 @@ router.post("/subscriptions/subscribe", async (req, res) => {
         .limit(1);
 
       if (existing) {
-        outcome = "already_subscribed";
-        return;
+        return "already_subscribed" as const;
       }
 
       // 2. Conditionally deduct balance — only succeeds when wallet_balance >= price.
@@ -81,8 +80,7 @@ router.post("/subscriptions/subscribe", async (req, res) => {
           .from(usersTable)
           .where(eq(usersTable.id, userId))
           .limit(1);
-        outcome = userRow ? "insufficient_balance" : "not_found";
-        return;
+        return userRow ? "insufficient_balance" as const : "not_found" as const;
       }
 
       newBalance = updated[0]!.newBalance;
@@ -106,6 +104,7 @@ router.post("/subscriptions/subscribe", async (req, res) => {
         .returning();
 
       sub = inserted ?? null;
+      return "ok" as const;
     });
   } catch (err: unknown) {
     // PostgreSQL unique_violation (23505) from the partial unique index means

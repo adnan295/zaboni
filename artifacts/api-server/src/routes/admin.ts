@@ -1,3 +1,4 @@
+import { refundRedeemedPointsInTx } from "../lib/loyalty";
 import { Router, type Request, type Response } from "express";
 import { whatsappManager } from "../lib/whatsapp";
 import { db } from "@workspace/db";
@@ -1268,25 +1269,20 @@ router.patch("/admin/orders/:id/status", async (req, res) => {
     res.status(400).json({ error: "Invalid status" });
     return;
   }
-  const [row] = await db
-    .update(ordersTable)
-    .set({ status: parsed.data.status, updatedAt: new Date() })
-    .where(eq(ordersTable.id, id))
-    .returning();
-  if (!row) {
-    res.status(404).json({ error: "Not found" });
-    return;
-  }
-
   const cancelNote = parsed.data.status === "cancelled" ? "admin_cancelled" : null;
-  if (cancelNote) {
-    await db.insert(orderStatusHistoryTable).values({
-      id: `${id}_admin_cancelled_${Date.now()}`,
-      orderId: id,
-      status: "cancelled",
-      note: cancelNote,
+  const row = await db.transaction(async (tx) => {
+    const [previous] = await tx.select().from(ordersTable).where(eq(ordersTable.id, id)).for("update");
+    if (!previous) return null;
+    if (["cancelled", "delivered"].includes(previous.status) && previous.status !== parsed.data.status) return "terminal" as const;
+    const [changed] = await tx.update(ordersTable).set({ status: parsed.data.status, updatedAt: new Date() }).where(eq(ordersTable.id, id)).returning();
+    if (cancelNote) await refundRedeemedPointsInTx(tx, changed.userId, id);
+    if (previous.status !== parsed.data.status) await tx.insert(orderStatusHistoryTable).values({
+      id: `${id}_${parsed.data.status}_${Date.now()}`, orderId: id, status: parsed.data.status, note: cancelNote,
     });
-  }
+    return changed;
+  });
+  if (!row) { res.status(404).json({ error: "Not found" }); return; }
+  if (row === "terminal") { res.status(409).json({ error: "لا يمكن إعادة فتح طلب منتهٍ أو ملغى" }); return; }
   notifyOrderUpdate(row.userId, cancelNote ? { ...row, cancelNote } : row);
 
   const pushMsg = STATUS_PUSH_MESSAGES[parsed.data.status];

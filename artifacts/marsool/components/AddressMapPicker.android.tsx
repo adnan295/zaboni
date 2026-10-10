@@ -92,7 +92,7 @@ interface AddressMapPickerProps {
 export function AddressMapPicker({ visible, onClose, onSelect, initialAddress }: AddressMapPickerProps) {
   const { t } = useTranslation();
   const colors = useColors();
-  const webViewRef = useRef<WebView>(null);
+  const webViewRef = useRef<WebView<unknown>>(null);
   const [selectedCoords, setSelectedCoords] = useState<Coords>(HOMS_CENTER);
   const [resolvedAddress, setResolvedAddress] = useState<string>(initialAddress ?? "");
   const [geocoding, setGeocoding] = useState(false);
@@ -210,7 +210,7 @@ export function AddressMapPicker({ visible, onClose, onSelect, initialAddress }:
               <ActivityIndicator size="large" color="#DC2626" />
             </View>
           )}
-          <WebView
+          <WebView<unknown>
             key={webViewKey}
             ref={webViewRef}
             source={{ html: MAP_HTML }}

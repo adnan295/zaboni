@@ -33,6 +33,9 @@ export default function EditProfileScreen() {
   const [name, setName] = useState(user?.name ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const [phoneCode, setPhoneCode] = useState("");
+  const [codeSentTo, setCodeSentTo] = useState("");
+  const [sendingCode, setSendingCode] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
@@ -53,12 +56,27 @@ export default function EditProfileScreen() {
     }
   };
 
+  const sendPhoneCode = async () => {
+    setSendingCode(true);
+    const target = phone.trim();
+    try {
+      await customFetch("/api/auth/send-otp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: target }) });
+      setCodeSentTo(target);
+      Alert.alert("رمز التحقق", "تم إرسال الرمز إلى الرقم الجديد");
+    } catch (error) {
+      Alert.alert("تعذر إرسال الرمز", error instanceof Error ? error.message : "يرجى المحاولة لاحقاً");
+    } finally { setSendingCode(false); }
+  };
+
   const handleSave = async () => {
     const trimmedName = name.trim();
     const trimmedPhone = phone.trim();
     if (!trimmedName) {
       Alert.alert(t("editProfile.errorTitle"), t("editProfile.nameRequired"));
       return;
+    }
+    if (trimmedPhone !== user?.phone && (codeSentTo !== trimmedPhone || !/^\d{6}$/.test(phoneCode))) {
+      Alert.alert("تأكيد رقم الهاتف", "أرسل رمز التحقق إلى الرقم الجديد وأدخله أولاً"); return;
     }
     setSaving(true);
     try {
@@ -68,7 +86,7 @@ export default function EditProfileScreen() {
       }
 
       const payload: Record<string, string | null> = { name: trimmedName };
-      if (trimmedPhone !== user?.phone) payload.phone = trimmedPhone;
+      if (trimmedPhone !== user?.phone) { payload.phone = trimmedPhone; payload.phoneVerificationCode = phoneCode; }
       if (uploadedAvatarUrl !== undefined) payload.avatarUrl = uploadedAvatarUrl;
 
       const endpoint = isCourier ? "/api/courier/profile" : "/api/auth/me";
@@ -164,12 +182,23 @@ export default function EditProfileScreen() {
               <TextInput
                 style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary }]}
                 value={phone}
-                onChangeText={setPhone}
+                onChangeText={(value) => { setPhone(value); setPhoneCode(""); setCodeSentTo(""); }}
                 placeholder={t("editProfile.phonePlaceholder")}
                 placeholderTextColor={colors.mutedForeground}
                 keyboardType="phone-pad"
                 textAlign="left"
               />
+              {phone.trim() !== user?.phone && (
+                <View style={{ gap: 12, marginTop: 12 }}>
+                  <TouchableOpacity onPress={sendPhoneCode} disabled={sendingCode || saving} accessibilityRole="button">
+                    <Text style={{ color: colors.primary }}>{sendingCode ? "جارٍ الإرسال…" : "إرسال رمز التحقق إلى الرقم الجديد"}</Text>
+                  </TouchableOpacity>
+                  {codeSentTo === phone.trim() && <TextInput value={phoneCode} onChangeText={setPhoneCode}
+                    placeholder="رمز التحقق (6 أرقام)" keyboardType="number-pad" maxLength={6}
+                    textContentType="oneTimeCode" accessibilityLabel="رمز التحقق للرقم الجديد"
+                    style={[styles.input, { color: colors.foreground, borderColor: colors.border }]} />}
+                </View>
+              )}
             </View>
           </View>
 

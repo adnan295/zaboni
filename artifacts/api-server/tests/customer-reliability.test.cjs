@@ -47,6 +47,9 @@ function load(file, dbState = database(), overrides = {}, expose = '', globals =
   const dbModule = new Proxy({ db: dbState.db }, { get: (o, k) => k in o ? o[k] : k });
   const orm = new Proxy({}, { get: () => (...args) => args });
   const defaults = {
+    '../lib/profileUpdate': {},
+    '../lib/courierDispatchPolicy': { MAX_VISIBLE_RADIUS_KM: 15 },
+    '../lib/restaurantHours': file.endsWith('restaurantHours.ts') ? {} : load('artifacts/api-server/src/lib/restaurantHours.ts', dbState).exports,
     express: { Router: () => router },
     '@workspace/db': dbModule,
     'drizzle-orm': orm,
@@ -129,7 +132,8 @@ for (const scenario of [
 });
 
 test('overnight hours belong to the shift opening day, with exclusive closing boundary',()=>{
-  const m=load('artifacts/api-server/src/routes/restaurants.ts',database(),{},'exports.hours=computeIsOpenFromHours;');
+  const m=load('artifacts/api-server/src/lib/restaurantHours.ts',database());
+  m.exports.hours=m.exports.computeIsOpenFromHours;
   const overnight={openTime:'18:00',closeTime:'02:00',isClosed:false};
   const closed={...overnight,isClosed:true};
   const cases=[
@@ -160,4 +164,48 @@ test('every SMS transport receives a 15-second abort deadline', async () => {
     await assert.rejects(m.exports.sendSmsViaGateway('+12025550123','test'));
     assert.equal(requested,true);assert.equal(timeout,15000);
   }
+});
+
+test('closed/missing restaurants and carts below the minimum cannot create an order', async () => {
+  for (const [restaurant, price, status] of [[{id:'r1',isOpen:false,minOrder:0},100,422],[{id:'r1',isOpen:true,minOrder:1000},100,422],[null,100,404],[{id:'r1',isOpen:true,minOrder:100},100,201]]) {
+    const state=database({restaurantsTable:restaurant?[restaurant]:[],menuItemsTable:[{id:'m1',restaurantId:'r1',isAvailable:true,price,nameAr:'Food'}]});
+    const m=load('artifacts/api-server/src/routes/orders.ts',state);
+    const res=response();await m.routes.get('post /orders')(request({body:{restaurantId:'r1',items:[{menuItemId:'m1',qty:1}],lat:33.5,lon:36.3}}),res);
+    assert.equal(res.statusCode,status);
+    if(status!==201)assert.equal(state.writes.length,0);
+  }
+});
+
+test('failed points redemption rejects checkout and rolls back every provisional write', async () => {
+  const state=database({usersTable:[{id:'u1',loyaltyPoints:100}]});
+  state.db.transaction=async fn=>{const n=state.writes.length;try{return await fn(state.db);}catch(e){state.writes.splice(n);throw e;}};
+  const m=load('artifacts/api-server/src/routes/orders.ts',state,{},'',{Error});
+  const res=response();await m.routes.get('post /orders')(request({body:{orderText:'Food',lat:33.5,lon:36.3,usePoints:true}}),res);
+  assert.equal(res.statusCode,409);assert.equal(res.body.error,'loyalty_balance_changed');assert.equal(state.writes.length,0);
+});
+
+test('food coupon preview uses the cart amount and restaurant',async()=>{
+  const m=load('artifacts/api-server/src/routes/orders.ts',database({promoCodesTable:[{id:'p1',code:'FOOD',isActive:true,appliesTo:'food',type:'percent',value:20,maxUsesPerUser:1}],promoUsesTable:[{c:0}],ordersTable:[{c:0}],usersTable:[{phone:'+12025550123'}]}));
+  const res=response();await m.routes.get('post /orders/validate-promo')(request({body:{code:'FOOD',deliveryFee:100,itemsTotal:1000,restaurantId:'r1'}}),res);
+  assert.equal(res.statusCode,200);assert.equal(res.body.discountAmount,200);
+});
+
+test('both profile routes require the shared verified update and propagate its denial',async()=>{
+  class Denied extends Error {status=401;}
+  for(const [file,route] of [['auth','patch /auth/me'],['courier','patch /courier/profile']]) {
+    let call;
+    const m=load(`artifacts/api-server/src/routes/${file}.ts`,database({usersTable:[{id:'u1',isBlocked:false}]}),{'../lib/profileUpdate':{ProfileUpdateError:Denied,updateVerifiedProfile:async(...args)=>{call=args;throw new Denied('OTP required');}}});
+    const res=response();await m.routes.get(route)(request({body:{phone:'+12025550124',phoneVerificationCode:'123456'}}),res);
+    assert.equal(res.statusCode,401);assert.equal(call[0],'u1');assert.equal(call[2],'123456');
+  }
+});
+
+test('customer cancellation refunds inside the order transaction; failures roll back status',async()=>{
+ for(const fail of [false,true]){
+  const state=database({ordersTable:[{id:'o1',userId:'u1',status:'searching'}]});let inTx=false,refunded=false;
+  state.db.transaction=async fn=>{inTx=true;const n=state.writes.length;try{return await fn(state.db);}catch(e){state.writes.splice(n);throw e;}finally{inTx=false;}};
+  const m=load('artifacts/api-server/src/routes/orders.ts',state,{'../lib/loyalty':{refundRedeemedPointsInTx:async(tx,user,id)=>{assert.equal(inTx,true);assert.equal(user,'u1');assert.equal(id,'o1');if(fail)throw new Error('ledger failure');refunded=true;}}});
+  const res=response(),run=()=>m.routes.get('delete /orders/:id')(request({params:{id:'o1'}}),res);
+  if(fail){await assert.rejects(run());assert.equal(state.writes.length,0);}else{await run();assert.equal(res.statusCode,200);assert.equal(refunded,true);}
+ }
 });

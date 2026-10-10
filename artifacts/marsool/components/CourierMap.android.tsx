@@ -64,7 +64,7 @@ window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ready' }));
 }
 
 export function CourierMap({ destinationLat, destinationLon, courierLat, courierLon }: CourierMapProps) {
-  const webViewRef = useRef<WebView>(null);
+  const webViewRef = useRef<WebView<unknown>>(null);
   const htmlRef = useRef(makeMapHtml(destinationLat, destinationLon));
   const [mapReady, setMapReady] = useState(false);
   // Android kills the WebView renderer process under memory pressure or on
@@ -95,7 +95,7 @@ export function CourierMap({ destinationLat, destinationLon, courierLat, courier
 
   return (
     <View style={styles.container}>
-      <WebView
+      <WebView<unknown>
         key={webViewKey}
         ref={webViewRef}
         source={{ html: htmlRef.current }}
