@@ -1,0 +1,21 @@
+def requiredEnv = { name ->
+    def value = System.getenv(name)
+    if (!value) throw new GradleException("Missing release signing variable: " + name)
+    return value
+}
+
+android {
+    signingConfigs {
+        release {
+            storeFile file(requiredEnv('ANDROID_KEYSTORE_PATH'))
+            storePassword requiredEnv('ANDROID_STORE_PASSWORD')
+            keyAlias requiredEnv('ANDROID_KEY_ALIAS')
+            keyPassword requiredEnv('ANDROID_KEY_PASSWORD')
+        }
+    }
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+        }
+    }
+}
