@@ -74,7 +74,8 @@ jobs:
           ruby-version: '3.3'
           bundler-cache: true
       - name: Install CocoaPods dependencies
-        run: bundle exec pod install --project-directory=artifacts/marsool/ios
+        working-directory: artifacts/marsool/ios
+        run: bundle exec pod install
       - name: Prepare existing Zaboni signing credentials
         env:
           IOS_DISTRIBUTION_P12_BASE64: ${{ secrets.IOS_DISTRIBUTION_P12_BASE64 }}
