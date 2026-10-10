@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -14,7 +14,11 @@ import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import { useColors } from "@/hooks/useColors";
+import {
+  useCourierColors as useColors,
+  CourierHeader,
+} from "@/components/CourierUI";
+import { useRouter } from "expo-router";
 import { useCourier, CourierOrder } from "@/context/CourierContext";
 
 function ageMinutes(isoString: string): number {
@@ -34,18 +38,22 @@ function OrderCard({
   blockReason,
 }: {
   order: CourierOrder;
-  onAccept: (id: string) => void;
-  blockReason: "max" | "pickup_first" | null;
+  onAccept: (id: string) => Promise<void>;
+  blockReason: "max" | "pickup_first" | "stale" | null;
 }) {
   const colors = useColors();
   const { t } = useTranslation();
   const [accepting, setAccepting] = useState(false);
+  const acceptingRef = useRef(false);
 
   const handleAccept = async () => {
+    if (acceptingRef.current) return;
+    acceptingRef.current = true;
     setAccepting(true);
     try {
       await onAccept(order.id);
     } finally {
+      acceptingRef.current = false;
       setAccepting(false);
     }
   };
@@ -57,10 +65,15 @@ function OrderCard({
   const isErrand = order.orderType === "errand";
 
   return (
-    <View style={[
-      styles.card,
-      { backgroundColor: colors.card, borderColor: isErrand ? "#fed7aa" : isOld ? "#fca5a5" : colors.border },
-    ]}>
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: colors.card,
+          borderColor: isErrand ? "#fed7aa" : isOld ? "#fca5a5" : colors.border,
+        },
+      ]}
+    >
       <View style={styles.cardHeader}>
         <View style={styles.row}>
           {isErrand ? (
@@ -75,15 +88,25 @@ function OrderCard({
             </>
           ) : order.restaurantName ? (
             <>
-              <MaterialIcons name="restaurant" size={15} color={colors.primary} />
-              <Text style={[styles.restaurant, { color: colors.primary }]}>{order.restaurantName}</Text>
+              <MaterialIcons
+                name="restaurant"
+                size={15}
+                color={colors.primary}
+              />
+              <Text style={[styles.restaurant, { color: colors.primary }]}>
+                {order.restaurantName}
+              </Text>
             </>
           ) : null}
         </View>
         <View style={styles.metaRow}>
           {order.deliveryFee != null && order.deliveryFee > 0 ? (
             <View style={[styles.feeBadge, { backgroundColor: "#fff7ed" }]}>
-              <MaterialIcons name="account-balance-wallet" size={12} color="#ea580c" />
+              <MaterialIcons
+                name="account-balance-wallet"
+                size={12}
+                color="#ea580c"
+              />
               <Text style={[styles.feeText, { color: "#ea580c" }]}>
                 {order.deliveryFee.toLocaleString("ar-SY")} ل.س
               </Text>
@@ -95,7 +118,12 @@ function OrderCard({
               <Text style={styles.oldBadgeText}>طلب قديم</Text>
             </View>
           ) : null}
-          <Text style={[styles.timeAgo, { color: isOld ? "#dc2626" : colors.mutedForeground }]}>
+          <Text
+            style={[
+              styles.timeAgo,
+              { color: isOld ? "#dc2626" : colors.mutedForeground },
+            ]}
+          >
             {timeAgo(order.createdAt)}
           </Text>
         </View>
@@ -103,35 +131,56 @@ function OrderCard({
 
       <View style={styles.detailRow}>
         <MaterialIcons name="notes" size={15} color={colors.mutedForeground} />
-        <Text style={[styles.orderText, { color: colors.foreground }]} numberOfLines={3}>
+        <Text
+          style={[styles.orderText, { color: colors.foreground }]}
+          numberOfLines={3}
+        >
           {order.orderText}
         </Text>
       </View>
 
       {order.address ? (
         <View style={styles.detailRow}>
-          <MaterialIcons name="location-on" size={15} color={colors.mutedForeground} />
-          <Text style={[styles.address, { color: colors.mutedForeground }]} numberOfLines={2}>
+          <MaterialIcons
+            name="location-on"
+            size={15}
+            color={colors.mutedForeground}
+          />
+          <Text
+            style={[styles.address, { color: colors.mutedForeground }]}
+            numberOfLines={2}
+          >
             {order.address}
           </Text>
         </View>
       ) : null}
 
       <TouchableOpacity
-        style={[styles.acceptBtn, { backgroundColor: isBlocked ? colors.border : colors.primary }]}
+        style={[
+          styles.acceptBtn,
+          { backgroundColor: isBlocked ? colors.border : colors.primary },
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel={`قبول طلب ${order.restaurantName || order.placeName || "توصيل"}`}
         onPress={handleAccept}
         disabled={isBlocked}
         activeOpacity={0.8}
       >
-        <MaterialIcons name={blockReason ? "block" : "check-circle"} size={20} color="#fff" />
+        <MaterialIcons
+          name={blockReason ? "block" : "check-circle"}
+          size={20}
+          color="#fff"
+        />
         <Text style={styles.acceptBtnText}>
-          {blockReason === "max"
-            ? "عندك طلبين بالفعل"
-            : blockReason === "pickup_first"
-            ? "استلم طلبك الحالي من المطعم أولاً"
-            : accepting
-            ? t("courier.available.accepting")
-            : t("courier.available.accept")}
+          {blockReason === "stale"
+            ? "حدّث الطلبات أولاً"
+            : blockReason === "max"
+              ? "عندك طلبين بالفعل"
+              : blockReason === "pickup_first"
+                ? "استلم طلبك الحالي من المطعم أولاً"
+                : accepting
+                  ? t("courier.available.accepting")
+                  : t("courier.available.accept")}
         </Text>
       </TouchableOpacity>
     </View>
@@ -141,6 +190,7 @@ function OrderCard({
 export default function AvailableOrdersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { t } = useTranslation();
   const {
     availableOrders,
@@ -158,13 +208,15 @@ export default function AvailableOrdersScreen() {
   // 2nd can only be taken once the current one is picked up (picked_up/on_way).
   const MAX_ACTIVE_ORDERS = 2;
   const activeCount = activeOrders.length;
-  const allPickedUp = activeOrders.every((o) => o.status === "picked_up" || o.status === "on_way");
+  const allPickedUp = activeOrders.every(
+    (o) => o.status === "picked_up" || o.status === "on_way",
+  );
   const blockReason: "max" | "pickup_first" | null =
     activeCount >= MAX_ACTIVE_ORDERS
       ? "max"
       : activeCount > 0 && !allPickedUp
-      ? "pickup_first"
-      : null;
+        ? "pickup_first"
+        : null;
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
@@ -173,18 +225,24 @@ export default function AvailableOrdersScreen() {
     async (orderId: string) => {
       try {
         await acceptOrder(orderId);
+        router.navigate("/(courier)/active");
       } catch {
         Alert.alert(t("common.error"), t("courier.available.acceptError"));
       }
     },
-    [acceptOrder, t]
+    [acceptOrder, t, router],
   );
 
   const handleToggleAvailability = useCallback(async () => {
     try {
       await toggleAvailability();
     } catch (err) {
-      Alert.alert(t("courier.availabilityToggle.errorTitle"), err instanceof Error ? err.message : t("courier.availabilityToggle.errorMsg"));
+      Alert.alert(
+        t("courier.availabilityToggle.errorTitle"),
+        err instanceof Error
+          ? err.message
+          : t("courier.availabilityToggle.errorMsg"),
+      );
     }
   }, [toggleAvailability]);
 
@@ -194,49 +252,140 @@ export default function AvailableOrdersScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: topPadding + 16, backgroundColor: colors.primary }]}>
-        <MaterialIcons name="delivery-dining" size={24} color="#fff" />
-        <Text style={styles.headerTitle}>{t("courier.available.title")}</Text>
-        <TouchableOpacity onPress={handleRefresh} style={styles.refreshBtn} disabled={isTogglingOnline}>
-          <MaterialIcons name="refresh" size={22} color="#fff" />
-        </TouchableOpacity>
-      </View>
-
-      <View style={[styles.toggleRow, { backgroundColor: isOnline ? "#f0fdf4" : "#fef2f2", borderColor: isOnline ? "#bbf7d0" : "#fecaca" }]}>
-        <View style={styles.toggleInfo}>
-          <View style={[styles.statusDot, { backgroundColor: isOnline ? "#22c55e" : "#ef4444" }]} />
-          <View>
-            <Text style={[styles.toggleLabel, { color: isOnline ? "#15803d" : "#dc2626" }]}>
-              {isOnline ? t("courier.available.online") : t("courier.available.offline")}
-            </Text>
-            <Text style={[styles.toggleSub, { color: isOnline ? "#16a34a" : "#ef4444" }]}>
-              {isOnline ? t("courier.available.onlineSub") : t("courier.available.offlineSub")}
-            </Text>
-          </View>
-        </View>
-        {isTogglingOnline ? (
-          <ActivityIndicator size="small" color={isOnline ? "#22c55e" : "#ef4444"} />
-        ) : (
-          <Switch
-            value={isOnline}
-            onValueChange={handleToggleAvailability}
-            trackColor={{ false: "#fca5a5", true: "#86efac" }}
-            thumbColor={isOnline ? "#22c55e" : "#ef4444"}
-            ios_backgroundColor="#fca5a5"
-          />
-        )}
-      </View>
-
+      <CourierHeader
+        title="جاهز ليوم جديد؟"
+        subtitle="طلباتك ورحلتك، كل شيء بمكان واحد"
+        onRefresh={handleRefresh}
+      />
       <FlatList
-        data={availableOrders}
+        data={isOnline ? availableOrders : []}
+        ListHeaderComponent={
+          <View style={{ gap: 16, marginBottom: 16, alignSelf: "stretch" }}>
+            <View
+              style={[
+                styles.toggleRow,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <View style={[styles.toggleInfo, { flex: 1 }]}>
+                <View
+                  style={[
+                    styles.statusDot,
+                    { backgroundColor: isOnline ? "#16805C" : "#596B7A" },
+                  ]}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[styles.toggleLabel, { color: colors.foreground }]}
+                  >
+                    {isOnline ? "متاح لاستقبال الطلبات" : "أنت غير متاح الآن"}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.toggleSub,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    {isOnline
+                      ? "سننبهك عند توفر طلب"
+                      : "فعّل الاستقبال لتبدأ العمل"}
+                  </Text>
+                </View>
+              </View>
+              {isTogglingOnline ? (
+                <ActivityIndicator color={colors.primary} />
+              ) : (
+                <Switch
+                  accessibilityLabel="استقبال الطلبات"
+                  value={isOnline}
+                  onValueChange={handleToggleAvailability}
+                  trackColor={{ false: "#CDD6DE", true: "#B6E4D2" }}
+                  thumbColor={isOnline ? "#16805C" : "#596B7A"}
+                />
+              )}
+            </View>
+            {activeCount > 0 && (
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={() => router.navigate("/(courier)/active")}
+                style={{
+                  backgroundColor: "#172B3A",
+                  borderRadius: 20,
+                  padding: 20,
+                  gap: 8,
+                }}
+              >
+                <Text style={{ color: "#CAD8E2", fontSize: 13 }}>
+                  عندك {activeCount} طلب قيد التوصيل
+                </Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  <MaterialIcons
+                    name="delivery-dining"
+                    size={26}
+                    color="#fff"
+                  />
+                  <Text
+                    style={{
+                      color: "#fff",
+                      fontSize: 19,
+                      fontWeight: "800",
+                      flex: 1,
+                    }}
+                  >
+                    كمّل رحلتك الحالية
+                  </Text>
+                  <MaterialIcons name="arrow-back" size={24} color="#fff" />
+                </View>
+              </TouchableOpacity>
+            )}
+            {isOnline && availableOrdersError && availableOrders.length > 0 && (
+              <Text
+                accessibilityRole="alert"
+                style={{ color: "#B45309", fontSize: 14 }}
+              >
+                تعذّر تحديث الطلبات. اسحب للتحديث قبل اختيار طلب.
+              </Text>
+            )}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <Text
+                accessibilityRole="header"
+                style={{
+                  fontSize: 20,
+                  fontWeight: "800",
+                  color: colors.foreground,
+                }}
+              >
+                الطلبات المتاحة
+              </Text>
+              <Text style={{ color: colors.mutedForeground }}>
+                {isOnline ? availableOrders.length : 0} طلب
+              </Text>
+            </View>
+          </View>
+        }
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <OrderCard order={item} onAccept={handleAccept} blockReason={blockReason} />
+          <OrderCard
+            order={item}
+            onAccept={handleAccept}
+            blockReason={availableOrdersError ? "stale" : blockReason}
+          />
         )}
         contentContainerStyle={[
           styles.list,
           { paddingBottom: bottomPadding + 20 },
-          availableOrders.length === 0 && styles.emptyContainer,
         ]}
         refreshControl={
           <RefreshControl
@@ -252,38 +401,68 @@ export default function AvailableOrdersScreen() {
               {isOnline && availableOrdersError ? (
                 <>
                   <MaterialIcons name="wifi-off" size={56} color="#ef4444" />
-                  <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+                  <Text
+                    style={[styles.emptyTitle, { color: colors.foreground }]}
+                  >
                     {t("courier.available.errorTitle")}
                   </Text>
-                  <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
+                  <Text
+                    style={[
+                      styles.emptyBody,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
                     {t("courier.available.errorBody")}
                   </Text>
                   <TouchableOpacity
-                    style={[styles.goOnlineBtn, { backgroundColor: colors.primary }]}
+                    style={[
+                      styles.goOnlineBtn,
+                      { backgroundColor: colors.primary },
+                    ]}
                     onPress={handleRefresh}
                     disabled={isLoadingAvailable}
                   >
                     <MaterialIcons name="refresh" size={18} color="#fff" />
-                    <Text style={styles.goOnlineBtnText}>{t("common.retry")}</Text>
+                    <Text style={styles.goOnlineBtnText}>
+                      {t("common.retry")}
+                    </Text>
                   </TouchableOpacity>
                 </>
               ) : isOnline ? (
                 <>
                   <MaterialIcons name="inbox" size={56} color={colors.border} />
-                  <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+                  <Text
+                    style={[styles.emptyTitle, { color: colors.foreground }]}
+                  >
                     {t("courier.available.empty.title")}
                   </Text>
-                  <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
+                  <Text
+                    style={[
+                      styles.emptyBody,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
                     {t("courier.available.empty.body")}
                   </Text>
                 </>
               ) : (
                 <>
-                  <MaterialIcons name="power-settings-new" size={56} color="#ef4444" />
-                  <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+                  <MaterialIcons
+                    name="power-settings-new"
+                    size={56}
+                    color="#ef4444"
+                  />
+                  <Text
+                    style={[styles.emptyTitle, { color: colors.foreground }]}
+                  >
                     {t("courier.available.offlineTitle")}
                   </Text>
-                  <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
+                  <Text
+                    style={[
+                      styles.emptyBody,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
                     {t("courier.available.offlineBody")}
                   </Text>
                   <TouchableOpacity
@@ -291,8 +470,14 @@ export default function AvailableOrdersScreen() {
                     onPress={handleToggleAvailability}
                     disabled={isTogglingOnline}
                   >
-                    <MaterialIcons name="power-settings-new" size={18} color="#fff" />
-                    <Text style={styles.goOnlineBtnText}>{t("courier.available.goOnline")}</Text>
+                    <MaterialIcons
+                      name="power-settings-new"
+                      size={18}
+                      color="#fff"
+                    />
+                    <Text style={styles.goOnlineBtnText}>
+                      {t("courier.available.goOnline")}
+                    </Text>
                   </TouchableOpacity>
                 </>
               )}
@@ -306,31 +491,22 @@ export default function AvailableOrdersScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    gap: 10,
-  },
-  headerTitle: { flex: 1, fontSize: 20, fontWeight: "800", color: "#fff" },
-  refreshBtn: { padding: 4 },
   toggleRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderRadius: 20,
   },
   toggleInfo: { flexDirection: "row", alignItems: "center", gap: 10 },
   statusDot: { width: 10, height: 10, borderRadius: 5 },
   toggleLabel: { fontSize: 15, fontWeight: "700" },
-  toggleSub: { fontSize: 12, marginTop: 1 },
+  toggleSub: { fontSize: 13, marginTop: 1 },
   list: { padding: 16, gap: 12 },
-  emptyContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   card: {
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
     padding: 16,
     gap: 10,
@@ -349,16 +525,7 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: "row", alignItems: "center", gap: 4 },
   metaRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  restaurant: { fontSize: 14, fontWeight: "700" },
-  distanceBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  distanceText: { fontSize: 12, fontWeight: "700" },
+  restaurant: { flexShrink: 1, fontSize: 18, fontWeight: "700" },
   feeBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -367,16 +534,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 8,
   },
-  feeText: { fontSize: 12, fontWeight: "700" },
-  timeBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  timeText: { fontSize: 12, fontWeight: "600" },
+  feeText: { fontSize: 16, fontWeight: "700" },
   oldBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -407,12 +565,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    paddingVertical: 12,
+    paddingVertical: 16,
     borderRadius: 12,
     marginTop: 4,
   },
-  acceptBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
-  empty: { alignItems: "center", gap: 12, paddingVertical: 60 },
+  acceptBtnText: { color: "#fff", fontSize: 17, fontWeight: "700" },
+  empty: {
+    alignSelf: "stretch",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 60,
+  },
   emptyTitle: { fontSize: 18, fontWeight: "700", textAlign: "center" },
   emptyBody: { fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
   goOnlineBtn: {
@@ -420,7 +583,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     paddingHorizontal: 24,
-    paddingVertical: 12,
+    paddingVertical: 16,
     borderRadius: 12,
     marginTop: 8,
   },

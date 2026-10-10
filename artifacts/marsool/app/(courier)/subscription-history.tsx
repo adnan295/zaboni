@@ -11,7 +11,7 @@ import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { useColors } from "@/hooks/useColors";
+import { useCourierColors as useColors, CourierHeader } from "@/components/CourierUI";
 import { customFetch } from "@workspace/api-client-react";
 import { formatDate as fmtDate } from "@/utils/date";
 
@@ -73,12 +73,7 @@ export default function SubscriptionHistoryScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: topPadding + 16, backgroundColor: colors.primary }]}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <MaterialIcons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>سجل الاشتراكات</Text>
-      </View>
+      <CourierHeader title={"سجل الاشتراكات"} back />
 
       {loading ? (
         <View style={styles.center}>

@@ -7,6 +7,8 @@ import {
   Platform,
   Alert,
   Linking,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import * as Location from "expo-location";
 import { default as Text } from "@/components/AppText";
@@ -14,18 +16,17 @@ import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useColors } from "@/hooks/useColors";
-import { useCourier, CourierOrderStatus, CourierDeliveryStatus } from "@/context/CourierContext";
+import {
+  useCourierColors as useColors,
+  CourierHeader,
+} from "@/components/CourierUI";
+import {
+  useCourier,
+  CourierOrderStatus,
+  CourierDeliveryStatus,
+} from "@/context/CourierContext";
 import { customFetch } from "@workspace/api-client-react";
 import { CourierMap } from "@/components/CourierMap";
-
-const STATUS_COLORS: Record<CourierOrderStatus, string> = {
-  searching: "#9E9E9E",
-  accepted: "#DC2626",
-  picked_up: "#9C27B0",
-  on_way: "#2196F3",
-  delivered: "#4CAF50",
-};
 
 type StepDef = {
   status: CourierOrderStatus;
@@ -74,18 +75,34 @@ export default function ActiveOrderScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t } = useTranslation();
-  const { activeOrders, updateDeliveryStatus, refreshActiveOrders, refreshAvailableOrders } = useCourier();
+  const {
+    activeOrders,
+    updateDeliveryStatus,
+    refreshActiveOrders,
+    refreshAvailableOrders,
+    isLoadingActive,
+    activeOrdersError,
+  } = useCourier();
+  const mutationRef = useRef(false);
   const [updating, setUpdating] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const [courierLocation, setCourierLocation] = useState<CourierCoord | null>(null);
-  const locationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [courierLocation, setCourierLocation] = useState<CourierCoord | null>(
+    null,
+  );
+  const locationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
   const locationPermGrantedRef = useRef<boolean | null>(null);
 
   // Order stacking: a courier can hold up to 2 orders. The "current" one is the
   // most-advanced (on_way > picked_up > accepted) — the one to finish first — and
   // the rest wait in the queue. When the current is delivered the next takes over
   // and the map/nav automatically point at its restaurant.
-  const STATUS_RANK: Record<string, number> = { on_way: 0, picked_up: 1, accepted: 2 };
+  const STATUS_RANK: Record<string, number> = {
+    on_way: 0,
+    picked_up: 1,
+    accepted: 2,
+  };
   const sortedActive = [...activeOrders].sort(
     (a, b) => (STATUS_RANK[a.status] ?? 3) - (STATUS_RANK[b.status] ?? 3),
   );
@@ -116,8 +133,7 @@ export default function ActiveOrderScreen() {
           // whenever the courier is online or delivering); here we only track
           // the position locally to render this screen's map.
         }
-      } catch {
-      }
+      } catch {}
     };
 
     fetchLocation();
@@ -133,7 +149,6 @@ export default function ActiveOrderScreen() {
     };
   }, [order?.id]);
 
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
 
   const currentStepIndex = STEPS.findIndex((s) => s.status === order?.status);
@@ -142,31 +157,43 @@ export default function ActiveOrderScreen() {
   const handleCancelOrder = () => {
     if (!order) return;
     Alert.alert(
-      t("courier.active.cancelConfirm.title"),
-      t("courier.active.cancelConfirm.body"),
+      "الاعتذار عن التوصيل؟",
+      "سيعود الطلب للبحث عن مندوب آخر. استخدم هذا الخيار فقط إذا تعذّر عليك الاستلام.",
       [
         { text: t("courier.active.cancelConfirm.cancel"), style: "cancel" },
         {
-          text: t("courier.active.cancelConfirm.confirm"),
+          text: "تأكيد الاعتذار",
           style: "destructive",
           onPress: async () => {
+            if (mutationRef.current) return;
+            mutationRef.current = true;
             setCancelling(true);
             try {
-              await customFetch(`/api/courier/orders/${order.id}/cancel`, { method: "POST" });
-              await Promise.all([refreshActiveOrders(), refreshAvailableOrders()]);
+              await customFetch(`/api/courier/orders/${order.id}/cancel`, {
+                method: "POST",
+              });
+              await Promise.all([
+                refreshActiveOrders(),
+                refreshAvailableOrders(),
+              ]);
             } catch {
-              Alert.alert(t("courier.active.cancelConfirm.errorTitle"), t("courier.active.cancelConfirm.errorMsg"));
+              Alert.alert(
+                t("courier.active.cancelConfirm.errorTitle"),
+                t("courier.active.cancelConfirm.errorMsg"),
+              );
             } finally {
+              mutationRef.current = false;
               setCancelling(false);
             }
           },
         },
-      ]
+      ],
     );
   };
 
   const doStatusUpdate = async (status: CourierDeliveryStatus) => {
-    if (!order) return;
+    if (!order || mutationRef.current) return;
+    mutationRef.current = true;
     const orderId = order.id;
     setUpdating(true);
     try {
@@ -178,6 +205,7 @@ export default function ActiveOrderScreen() {
     } catch {
       Alert.alert(t("common.error"), t("common.retry"));
     } finally {
+      mutationRef.current = false;
       setUpdating(false);
     }
   };
@@ -194,7 +222,7 @@ export default function ActiveOrderScreen() {
             style: "default",
             onPress: () => doStatusUpdate(status),
           },
-        ]
+        ],
       );
     } else {
       doStatusUpdate(status);
@@ -216,15 +244,20 @@ export default function ActiveOrderScreen() {
     if (phone) Linking.openURL(`tel:${phone}`);
   };
 
-  const sanitizedRestaurantPhone = (order?.restaurantPhone ?? "").replace(/(?!^\+)[^0-9]/g, "");
+  const sanitizedRestaurantPhone = (order?.restaurantPhone ?? "").replace(
+    /(?!^\+)[^0-9]/g,
+    "",
+  );
 
   const callRestaurant = () => {
     if (!sanitizedRestaurantPhone) return;
-    Linking.canOpenURL(`tel:${sanitizedRestaurantPhone}`).then((supported) => {
-      if (supported) {
-        Linking.openURL(`tel:${sanitizedRestaurantPhone}`);
-      }
-    }).catch(() => {});
+    Linking.canOpenURL(`tel:${sanitizedRestaurantPhone}`)
+      .then((supported) => {
+        if (supported) {
+          Linking.openURL(`tel:${sanitizedRestaurantPhone}`);
+        }
+      })
+      .catch(() => {});
   };
 
   const whatsappRestaurant = () => {
@@ -258,11 +291,15 @@ export default function ActiveOrderScreen() {
         Linking.openURL(ok ? appleUrl : googleWebUrl);
       });
     } else {
-      const deepLink = hasCoords ? `google.navigation:q=${lat},${lon}&mode=d` : null;
+      const deepLink = hasCoords
+        ? `google.navigation:q=${lat},${lon}&mode=d`
+        : null;
       if (deepLink) {
-        Linking.canOpenURL(deepLink).then((ok) => {
-          Linking.openURL(ok ? deepLink : googleWebUrl);
-        }).catch(() => Linking.openURL(googleWebUrl));
+        Linking.canOpenURL(deepLink)
+          .then((ok) => {
+            Linking.openURL(ok ? deepLink : googleWebUrl);
+          })
+          .catch(() => Linking.openURL(googleWebUrl));
       } else {
         Linking.openURL(googleWebUrl);
       }
@@ -271,19 +308,36 @@ export default function ActiveOrderScreen() {
 
   const openNavigation = () => {
     if (!order) return;
-    openMapsTo(order.destinationLat, order.destinationLon, order.address || "وجهة التوصيل");
+    openMapsTo(
+      order.destinationLat,
+      order.destinationLon,
+      order.address || "وجهة التوصيل",
+    );
   };
 
   const navigateToRestaurant = () => {
     if (!order) return;
-    openMapsTo(order.restaurantLat, order.restaurantLon, order.restaurantName || "المطعم");
+    if (order.orderType === "errand") {
+      if (order.placeName) openMapsTo(null, null, order.placeName);
+      else
+        Alert.alert(
+          "مكان الاستلام غير محدد",
+          "اتصل بالزبون لتحديد مكان استلام الطلب.",
+        );
+      return;
+    }
+    openMapsTo(
+      order.restaurantLat,
+      order.restaurantLon,
+      order.restaurantName || "المطعم",
+    );
   };
 
   // One stateful navigation control. Before the courier has picked up (status
-  // "accepted") it routes to the restaurant to collect the order; once picked up
-  // it routes to the customer to deliver. Errand orders have no restaurant, so
-  // they always route to the customer.
-  const navigatesToRestaurant = !!order && order.status === "accepted" && order.orderType !== "errand";
+  // "accepted") it routes to pickup; once picked up it routes to the customer.
+  // Errand orders have no restaurant coordinates, so
+  // pickup uses the supplied place name when coordinates are unavailable.
+  const navigatesToRestaurant = !!order && order.status === "accepted";
   const handleNavigate = () => {
     if (!order) return;
     if (navigatesToRestaurant) navigateToRestaurant();
@@ -295,32 +349,87 @@ export default function ActiveOrderScreen() {
   // order is delivered and the next (accepted) one takes over, the map switches
   // to that restaurant automatically.
   const mapTargetLat = navigatesToRestaurant
-    ? order?.restaurantLat ?? order?.destinationLat ?? null
-    : order?.destinationLat ?? null;
+    ? ((order?.orderType === "errand" ? null : order?.restaurantLat) ?? null)
+    : (order?.destinationLat ?? null);
   const mapTargetLon = navigatesToRestaurant
-    ? order?.restaurantLon ?? order?.destinationLon ?? null
-    : order?.destinationLon ?? null;
+    ? ((order?.orderType === "errand" ? null : order?.restaurantLon) ?? null)
+    : (order?.destinationLon ?? null);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: topPadding + 16, backgroundColor: colors.primary }]}>
-        <MaterialIcons name="local-shipping" size={24} color="#fff" />
-        <Text style={styles.headerTitle}>{t("courier.active.title")}</Text>
-      </View>
+      <CourierHeader
+        title="رحلتي"
+        subtitle={
+          order
+            ? "خطوة بخطوة، حتى تسليم الطلب"
+            : "رحلتك القادمة تبدأ من الرئيسية"
+        }
+        onRefresh={refreshActiveOrders}
+      />
 
-      {!order ? (
+      {activeOrdersError && (
+        <TouchableOpacity
+          accessibilityRole="button"
+          onPress={refreshActiveOrders}
+          style={{ backgroundColor: "#FFF3DC", padding: 14 }}
+        >
+          <Text
+            accessibilityRole="alert"
+            style={{ color: "#8A4B0B", textAlign: "center", lineHeight: 22 }}
+          >
+            تعذّر تحديث الرحلة. تأكد من الإنترنت واضغط لإعادة المحاولة.
+          </Text>
+        </TouchableOpacity>
+      )}
+      {!order && activeOrdersError ? (
         <View style={styles.emptyContainer}>
-          <MaterialIcons name="check-circle-outline" size={64} color={colors.border} />
+          <MaterialIcons
+            name="wifi-off"
+            size={48}
+            color={colors.mutedForeground}
+          />
+          <Text style={{ color: colors.foreground }}>
+            بانتظار تحديث بيانات الرحلة
+          </Text>
+        </View>
+      ) : !order && isLoadingActive ? (
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : !order ? (
+        <View style={styles.emptyContainer}>
+          <MaterialIcons
+            name="check-circle-outline"
+            size={64}
+            color={colors.border}
+          />
           <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
             {t("courier.active.noActive.title")}
           </Text>
           <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
             {t("courier.active.noActive.body")}
           </Text>
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={[
+              styles.statusBtn,
+              { backgroundColor: colors.primary, paddingHorizontal: 28 },
+            ]}
+            onPress={() => router.navigate("/(courier)/available")}
+          >
+            <Text style={styles.statusBtnText}>عرض الطلبات المتاحة</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <ScrollView
           contentContainerStyle={{ paddingBottom: bottomPadding + 20 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={isLoadingActive}
+              onRefresh={refreshActiveOrders}
+              tintColor={colors.primary}
+            />
+          }
           showsVerticalScrollIndicator={false}
         >
           {/* Queued next order(s) — shown while the current one is still in progress */}
@@ -340,87 +449,130 @@ export default function ActiveOrderScreen() {
                 marginTop: 12,
               }}
             >
-              <MaterialIcons name="playlist-add-check" size={22} color="#f97316" />
+              <MaterialIcons
+                name="playlist-add-check"
+                size={22}
+                color="#f97316"
+              />
               <View style={{ flex: 1 }}>
-                <Text style={{ color: "#9a3412", fontWeight: "700", fontSize: 13 }}>الطلب التالي بالطابور</Text>
-                <Text style={{ color: colors.foreground, fontSize: 14 }} numberOfLines={1}>
-                  {q.orderType === "errand" ? (q.placeName ?? "مشوار") : q.restaurantName} — {q.address}
+                <Text
+                  style={{ color: "#9a3412", fontWeight: "700", fontSize: 13 }}
+                >
+                  الطلب التالي بالطابور
                 </Text>
-                <Text style={{ color: colors.mutedForeground, fontSize: 11, marginTop: 2 }}>
+                <Text
+                  style={{ color: colors.foreground, fontSize: 14 }}
+                  numberOfLines={1}
+                >
+                  {q.orderType === "errand"
+                    ? (q.placeName ?? "مشوار")
+                    : q.restaurantName}{" "}
+                  — {q.address}
+                </Text>
+                <Text
+                  style={{
+                    color: colors.mutedForeground,
+                    fontSize: 11,
+                    marginTop: 2,
+                  }}
+                >
                   رح توصّلو بعد ما تسلّم الطلب الحالي
                 </Text>
               </View>
               {q.restaurantPhone ? (
                 <TouchableOpacity
                   onPress={() => Linking.openURL(`tel:${q.restaurantPhone}`)}
-                  style={{ backgroundColor: "#f97316", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, flexDirection: "row", alignItems: "center", gap: 4 }}
+                  style={{
+                    backgroundColor: "#f97316",
+                    borderRadius: 10,
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
                 >
                   <MaterialIcons name="call" size={16} color="#fff" />
-                  <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>المطعم</Text>
+                  <Text
+                    style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}
+                  >
+                    المطعم
+                  </Text>
                 </TouchableOpacity>
               ) : null}
             </View>
           ))}
 
-          {/* Stepper */}
-          <View style={[styles.stepperCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            {STEPS.map((step, idx) => {
-              const isCompleted = idx < currentStepIndex;
-              const isActive = idx === currentStepIndex;
-              const stepColor = isActive
-                ? STATUS_COLORS[step.status]
-                : isCompleted
-                ? "#4CAF50"
-                : colors.border;
-              return (
-                <View key={step.status} style={styles.stepRow}>
-                  <View style={styles.stepLeft}>
-                    <View
-                      style={[
-                        styles.stepCircle,
-                        {
-                          backgroundColor: isActive
-                            ? STATUS_COLORS[step.status] + "20"
-                            : isCompleted
-                            ? "#4CAF5020"
-                            : colors.secondary,
-                          borderColor: stepColor,
-                        },
-                      ]}
-                    >
-                      <MaterialIcons
-                        name={isCompleted ? "check" : step.icon}
-                        size={18}
-                        color={stepColor}
-                      />
-                    </View>
-                    {idx < STEPS.length - 1 && (
-                      <View
-                        style={[
-                          styles.stepLine,
-                          { backgroundColor: idx < currentStepIndex ? "#4CAF50" : colors.border },
-                        ]}
-                      />
-                    )}
-                  </View>
-                  <Text
-                    style={[
-                      styles.stepLabel,
-                      {
-                        color: isActive
-                          ? STATUS_COLORS[step.status]
-                          : isCompleted
-                          ? "#4CAF50"
-                          : colors.mutedForeground,
-                        fontWeight: isActive ? "700" : "500",
-                      },
-                    ]}
-                  >
-                    {t(step.label)}
-                  </Text>
-                </View>
-              );
-            })}
+          <View
+            style={[
+              styles.journeyCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={{ color: colors.mutedForeground, fontSize: 13 }}>
+              الخطوة {Math.max(1, currentStepIndex + 1)} من 3 • الطلب #
+              {order.id.slice(-6)}
+            </Text>
+            <Text
+              accessibilityRole="header"
+              style={{
+                color: colors.foreground,
+                fontSize: 23,
+                fontWeight: "800",
+              }}
+            >
+              {order.status === "accepted"
+                ? "استلم الطلب من المحل"
+                : order.status === "picked_up"
+                  ? "جاهز؟ انطلق للزبون"
+                  : "سلّم الطلب للزبون"}
+            </Text>
+            <View style={{ flexDirection: "row", gap: 6 }}>
+              {STEPS.slice(0, 3).map((step, index) => (
+                <View
+                  key={step.status}
+                  style={{
+                    flex: 1,
+                    height: 5,
+                    borderRadius: 4,
+                    backgroundColor:
+                      index <= currentStepIndex
+                        ? colors.primary
+                        : colors.border,
+                  }}
+                />
+              ))}
+            </View>
+            <Text
+              style={{
+                color: colors.mutedForeground,
+                fontSize: 16,
+                lineHeight: 25,
+              }}
+            >
+              {order.status === "accepted"
+                ? order.orderType === "errand"
+                  ? order.placeName
+                  : order.restaurantName
+                : order.address}
+            </Text>
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={handleNavigate}
+              style={[
+                styles.statusBtn,
+                { backgroundColor: "#EAF0F5", flexDirection: "row", gap: 8 },
+              ]}
+            >
+              <MaterialIcons name="navigation" size={23} color="#172B3A" />
+              <Text
+                style={{ color: "#172B3A", fontSize: 17, fontWeight: "700" }}
+              >
+                {navigatesToRestaurant
+                  ? "الاتجاه إلى مكان الاستلام"
+                  : "الاتجاه إلى الزبون"}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Map */}
@@ -431,7 +583,11 @@ export default function ActiveOrderScreen() {
                 destinationLon={mapTargetLon}
                 courierLat={courierLocation?.latitude}
                 courierLon={courierLocation?.longitude}
-                address={navigatesToRestaurant ? (order.restaurantName || order.address) : order.address}
+                address={
+                  navigatesToRestaurant
+                    ? order.restaurantName || order.address
+                    : order.address
+                }
                 onNavigate={handleNavigate}
               />
               <TouchableOpacity
@@ -441,70 +597,160 @@ export default function ActiveOrderScreen() {
               >
                 <MaterialIcons name="navigation" size={16} color="#fff" />
                 <Text style={styles.mapNavigateBtnText}>
-                  {navigatesToRestaurant ? t("courier.active.toRestaurant") : t("courier.active.toCustomer")}
+                  {navigatesToRestaurant
+                    ? t("courier.active.toRestaurant")
+                    : t("courier.active.toCustomer")}
                 </Text>
               </TouchableOpacity>
             </View>
           ) : null}
 
           {/* Order details */}
-          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
             {order.orderType === "errand" ? (
               <View style={styles.infoRow}>
                 <MaterialIcons name="shopping-bag" size={18} color="#ea580c" />
                 <View style={styles.infoContent}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.infoLabel,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
                       مطلوب من
                     </Text>
                     <View style={styles.errandBadge}>
                       <Text style={styles.errandBadgeText}>مندوب متجول</Text>
                     </View>
                   </View>
-                  <Text style={[styles.infoValue, { color: "#ea580c", fontWeight: "800" }]}>
+                  <Text
+                    style={[
+                      styles.infoValue,
+                      { color: "#ea580c", fontWeight: "800" },
+                    ]}
+                  >
                     {order.placeName ?? "—"}
                   </Text>
                 </View>
               </View>
             ) : order.restaurantName ? (
               <View style={styles.infoRow}>
-                <MaterialIcons name="restaurant" size={18} color={colors.primary} />
+                <MaterialIcons
+                  name="restaurant"
+                  size={18}
+                  color={colors.primary}
+                />
                 <View style={styles.infoContent}>
-                  <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>
+                  <Text
+                    style={[
+                      styles.infoLabel,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
                     {t("courier.available.restaurant")}
                   </Text>
-                  <Text style={[styles.infoValue, { color: colors.foreground }]}>
+                  <Text
+                    style={[styles.infoValue, { color: colors.foreground }]}
+                  >
                     {order.restaurantName}
                   </Text>
                 </View>
               </View>
             ) : null}
 
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <View
+              style={[styles.divider, { backgroundColor: colors.border }]}
+            />
 
             {(() => {
-              const typedOrder = order as typeof order & { items?: { id: string; nameAr: string; qty: number; unitPrice: number; lineTotal: number; note?: string | null; options?: { nameAr: string; extraPrice: number }[] }[]; restaurantNote?: string | null };
+              const typedOrder = order as typeof order & {
+                items?: {
+                  id: string;
+                  nameAr: string;
+                  qty: number;
+                  unitPrice: number;
+                  lineTotal: number;
+                  note?: string | null;
+                  options?: { nameAr: string; extraPrice: number }[];
+                }[];
+                restaurantNote?: string | null;
+              };
               const structuredItems = typedOrder.items ?? [];
               if (structuredItems.length > 0) {
                 return (
                   <View style={styles.infoRow}>
-                    <MaterialIcons name="receipt-long" size={18} color={colors.primary} />
+                    <MaterialIcons
+                      name="receipt-long"
+                      size={18}
+                      color={colors.primary}
+                    />
                     <View style={[styles.infoContent, { gap: 6 }]}>
-                      <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>تفاصيل الطلب</Text>
+                      <Text
+                        style={[
+                          styles.infoLabel,
+                          { color: colors.mutedForeground },
+                        ]}
+                      >
+                        تفاصيل الطلب
+                      </Text>
                       {structuredItems.map((it) => (
                         <View key={it.id}>
-                          <Text style={[styles.infoValue, { color: colors.foreground }]}>
+                          <Text
+                            style={[
+                              styles.infoValue,
+                              { color: colors.foreground },
+                            ]}
+                          >
                             {it.nameAr} × {it.qty}
                             {"  "}
-                            <Text style={{ color: colors.primary, fontWeight: "700" }}>{it.lineTotal.toLocaleString()} ل.س</Text>
+                            <Text
+                              style={{
+                                color: colors.primary,
+                                fontWeight: "700",
+                              }}
+                            >
+                              {it.lineTotal.toLocaleString()} ل.س
+                            </Text>
                           </Text>
                           {(it.options ?? []).map((opt, i) => (
-                            <Text key={i} style={[{ color: colors.mutedForeground, fontSize: 12, paddingRight: 12 }]}>
-                              ↳ {opt.nameAr}{opt.extraPrice > 0 ? ` (+${opt.extraPrice.toLocaleString()})` : ""}
+                            <Text
+                              key={i}
+                              style={[
+                                {
+                                  color: colors.mutedForeground,
+                                  fontSize: 12,
+                                  paddingRight: 12,
+                                },
+                              ]}
+                            >
+                              ↳ {opt.nameAr}
+                              {opt.extraPrice > 0
+                                ? ` (+${opt.extraPrice.toLocaleString()})`
+                                : ""}
                             </Text>
                           ))}
                           {it.note ? (
-                            <Text style={[{ color: colors.mutedForeground, fontSize: 12, paddingRight: 12 }]}>
+                            <Text
+                              style={[
+                                {
+                                  color: colors.mutedForeground,
+                                  fontSize: 12,
+                                  paddingRight: 12,
+                                },
+                              ]}
+                            >
                               📝 {it.note}
                             </Text>
                           ) : null}
@@ -516,12 +762,23 @@ export default function ActiveOrderScreen() {
               }
               return (
                 <View style={styles.infoRow}>
-                  <MaterialIcons name="notes" size={18} color={colors.primary} />
+                  <MaterialIcons
+                    name="notes"
+                    size={18}
+                    color={colors.primary}
+                  />
                   <View style={styles.infoContent}>
-                    <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>
+                    <Text
+                      style={[
+                        styles.infoLabel,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
                       {t("courier.active.orderText")}
                     </Text>
-                    <Text style={[styles.infoValue, { color: colors.foreground }]}>
+                    <Text
+                      style={[styles.infoValue, { color: colors.foreground }]}
+                    >
                       {order.orderText}
                     </Text>
                   </View>
@@ -529,13 +786,37 @@ export default function ActiveOrderScreen() {
               );
             })()}
 
-            {(order as typeof order & { restaurantNote?: string | null }).restaurantNote ? (
-              <View style={[styles.infoRow, { backgroundColor: "#FEF3C7", borderRadius: 10, padding: 10, marginTop: 4 }]}>
+            {(order as typeof order & { restaurantNote?: string | null })
+              .restaurantNote ? (
+              <View
+                style={[
+                  styles.infoRow,
+                  {
+                    backgroundColor: "#FEF3C7",
+                    borderRadius: 10,
+                    padding: 10,
+                    marginTop: 4,
+                  },
+                ]}
+              >
                 <MaterialIcons name="sticky-note-2" size={18} color="#B45309" />
                 <View style={styles.infoContent}>
-                  <Text style={[styles.infoLabel, { color: "#B45309", fontWeight: "700" }]}>ملاحظة الزبون</Text>
+                  <Text
+                    style={[
+                      styles.infoLabel,
+                      { color: "#B45309", fontWeight: "700" },
+                    ]}
+                  >
+                    ملاحظة الزبون
+                  </Text>
                   <Text style={[styles.infoValue, { color: "#78350F" }]}>
-                    {(order as typeof order & { restaurantNote?: string | null }).restaurantNote}
+                    {
+                      (
+                        order as typeof order & {
+                          restaurantNote?: string | null;
+                        }
+                      ).restaurantNote
+                    }
                   </Text>
                 </View>
               </View>
@@ -543,14 +824,27 @@ export default function ActiveOrderScreen() {
 
             {order.address ? (
               <>
-                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                <View
+                  style={[styles.divider, { backgroundColor: colors.border }]}
+                />
                 <View style={styles.infoRow}>
-                  <MaterialIcons name="location-on" size={18} color={colors.primary} />
+                  <MaterialIcons
+                    name="location-on"
+                    size={18}
+                    color={colors.primary}
+                  />
                   <View style={styles.infoContent}>
-                    <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>
+                    <Text
+                      style={[
+                        styles.infoLabel,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
                       {t("courier.active.address")}
                     </Text>
-                    <Text style={[styles.infoValue, { color: colors.foreground }]}>
+                    <Text
+                      style={[styles.infoValue, { color: colors.foreground }]}
+                    >
                       {order.address}
                     </Text>
                   </View>
@@ -560,14 +854,30 @@ export default function ActiveOrderScreen() {
 
             {order.deliveryFee != null && order.deliveryFee > 0 ? (
               <>
-                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                <View
+                  style={[styles.divider, { backgroundColor: colors.border }]}
+                />
                 <View style={styles.infoRow}>
-                  <MaterialIcons name="account-balance-wallet" size={18} color="#ea580c" />
+                  <MaterialIcons
+                    name="account-balance-wallet"
+                    size={18}
+                    color="#ea580c"
+                  />
                   <View style={styles.infoContent}>
-                    <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>
+                    <Text
+                      style={[
+                        styles.infoLabel,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
                       رسوم التوصيل
                     </Text>
-                    <Text style={[styles.infoValue, { color: "#ea580c", fontWeight: "800" }]}>
+                    <Text
+                      style={[
+                        styles.infoValue,
+                        { color: "#ea580c", fontWeight: "800" },
+                      ]}
+                    >
                       {order.deliveryFee.toLocaleString("ar-SY")} ل.س
                     </Text>
                   </View>
@@ -577,15 +887,28 @@ export default function ActiveOrderScreen() {
 
             {(order.flashDealDiscount ?? 0) > 0 ? (
               <>
-                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                <View
+                  style={[styles.divider, { backgroundColor: colors.border }]}
+                />
                 <View style={styles.infoRow}>
                   <MaterialIcons name="bolt" size={18} color="#c2410c" />
                   <View style={styles.infoContent}>
-                    <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>
+                    <Text
+                      style={[
+                        styles.infoLabel,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
                       خصم الفلاش (على الأكل)
                     </Text>
-                    <Text style={[styles.infoValue, { color: "#c2410c", fontWeight: "800" }]}>
-                      − {(order.flashDealDiscount ?? 0).toLocaleString("ar-SY")} ل.س
+                    <Text
+                      style={[
+                        styles.infoValue,
+                        { color: "#c2410c", fontWeight: "800" },
+                      ]}
+                    >
+                      − {(order.flashDealDiscount ?? 0).toLocaleString("ar-SY")}{" "}
+                      ل.س
                     </Text>
                   </View>
                 </View>
@@ -594,15 +917,30 @@ export default function ActiveOrderScreen() {
 
             {order.orderType !== "errand" && order.totalPrice != null ? (
               <>
-                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                <View
+                  style={[styles.divider, { backgroundColor: colors.border }]}
+                />
                 <View style={styles.infoRow}>
                   <MaterialIcons name="payments" size={18} color="#16a34a" />
                   <View style={styles.infoContent}>
-                    <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>
+                    <Text
+                      style={[
+                        styles.infoLabel,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
                       المطلوب تحصيله من الزبون (الدفع نقداً)
                     </Text>
-                    <Text style={[styles.infoValue, { color: "#16a34a", fontWeight: "800", fontSize: 17 }]}>
-                      {((order.totalPrice ?? 0) + (order.deliveryFee ?? 0)).toLocaleString("ar-SY")} ل.س
+                    <Text
+                      style={[
+                        styles.infoValue,
+                        { color: "#16a34a", fontWeight: "800", fontSize: 17 },
+                      ]}
+                    >
+                      {(
+                        (order.totalPrice ?? 0) + (order.deliveryFee ?? 0)
+                      ).toLocaleString("ar-SY")}{" "}
+                      ل.س
                     </Text>
                   </View>
                 </View>
@@ -618,7 +956,9 @@ export default function ActiveOrderScreen() {
                 activeOpacity={0.8}
               >
                 <MaterialIcons name="phone" size={20} color="#fff" />
-                <Text style={styles.callBtnText}>{t("courier.active.call")}</Text>
+                <Text style={styles.callBtnText}>
+                  {t("courier.active.call")}
+                </Text>
               </TouchableOpacity>
             ) : null}
 
@@ -629,17 +969,26 @@ export default function ActiveOrderScreen() {
                 activeOpacity={0.8}
               >
                 <MaterialIcons name="restaurant" size={20} color="#fff" />
-                <Text style={styles.callBtnText}>{t("courier.active.callRestaurant")}</Text>
+                <Text style={styles.callBtnText}>
+                  {t("courier.active.callRestaurant")}
+                </Text>
               </TouchableOpacity>
             ) : null}
 
             {sanitizedRestaurantPhone ? (
               <TouchableOpacity
-                style={[styles.chatBtn, { backgroundColor: "#25D366", borderColor: "#25D366" }]}
+                style={[
+                  styles.chatBtn,
+                  { backgroundColor: "#25D366", borderColor: "#25D366" },
+                ]}
                 onPress={whatsappRestaurant}
                 activeOpacity={0.8}
               >
-                <MaterialCommunityIcons name="whatsapp" size={20} color="#fff" />
+                <MaterialCommunityIcons
+                  name="whatsapp"
+                  size={20}
+                  color="#fff"
+                />
                 <Text style={[styles.chatBtnText, { color: "#fff" }]}>
                   {t("courier.active.whatsappRestaurant")}
                 </Text>
@@ -647,7 +996,10 @@ export default function ActiveOrderScreen() {
             ) : null}
 
             <TouchableOpacity
-              style={[styles.chatBtn, { backgroundColor: "#25D366", borderColor: "#25D366" }]}
+              style={[
+                styles.chatBtn,
+                { backgroundColor: "#25D366", borderColor: "#25D366" },
+              ]}
               onPress={openWhatsApp}
               activeOpacity={0.8}
             >
@@ -656,63 +1008,91 @@ export default function ActiveOrderScreen() {
                 {t("courier.active.whatsapp")}
               </Text>
             </TouchableOpacity>
-
           </View>
 
-          {/* Cancel button — only before delivery */}
-          {order.status !== "delivered" ? (
+          {/* Relinquishing an assignment is allowed only before pickup. */}
+          {order.status === "accepted" ? (
             <TouchableOpacity
               style={[styles.cancelBtn, { borderColor: "#ef4444" }]}
               onPress={handleCancelOrder}
-              disabled={cancelling}
+              disabled={cancelling || updating || activeOrdersError}
               activeOpacity={0.8}
             >
               <MaterialIcons name="cancel" size={18} color="#ef4444" />
               <Text style={styles.cancelBtnText}>
-                {cancelling ? "جاري الإلغاء..." : "إلغاء الطلب"}
+                {cancelling ? "جاري الاعتذار..." : "تعذّر عليّ الاستلام"}
               </Text>
             </TouchableOpacity>
           ) : null}
-
-          {/* Action button */}
-          {currentStep?.nextStatus ? (
-            <View style={[styles.statusCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={[styles.statusTitle, { color: colors.foreground }]}>
-                {t("courier.active.statusTitle")}
-              </Text>
-              <TouchableOpacity
-                style={[
-                  styles.statusBtn,
-                  { backgroundColor: STATUS_COLORS[currentStep.nextStatus] },
-                ]}
-                onPress={() => handleStatusUpdate(currentStep.nextStatus!)}
-                disabled={updating}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.statusBtnText}>
-                  {updating
-                    ? t("courier.active.updating")
-                    : t(currentStep.nextLabel ?? "courier.active.updateStatus")}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
         </ScrollView>
+      )}
+      {order && currentStep?.nextStatus && (
+        <View style={styles.bottomAction}>
+          {order.status === "on_way" && order.orderType !== "errand" && order.totalPrice != null && (
+            <Text style={{ color: "#16805C", fontWeight: "800", fontSize: 18, textAlign: "center" }}>
+              للتحصيل: {(order.totalPrice + (order.deliveryFee ?? 0)).toLocaleString("ar-SY")} ل.س
+            </Text>
+          )}
+          <Text
+            style={{
+              color: colors.mutedForeground,
+              fontSize: 12,
+              textAlign: "center",
+            }}
+          >
+            {order.status === "on_way"
+              ? "أكّد التسليم بعد تسليم الطلب وتحصيل المستحقات"
+              : "أكّد الخطوة بعد تنفيذها"}
+          </Text>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityState={{
+              disabled: updating || cancelling || activeOrdersError,
+              busy: updating,
+            }}
+            style={[
+              styles.statusBtn,
+              {
+                backgroundColor: colors.primary,
+                opacity: updating || cancelling || activeOrdersError ? 0.65 : 1,
+              },
+            ]}
+            onPress={() => handleStatusUpdate(currentStep.nextStatus!)}
+            disabled={updating || cancelling || activeOrdersError}
+          >
+            {updating ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.statusBtnText}>
+                {order.status === "accepted" && order.orderType === "errand"
+                  ? "استلمت المشتريات"
+                  : t(currentStep.nextLabel ?? "courier.active.updateStatus")}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
       )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    gap: 10,
+  journeyCard: {
+    margin: 16,
+    marginBottom: 0,
+    padding: 20,
+    borderWidth: 1,
+    borderRadius: 22,
+    gap: 14,
   },
-  headerTitle: { flex: 1, fontSize: 20, fontWeight: "800", color: "#fff" },
+  bottomAction: {
+    backgroundColor: "#fff",
+    borderTopWidth: 1,
+    borderTopColor: "#DCE3EA",
+    padding: 14,
+    gap: 8,
+  },
+  container: { flex: 1 },
   emptyContainer: {
     flex: 1,
     alignItems: "center",
@@ -722,31 +1102,6 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontSize: 18, fontWeight: "700", textAlign: "center" },
   emptyBody: { fontSize: 14, textAlign: "center" },
-  stepperCard: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    gap: 0,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  stepRow: { flexDirection: "row", alignItems: "flex-start", gap: 12, minHeight: 48 },
-  stepLeft: { alignItems: "center", width: 36 },
-  stepCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stepLine: { width: 2, flex: 1, minHeight: 12 },
-  stepLabel: { flex: 1, fontSize: 15, paddingTop: 8 },
   card: {
     marginHorizontal: 16,
     marginTop: 12,
@@ -768,25 +1123,18 @@ const styles = StyleSheet.create({
   infoContent: { flex: 1, gap: 2 },
   infoLabel: { fontSize: 12 },
   infoValue: { fontSize: 15, lineHeight: 22 },
-  navChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: 1,
-    alignSelf: "center",
-  },
-  navChipText: { fontSize: 12, fontWeight: "700" },
   divider: { height: 1, marginHorizontal: 16 },
   actionRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 10,
     marginHorizontal: 16,
     marginTop: 12,
   },
   callBtn: {
+    flexGrow: 1,
+    flexBasis: "45%",
+    minHeight: 54,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -797,7 +1145,9 @@ const styles = StyleSheet.create({
   },
   callBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
   chatBtn: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: "45%",
+    minHeight: 54,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -807,16 +1157,6 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   chatBtnText: { fontSize: 15, fontWeight: "700" },
-  navBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  navBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
   errandBadge: {
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -824,22 +1164,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff3e0",
   },
   errandBadgeText: { fontSize: 10, fontWeight: "700", color: "#ea580c" },
-  statusCard: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    gap: 12,
-  },
-  statusTitle: { fontSize: 16, fontWeight: "700" },
   statusBtn: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: 16,
+    minHeight: 56,
+    borderRadius: 16,
   },
-  statusBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  statusBtnText: { color: "#fff", fontSize: 18, fontWeight: "700" },
   cancelBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -863,20 +1195,6 @@ const styles = StyleSheet.create({
     // needs an explicit height to actually render.
     height: 240,
   },
-  map: {
-    width: "100%",
-    height: 200,
-  },
-  mapFallback: {
-    width: "100%",
-    height: 180,
-    backgroundColor: "#f3f4f6",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  mapFallbackText: { fontSize: 14, fontWeight: "600", color: "#374151" },
-  mapFallbackSub: { fontSize: 12, color: "#DC2626", fontWeight: "600" },
   mapNavigateBtn: {
     flexDirection: "row",
     alignItems: "center",

@@ -50,6 +50,7 @@ interface CourierContextValue {
   availableOrders: CourierOrder[];
   activeOrders: CourierOrder[];
   availableOrdersError: boolean;
+  activeOrdersError: boolean;
   isLoadingAvailable: boolean;
   isLoadingActive: boolean;
   isOnline: boolean;
@@ -74,6 +75,7 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
   const { user, isCourier, token } = useAuth();
   const [availableOrders, setAvailableOrders] = useState<CourierOrder[]>([]);
   const [activeOrders, setActiveOrders] = useState<CourierOrder[]>([]);
+  const [activeOrdersError, setActiveOrdersError] = useState(false);
   const [availableOrdersError, setAvailableOrdersError] = useState(false);
   const [isLoadingAvailable, setIsLoadingAvailable] = useState(false);
   const [isLoadingActive, setIsLoadingActive] = useState(false);
@@ -120,9 +122,12 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
     setIsLoadingActive(true);
     try {
       const data = await customFetch<CourierOrder[]>("/api/courier/orders/active");
-      setActiveOrders(Array.isArray(data) ? data : []);
+      if (!Array.isArray(data)) throw new Error("Invalid active orders response");
+      setActiveOrders(data);
+      setActiveOrdersError(false);
     } catch {
-      setActiveOrders([]);
+      // Preserve the current delivery when the connection fails.
+      setActiveOrdersError(true);
     } finally {
       setIsLoadingActive(false);
     }
@@ -300,6 +305,7 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
         availableOrders,
         activeOrders,
         availableOrdersError,
+        activeOrdersError,
         isLoadingAvailable,
         isLoadingActive,
         isOnline,
