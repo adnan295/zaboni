@@ -7,7 +7,8 @@ export interface CountryCode {
 }
 
 export const COUNTRY_CODES: CountryCode[] = [
-  { flag: "🇸🇾", code: "+963", country: "SY", nameAr: "سوريا",        nameEn: "Syria" },
+  // Syria is rendered by CountryFlag, independent of the device emoji font.
+  { flag: "", code: "+963", country: "SY", nameAr: "سوريا",        nameEn: "Syria" },
   { flag: "🇸🇦", code: "+966", country: "SA", nameAr: "السعودية",     nameEn: "Saudi Arabia" },
   { flag: "🇦🇪", code: "+971", country: "AE", nameAr: "الإمارات",     nameEn: "UAE" },
   { flag: "🇪🇬", code: "+20",  country: "EG", nameAr: "مصر",          nameEn: "Egypt" },
