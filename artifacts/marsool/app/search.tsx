@@ -21,6 +21,7 @@ import { useBackIcon } from "@/hooks/useTypography";
 import RestaurantCard from "@/components/RestaurantCard";
 import { customFetch } from "@workspace/api-client-react";
 import * as Location from "expo-location";
+import { useAddresses } from "@/context/AddressContext";
 
 type SortOption = "priority" | "fastest" | "rating" | "delivery_fee";
 
@@ -33,6 +34,7 @@ export default function SearchScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const backIcon = useBackIcon();
+  const { defaultAddress } = useAddresses();
   const inputRef = useRef<TextInput>(null);
 
   const [query, setQuery] = useState("");
@@ -70,7 +72,7 @@ export default function SearchScreen() {
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
   const SORT_OPTIONS: { id: SortOption; label: string; icon: keyof typeof MaterialIcons.glyphMap }[] = [
-    { id: "priority", label: t("search.sort.recommended") || "موصى به", icon: "auto-awesome" },
+    { id: "priority", label: t(defaultAddress?.latitude != null && defaultAddress?.longitude != null || userLocation ? "search.sort.nearest" : "search.sort.recommended"), icon: "auto-awesome" },
     { id: "fastest", label: t("search.sort.fastest"), icon: "access-time" },
     { id: "rating", label: t("search.sort.rating"), icon: "star" },
     { id: "delivery_fee", label: t("search.sort.fee"), icon: "local-shipping" },
@@ -129,11 +131,19 @@ export default function SearchScreen() {
     distanceKm?: number | null;
   };
 
+
+  const feeLat = defaultAddress?.latitude ?? userLocation?.lat;
+  const feeLon = defaultAddress?.longitude ?? userLocation?.lon;
+  const [searchError, setSearchError] = useState(false);
+  const [retrySearch, setRetrySearch] = useState(0);
   const [apiResults, setApiResults] = useState<Restaurant[]>([]);
   const [searching, setSearching] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    let active = true;
+    setApiResults([]);
+    setSearchError(false);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!query.trim() && !selectedCategory) {
       setApiResults([]);
@@ -146,23 +156,24 @@ export default function SearchScreen() {
         const params = new URLSearchParams();
         if (query.trim()) params.set("search", query.trim());
         if (selectedCategory) params.set("category", selectedCategory);
-        if (userLocation) {
-          params.set("lat", String(userLocation.lat));
-          params.set("lon", String(userLocation.lon));
+        if (feeLat != null && feeLon != null) {
+          params.set("lat", String(feeLat));
+          params.set("lon", String(feeLon));
         }
         const url = `/api/restaurants?${params.toString()}`;
         const data = await customFetch(url) as Restaurant[];
-        setApiResults(Array.isArray(data) ? data : []);
+        if (active) setApiResults(Array.isArray(data) ? data : []);
       } catch {
-        setApiResults([]);
+        if (active) setSearchError(true);
       } finally {
-        setSearching(false);
+        if (active) setSearching(false);
       }
     }, 300);
     return () => {
+      active = false;
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, selectedCategory, userLocation]);
+  }, [query, selectedCategory, feeLat, feeLon, retrySearch]);
 
   const filtered = apiResults.filter((r) => {
     const matchRating = minRating === null || r.rating >= minRating;
@@ -208,7 +219,7 @@ export default function SearchScreen() {
             onChangeText={setQuery}
             onSubmitEditing={handleSubmit}
             returnKeyType="search"
-            textAlign="left"
+            textAlign="right"
           />
           {query.length > 0 && (
             <TouchableOpacity onPress={() => setQuery("")}>
@@ -220,11 +231,8 @@ export default function SearchScreen() {
 
       {/* Filters */}
       <View style={[styles.filtersWrapper, { borderBottomColor: colors.border }]}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filtersScroll}
-        >
+        <Text style={[styles.groupLabel, {color: colors.mutedForeground}]}>{t("search.sortTitle")}</Text>
+        <View style={styles.filterGrid}>
           {SORT_OPTIONS.map((opt) => (
             <TouchableOpacity
               key={opt.id}
@@ -251,7 +259,9 @@ export default function SearchScreen() {
             </TouchableOpacity>
           ))}
 
-          <View style={[styles.filterDivider, { backgroundColor: colors.border }]} />
+        </View>
+        <Text style={[styles.groupLabel, {color: colors.mutedForeground}]}>{t("search.filtersTitle")}</Text>
+        <View style={styles.filterGrid}>
 
           <TouchableOpacity
             style={[
@@ -294,7 +304,7 @@ export default function SearchScreen() {
               {t("search.filters.stars")}
             </Text>
           </TouchableOpacity>
-        </ScrollView>
+        </View>
 
         <ScrollView
           horizontal
@@ -305,7 +315,7 @@ export default function SearchScreen() {
             <TouchableOpacity
               key={cat.id}
               style={[
-                styles.filterChip,
+                styles.filterChip, {width: "auto", minWidth: 88},
                 {
                   backgroundColor: selectedCategory === cat.id ? colors.primary : colors.card,
                   borderColor: selectedCategory === cat.id ? colors.primary : colors.border,
@@ -372,7 +382,11 @@ export default function SearchScreen() {
               </View>
             )}
 
-            {showResults && !searching && filtered.length === 0 && (
+            {showResults && !searching && searchError && <View style={styles.emptyContainer}>
+              <Text accessibilityRole="alert" style={[styles.emptyTitle, {color:colors.foreground}]}>{t("search.loadFailed")}</Text>
+              <TouchableOpacity accessibilityRole="button" onPress={()=>setRetrySearch(n=>n+1)}><Text style={{color:colors.primary}}>{t("common.retry")}</Text></TouchableOpacity>
+            </View>}
+            {showResults && !searching && !searchError && filtered.length === 0 && (
               <View style={styles.emptyContainer}>
                 <View style={[styles.emptyIcon, { backgroundColor: colors.secondary }]}>
                   <MaterialIcons name="search-off" size={40} color={colors.primary} />
@@ -464,23 +478,26 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 15 },
   filtersWrapper: {
     borderBottomWidth: 1,
-    paddingVertical: 8,
+    paddingVertical: 12, gap: 8, flexShrink: 0,
   },
+  groupLabel: {fontSize: 12, fontWeight: "600", paddingHorizontal: 16, textAlign: "right"},
+  filterGrid: {flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16},
   filtersScroll: {
     paddingHorizontal: 16,
     gap: 8,
     alignItems: "center",
   },
   filterChip: {
+    width: "48%", minHeight: 44, flexShrink: 0, justifyContent: "center",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 20,
+    borderRadius: 12,
     borderWidth: 1,
-    gap: 5,
+    gap: 6,
   },
-  filterChipText: { fontSize: 12, fontWeight: "600" },
+  filterChipText: { fontSize: 13, fontWeight: "600", textAlign: "center", flexShrink: 1 },
   filterDivider: {
     width: 1,
     height: 24,

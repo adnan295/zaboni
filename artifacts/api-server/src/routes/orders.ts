@@ -1,3 +1,4 @@
+import { creationIdentity, previousOrderCreation, createOrderOnce, OrderCreationError } from "../lib/orderCreation";
 import { getDamascusNow, computeIsOpenFromHours, getHoursForRestaurants } from "../lib/restaurantHours";
 import { dispatchOrderNow } from "../lib/orderDispatch";
 import { Router, type IRouter, type Request } from "express";
@@ -464,6 +465,7 @@ router.post("/orders/validate-promo", async (req, res) => {
 });
 
 router.post("/orders", async (req, res) => {
+ try {
   const body = createOrderSchema.safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ error: "Invalid request body" });
@@ -471,6 +473,9 @@ router.post("/orders", async (req, res) => {
   }
 
   const userId = resolveUserId(req);
+  const identity = creationIdentity(req.headers?.["idempotency-key"], body.data);
+  const previous = await previousOrderCreation(userId, identity);
+  if (previous) { res.status(201).json(previous); return; }
 
   // Require the customer's map location on every order. Without it the delivery
   // fee (distance-based) and the courier's navigation cannot be computed, so we
@@ -538,16 +543,17 @@ router.post("/orders", async (req, res) => {
       orderType: "errand",
       placeName,
     };
-    await db.transaction(async (tx) => {
+    const outcome = await createOrderOnce(userId, identity, async (tx) => {
       await tx.insert(ordersTable).values(errandOrder);
       await tx.insert(orderStatusHistoryTable).values({
         id: `${id}_searching`,
         orderId: id,
         status: "searching",
       });
+      return { ...errandOrder, items: [] };
     });
-    void dispatchOrderNow(id);
-    res.status(201).json({ ...errandOrder, items: [] });
+    if (!outcome.replayed) void dispatchOrderNow(id);
+    res.status(201).json(outcome.response);
     return;
   }
 
@@ -859,7 +865,7 @@ router.post("/orders", async (req, res) => {
     }
   }
 
-  const rows = await db.transaction(async (tx) => {
+  const rows = await createOrderOnce(userId, identity, async (tx) => {
     let appliedFlashDeal: { id: string; discountAmount: number } | null = null;
     if (flashDealSnapshot) {
       const updated = await tx
@@ -965,7 +971,25 @@ router.post("/orders", async (req, res) => {
     if (loyaltyRedeemData) {
       await redeemPointsInTx(tx, userId, id, loyaltyRedeemData.points, { pointValue: loyaltyPointValue });
     }
-    return { inserted, appliedFlashDeal };
+    return {
+      ...inserted[0],
+      items: computedOrderItems.map((ci, idx) => ({
+        menuItemId: ci.menuItemId,
+        nameAr: ci.nameAr,
+        unitPrice: ci.unitPrice,
+        qty: ci.qty,
+        lineTotal: ci.lineTotal,
+        note: ci.note ?? null,
+        options: pendingItemOptions
+          .filter((p) => p.itemIdx === idx)
+          .map((p) => ({ optionId: p.optionId, nameAr: p.nameAr, extraPrice: p.extraPrice })),
+      })),
+      appliedPromo: promoUseData ? true : false,
+      appliedFlashDeal: appliedFlashDeal ? true : false,
+      pointsDiscount: loyaltyRedeemData?.discountAmount ?? 0,
+      pointsRedeemed: loyaltyRedeemData?.points ?? 0,
+      subscriberDiscount: subscribed,
+    };
   }).catch((error: unknown) => {
     if (error instanceof Error && error.message === "Insufficient loyalty points") return null;
     throw error;
@@ -975,33 +999,16 @@ router.post("/orders", async (req, res) => {
     return;
   }
 
-  const flashDealData = rows.appliedFlashDeal;
-
-  void dispatchOrderNow(id);
-
-  if (effectiveRestaurantId) {
-    notifyRestaurantNewOrder(effectiveRestaurantId, rows.inserted[0]);
+  if (!rows.replayed) {
+    void dispatchOrderNow(id);
+    if (effectiveRestaurantId) notifyRestaurantNewOrder(effectiveRestaurantId, rows.response);
   }
 
-  res.status(201).json({
-    ...rows.inserted[0],
-    items: computedOrderItems.map((ci, idx) => ({
-      menuItemId: ci.menuItemId,
-      nameAr: ci.nameAr,
-      unitPrice: ci.unitPrice,
-      qty: ci.qty,
-      lineTotal: ci.lineTotal,
-      note: ci.note ?? null,
-      options: pendingItemOptions
-        .filter((p) => p.itemIdx === idx)
-        .map((p) => ({ optionId: p.optionId, nameAr: p.nameAr, extraPrice: p.extraPrice })),
-    })),
-    appliedPromo: promoUseData ? true : false,
-    appliedFlashDeal: flashDealData ? true : false,
-    pointsDiscount: loyaltyRedeemData?.discountAmount ?? 0,
-    pointsRedeemed: loyaltyRedeemData?.points ?? 0,
-    subscriberDiscount: subscribed,
-  });
+  res.status(201).json(rows.response);
+ } catch (error) {
+  if (error instanceof OrderCreationError) { res.status(error.status).json({error:error.code}); return; }
+  throw error;
+ }
 });
 
 router.get("/orders/ratings", async (req, res) => {

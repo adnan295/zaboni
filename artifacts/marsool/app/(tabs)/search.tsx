@@ -1,3 +1,4 @@
+import * as Location from "expo-location";
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   View,
@@ -8,7 +9,6 @@ import {
   ScrollView,
   Platform,
   ActivityIndicator,
-  Dimensions,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -59,11 +59,8 @@ const CATEGORIES: CategoryItem[] = [
   { key: "مشروبات", labelAr: "مشروبات", labelEn: "Drinks",  icon: "local-cafe",      color: "#fff", bg: "#00897b" },
 ];
 
-const { width: SCREEN_W } = Dimensions.get("window");
 const CARD_GAP = 12;
 const CARD_H_PAD = 16;
-const COLS = 3;
-const CARD_W = (SCREEN_W - CARD_H_PAD * 2 - CARD_GAP * (COLS - 1)) / COLS;
 
 export default function SearchTabScreen() {
   const colors = useColors();
@@ -77,6 +74,8 @@ export default function SearchTabScreen() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<RestaurantItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchError, setSearchError] = useState(false);
+  const [retrySearch, setRetrySearch] = useState(0);
   const [sortBy, setSortBy] = useState<SortOption>("priority");
   const [openOnly, setOpenOnly] = useState(false);
   const [freeDelivery, setFreeDelivery] = useState(false);
@@ -86,12 +85,25 @@ export default function SearchTabScreen() {
   const [popularLoading, setPopularLoading] = useState(true);
 
   const inputRef = useRef<TextInput>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { defaultAddress } = useAddresses();
   // Price cards from the delivery address so the fee matches checkout.
-  const feeLat = defaultAddress?.latitude ?? undefined;
-  const feeLon = defaultAddress?.longitude ?? undefined;
+  const [userLocation, setUserLocation] = useState<{lat: number; lon: number} | null>(null);
+  useEffect(() => {
+    if (defaultAddress?.latitude != null && defaultAddress?.longitude != null) return;
+    let active = true;
+    void (async () => {
+      try {
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (permission.status !== "granted") return;
+        const position = await Location.getCurrentPositionAsync({accuracy: Location.Accuracy.Balanced});
+        if (active) setUserLocation({lat: position.coords.latitude, lon: position.coords.longitude});
+      } catch { /* Keep the fallback order when location is unavailable. */ }
+    })();
+    return () => { active = false; };
+  }, [defaultAddress?.latitude, defaultAddress?.longitude]);
+  const feeLat = defaultAddress?.latitude ?? userLocation?.lat;
+  const feeLon = defaultAddress?.longitude ?? userLocation?.lon;
   const locParam = feeLat != null && feeLon != null ? `&lat=${feeLat}&lon=${feeLon}` : "";
 
   // Fetch popular restaurants on mount (used in empty state)
@@ -102,63 +114,41 @@ export default function SearchTabScreen() {
       .finally(() => setPopularLoading(false));
   }, [locParam]);
 
-  const doSearch = useCallback(async (q: string, opts?: {
-    sort?: SortOption;
-    open?: boolean;
-    free?: boolean;
-    top?: boolean;
-  }) => {
-    const trimmed = q.trim();
-    if (!trimmed) { setResults([]); return; }
+  useEffect(() => {
+    let active = true;
+    setResults([]);
+    setSearchError(false);
+    const trimmed = query.trim();
+    if (!trimmed) { setLoading(false); return; }
     setLoading(true);
-    try {
-      const params = new URLSearchParams({ search: trimmed, sortBy: opts?.sort ?? sortBy });
-      if (opts?.open ?? openOnly) params.set("openOnly", "1");
-      if (opts?.free ?? freeDelivery) params.set("freeDelivery", "1");
-      if (opts?.top ?? topRated) params.set("minRating", "4");
-      if (feeLat != null && feeLon != null) { params.set("lat", String(feeLat)); params.set("lon", String(feeLon)); }
-      const data = await customFetch<RestaurantItem[]>(`/api/restaurants?${params.toString()}`);
-      setResults(data ?? []);
-    } catch {
-      setResults([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [sortBy, openOnly, freeDelivery, topRated, feeLat, feeLon]);
+    const timer = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ search: trimmed, sortBy });
+        if (openOnly) params.set("openOnly", "1");
+        if (freeDelivery) params.set("freeDelivery", "1");
+        if (topRated) params.set("minRating", "4");
+        if (feeLat != null && feeLon != null) { params.set("lat", String(feeLat)); params.set("lon", String(feeLon)); }
+        const data = await customFetch<RestaurantItem[]>(`/api/restaurants?${params.toString()}`);
+        if (active) setResults(data ?? []);
+      } catch { if (active) setSearchError(true); }
+      finally { if (active) setLoading(false); }
+    }, 400);
+    return () => { active = false; clearTimeout(timer); };
+  }, [query, sortBy, openOnly, freeDelivery, topRated, feeLat, feeLon, retrySearch]);
 
-  const handleChange = (text: string) => {
-    setQuery(text);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => doSearch(text), 400);
-  };
-
-  const handleSubmit = () => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    doSearch(query);
-  };
-
+  const handleChange = (text: string) => { setQuery(text); setResults([]); setSearchError(false); setLoading(!!text.trim()); };
+  const handleSubmit = () => setRetrySearch(n => n + 1);
   const handleCategoryTap = (cat: CategoryItem) => {
-    const label = isAr ? cat.labelAr : cat.labelEn;
-    setQuery(label);
-    setSortBy("priority");
-    setOpenOnly(false);
-    setFreeDelivery(false);
-    setTopRated(false);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    doSearch(label, { sort: "priority", open: false, free: false, top: false });
+    handleChange(isAr ? cat.labelAr : cat.labelEn);
+    setSortBy("priority"); setOpenOnly(false); setFreeDelivery(false); setTopRated(false);
   };
-
-  const handleSuggestionTap = (s: string) => {
-    setQuery(s);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    doSearch(s);
-  };
+  const handleSuggestionTap = handleChange;
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const isSearching = query.trim().length > 0;
 
   const SORT_OPTIONS: { key: SortOption; label: string }[] = [
-    { key: "priority",     label: t("search.sort.recommended") },
+    { key: "priority",     label: t(feeLat != null && feeLon != null ? "search.sort.nearest" : "search.sort.recommended") },
     { key: "rating",       label: t("search.sort.rating") },
     { key: "fastest",      label: t("search.sort.fastest") },
     { key: "delivery_fee", label: t("search.sort.fee") },
@@ -200,7 +190,6 @@ export default function SearchTabScreen() {
           {query.length > 0 && (
             <TouchableOpacity
               onPress={() => {
-                if (debounceRef.current) clearTimeout(debounceRef.current);
                 setQuery("");
                 setResults([]);
               }}
@@ -214,29 +203,29 @@ export default function SearchTabScreen() {
 
       {/* ─── Sort + Filter chips (only when searching) ─── */}
       {isSearching && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.chipsWrap}
-          contentContainerStyle={styles.chipsRow}
-        >
+        <View style={styles.chipsWrap}>
+          <Text style={[styles.groupLabel, {color: colors.mutedForeground}]}>{t("search.sortTitle")}</Text>
+          <View style={styles.chipsRow}>
           {SORT_OPTIONS.map((opt) => {
             const active = sortBy === opt.key;
             return (
               <TouchableOpacity
                 key={opt.key}
                 style={[styles.chip, { backgroundColor: active ? colors.primary : colors.card, borderColor: active ? colors.primary : colors.border }]}
-                onPress={() => { setSortBy(opt.key); doSearch(query, { sort: opt.key }); }}
+                onPress={() => { setSortBy(opt.key); }}
               >
                 <Text style={[styles.chipText, { color: active ? "#fff" : colors.foreground }]}>{opt.label}</Text>
               </TouchableOpacity>
             );
           })}
 
+          </View>
+          <Text style={[styles.groupLabel, {color: colors.mutedForeground}]}>{t("search.filtersTitle")}</Text>
+          <View style={styles.chipsRow}>
           {/* Open now */}
           <TouchableOpacity
             style={[styles.chip, { backgroundColor: openOnly ? colors.primary : colors.card, borderColor: openOnly ? colors.primary : colors.border, flexDirection: "row", gap: 4 }]}
-            onPress={() => { const next = !openOnly; setOpenOnly(next); doSearch(query, { open: next }); }}
+            onPress={() => { const next = !openOnly; setOpenOnly(next); }}
           >
             <MaterialIcons name="store" size={13} color={openOnly ? "#fff" : colors.foreground} />
             <Text style={[styles.chipText, { color: openOnly ? "#fff" : colors.foreground }]}>{t("home.openOnly")}</Text>
@@ -245,7 +234,7 @@ export default function SearchTabScreen() {
           {/* Free delivery */}
           <TouchableOpacity
             style={[styles.chip, { backgroundColor: freeDelivery ? colors.primary : colors.card, borderColor: freeDelivery ? colors.primary : colors.border, flexDirection: "row", gap: 4 }]}
-            onPress={() => { const next = !freeDelivery; setFreeDelivery(next); doSearch(query, { free: next }); }}
+            onPress={() => { const next = !freeDelivery; setFreeDelivery(next); }}
           >
             <MaterialIcons name="delivery-dining" size={13} color={freeDelivery ? "#fff" : colors.foreground} />
             <Text style={[styles.chipText, { color: freeDelivery ? "#fff" : colors.foreground }]}>{t("search.filters.freeDelivery")}</Text>
@@ -254,12 +243,13 @@ export default function SearchTabScreen() {
           {/* Top rated */}
           <TouchableOpacity
             style={[styles.chip, { backgroundColor: topRated ? "#FFB800" : colors.card, borderColor: topRated ? "#FFB800" : colors.border, flexDirection: "row", gap: 4 }]}
-            onPress={() => { const next = !topRated; setTopRated(next); doSearch(query, { top: next }); }}
+            onPress={() => { const next = !topRated; setTopRated(next); }}
           >
             <MaterialIcons name="star" size={13} color={topRated ? "#fff" : "#FFB800"} />
             <Text style={[styles.chipText, { color: topRated ? "#fff" : colors.foreground }]}>{t("search.filters.stars")}</Text>
           </TouchableOpacity>
-        </ScrollView>
+          </View>
+        </View>
       )}
 
       {/* ─── Loading (search results) ─── */}
@@ -280,7 +270,7 @@ export default function SearchTabScreen() {
             {CATEGORIES.map((cat) => (
               <TouchableOpacity
                 key={cat.key}
-                style={[styles.catCard, { backgroundColor: cat.bg, width: CARD_W }]}
+                style={[styles.catCard, { backgroundColor: cat.bg }]}
                 onPress={() => handleCategoryTap(cat)}
                 activeOpacity={0.85}
               >
@@ -326,8 +316,12 @@ export default function SearchTabScreen() {
         </ScrollView>
       )}
 
+      {!loading && isSearching && searchError && <View style={styles.center}>
+        <Text accessibilityRole="alert" style={[styles.noResultText, {color: colors.foreground}]}>{t("search.loadFailed")}</Text>
+        <TouchableOpacity accessibilityRole="button" onPress={handleSubmit}><Text style={{color:colors.primary}}>{t("common.retry")}</Text></TouchableOpacity>
+      </View>}
       {/* ─── No results ─── */}
-      {!loading && isSearching && results.length === 0 && (
+      {!loading && !searchError && isSearching && results.length === 0 && (
         <View style={styles.center}>
           <MaterialIcons name="search-off" size={52} color={colors.mutedForeground} />
           <Text style={[styles.noResultText, { color: colors.foreground }]}>
@@ -372,9 +366,10 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
 
   /* Header */
-  header: { paddingHorizontal: 16, paddingBottom: 14 },
-  backBtn: { marginBottom: 10 },
+  header: { paddingHorizontal: 16, paddingBottom: 14, flexDirection: "row", alignItems: "center", gap: 10 },
+  backBtn: { width: 44, height: 48, alignItems: "center", justifyContent: "center" },
   searchBox: {
+    flex: 1, minHeight: 48,
     flexDirection: "row",
     alignItems: "center",
     borderRadius: 12,
@@ -385,17 +380,19 @@ const styles = StyleSheet.create({
   input: { flex: 1, fontSize: 15, padding: 0 },
 
   /* Chips */
-  chipsWrap: { flexGrow: 0 },
-  chipsRow: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
+  chipsWrap: { flexShrink: 0, paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
+  groupLabel: { fontSize: 12, fontWeight: "600", textAlign: "right" },
+  chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
+    width: "48%", minHeight: 44, flexShrink: 0, justifyContent: "center", gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    borderRadius: 12,
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
   },
-  chipText: { fontSize: 13, fontWeight: "600" },
+  chipText: { fontSize: 13, fontWeight: "600", textAlign: "center", flexShrink: 1 },
 
   /* Helpers */
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, paddingHorizontal: 24 },
@@ -409,7 +406,7 @@ const styles = StyleSheet.create({
     gap: CARD_GAP,
   },
   catCard: {
-    height: 90,
+    width: "30%", minHeight: 96, paddingVertical: 12,
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",

@@ -655,11 +655,13 @@ export const api = {
       method: "DELETE",
     }),
 
-  getOrders: (page = 1, limit = 50, dateFrom?: string, dateTo?: string, orderId?: string) => {
+  getOrders: (page = 1, limit = 50, dateFrom?: string, dateTo?: string, orderId?: string, search?: string, status?: string) => {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo) params.set("dateTo", dateTo);
     if (orderId) params.set("orderId", orderId);
+    if (search) params.set("search", search);
+    if (status && status !== "all") params.set("status", status);
     return apiFetch<OrdersPage>(`/admin/orders?${params.toString()}`);
   },
   getActiveOrders: () => apiFetch<Order[]>("/admin/orders/active"),

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, type Order, ORDER_STATUSES } from "@/lib/api";
 import { Input } from "@/components/ui/input";
@@ -76,7 +76,7 @@ function exportCSV(orders: Order[]) {
 }
 
 export default function Orders() {
-  const [urlOrderId] = useState(() => {
+  const [urlOrderId, setUrlOrderId] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get("orderId") ?? "";
   });
@@ -94,9 +94,9 @@ export default function Orders() {
   // When navigated from an SLA alert, use server-side orderId filter to bypass pagination
   const apiOrderId = urlOrderId || undefined;
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["admin", "orders", page, apiDateFrom, apiDateTo, apiOrderId],
-    queryFn: () => api.getOrders(page, PAGE_SIZE, apiDateFrom, apiDateTo, apiOrderId),
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["admin", "orders", page, apiDateFrom, apiDateTo, apiOrderId, search, statusFilter],
+    queryFn: () => api.getOrders(page, PAGE_SIZE, apiDateFrom, apiDateTo, apiOrderId, search, statusFilter),
     refetchInterval: 15_000,
   });
 
@@ -104,23 +104,12 @@ export default function Orders() {
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
-  const filtered = orders.filter((o) => {
-    const matchesSearch =
-      !search ||
-      o.id.toLowerCase().includes(search.toLowerCase()) ||
-      o.orderText.includes(search) ||
-      o.restaurantName.toLowerCase().includes(search.toLowerCase()) ||
-      o.address.toLowerCase().includes(search.toLowerCase()) ||
-      o.courierName.toLowerCase().includes(search.toLowerCase()) ||
-      (o.customerName ?? "").toLowerCase().includes(search.toLowerCase());
-    const matchesStatus =
-      statusFilter === "all" || o.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const filtered = orders;
 
   const hasActiveFilters = search || statusFilter !== "all" || dateFrom || dateTo;
 
   function resetFilters() {
+    setUrlOrderId("");
     setSearch("");
     setStatusFilter("all");
     setDateFrom("");
@@ -151,6 +140,7 @@ export default function Orders() {
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
+              setUrlOrderId("");
               setPage(1);
             }}
             className="max-w-xs"
@@ -222,6 +212,7 @@ export default function Orders() {
         </span>
       </div>
 
+      {isError ? <div role="alert" className="text-destructive">تعذّر تحديث الطلبات. <Button variant="outline" onClick={() => refetch()}>إعادة المحاولة</Button></div> : null}
       {isLoading ? (
         <div className="border rounded-lg overflow-hidden bg-card shadow-sm animate-pulse">
           <div className="bg-muted/50 h-11 border-b" />
@@ -238,7 +229,7 @@ export default function Orders() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <p className="text-muted-foreground">لا توجد طلبات.</p>
+        !isError && <p className="text-muted-foreground">لا توجد طلبات.</p>
       ) : (
         <div className="border rounded-lg overflow-hidden bg-card shadow-sm">
           <table className="w-full text-sm">
@@ -293,6 +284,7 @@ function OrderRow({ order }: { order: Order }) {
   const [expanded, setExpanded] = useState(false);
   const [pendingStatus, setPendingStatus] = useState(order.status);
   const qc = useQueryClient();
+  useEffect(() => { setPendingStatus(order.status); }, [order.status]);
 
   const statusMutation = useMutation({
     mutationFn: (status: string) => api.updateOrderStatus(order.id, status),

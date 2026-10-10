@@ -86,7 +86,8 @@
     "errandCard": {
       "title": "Order from Anywhere",
       "subtitle": "Send a courier to any shop or supermarket"
-    }
+    },
+    "loadFailed": "Could not load restaurants. Check your connection and try again."
   },
   "errand": {
     "title": "Order from Anywhere",
@@ -248,7 +249,8 @@
       "recommended": "Recommended",
       "fastest": "Fastest",
       "rating": "Top Rated",
-      "fee": "Lowest Fee"
+      "fee": "Lowest Fee",
+      "nearest": "Nearest to you"
     },
     "filters": {
       "freeDelivery": "Free Delivery",
@@ -278,7 +280,10 @@
       "Coffee",
       "Chicken",
       "Snacks"
-    ]
+    ],
+    "loadFailed": "Could not load search results. Check your connection and try again.",
+    "sortTitle": "Sort results",
+    "filtersTitle": "Filter results"
   },
   "notifications": {
     "title": "Notifications",
@@ -477,7 +482,10 @@
     "subtotal": "Subtotal",
     "total": "Total",
     "flashDealBannerDesc": "A {{discount}} discount will be applied to your full order automatically",
-    "itemSavings": "You saved {{amount}} SYP on this order 🎉"
+    "itemSavings": "You saved {{amount}} SYP on this order 🎉",
+    "feeUnavailable": "Could not calculate delivery. Retry before placing your order.",
+    "feeNeedsAddress": "Choose an address on the map to calculate delivery.",
+    "waitingForFee": "Waiting for delivery fee"
   },
   "payment": {
     "cashOnDelivery": "Cash on Delivery 💵",

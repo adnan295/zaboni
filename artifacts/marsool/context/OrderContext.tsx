@@ -6,6 +6,9 @@ import React, {
   useRef,
   useEffect,
 } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Crypto from "expo-crypto";
+import { createCheckoutSender } from "@/lib/checkoutRequest";
 import { customFetch } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -127,6 +130,18 @@ const TERMINAL_STATUSES: OrderStatus[] = ["delivered", "cancelled"];
 export function OrderProvider({ children }: { children: React.ReactNode }) {
   const { user, isLoading: authLoading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
+  const currentUserId = useRef(user?.id);
+  currentUserId.current = user?.id;
+  const checkoutSender = useRef<ReturnType<typeof createCheckoutSender> | null>(null);
+  if (!checkoutSender.current) checkoutSender.current = createCheckoutSender({
+    storage: AsyncStorage,
+    digest: body => Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, body),
+    randomKey: () => Crypto.randomUUID(),
+    send: (body, key, userId) => {
+      if (currentUserId.current !== userId) throw new Error("تغيّر الحساب، يرجى إعادة فتح الطلب");
+      return customFetch("/api/orders", { method: "POST", body, headers: { "Idempotency-Key": key } });
+    },
+  });
   const statusChangeHandler = useRef<((order: Order, newStatus: OrderStatus) => void) | null>(null);
   const prevStatusMapRef = useRef<Record<string, OrderStatus>>({});
 
@@ -181,9 +196,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   const placeOrder = useCallback(
     async (input: PlaceOrderInput): Promise<Order> => {
       const { items, orderText, restaurantName, address, promoCode, lat, lon, restaurantId, usePoints, flashDealId, orderType, placeName, restaurantNote } = input;
-      const result = await customFetch("/api/orders", {
-        method: "POST",
-        body: JSON.stringify({
+      const result = await checkoutSender.current!(user?.id ?? "", JSON.stringify({
           ...(items && items.length > 0 ? { items } : {}),
           ...(orderText ? { orderText } : {}),
           restaurantName,
@@ -197,8 +210,8 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
           ...(orderType ? { orderType } : {}),
           ...(placeName ? { placeName } : {}),
           ...(restaurantNote ? { restaurantNote } : {}),
-        }),
-      });
+        }));
+      if (currentUserId.current !== user?.id) throw new Error("تغيّر الحساب أثناء إرسال الطلب");
       const newOrder = apiOrderToLocal(result as Parameters<typeof apiOrderToLocal>[0]);
       setOrders((prev) => {
         if (prev.some((o) => o.id === newOrder.id)) return prev;
@@ -207,7 +220,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
 
       return newOrder;
     },
-    []
+    [user?.id]
   );
 
   const getOrder = useCallback(

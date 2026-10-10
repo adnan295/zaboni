@@ -1,3 +1,4 @@
+import { literalSearchPattern, applyRestaurantSearchOptions, compareRestaurantDistance } from "../lib/restaurantSearch";
 import { getDamascusNow, computeIsOpenFromHours, getHoursForRestaurants } from "../lib/restaurantHours";
 import { Router, type IRouter, type Request } from "express";
 import { db, restaurantsTable, menuItemsTable, restaurantHoursTable, promoBannersTable, restaurantCategoriesTable, restaurantCategorySortOrdersTable, homeSectionItemsTable, categoryRestaurantExclusionsTable, flashDealsTable, menuItemOptionGroupsTable, menuItemOptionsTable } from "@workspace/db";
@@ -35,26 +36,24 @@ router.get("/restaurants", async (req, res) => {
   const categoryId = typeof req.query["categoryId"] === "string" ? req.query["categoryId"].trim() : "";
   const lat = typeof req.query["lat"] === "string" ? parseFloat(req.query["lat"]) : null;
   const lon = typeof req.query["lon"] === "string" ? parseFloat(req.query["lon"]) : null;
-  const hasLocation = lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon);
+  const hasLocation = lat !== null && lon !== null && Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
   const hasCategoryId = categoryId && categoryId !== "all";
 
   let query = db.select().from(restaurantsTable).$dynamic();
 
   const conditions = [];
   if (search) {
+    const pattern = literalSearchPattern(search);
     conditions.push(
-      sql`(${restaurantsTable.name} ILIKE ${"%" + search + "%"} OR ${restaurantsTable.nameAr} ILIKE ${"%" + search + "%"} OR ${restaurantsTable.category} ILIKE ${"%" + search + "%"} OR ${restaurantsTable.categoryAr} ILIKE ${"%" + search + "%"})`
+      sql`(${restaurantsTable.name} ILIKE ${pattern} OR ${restaurantsTable.nameAr} ILIKE ${pattern} OR ${restaurantsTable.category} ILIKE ${pattern} OR ${restaurantsTable.categoryAr} ILIKE ${pattern} OR EXISTS (SELECT 1 FROM ${menuItemsTable} WHERE ${menuItemsTable.restaurantId} = ${restaurantsTable.id} AND ${menuItemsTable.isAvailable} = true AND (${menuItemsTable.nameAr} ILIKE ${pattern} OR ${menuItemsTable.name} ILIKE ${pattern})))`
     );
   }
   if (category) {
     conditions.push(
-      sql`(${restaurantsTable.category} ILIKE ${"%" + category + "%"} OR ${restaurantsTable.categoryAr} ILIKE ${"%" + category + "%"})`
+      sql`(${restaurantsTable.category} ILIKE ${literalSearchPattern(category)} OR ${restaurantsTable.categoryAr} ILIKE ${literalSearchPattern(category)})`
     );
   }
 
-  if (conditions.length > 0) {
-    query = query.where(and(...conditions));
-  }
 
   // Filter out restaurants excluded from this category
   if (hasCategoryId) {
@@ -64,10 +63,11 @@ router.get("/restaurants", async (req, res) => {
       .where(eq(categoryRestaurantExclusionsTable.categoryId, categoryId));
     if (excluded.length > 0) {
       const excludedIds = excluded.map((e) => e.restaurantId);
-      query = query.where(notInArray(restaurantsTable.id, excludedIds));
+      conditions.push(notInArray(restaurantsTable.id, excludedIds));
     }
   }
 
+  if (conditions.length > 0) query = query.where(and(...conditions));
   let rows = await query;
 
   // Geographic scoping: when coverage areas (regions/cities) are configured and
@@ -188,8 +188,13 @@ router.get("/restaurants", async (req, res) => {
   });
 
   result.sort((a, b) => {
-    // Closed restaurants always sink to the bottom; open ones stay on top.
-    // Within each group (open / closed) the configured ordering below applies.
+    // Default discovery is nearest to the delivery location, before manual ranking.
+    // Explicit search sorting is applied after this default order.
+    if (hasLocation) {
+      const distanceOrder = compareRestaurantDistance(a, b);
+      if (distanceOrder !== 0) return distanceOrder;
+    }
+    // Preserve open-first/manual ranking for ties or when location is unavailable.
     if (a.isOpen !== b.isOpen) return a.isOpen ? -1 : 1;
     if (hasCategoryId) {
       // 1. category-specific order (nulls last)
@@ -214,17 +219,13 @@ router.get("/restaurants", async (req, res) => {
       if (aPriority !== null) return -1;
       if (bPriority !== null) return 1;
 
-      if (hasLocation) {
-        const aDist = a.distanceKm ?? Infinity;
-        const bDist = b.distanceKm ?? Infinity;
-        if (Math.abs(aDist - bDist) > 0.1) return aDist - bDist;
-      }
+
 
       return b.rating - a.rating;
     }
   });
 
-  res.json(result);
+  res.json(applyRestaurantSearchOptions(result, req.query));
 });
 
 router.get("/restaurants/food-categories", async (_req, res) => {

@@ -561,12 +561,12 @@ export default function ActiveOrderScreen() {
               onPress={handleNavigate}
               style={[
                 styles.statusBtn,
-                { backgroundColor: "#EAF0F5", flexDirection: "row", gap: 8 },
+                { backgroundColor: colors.secondary, flexDirection: "row", gap: 8 },
               ]}
             >
-              <MaterialIcons name="navigation" size={23} color="#172B3A" />
+              <MaterialIcons name="navigation" size={23} color={colors.primary} />
               <Text
-                style={{ color: "#172B3A", fontSize: 17, fontWeight: "700" }}
+                style={{ color: colors.primary, fontSize: 17, fontWeight: "700", flexShrink: 1, textAlign: "center" }}
               >
                 {navigatesToRestaurant
                   ? "الاتجاه إلى مكان الاستلام"
@@ -1143,7 +1143,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  callBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  callBtnText: { flexShrink: 1, textAlign: "center", color: "#fff", fontSize: 15, fontWeight: "700" },
   chatBtn: {
     flexGrow: 1,
     flexBasis: "45%",
@@ -1156,7 +1156,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 14,
   },
-  chatBtnText: { fontSize: 15, fontWeight: "700" },
+  chatBtnText: { flexShrink: 1, textAlign: "center", fontSize: 15, fontWeight: "700" },
   errandBadge: {
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -1171,7 +1171,7 @@ const styles = StyleSheet.create({
     minHeight: 56,
     borderRadius: 16,
   },
-  statusBtnText: { color: "#fff", fontSize: 18, fontWeight: "700" },
+  statusBtnText: { flexShrink: 1, textAlign: "center", color: "#fff", fontSize: 18, fontWeight: "700" },
   cancelBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -1200,8 +1200,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    backgroundColor: "#1a73e8",
+    backgroundColor: "#C92535",
     paddingVertical: 12,
   },
-  mapNavigateBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  mapNavigateBtnText: { flexShrink: 1, textAlign: "center", color: "#fff", fontSize: 14, fontWeight: "700" },
 });
