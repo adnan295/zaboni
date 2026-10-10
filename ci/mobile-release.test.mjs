@@ -57,6 +57,7 @@ function signingFixture(t) {
   const env = {
     PATH: `${bin}${path.delimiter}${process.env.PATH}`,
     ANDROID_KEYSTORE_BASE64: Buffer.from('test keystore').toString('base64'),
+    PLAY_TRACK: 'production',
     ANDROID_STORE_PASSWORD: 'test-password', ANDROID_KEY_PASSWORD: 'test-password', ANDROID_KEY_ALIAS: 'test',
     ANDROID_UPLOAD_CERT_SHA256: 'AB'.repeat(32),
     PLAY_SERVICE_ACCOUNT_JSON: JSON.stringify({ type: 'service_account', client_email: 'test@example.invalid', private_key: 'test key' }),
