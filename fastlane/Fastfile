@@ -41,7 +41,7 @@ platform :ios do
     UI.user_error!('A production push profile is required') unless entitlements['aps-environment'] == 'production'
     UI.user_error!('An App Store distribution profile is required') if
       entitlements['get-task-allow'] || profile['ProvisionedDevices'] || profile['ProvisionsAllDevices']
-    UI.user_error!('Provisioning profile has expired') unless profile.fetch('ExpirationDate') > Time.now
+    UI.user_error!('Provisioning profile has expired') unless profile.fetch('ExpirationDate').to_time > Time.now
     keychain = "zaboni-#{ENV.fetch('GITHUB_RUN_ID', 'local')}.keychain"
     password = SecureRandom.hex(24)
     begin
