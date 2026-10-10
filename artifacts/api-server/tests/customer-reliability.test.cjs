@@ -47,7 +47,9 @@ function load(file, dbState = database(), overrides = {}, expose = '', globals =
   const dbModule = new Proxy({ db: dbState.db }, { get: (o, k) => k in o ? o[k] : k });
   const orm = new Proxy({}, { get: () => (...args) => args });
   const defaults = {
+    '../lib/orderCreation': { creationIdentity: () => null, previousOrderCreation: async () => null, createOrderOnce: (_user, _key, work) => dbState.db.transaction(async tx => ({response: await work(tx), replayed:false})), OrderCreationError: class extends Error {} },
     '../lib/profileUpdate': {},
+    '../lib/orderCompletion': { completeOrderInTx: asyncNoop, notifyReferralReward: noop },
     '../lib/courierDispatchPolicy': { MAX_VISIBLE_RADIUS_KM: 15 },
     '../lib/restaurantHours': file.endsWith('restaurantHours.ts') ? {} : load('artifacts/api-server/src/lib/restaurantHours.ts', dbState).exports,
     express: { Router: () => router },

@@ -1,3 +1,4 @@
+import { CourierAvailability } from "@/components/CourierAvailability";
 import React, { useState, useCallback, useRef } from "react";
 import {
   View,
@@ -7,7 +8,6 @@ import {
   RefreshControl,
   Platform,
   Alert,
-  Switch,
   ActivityIndicator,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
@@ -261,61 +261,19 @@ export default function AvailableOrdersScreen() {
         data={isOnline ? availableOrders : []}
         ListHeaderComponent={
           <View style={{ gap: 16, marginBottom: 16, alignSelf: "stretch" }}>
-            <View
-              style={[
-                styles.toggleRow,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-            >
-              <View style={[styles.toggleInfo, { flex: 1 }]}>
-                <View
-                  style={[
-                    styles.statusDot,
-                    { backgroundColor: isOnline ? "#16805C" : "#596B7A" },
-                  ]}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={[styles.toggleLabel, { color: colors.foreground }]}
-                  >
-                    {isOnline ? "متاح لاستقبال الطلبات" : "أنت غير متاح الآن"}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.toggleSub,
-                      { color: colors.mutedForeground },
-                    ]}
-                  >
-                    {isOnline
-                      ? "سننبهك عند توفر طلب"
-                      : "فعّل الاستقبال لتبدأ العمل"}
-                  </Text>
-                </View>
-              </View>
-              {isTogglingOnline ? (
-                <ActivityIndicator color={colors.primary} />
-              ) : (
-                <Switch
-                  accessibilityLabel="استقبال الطلبات"
-                  value={isOnline}
-                  onValueChange={handleToggleAvailability}
-                  trackColor={{ false: "#CDD6DE", true: "#B6E4D2" }}
-                  thumbColor={isOnline ? "#16805C" : "#596B7A"}
-                />
-              )}
-            </View>
+            <CourierAvailability online={isOnline} busy={isTogglingOnline} onToggle={handleToggleAvailability} />
             {activeCount > 0 && (
               <TouchableOpacity
                 accessibilityRole="button"
                 onPress={() => router.navigate("/(courier)/active")}
                 style={{
-                  backgroundColor: "#172B3A",
+                  backgroundColor: colors.primary,
                   borderRadius: 20,
                   padding: 20,
                   gap: 8,
                 }}
               >
-                <Text style={{ color: "#CAD8E2", fontSize: 13 }}>
+                <Text style={{ color: "#FFF1F2", fontSize: 13 }}>
                   عندك {activeCount} طلب قيد التوصيل
                 </Text>
                 <View
@@ -523,8 +481,8 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 4,
   },
-  row: { flexDirection: "row", alignItems: "center", gap: 4 },
-  metaRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  row: { maxWidth: "100%", flexShrink: 1, flexDirection: "row", alignItems: "center", gap: 4 },
+  metaRow: { flexWrap: "wrap", flexDirection: "row", alignItems: "center", gap: 8 },
   restaurant: { flexShrink: 1, fontSize: 18, fontWeight: "700" },
   feeBadge: {
     flexDirection: "row",
@@ -569,7 +527,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginTop: 4,
   },
-  acceptBtnText: { color: "#fff", fontSize: 17, fontWeight: "700" },
+  acceptBtnText: { flexShrink: 1, textAlign: "center", color: "#fff", fontSize: 17, fontWeight: "700" },
   empty: {
     alignSelf: "stretch",
     alignItems: "center",

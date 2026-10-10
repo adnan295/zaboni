@@ -1,6 +1,7 @@
 import { createServer } from "http";
 import { Server as SocketServer } from "socket.io";
 import app from "./app";
+import { ensureOrderCreationSchema } from "./lib/orderCreation";
 import { setupOrdersNamespace, notifyNearbyCouriers } from "./orders/server";
 import { ensureDispatchSchema, startOrderDispatchJob } from "./lib/orderDispatch";
 import { startPushReceiptJob } from "./lib/push";
@@ -59,6 +60,7 @@ const io = new SocketServer(httpServer, {
 setupOrdersNamespace(io);
 
 await ensureDispatchSchema();
+await ensureOrderCreationSchema();
 
 httpServer.listen(port, (err?: Error) => {
   if (err) {

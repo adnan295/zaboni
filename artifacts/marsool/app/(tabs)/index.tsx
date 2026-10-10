@@ -242,13 +242,13 @@ export default function HomeScreen() {
   const feeLat = defaultAddress?.latitude ?? userLocation?.lat ?? undefined;
   const feeLon = defaultAddress?.longitude ?? userLocation?.lon ?? undefined;
 
-  const { data: allRestaurantsData = [], isLoading, refetch } = useQuery<RestaurantItem[]>({
+  const { data: allRestaurantsData = [], isLoading, isError: isRestaurantsError, refetch } = useQuery<RestaurantItem[]>({
     queryKey: ["restaurants", feeLat, feeLon],
     queryFn: () => fetchRestaurants(feeLat, feeLon),
     staleTime: 2 * 60 * 1000,
   });
 
-  const { data: categoryRestaurantsData = [], isLoading: isCategoryLoading } = useQuery<RestaurantItem[]>({
+  const { data: categoryRestaurantsData = [], isLoading: isCategoryLoading, isError: isCategoryError, refetch: refetchCategory } = useQuery<RestaurantItem[]>({
     queryKey: ["restaurants-by-category", selectedCategory, feeLat, feeLon],
     queryFn: () => fetchRestaurants(feeLat, feeLon, selectedCategory),
     staleTime: 2 * 60 * 1000,
@@ -371,7 +371,7 @@ export default function HomeScreen() {
   const isCategoryFiltered = selectedCategory !== "all";
 
   const filteredRestaurants = useMemo(() => {
-    // When a specific category is selected, use server-returned order (admin-defined per category)
+    // Preserve the server proximity order for all restaurants and categories.
     let list = isCategoryFiltered ? [...categoryRestaurantsData] : [...allRestaurantsData];
     if (openOnly) list = list.filter((r) => r.isOpen);
     // Only re-sort if user explicitly picked a sort option (preserve server order otherwise)
@@ -415,6 +415,8 @@ export default function HomeScreen() {
     return f.labelAr;
   }, [t]);
 
+  const isListError = isCategoryFiltered ? isCategoryError : isRestaurantsError;
+  const retryList = () => { void (isCategoryFiltered ? refetchCategory() : refetch()); };
   const isListLoading = isLoading || (isCategoryFiltered && isCategoryLoading);
 
   const listHeader = (
@@ -703,7 +705,11 @@ export default function HomeScreen() {
             />
           </View>
         )}
-        ListHeaderComponent={listHeader}
+        ListHeaderComponent={<>{listHeader}{isListError && <View style={styles.emptyWrap}>
+          <MaterialIcons name="wifi-off" size={32} color={colors.mutedForeground} />
+          <Text accessibilityRole="alert" style={[styles.emptyText, { color: colors.mutedForeground }]}>{t("home.loadFailed")}</Text>
+          <TouchableOpacity accessibilityRole="button" onPress={retryList}><Text style={{ color: colors.primary }}>{t("common.retry")}</Text></TouchableOpacity>
+        </View>}</>}
         ListEmptyComponent={
           isListLoading ? (
             <View style={styles.restaurantCardWrap}>
@@ -711,7 +717,7 @@ export default function HomeScreen() {
               <RestaurantCardSkeleton />
               <RestaurantCardSkeleton />
             </View>
-          ) : (
+          ) : isListError ? null : (
             <View style={styles.emptyWrap}>
               <MaterialIcons name="search-off" size={48} color={colors.mutedForeground} />
               <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>{t("home.noResults")}</Text>

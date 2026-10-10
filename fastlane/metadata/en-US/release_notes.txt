@@ -1,1 +1,1 @@
-Improved courier notification registration and recovery, clearer notification permission checks, and faster order refresh when opening an alert.
+Improved restaurant search and nearby results, safer order retries and delivery fee checks, and a clearer courier workspace with consolidated subscription management. Reliability fixes for order handling and notifications.

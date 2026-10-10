@@ -116,21 +116,24 @@ export default function CourierEarningsScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <CourierHeader
         title={t("courier.earnings.title")}
+        tone="red"
         subtitle="تابع دخل التوصيلات حسب الفترة"
       />
 
       {/* Period filter tabs — always visible */}
-      <View style={[styles.periodTabs, { backgroundColor: colors.primary }]}>
+      <View style={[styles.periodTabs, { backgroundColor: colors.card, borderColor: colors.border }]}>
         {PERIODS.map((p) => (
           <TouchableOpacity
             key={p.key}
+            accessibilityRole="button"
+            accessibilityState={{ selected: period === p.key }}
             style={[styles.periodTab, period === p.key && styles.periodTabActive]}
             onPress={() => handlePeriodChange(p.key)}
             activeOpacity={0.7}
           >
             <Text style={[
               styles.periodTabText,
-              period === p.key ? styles.periodTabTextActive : { color: "rgba(255,255,255,0.7)" }
+              period === p.key ? styles.periodTabTextActive : { color: colors.mutedForeground }
             ]}>
               {p.label}
             </Text>
@@ -176,16 +179,16 @@ export default function CourierEarningsScreen() {
           {subStatus !== null && (
             <View style={[
               styles.subBadge,
-              { backgroundColor: subStatus.isMonthlySubscriber ? "#f0fdf4" : "#fff7ed",
-                borderColor: subStatus.isMonthlySubscriber ? "#bbf7d0" : "#fed7aa" }
+              { backgroundColor: subStatus.isMonthlySubscriber ? "#EDF8F2" : "#fff7ed",
+                borderColor: subStatus.isMonthlySubscriber ? "#B9DDCC" : "#fed7aa" }
             ]}>
               <MaterialIcons
                 name={subStatus.isMonthlySubscriber ? "verified" : "warning-amber"}
                 size={16}
-                color={subStatus.isMonthlySubscriber ? "#16a34a" : "#ea580c"}
+                color={subStatus.isMonthlySubscriber ? colors.success : "#ea580c"}
               />
               <Text style={[styles.subBadgeText, {
-                color: subStatus.isMonthlySubscriber ? "#15803d" : "#c2410c"
+                color: subStatus.isMonthlySubscriber ? "#116345" : "#c2410c"
               }]}>
                 {subStatus.isMonthlySubscriber ? "مشترك شهري ✓" : "لا يوجد اشتراك شهري"}
               </Text>
@@ -196,14 +199,14 @@ export default function CourierEarningsScreen() {
           {period !== "today" && (
             <View style={styles.statsGrid}>
               <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-                <MaterialIcons name="local-shipping" size={22} color={colors.primary} />
+                <MaterialIcons name="local-shipping" size={22} color={colors.mutedForeground} />
                 <Text style={[styles.statAmount, { color: colors.foreground }]}>
                   {data!.periodDeliveries}
                 </Text>
                 <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>توصيلة</Text>
               </View>
               <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-                <MaterialIcons name="today" size={22} color="#22c55e" />
+                <MaterialIcons name="today" size={22} color={colors.mutedForeground} />
                 <Text style={[styles.statAmount, { color: colors.foreground }]}>
                   {formatAmount(data!.todayEarnings)}
                 </Text>
@@ -230,8 +233,8 @@ export default function CourierEarningsScreen() {
                 <View key={d.id}>
                   {i > 0 && <View style={[styles.divider, { backgroundColor: colors.border }]} />}
                   <View style={styles.deliveryRow}>
-                    <View style={[styles.deliveryIcon, { backgroundColor: colors.secondary }]}>
-                      <MaterialIcons name="check-circle" size={18} color="#22c55e" />
+                    <View style={[styles.deliveryIcon, { backgroundColor: "#EDF8F2" }]}>
+                      <MaterialIcons name="check-circle" size={18} color={colors.success} />
                     </View>
                     <View style={styles.deliveryInfo}>
                       <Text style={[styles.deliveryRestaurant, { color: colors.foreground }]}>
@@ -245,10 +248,10 @@ export default function CourierEarningsScreen() {
                       </Text>
                     </View>
                     <View style={styles.deliveryEarnings}>
-                      <Text style={[styles.deliveryAmount, { color: "#22c55e" }]}>
+                      <Text style={[styles.deliveryAmount, { color: colors.success }]}>
                         +{formatAmount(d.earnings)}
                       </Text>
-                      <Text style={[styles.deliveryAmountCurrency, { color: "#22c55e" }]}>ل.س</Text>
+                      <Text style={[styles.deliveryAmountCurrency, { color: colors.success }]}>ل.س</Text>
                     </View>
                   </View>
                 </View>
@@ -284,36 +287,44 @@ const styles = StyleSheet.create({
   retryText: { color: "#fff", fontWeight: "700", fontSize: 14 },
   periodTabs: {
     flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    gap: 8,
+    marginHorizontal: 16,
+    marginVertical: 16,
+    padding: 5,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 4,
   },
   periodTab: {
     flex: 1,
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingVertical: 12,
+    minHeight: 44,
+    justifyContent: "center",
+    borderRadius: 12,
     alignItems: "center",
   },
   periodTabActive: {
-    backgroundColor: "rgba(255,255,255,0.25)",
+    backgroundColor: "#FCECEF",
   },
   periodTabText: {
     fontSize: 13,
     fontWeight: "700",
   },
   periodTabTextActive: {
-    color: "#fff",
+    color: "#AC2030",
   },
   heroCard: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 22,
     alignItems: "center",
     paddingVertical: 28,
     paddingHorizontal: 20,
     gap: 4,
   },
-  heroLabel: { color: "rgba(255,255,255,0.85)", fontSize: 14, fontWeight: "600" },
+  heroLabel: { color: "#FFF1F2", fontSize: 14, fontWeight: "600" },
   heroAmount: { color: "#fff", fontSize: 44, fontWeight: "900" },
-  heroCurrency: { color: "rgba(255,255,255,0.85)", fontSize: 16, fontWeight: "700", marginTop: -8 },
-  heroSub: { color: "rgba(255,255,255,0.7)", fontSize: 13, marginTop: 4 },
+  heroCurrency: { color: "#FFF1F2", fontSize: 16, fontWeight: "700", marginTop: -8 },
+  heroSub: { color: "#FFF1F2", fontSize: 13, marginTop: 4 },
   subBadge: {
     flexDirection: "row",
     alignItems: "center",

@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import {
   View,
@@ -87,8 +88,7 @@ export default function OrderRequestScreen() {
   const [promoCode, setPromoCode] = useState("");
   const [promoStatus, setPromoStatus] = useState<PromoStatus>("idle");
   const [promoResult, setPromoResult] = useState<PromoResult | null>(null);
-  const [feePreview, setFeePreview] = useState<FeePreview | null>(null);
-  const [feeLoading, setFeeLoading] = useState(false);
+
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hasItems = cartEntries.length > 0;
@@ -102,7 +102,7 @@ export default function OrderRequestScreen() {
     }, 0),
     [cartEntries]
   );
-  const canSubmit = hasItems && !!defaultAddress;
+
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
 
@@ -139,24 +139,23 @@ export default function OrderRequestScreen() {
     return () => clearInterval(timer);
   }, [flashDeal]);
 
-  useEffect(() => {
-    if (addrLat == null || addrLon == null) {
-      setFeePreview(null);
-      return;
-    }
-    setFeeLoading(true);
-    const params = new URLSearchParams({ lat: String(addrLat), lon: String(addrLon) });
-    if (restaurantId) params.set("restaurantId", restaurantId);
-    customFetch(`/api/delivery-fee-preview?${params.toString()}`)
-      .then((res) => {
-        const data = res as FeePreview;
-        setFeePreview(data);
-      })
-      .catch(() => setFeePreview(null))
-      .finally(() => setFeeLoading(false));
-  }, [addrLat, addrLon, restaurantId]);
-
-  const deliveryFee = feePreview?.fee ?? undefined;
+  // Each address/restaurant has its own query: late responses cannot price a new address.
+  const hasCoordinates = addrLat != null && addrLon != null;
+  const feeQuery = useQuery<FeePreview>({
+    queryKey: ["checkout-delivery-fee", restaurantId, addrLat, addrLon],
+    enabled: hasCoordinates,
+    queryFn: async () => {
+      const params = new URLSearchParams({ lat: String(addrLat), lon: String(addrLon) });
+      if (restaurantId) params.set("restaurantId", restaurantId);
+      return await customFetch(`/api/delivery-fee-preview?${params.toString()}`) as FeePreview;
+    },
+    staleTime: 0,
+    retry: 1,
+  });
+  const feeLoading = hasCoordinates && feeQuery.isFetching;
+  const feePreview = hasCoordinates && !feeQuery.isError ? feeQuery.data : undefined;
+  const deliveryFee = !feeLoading && typeof feePreview?.fee === "number" && Number.isFinite(feePreview.fee) && feePreview.fee >= 0 ? feePreview.fee : undefined;
+  const canSubmit = hasItems && !!defaultAddress && deliveryFee != null;
 
   const applyFlashDiscount = (base: number): number => {
     if (!flashDeal || base <= 0) return base;
@@ -237,6 +236,10 @@ export default function OrderRequestScreen() {
 
   const handleSubmit = async () => {
     if (!hasItems || isSubmitting) return;
+    if (deliveryFee == null) {
+      Alert.alert(t("common.error"), t("orderRequest.feeUnavailable"));
+      return;
+    }
     if (!defaultAddress) {
       Alert.alert(
         t("orderRequest.noAddressTitle"),
@@ -498,6 +501,10 @@ export default function OrderRequestScreen() {
           </View>
         </View>
 
+        {!feeLoading && deliveryFee == null && <View style={{ padding: 16, gap: 10 }}>
+          <Text accessibilityRole="alert" style={{ color: colors.mutedForeground }}>{t(hasCoordinates ? "orderRequest.feeUnavailable" : "orderRequest.feeNeedsAddress")}</Text>
+          {hasCoordinates && <TouchableOpacity accessibilityRole="button" onPress={() => void feeQuery.refetch()}><Text style={{ color: colors.primary }}>{t("common.retry")}</Text></TouchableOpacity>}
+        </View>}
         {(feeLoading || feePreview != null) ? (
           <View style={[styles.feeCard, { backgroundColor: colors.card, borderColor: flashDeal ? "#f97316" : colors.border }]}>
             <MaterialIcons name="delivery-dining" size={20} color={flashDeal ? "#f97316" : colors.primary} />
@@ -664,7 +671,7 @@ export default function OrderRequestScreen() {
             <View style={styles.grandRow}>
               <Text style={[styles.grandLabel, { color: colors.foreground }]}>{t("orderRequest.total")}</Text>
               <Text style={[styles.grandValue, { color: colors.primary }]}>
-                {(effectiveSubtotal + (effectiveDeliveryFee ?? 0)).toLocaleString()} ل.س
+                {effectiveDeliveryFee == null ? t("orderRequest.waitingForFee") : `${(effectiveSubtotal + effectiveDeliveryFee).toLocaleString()} ل.س`}
               </Text>
             </View>
             <Text style={[styles.totalNote, { color: colors.mutedForeground }]}>

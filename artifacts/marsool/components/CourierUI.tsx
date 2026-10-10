@@ -1,5 +1,5 @@
 import React from "react";
-import { View, TouchableOpacity, StyleSheet } from "react-native";
+import { View, TouchableOpacity, StyleSheet, useWindowDimensions } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -39,16 +39,20 @@ export function CourierHeader({
   subtitle,
   back = false,
   onRefresh,
+  tone = "red",
 }: {
+  tone?: "navy" | "red";
   title: string;
   subtitle?: string;
   back?: boolean;
   onRefresh?: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const { height, fontScale } = useWindowDimensions();
+  const compact = height < 650 || fontScale > 1.3;
   const router = useRouter();
   return (
-    <View style={[s.header, { paddingTop: insets.top + 16 }]}>
+    <View style={[s.header, { paddingTop: insets.top + (compact ? 8 : 16), paddingBottom: compact ? 12 : 22, backgroundColor: tone === "red" ? courierPalette.primary : "#172B3A" }]}>
       <View style={s.headingRow}>
         {back && (
           <TouchableOpacity
@@ -61,7 +65,7 @@ export function CourierHeader({
           </TouchableOpacity>
         )}
         <View style={{ flex: 1 }}>
-          <Text style={s.eyebrow}>زبوني • شريك التوصيل</Text>
+          {!compact && <Text style={[s.eyebrow, tone === "red" && { color: "#FFF1F2" }]}>زبوني • شريك التوصيل</Text>}
           <Text accessibilityRole="header" style={s.title}>
             {title}
           </Text>
@@ -77,7 +81,7 @@ export function CourierHeader({
           </TouchableOpacity>
         )}
       </View>
-      {subtitle && <Text style={s.subtitle}>{subtitle}</Text>}
+      {subtitle && !compact && <Text style={[s.subtitle, tone === "red" && { color: "#FFF1F2" }]}>{subtitle}</Text>}
     </View>
   );
 }
@@ -96,7 +100,7 @@ const s = StyleSheet.create({
     minWidth: 48,
     minHeight: 48,
     borderRadius: 16,
-    backgroundColor: "#2B414F",
+    backgroundColor: "rgba(255,255,255,0.16)",
     alignItems: "center",
     justifyContent: "center",
   },

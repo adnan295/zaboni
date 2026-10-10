@@ -1,3 +1,7 @@
+import { completeOrderInTx, notifyReferralReward, type ReferralReward } from "../lib/orderCompletion";
+import { adminOrderTransitionError } from "../lib/adminOrderTransitions";
+import { dispatchOrderNow } from "../lib/orderDispatch";
+import { checkAndAwardAchievements } from "../lib/achievements";
 import { refundRedeemedPointsInTx } from "../lib/loyalty";
 import { Router, type Request, type Response } from "express";
 import { whatsappManager } from "../lib/whatsapp";
@@ -38,7 +42,7 @@ import {
   courierSubscriptionRequestsTable,
 } from "@workspace/db";
 import bcrypt from "bcryptjs";
-import { eq, count, sum, desc, gte, lte, getTableColumns, and, sql, avg, asc, lt, inArray } from "drizzle-orm";
+import { eq, count, sum, desc, gte, lte, getTableColumns, and, sql, avg, asc, lt, inArray, or, ilike } from "drizzle-orm";
 import { notifyOrderUpdate, sendOrderPush } from "../orders/server";
 import { sendPushToAllCustomers, isFlashDealImminent } from "../lib/push";
 import { sendSmsViaGateway, isSmsGatewayConfigured } from "../lib/sms";
@@ -830,6 +834,8 @@ const ordersQuerySchema = z.object({
   dateFrom: isoDateSchema,
   dateTo: isoDateSchema,
   orderId: z.string().optional(),
+  search: z.string().trim().max(200).optional(),
+  status: z.enum(ORDER_STATUSES).optional(),
 });
 
 router.get("/admin/orders", async (req, res) => {
@@ -838,7 +844,7 @@ router.get("/admin/orders", async (req, res) => {
     res.status(400).json({ error: "Invalid query params" });
     return;
   }
-  const { page, limit, dateFrom, dateTo, orderId } = parsed.data;
+  const { page, limit, dateFrom, dateTo, orderId, search, status } = parsed.data;
   const offset = (page - 1) * limit;
 
   // Damascus is UTC+3; convert YYYY-MM-DD boundaries to UTC
@@ -857,10 +863,18 @@ router.get("/admin/orders", async (req, res) => {
     const to = new Date(Date.parse(dateTo + "T23:59:59.999Z") - DAMASCUS_OFFSET_MS);
     if (!isNaN(to.getTime())) conditions.push(lte(ordersTable.createdAt, to));
   }
+  if (status) conditions.push(eq(ordersTable.status, status));
+  if (search) {
+    const pattern = `%${search.replace(/[\\%_]/g, "\\$&")}%`;
+    conditions.push(or(...[
+      ordersTable.id, ordersTable.orderText, ordersTable.restaurantName,
+      ordersTable.address, ordersTable.courierName, usersTable.name, usersTable.phone,
+    ].map(column => ilike(column, pattern))));
+  }
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
   const [[totalRow], rows] = await Promise.all([
-    db.select({ count: count() }).from(ordersTable).where(where),
+    db.select({ count: count() }).from(ordersTable).leftJoin(usersTable, eq(ordersTable.userId, usersTable.id)).where(where),
     db
       .select({
         ...getTableColumns(ordersTable),
@@ -1270,11 +1284,18 @@ router.patch("/admin/orders/:id/status", async (req, res) => {
     return;
   }
   const cancelNote = parsed.data.status === "cancelled" ? "admin_cancelled" : null;
+  let referralReward: ReferralReward = null;
+  let changedStatus = false;
   const row = await db.transaction(async (tx) => {
     const [previous] = await tx.select().from(ordersTable).where(eq(ordersTable.id, id)).for("update");
     if (!previous) return null;
-    if (["cancelled", "delivered"].includes(previous.status) && previous.status !== parsed.data.status) return "terminal" as const;
-    const [changed] = await tx.update(ordersTable).set({ status: parsed.data.status, updatedAt: new Date() }).where(eq(ordersTable.id, id)).returning();
+    const transitionError = adminOrderTransitionError(previous, parsed.data.status);
+    if (transitionError) return { transitionError };
+    if (previous.status === parsed.data.status) return previous;
+    changedStatus = true;
+    const assignment = parsed.data.status === "searching" ? { courierId: "", courierName: "", courierPhone: "", courierRating: 0 } : {};
+    const [changed] = await tx.update(ordersTable).set({ ...assignment, status: parsed.data.status, updatedAt: new Date() }).where(eq(ordersTable.id, id)).returning();
+    if (parsed.data.status === "delivered") referralReward = await completeOrderInTx(tx, changed);
     if (cancelNote) await refundRedeemedPointsInTx(tx, changed.userId, id);
     if (previous.status !== parsed.data.status) await tx.insert(orderStatusHistoryTable).values({
       id: `${id}_${parsed.data.status}_${Date.now()}`, orderId: id, status: parsed.data.status, note: cancelNote,
@@ -1282,7 +1303,11 @@ router.patch("/admin/orders/:id/status", async (req, res) => {
     return changed;
   });
   if (!row) { res.status(404).json({ error: "Not found" }); return; }
-  if (row === "terminal") { res.status(409).json({ error: "لا يمكن إعادة فتح طلب منتهٍ أو ملغى" }); return; }
+  if ("transitionError" in row) { res.status(409).json({ error: row.transitionError }); return; }
+  if (!changedStatus) { res.json(row); return; }
+  notifyReferralReward(referralReward);
+  if (parsed.data.status === "searching") void dispatchOrderNow(id);
+  if (parsed.data.status === "delivered") void checkAndAwardAchievements(row.userId);
   notifyOrderUpdate(row.userId, cancelNote ? { ...row, cancelNote } : row);
 
   const pushMsg = STATUS_PUSH_MESSAGES[parsed.data.status];
@@ -3508,12 +3533,16 @@ router.post("/admin/subscription-requests/:id/approve", async (req, res) => {
   const endsAt = addPeriodDuration(now, request.planPeriod);
   const subId = crypto.randomUUID();
 
-  await db.transaction(async (tx) => {
-    await tx
+  const approved = await db.transaction(async (tx) => {
+    const claimed = await tx
       .update(courierSubscriptionRequestsTable)
       .set({ status: "approved", reviewedAt: now, reviewedBy: "admin" })
-      .where(eq(courierSubscriptionRequestsTable.id, id));
+      .where(and(eq(courierSubscriptionRequestsTable.id, id), eq(courierSubscriptionRequestsTable.status, "pending")))
+      .returning();
+    if (!claimed.length) return false;
 
+    // Serialize different approvals for one courier so only one subscription stays active.
+    await tx.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.id, request.courierId)).for("update");
     await tx
       .update(courierSubscriptionsTable)
       .set({ isActive: false })
@@ -3536,8 +3565,10 @@ router.post("/admin/subscription-requests/:id/approve", async (req, res) => {
       gifted: false,
       createdByAdmin: true,
     });
+    return true;
   });
 
+  if (!approved) { res.status(409).json({ error: "Request is not pending" }); return; }
   res.json({ ok: true, subscriptionId: subId });
 });
 
@@ -3561,10 +3592,12 @@ router.post("/admin/subscription-requests/:id/reject", async (req, res) => {
     return;
   }
 
-  await db
+  const rejected = await db
     .update(courierSubscriptionRequestsTable)
     .set({ status: "rejected", adminNote, reviewedAt: new Date() })
-    .where(eq(courierSubscriptionRequestsTable.id, id));
+    .where(and(eq(courierSubscriptionRequestsTable.id, id), eq(courierSubscriptionRequestsTable.status, "pending")))
+    .returning();
+  if (!rejected.length) { res.status(409).json({ error: "Request is not pending" }); return; }
 
   res.json({ ok: true });
 });

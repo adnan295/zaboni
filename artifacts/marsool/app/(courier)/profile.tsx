@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
   Platform,
-  Switch,
   TouchableOpacity,
   Alert,
   Linking,
@@ -20,8 +19,7 @@ import { useCourierColors as useColors, CourierHeader } from "@/components/Couri
 import { useAuth } from "@/context/AuthContext";
 import { customFetch } from "@workspace/api-client-react";
 import { buildAvatarUrl } from "@/lib/apiConfig";
-import { useCourier } from "@/context/CourierContext";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { formatDate } from "@/utils/date";
 
 const DEFAULT_ADMIN_PHONE = "+963999000111";
@@ -60,20 +58,11 @@ export default function CourierProfileScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const { user, signOut } = useAuth();
-  const { isOnline, isTogglingOnline, toggleAvailability } = useCourier();
 
   const [howItWorksVisible, setHowItWorksVisible] = useState(false);
   const [adminPhone, setAdminPhone] = useState(DEFAULT_ADMIN_PHONE);
   const [adminWhatsApp, setAdminWhatsApp] = useState(DEFAULT_ADMIN_PHONE);
   const [application, setApplication] = useState<CourierApplication | null>(null);
-
-  const handleToggleAvailability = async () => {
-    try {
-      await toggleAvailability();
-    } catch (err) {
-      Alert.alert("خطأ", err instanceof Error ? err.message : "تعذّر تغيير حالة التوافر، تحقق من اتصالك وحاول مجدداً");
-    }
-  };
 
   const handleSignOut = () => {
     Alert.alert("تسجيل الخروج", "هل أنت متأكد من تسجيل الخروج؟", [
@@ -99,8 +88,33 @@ export default function CourierProfileScreen() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
+
+  const [subscription, setSubscription] = useState<{ isActive: boolean; subscription: { endsAt: string } | null; daysLeft?: number } | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
+  const [subscriptionError, setSubscriptionError] = useState(false);
+  useFocusEffect(useCallback(() => {
+    let mounted = true;
+    setSubscriptionLoading(true);
+    setSubscriptionError(false);
+    customFetch("/api/courier/subscription/status")
+      .then((data) => { if (mounted) setSubscription(data as typeof subscription); })
+      .catch(() => { if (mounted) setSubscriptionError(true); })
+      .finally(() => { if (mounted) setSubscriptionLoading(false); });
+    return () => { mounted = false; };
+  }, []));
+
+  const menuItem = (label: string, icon: React.ComponentProps<typeof MaterialIcons>["name"], onPress: () => void, detail?: string) => (
+    <TouchableOpacity accessibilityRole="button" accessibilityLabel={label} style={styles.menuRow} onPress={onPress} activeOpacity={0.75}>
+      <View style={[styles.menuIcon, { backgroundColor: "#FCECEF" }]}><MaterialIcons name={icon} size={22} color={colors.primary} /></View>
+      <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+        <Text style={{ color: colors.foreground, fontSize: 16, fontWeight: "700", textAlign: "right" }}>{label}</Text>
+        {detail ? <Text style={{ color: colors.mutedForeground, fontSize: 12, textAlign: "right" }}>{detail}</Text> : null}
+      </View>
+      <MaterialIcons name="chevron-left" size={22} color={colors.mutedForeground} />
+    </TouchableOpacity>
+  );
+  const sectionTitle = (title: string) => <Text accessibilityRole="header" style={[styles.sectionTitle, { color: colors.mutedForeground }]}>{title}</Text>;
 
   useEffect(() => {
     (async () => {
@@ -132,7 +146,7 @@ export default function CourierProfileScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <CourierHeader title={t("courier.profile.title")} />
+      <CourierHeader title="حسابي" />
 
       {loading ? (
         <View style={styles.center}>
@@ -140,306 +154,71 @@ export default function CourierProfileScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={{ paddingBottom: bottomPadding + 24 }}>
-          <View style={[styles.avatarSection, { backgroundColor: "#172B3A" }]}>
-            <TouchableOpacity style={styles.avatarWrapper} onPress={() => router.push("/edit-profile")} activeOpacity={0.8}>
-              {(user?.avatarUrl || stats?.avatarUrl) ? (
-                <Image
-                  source={{ uri: buildAvatarUrl(user?.avatarUrl || stats?.avatarUrl) }}
-                  style={[styles.avatar, { borderRadius: 42 }]}
-                  contentFit="cover"
-                />
-              ) : (
-                <View style={[styles.avatar, { backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" }]}>
-                  <MaterialIcons name="delivery-dining" size={48} color="#fff" />
-                </View>
-              )}
-              <View style={styles.avatarEditOverlay}>
-                <MaterialIcons name="photo-camera" size={14} color="#fff" />
-              </View>
-            </TouchableOpacity>
-            <View style={styles.userNameRow}>
-              <Text style={styles.userName}>{user?.name || stats?.name || t("profile.defaultUser")}</Text>
-              <TouchableOpacity onPress={() => router.push("/edit-profile")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <MaterialIcons name="edit" size={18} color="rgba(255,255,255,0.8)" />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.userPhone}>{user?.phone || stats?.phone || ""}</Text>
-            <View style={[styles.badge, { backgroundColor: "rgba(255,255,255,0.25)" }]}>
-              <MaterialIcons name="verified" size={14} color="#fff" />
-              <Text style={styles.badgeText}>{t("profile.courier.badge")}</Text>
-            </View>
-          </View>
-
-          <View style={styles.statsRow}>
-            <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-              <MaterialIcons name="local-shipping" size={28} color={colors.primary} />
-              <Text style={[styles.statValue, { color: colors.foreground }]}>
-                {stats?.deliveredCount ?? 0}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>
-                {t("courier.profile.delivered")}
-              </Text>
-            </View>
-
-            <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-              <MaterialIcons name="star" size={28} color="#FFB800" />
-              <Text style={[styles.statValue, { color: colors.foreground }]}>
-                {stats?.avgRating != null ? stats.avgRating.toFixed(1) : "—"}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>
-                {t("courier.profile.avgRating")}
-              </Text>
-            </View>
-          </View>
-
-          <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.infoRow}>
-              <MaterialIcons name="phone" size={20} color={colors.primary} />
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>
-                  {t("courier.profile.phone")}
-                </Text>
-                <Text style={[styles.infoValue, { color: colors.foreground }]}>
-                  {stats?.phone || user?.phone || "—"}
-                </Text>
-              </View>
-            </View>
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <View style={styles.infoRow}>
-              <MaterialIcons name="check-circle" size={20} color="#22c55e" />
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>
-                  {t("courier.profile.accountStatus")}
-                </Text>
-                <Text style={[styles.infoValue, { color: "#22c55e" }]}>
-                  {t("courier.profile.statusActive")}
-                </Text>
-              </View>
-            </View>
-            {application?.vehicleType && (
-              <>
-                <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                <View style={styles.infoRow}>
-                  <MaterialIcons name="two-wheeler" size={20} color={colors.primary} />
-                  <View style={styles.infoContent}>
-                    <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>نوع المركبة</Text>
-                    <Text style={[styles.infoValue, { color: colors.foreground }]}>
-                      {VEHICLE_LABELS[application.vehicleType] ?? application.vehicleType}
-                      {application.vehiclePlate ? `  —  ${application.vehiclePlate}` : ""}
-                    </Text>
-                  </View>
-                </View>
-              </>
-            )}
-            {application?.createdAt && (
-              <>
-                <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                <View style={styles.infoRow}>
-                  <MaterialIcons name="calendar-today" size={20} color={colors.primary} />
-                  <View style={styles.infoContent}>
-                    <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>عضو منذ</Text>
-                    <Text style={[styles.infoValue, { color: colors.foreground }]}>
-                      {formatDate(application.createdAt)}
-                    </Text>
-                  </View>
-                </View>
-              </>
-            )}
-          </View>
-
-          <View style={[styles.availabilityCard, {
-            backgroundColor: isOnline ? "#f0fdf4" : "#fef2f2",
-            borderColor: isOnline ? "#bbf7d0" : "#fecaca",
-          }]}>
-            <View style={styles.availabilityLeft}>
-              <View style={[styles.availabilityDot, { backgroundColor: isOnline ? "#22c55e" : "#ef4444" }]} />
-              <View>
-                <Text style={[styles.availabilityTitle, { color: isOnline ? "#15803d" : "#dc2626" }]}>
-                  {isOnline ? t("courier.available.online") : t("courier.available.offline")}
-                </Text>
-                <Text style={[styles.availabilitySub, { color: isOnline ? "#16a34a" : "#b91c1c" }]}>
-                  {isOnline ? t("courier.available.onlineSub") : t("courier.available.offlineSub")}
-                </Text>
-              </View>
-            </View>
-            {isTogglingOnline ? (
-              <ActivityIndicator size="small" color={isOnline ? "#22c55e" : "#ef4444"} />
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="تعديل الحساب" onPress={() => router.push("/edit-profile")} style={[styles.identity, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            {(user?.avatarUrl || stats?.avatarUrl) ? (
+              <Image source={{ uri: buildAvatarUrl(user?.avatarUrl || stats?.avatarUrl) }} style={styles.avatar} contentFit="cover" />
             ) : (
-              <Switch
-                value={isOnline}
-                onValueChange={handleToggleAvailability}
-                trackColor={{ false: "#fca5a5", true: "#86efac" }}
-                thumbColor={isOnline ? "#22c55e" : "#ef4444"}
-                ios_backgroundColor="#fca5a5"
-              />
+              <View style={[styles.avatar, { backgroundColor: "#FCECEF", alignItems: "center", justifyContent: "center" }]}><MaterialIcons name="delivery-dining" size={30} color={colors.primary} /></View>
             )}
-          </View>
-
-          <View style={[styles.menuSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <TouchableOpacity
-              style={styles.menuRow}
-              onPress={() => router.push("/courier-subscribe")}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.menuIcon, { backgroundColor: "#fff7ed" }]}>
-                <MaterialIcons name="card-membership" size={20} color="#DC2626" />
-              </View>
-              <Text style={[styles.menuText, { color: colors.foreground }]}>الباقات</Text>
-              <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
-            </TouchableOpacity>
-
-            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
-
-            <TouchableOpacity
-              style={styles.menuRow}
-              onPress={() => router.push("/(courier)/subscription-requests")}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.menuIcon, { backgroundColor: "#eff6ff" }]}>
-                <MaterialIcons name="receipt-long" size={20} color="#3b82f6" />
-              </View>
-              <Text style={[styles.menuText, { color: colors.foreground }]}>طلبات الاشتراك</Text>
-              <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
-            </TouchableOpacity>
-
-            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
-
-            <TouchableOpacity
-              style={styles.menuRow}
-              onPress={() => router.push("/(courier)/earnings")}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.menuIcon, { backgroundColor: "#fef9c3" }]}>
-                <MaterialIcons name="bar-chart" size={20} color="#ca8a04" />
-              </View>
-              <Text style={[styles.menuText, { color: colors.foreground }]}>
-                {t("courier.earnings.title")}
-              </Text>
-              <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
-            </TouchableOpacity>
-
-            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
-
-            <TouchableOpacity
-              style={styles.menuRow}
-              onPress={() => router.push("/(courier)/order-history")}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.menuIcon, { backgroundColor: "#eff6ff" }]}>
-                <MaterialIcons name="history" size={20} color="#3b82f6" />
-              </View>
-              <Text style={[styles.menuText, { color: colors.foreground }]}>سجل التوصيلات</Text>
-              <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
-            </TouchableOpacity>
-
-            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
-
-            <TouchableOpacity
-              style={styles.menuRow}
-              onPress={() => router.push("/(courier)/my-ratings")}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.menuIcon, { backgroundColor: "#fefce8" }]}>
-                <MaterialIcons name="star" size={20} color="#eab308" />
-              </View>
-              <Text style={[styles.menuText, { color: colors.foreground }]}>تقييمات الزبائن</Text>
-              {stats?.avgRating != null ? (
-                <View style={styles.ratingBadge}>
-                  <MaterialIcons name="star" size={12} color="#FFB800" />
-                  <Text style={styles.ratingBadgeText}>{stats.avgRating.toFixed(1)}</Text>
-                </View>
-              ) : null}
-              <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => router.push("/(courier)/points")}
-            style={[
-              styles.menuSection,
-              {
-                backgroundColor: colors.card,
-                borderColor: colors.border,
-                padding: 18,
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 12,
-              },
-            ]}
-          >
-            <MaterialIcons name="stars" size={28} color="#B96510" />
-            <View style={{ flex: 1 }}>
-              <Text
-                style={{
-                  color: colors.foreground,
-                  fontSize: 17,
-                  fontWeight: "700",
-                }}
-              >
-                نقاطي ومكافآتي
-              </Text>
-              <Text style={{ color: colors.mutedForeground, fontSize: 13 }}>
-                رصيد النقاط واستبدال أيام الاشتراك
-              </Text>
+            <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+              <Text style={{ fontSize: 18, fontWeight: "800", color: colors.foreground, textAlign: "right" }}>{user?.name || stats?.name || t("profile.defaultUser")}</Text>
+              <Text style={{ fontSize: 13, color: colors.mutedForeground, textAlign: "right" }}>{user?.phone || stats?.phone || ""}</Text>
+              <Text style={{ fontSize: 13, fontWeight: "700", color: colors.primary, textAlign: "right" }}>تعديل الحساب والصورة</Text>
             </View>
-            <MaterialIcons
-              name="chevron-left"
-              size={24}
-              color={colors.mutedForeground}
-            />
+            <MaterialIcons name="chevron-left" size={22} color={colors.mutedForeground} />
           </TouchableOpacity>
 
-          {/* Support */}
-          <View style={[styles.menuSection, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 12 }]}>
-            <View style={styles.supportHeader}>
-              <MaterialIcons name="support-agent" size={18} color={colors.mutedForeground} />
-              <Text style={[styles.supportHeaderText, { color: colors.mutedForeground }]}>الدعم والمساعدة</Text>
+          <View style={[styles.subscriptionCard, { backgroundColor: "#FCECEF", borderColor: "#F3CCD1" }]}>
+            <View style={styles.subscriptionHeading}>
+              <MaterialIcons name="card-membership" size={24} color={colors.primary} />
+              <Text style={{ flex: 1, fontSize: 17, fontWeight: "800", color: colors.foreground, textAlign: "right" }}>اشتراكي</Text>
             </View>
-            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
-            <TouchableOpacity style={styles.menuRow} onPress={handleCallAdmin} activeOpacity={0.7}>
-              <View style={[styles.menuIcon, { backgroundColor: "#fdf4ff" }]}>
-                <MaterialIcons name="phone" size={20} color="#9333ea" />
-              </View>
-              <View style={styles.supportInfo}>
-                <Text style={[styles.menuText, { color: colors.foreground }]}>اتصل بالإدارة</Text>
-                <Text style={[styles.supportSub, { color: colors.mutedForeground }]}>
-                  {adminPhone}
-                </Text>
-              </View>
-              <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
-            </TouchableOpacity>
-            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
-            <TouchableOpacity style={styles.menuRow} onPress={handleWhatsAppAdmin} activeOpacity={0.7}>
-              <View style={[styles.menuIcon, { backgroundColor: "#f0fdf4" }]}>
-                <MaterialIcons name="chat" size={20} color="#22c55e" />
-              </View>
-              <View style={styles.supportInfo}>
-                <Text style={[styles.menuText, { color: colors.foreground }]}>واتساب الإدارة</Text>
-                <Text style={[styles.supportSub, { color: colors.mutedForeground }]}>
-                  للاشتراك أو حل أي مشكلة
-                </Text>
-              </View>
-              <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
-            </TouchableOpacity>
-            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
-            <TouchableOpacity style={styles.menuRow} onPress={() => setHowItWorksVisible(true)} activeOpacity={0.7}>
-              <View style={[styles.menuIcon, { backgroundColor: "#fef9c3" }]}>
-                <MaterialIcons name="info-outline" size={20} color="#ca8a04" />
-              </View>
-              <View style={styles.supportInfo}>
-                <Text style={[styles.menuText, { color: colors.foreground }]}>كيف يعمل التطبيق</Text>
-                <Text style={[styles.supportSub, { color: colors.mutedForeground }]}>
-                  اشتراك شهري — احتفظ بكامل رسوم التوصيل
-                </Text>
-              </View>
-              <MaterialIcons name="chevron-left" size={20} color={colors.mutedForeground} />
-            </TouchableOpacity>
+            {subscriptionLoading ? <ActivityIndicator color={colors.primary} /> : (
+              <Text style={{ fontSize: 14, color: colors.foreground, textAlign: "right" }}>
+                {subscriptionError ? "تعذّر تحميل حالة الاشتراك. افتح اشتراكاتي للتحقق." : subscription?.isActive ? `اشتراك فعّال${subscription.subscription?.endsAt ? ` • ينتهي ${formatDate(subscription.subscription.endsAt)}` : ""}` : "لا يوجد اشتراك فعّال حالياً"}
+              </Text>
+            )}
+            <View style={styles.subscriptionLinks}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => router.push("/(courier)/subscription-history")} style={styles.textButton}><Text style={styles.textButtonLabel}>اشتراكاتي</Text></TouchableOpacity>
+            </View>
           </View>
+
+          {sectionTitle("نشاطي ومكافآتي")}
+          <View style={[styles.menuSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            {menuItem("سجل التوصيلات", "history", () => router.push("/(courier)/order-history"), stats ? `${stats.deliveredCount} توصيل مكتمل` : undefined)}
+            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+            {menuItem("نقاطي ومكافآتي", "stars", () => router.push("/(courier)/points"), "استبدل نقاطك بأيام اشتراك")}
+            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+            {menuItem("تقييمات الزبائن", "star-outline", () => router.push("/(courier)/my-ratings"), stats?.avgRating != null ? `تقييمك ${stats.avgRating.toFixed(1)} من 5` : undefined)}
+          </View>
+
+          {sectionTitle("تحتاج مساعدة؟")}
+          <View style={[styles.menuSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            {menuItem("اتصل بالدعم", "support-agent", handleCallAdmin)}
+            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+            {menuItem("واتساب الدعم", "chat", handleWhatsAppAdmin)}
+            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+            {menuItem("كيف يعمل التطبيق", "help-outline", () => setHowItWorksVisible(true))}
+          </View>
+
+          {application && (application.vehicleType || application.createdAt) ? <>
+            {sectionTitle("بيانات السائق")}
+            <View style={[styles.menuSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              {application.vehicleType ? <View style={styles.infoRow}>
+                <MaterialIcons name="two-wheeler" size={22} color={colors.primary} />
+                <View style={styles.infoContent}>
+                  <Text style={[styles.infoLabel, { color: colors.mutedForeground, textAlign: "right" }]}>المركبة</Text>
+                  <Text style={[styles.infoValue, { color: colors.foreground, textAlign: "right" }]}>{VEHICLE_LABELS[application.vehicleType] ?? application.vehicleType}{application.vehiclePlate ? ` — ${application.vehiclePlate}` : ""}</Text>
+                </View>
+              </View> : null}
+              {application.createdAt ? <Text style={{ padding: 14, color: colors.mutedForeground, fontSize: 12, textAlign: "right" }}>عضو منذ {formatDate(application.createdAt)}</Text> : null}
+            </View>
+          </> : null}
 
           {/* Sign Out */}
           <TouchableOpacity
             style={[styles.signOutBtn, { backgroundColor: colors.card, borderColor: "#fecaca" }]}
+            accessibilityRole="button"
             onPress={handleSignOut}
             activeOpacity={0.7}
           >
@@ -457,15 +236,15 @@ export default function CourierProfileScreen() {
         onRequestClose={() => setHowItWorksVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
+          <View style={[styles.modalSheet, { backgroundColor: colors.card, paddingBottom: 24 + insets.bottom }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.foreground }]}>كيف يعمل التطبيق</Text>
-              <TouchableOpacity onPress={() => setHowItWorksVisible(false)}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="إغلاق الشرح" style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }} onPress={() => setHowItWorksVisible(false)}>
                 <MaterialIcons name="close" size={24} color={colors.mutedForeground} />
               </TouchableOpacity>
             </View>
 
-            <View style={styles.howItWorksContent}>
+            <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={styles.howItWorksContent}>
               <View style={[styles.howStep, { borderColor: colors.border }]}>
                 <View style={[styles.howIcon, { backgroundColor: "#fff7ed" }]}>
                   <MaterialIcons name="credit-card" size={24} color="#DC2626" />
@@ -501,10 +280,10 @@ export default function CourierProfileScreen() {
                   </Text>
                 </View>
               </View>
-            </View>
+            </ScrollView>
 
             <TouchableOpacity
-              style={[styles.modalCloseBtn, { backgroundColor: "#172B3A" }]}
+              style={[styles.modalCloseBtn, { backgroundColor: colors.primary }]}
               onPress={() => setHowItWorksVisible(false)}
             >
               <Text style={styles.modalCloseBtnText}>فهمت، شكراً!</Text>
@@ -518,170 +297,33 @@ export default function CourierProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    gap: 10,
-  },
-  headerTitle: { flex: 1, fontSize: 20, fontWeight: "800", color: "#fff" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  avatarSection: {
-    alignItems: "center",
-    paddingVertical: 28,
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  avatarWrapper: {
-    position: "relative",
-    marginBottom: 4,
-  },
-  avatar: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-  },
-  avatarEditOverlay: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#fff",
-  },
-  userName: { fontSize: 20, fontWeight: "800", color: "#fff" },
-  userPhone: { fontSize: 14, color: "rgba(255,255,255,0.8)" },
-  badge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 20,
-    marginTop: 4,
-  },
-  badgeText: { color: "#fff", fontSize: 12, fontWeight: "700" },
-  statsRow: {
-    flexDirection: "row",
-    gap: 12,
-    margin: 16,
-  },
-  statCard: {
-    flex: 1,
-    alignItems: "center",
-    padding: 20,
-    borderRadius: 16,
-    gap: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  statValue: { fontSize: 28, fontWeight: "800" },
-  statLabel: { fontSize: 12, textAlign: "center" },
-  infoCard: {
-    marginHorizontal: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  infoRow: { flexDirection: "row", alignItems: "center", padding: 16, gap: 12 },
-  infoContent: { flex: 1, gap: 2 },
+  identity: { margin: 16, marginBottom: 12, padding: 14, borderRadius: 18, borderWidth: 1, flexDirection: "row", alignItems: "center", gap: 12 },
+  avatar: { width: 54, height: 54, borderRadius: 27 },
+  subscriptionCard: { marginHorizontal: 16, padding: 14, borderWidth: 1, borderRadius: 18, gap: 12 },
+  subscriptionHeading: { flexDirection: "row", alignItems: "center", gap: 10 },
+  primaryButton: { minHeight: 46, padding: 12, borderRadius: 12, justifyContent: "center" },
+  subscriptionLinks: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  textButton: { flexGrow: 1, flexBasis: 120, minHeight: 44, padding: 8, borderRadius: 10, backgroundColor: "#fff", justifyContent: "center" },
+  textButtonLabel: { color: "#C92535", fontSize: 13, fontWeight: "700", textAlign: "center" },
+  sectionTitle: { marginHorizontal: 20, marginTop: 20, marginBottom: 8, fontSize: 13, fontWeight: "700", textAlign: "right" },
+  menuSection: { marginHorizontal: 16, borderRadius: 16, borderWidth: 1, overflow: "hidden" },
+  menuRow: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, minHeight: 62 },
+  menuIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  menuDivider: { height: 1, marginHorizontal: 14 },
+  infoRow: { flexDirection: "row", alignItems: "center", padding: 14, gap: 12 },
+  infoContent: { flex: 1, minWidth: 0, gap: 4 },
   infoLabel: { fontSize: 12 },
   infoValue: { fontSize: 15, fontWeight: "600" },
-  divider: { height: 1, marginHorizontal: 16 },
-  availabilityCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-  },
-  availabilityLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
-  availabilityDot: { width: 10, height: 10, borderRadius: 5 },
-  availabilityTitle: { fontSize: 15, fontWeight: "700" },
-  availabilitySub: { fontSize: 12, marginTop: 2 },
-  menuSection: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  menuRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    padding: 14,
-  },
-  menuIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  menuText: { flex: 1, fontSize: 15, fontWeight: "600" },
-  menuDivider: { height: 1, marginHorizontal: 14 },
-  ratingBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-    backgroundColor: "#fef9c3",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  ratingBadgeText: { fontSize: 12, fontWeight: "700", color: "#ca8a04" },
-  supportHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  supportHeaderText: { fontSize: 13, fontWeight: "600" },
-  supportInfo: { flex: 1, gap: 2 },
-  supportSub: { fontSize: 12 },
-  signOutBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 8,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-  },
-  signOutText: { fontSize: 15, fontWeight: "700", color: "#ef4444" },
+  signOutBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, margin: 16, borderRadius: 14, borderWidth: 1, padding: 14 },
+  signOutText: { fontSize: 15, fontWeight: "700", color: "#C92535", flexShrink: 1 },
   modalOverlay: {
     flex: 1,
     justifyContent: "flex-end",
     backgroundColor: "rgba(0,0,0,0.45)",
   },
   modalSheet: {
+    maxHeight: "90%",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -692,7 +334,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  modalTitle: { fontSize: 18, fontWeight: "800" },
+  modalTitle: { flex: 1, flexShrink: 1, fontSize: 18, fontWeight: "800" },
   howItWorksContent: { gap: 0 },
   howStep: {
     flexDirection: "row",

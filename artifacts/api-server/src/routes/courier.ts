@@ -1,17 +1,15 @@
+import { completeOrderInTx, notifyReferralReward, type ReferralReward } from "../lib/orderCompletion";
 import { updateVerifiedProfile, ProfileUpdateError } from "../lib/profileUpdate";
 import { MAX_VISIBLE_RADIUS_KM } from "../lib/courierDispatchPolicy";
 import { dispatchOrderNow } from "../lib/orderDispatch";
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { db, usersTable, ordersTable, orderItemsTable, orderItemOptionsTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, courierSubscriptionPlansTable, courierCustomerRatingsTable, courierApplicationsTable, referralsTable, courierSubscriptionRequestsTable, systemSettingsTable, restaurantsTable, courierPointsTransactionsTable } from "@workspace/db";
+import { db, usersTable, ordersTable, orderItemsTable, orderItemOptionsTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, courierSubscriptionPlansTable, courierCustomerRatingsTable, courierApplicationsTable, courierSubscriptionRequestsTable, systemSettingsTable, restaurantsTable, courierPointsTransactionsTable } from "@workspace/db";
 import { and, eq, ne, inArray, notInArray, avg, count, gt, sql, desc, getTableColumns } from "drizzle-orm";
 import { haversineKm as _haversineKm } from "../lib/deliveryZones";
 import { z } from "zod";
 import { notifyOrderUpdate, sendOrderPush, notifyCouriersOrderTaken } from "../orders/server";
-import { getLoyaltySettings, awardPointsInTx } from "../lib/loyalty";
-import { awardCourierPointsInTx, getCourierPointValue, getCourierPointsPerDay, redeemCourierPointsForDays } from "../lib/courierPoints";
+import { getCourierPointValue, getCourierPointsPerDay, redeemCourierPointsForDays } from "../lib/courierPoints";
 import { checkAndAwardAchievements } from "../lib/achievements";
-import { awardReferralPointsInTx } from "../lib/referral";
-import { sendPushToUsers } from "../lib/push";
 
 const router: IRouter = Router();
 
@@ -413,109 +411,115 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   const courierId = resolveUserId(req);
   const orderId = String(req.params["orderId"]);
 
-  const orders = await db
-    .select()
-    .from(ordersTable)
-    .where(eq(ordersTable.id, orderId))
-    .limit(1);
+  const accepted = await db.transaction(async tx => {
+    // Serialize different order accepts for the same courier before capacity checks.
+    await tx.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.id, courierId)).for("update");
+    const orders = await tx
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId))
+      .limit(1);
 
-  if (orders.length === 0) {
-    res.status(404).json({ error: "Order not found" });
-    return;
-  }
+    if (orders.length === 0) {
+      res.status(404).json({ error: "Order not found" });
+      return;
+    }
 
-  const order = orders[0];
+    const order = orders[0];
 
-  if (order.status !== "searching" || order.courierId !== "") {
-    res.status(409).json({ error: "Order is no longer available" });
-    return;
-  }
+    if (order.status !== "searching" || order.courierId !== "") {
+      res.status(409).json({ error: "Order is no longer available" });
+      return;
+    }
 
-  if (order.userId === courierId) {
-    res.status(400).json({ error: "Cannot accept your own order" });
-    return;
-  }
+    if (order.userId === courierId) {
+      res.status(400).json({ error: "Cannot accept your own order" });
+      return;
+    }
 
-  // Order stacking: a courier may hold up to MAX_ACTIVE_ORDERS at once, but a
-  // second order can only be taken once the current one has been picked up from
-  // its restaurant (status picked_up / on_way) — so they finish the current run
-  // before juggling a new pickup.
-  const MAX_ACTIVE_ORDERS = 2;
-  const existingActive = await db
-    .select({ id: ordersTable.id, status: ordersTable.status })
-    .from(ordersTable)
-    .where(and(eq(ordersTable.courierId, courierId), notInArray(ordersTable.status, ["delivered", "cancelled"])));
+    // Order stacking: a courier may hold up to MAX_ACTIVE_ORDERS at once, but a
+    // second order can only be taken once the current one has been picked up from
+    // its restaurant (status picked_up / on_way) — so they finish the current run
+    // before juggling a new pickup.
+    const MAX_ACTIVE_ORDERS = 2;
+    const existingActive = await tx
+      .select({ id: ordersTable.id, status: ordersTable.status })
+      .from(ordersTable)
+      .where(and(eq(ordersTable.courierId, courierId), notInArray(ordersTable.status, ["delivered", "cancelled"])));
 
-  if (existingActive.length >= MAX_ACTIVE_ORDERS) {
-    res.status(409).json({ error: "max_active_orders", message: "لا يمكنك استلام أكثر من طلبين في نفس الوقت." });
-    return;
-  }
-  if (existingActive.length > 0 && !existingActive.every((o) => o.status === "picked_up" || o.status === "on_way")) {
-    res.status(409).json({ error: "pickup_current_first", message: "استلم طلبك الحالي من المطعم أولاً قبل قبول طلب إضافي." });
-    return;
-  }
+    if (existingActive.length >= MAX_ACTIVE_ORDERS) {
+      res.status(409).json({ error: "max_active_orders", message: "لا يمكنك استلام أكثر من طلبين في نفس الوقت." });
+      return;
+    }
+    if (existingActive.length > 0 && !existingActive.every((o) => o.status === "picked_up" || o.status === "on_way")) {
+      res.status(409).json({ error: "pickup_current_first", message: "استلم طلبك الحالي من المطعم أولاً قبل قبول طلب إضافي." });
+      return;
+    }
 
-  const courierUsers = await db
-    .select({ name: usersTable.name, phone: usersTable.phone, isOnline: usersTable.isOnline })
-    .from(usersTable)
-    .where(eq(usersTable.id, courierId))
-    .limit(1);
+    const courierUsers = await tx
+      .select({ name: usersTable.name, phone: usersTable.phone, isOnline: usersTable.isOnline })
+      .from(usersTable)
+      .where(eq(usersTable.id, courierId))
+      .limit(1);
 
-  if (!courierUsers[0]?.isOnline) {
-    res.status(409).json({ error: "You must be online to accept orders" });
-    return;
-  }
+    if (!courierUsers[0]?.isOnline) {
+      res.status(409).json({ error: "You must be online to accept orders" });
+      return;
+    }
 
-  const [activeSub] = await db
-    .select({ id: courierSubscriptionsTable.id })
-    .from(courierSubscriptionsTable)
-    .where(and(
-      eq(courierSubscriptionsTable.courierId, courierId),
-      eq(courierSubscriptionsTable.isActive, true),
-      sql`${courierSubscriptionsTable.endsAt} > NOW()`,
-    ))
-    .limit(1);
+    const [activeSub] = await tx
+      .select({ id: courierSubscriptionsTable.id })
+      .from(courierSubscriptionsTable)
+      .where(and(
+        eq(courierSubscriptionsTable.courierId, courierId),
+        eq(courierSubscriptionsTable.isActive, true),
+        sql`${courierSubscriptionsTable.endsAt} > NOW()`,
+      ))
+      .limit(1);
 
-  if (!activeSub) {
-    res.status(403).json({ error: "subscription_expired", message: "اشتراكك منتهٍ. يرجى تجديد الاشتراك من صفحة الاشتراك." });
-    return;
-  }
+    if (!activeSub) {
+      res.status(403).json({ error: "subscription_expired", message: "اشتراكك منتهٍ. يرجى تجديد الاشتراك من صفحة الاشتراك." });
+      return;
+    }
 
-  const courierName = courierUsers[0]?.name || "مندوب";
-  const courierPhone = courierUsers[0]?.phone || "";
+    const courierName = courierUsers[0]?.name || "مندوب";
+    const courierPhone = courierUsers[0]?.phone || "";
 
-  // Snapshot the courier's real average rating (from past rated orders) onto the
-  // order, so the customer's tracking screen shows the actual stars instead of 0.
-  const [courierRatingRow] = await db
-    .select({ avg: avg(orderRatingsTable.courierStars) })
-    .from(orderRatingsTable)
-    .where(and(eq(orderRatingsTable.courierId, courierId), gt(orderRatingsTable.courierStars, 0)));
-  const courierRating = courierRatingRow?.avg != null
-    ? Math.round(Number(courierRatingRow.avg) * 10) / 10
-    : 0;
+    // Snapshot the courier's real average rating (from past rated orders) onto the
+    // order, so the customer's tracking screen shows the actual stars instead of 0.
+    const [courierRatingRow] = await tx
+      .select({ avg: avg(orderRatingsTable.courierStars) })
+      .from(orderRatingsTable)
+      .where(and(eq(orderRatingsTable.courierId, courierId), gt(orderRatingsTable.courierStars, 0)));
+    const courierRating = courierRatingRow?.avg != null
+      ? Math.round(Number(courierRatingRow.avg) * 10) / 10
+      : 0;
 
-  const updated = await db
-    .update(ordersTable)
-    .set({ courierId, courierName, courierPhone, courierRating, status: "accepted", updatedAt: new Date() })
-    .where(and(eq(ordersTable.id, orderId), eq(ordersTable.courierId, ""), eq(ordersTable.status, "searching")))
-    .returning();
+    const updated = await tx
+      .update(ordersTable)
+      .set({ courierId, courierName, courierPhone, courierRating, status: "accepted", updatedAt: new Date() })
+      .where(and(eq(ordersTable.id, orderId), eq(ordersTable.courierId, ""), eq(ordersTable.status, "searching")))
+      .returning();
 
-  if (updated.length === 0) {
-    res.status(409).json({ error: "Order was already accepted by another courier" });
-    return;
-  }
+    if (updated.length === 0) {
+      res.status(409).json({ error: "Order was already accepted by another courier" });
+      return;
+    }
 
-  await db.insert(orderStatusHistoryTable).values({
-    id: `${orderId}_accepted_${Date.now()}`,
-    orderId,
-    status: "accepted",
+    await tx.insert(orderStatusHistoryTable).values({
+      id: `${orderId}_accepted_${Date.now()}`,
+      orderId,
+      status: "accepted",
+    });
+
+    return updated[0];
   });
-
-  notifyOrderUpdate(order.userId, updated[0]);
+  if (!accepted) return;
+  notifyOrderUpdate(accepted.userId, accepted);
   notifyCouriersOrderTaken(orderId);
-  await sendOrderPush(order.userId, `${courierName} قبل طلبك وهو في الطريق لاستلامه!`, orderId);
+  await sendOrderPush(accepted.userId, `${accepted.courierName} قبل طلبك وهو في الطريق لاستلامه!`, orderId);
 
-  res.json(updated[0]);
+  res.json(accepted);
 });
 
 const courierStatusSchema = z.object({
@@ -564,6 +568,7 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
     return;
   }
 
+  let referralReward: ReferralReward = null;
   const updated = await db.transaction(async (tx) => {
     // Guard on current status inside the transaction so concurrent requests both
     // matching the pre-check cannot both win — only the first UPDATE succeeds.
@@ -588,63 +593,7 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
     });
 
     if (body.data.status === "delivered") {
-      const order = rows[0]!;
-      const totalForPoints = order.totalPrice ?? order.deliveryFee;
-      if (totalForPoints > 0) {
-        try {
-          const settings = await getLoyaltySettings();
-          await awardPointsInTx(tx, currentOrder.userId, orderId, totalForPoints, settings, order.orderType);
-        } catch {
-          // points award failure must not block order completion
-        }
-      }
-      // Reward the courier with points equal to the delivery-fee discount the
-      // customer used on this order, so a customer promotion never costs the
-      // courier income. Best-effort — never block completion.
-      if (order.courierFeeDiscount > 0) {
-        try {
-          const pointValue = await getCourierPointValue();
-          await awardCourierPointsInTx(tx, courierId, orderId, order.courierFeeDiscount, pointValue);
-        } catch {
-          // courier points award must not block order completion
-        }
-      }
-      // Referral reward: award flat loyalty points to the referrer on the
-      // referred friend's FIRST delivered order only. We filter status = 'pending'
-      // so a referral is only paid once even if the referred user has multiple
-      // delivered orders later. Fires for any completed order (restaurant or errand).
-      {
-        try {
-          const [pendingReferral] = await tx
-            .select({ id: referralsTable.id, referrerId: referralsTable.referrerId })
-            .from(referralsTable)
-            .where(
-              and(
-                eq(referralsTable.referredUserId, currentOrder.userId),
-                eq(referralsTable.status, "pending")
-              )
-            )
-            .limit(1);
-          if (pendingReferral && pendingReferral.referrerId !== currentOrder.userId) {
-            const points = await awardReferralPointsInTx(tx, pendingReferral.id, pendingReferral.referrerId, orderId);
-            if (points > 0) {
-              // Notify referrer after the transaction commits (non-blocking)
-              const referrerId = pendingReferral.referrerId;
-              const earnedPoints = points;
-              setImmediate(() => {
-                void sendPushToUsers(
-                  [referrerId],
-                  `🎁 ربحت ${earnedPoints.toLocaleString()} نقطة من الإحالة!`,
-                  "تهانينا! صديقك أكمل أول طلب بنجاح 🎉",
-                  { type: "referral" }
-                );
-              });
-            }
-          }
-        } catch {
-          // referral reward failure must not block order completion
-        }
-      }
+      referralReward = await completeOrderInTx(tx, rows[0]!);
     }
 
     return rows;
@@ -655,6 +604,7 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
     return;
   }
 
+  notifyReferralReward(referralReward);
   notifyOrderUpdate(currentOrder.userId, updated[0]);
 
   const pushMsg = STATUS_PUSH_MESSAGES[body.data.status] ?? "تم تحديث طلبك";
@@ -1143,67 +1093,72 @@ router.post("/courier/subscription/request", requireCourier, async (req, res) =>
     return;
   }
 
-  const [activeSub] = await db
-    .select({ id: courierSubscriptionsTable.id })
-    .from(courierSubscriptionsTable)
-    .where(and(
-      eq(courierSubscriptionsTable.courierId, courierId),
-      eq(courierSubscriptionsTable.isActive, true),
-      sql`${courierSubscriptionsTable.endsAt} > NOW()`,
-    ))
-    .limit(1);
+  const created = await db.transaction(async tx => {
+    // Same lock as subscription approval: pending creation cannot race another creation.
+    await tx.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.id, courierId)).for("update");
+    const [activeSub] = await tx
+      .select({ id: courierSubscriptionsTable.id })
+      .from(courierSubscriptionsTable)
+      .where(and(
+        eq(courierSubscriptionsTable.courierId, courierId),
+        eq(courierSubscriptionsTable.isActive, true),
+        sql`${courierSubscriptionsTable.endsAt} > NOW()`,
+      ))
+      .limit(1);
 
-  if (activeSub) {
-    res.status(409).json({ error: "already_subscribed", message: "لديك اشتراك نشط بالفعل." });
-    return;
-  }
+    if (activeSub) {
+      res.status(409).json({ error: "already_subscribed", message: "لديك اشتراك نشط بالفعل." });
+      return;
+    }
 
-  const [existing] = await db
-    .select({ id: courierSubscriptionRequestsTable.id, status: courierSubscriptionRequestsTable.status })
-    .from(courierSubscriptionRequestsTable)
-    .where(and(
-      eq(courierSubscriptionRequestsTable.courierId, courierId),
-      eq(courierSubscriptionRequestsTable.status, "pending"),
-    ))
-    .limit(1);
+    const [existing] = await tx
+      .select({ id: courierSubscriptionRequestsTable.id, status: courierSubscriptionRequestsTable.status })
+      .from(courierSubscriptionRequestsTable)
+      .where(and(
+        eq(courierSubscriptionRequestsTable.courierId, courierId),
+        eq(courierSubscriptionRequestsTable.status, "pending"),
+      ))
+      .limit(1);
 
-  if (existing) {
-    res.status(409).json({ error: "request_pending", message: "لديك طلب اشتراك قيد المراجعة بالفعل." });
-    return;
-  }
+    if (existing) {
+      res.status(409).json({ error: "request_pending", message: "لديك طلب اشتراك قيد المراجعة بالفعل." });
+      return;
+    }
 
-  const [plan] = await db
-    .select()
-    .from(courierSubscriptionPlansTable)
-    .where(and(
-      eq(courierSubscriptionPlansTable.id, body.data.planId),
-      eq(courierSubscriptionPlansTable.isActive, true),
-    ))
-    .limit(1);
+    const [plan] = await tx
+      .select()
+      .from(courierSubscriptionPlansTable)
+      .where(and(
+        eq(courierSubscriptionPlansTable.id, body.data.planId),
+        eq(courierSubscriptionPlansTable.isActive, true),
+      ))
+      .limit(1);
 
-  if (!plan) {
-    res.status(404).json({ error: "plan_not_found", message: "الباقة غير موجودة أو غير متاحة." });
-    return;
-  }
+    if (!plan) {
+      res.status(404).json({ error: "plan_not_found", message: "الباقة غير موجودة أو غير متاحة." });
+      return;
+    }
 
-  const id = crypto.randomUUID();
+    const id = crypto.randomUUID();
 
-  const [created] = await db
-    .insert(courierSubscriptionRequestsTable)
-    .values({
-      id,
-      courierId,
-      planId: plan.id,
-      planName: plan.name,
-      planPeriod: plan.period,
-      planPrice: plan.price,
-      paidAmount: body.data.paidAmount,
-      receiptUrl: body.data.receiptUrl ?? null,
-      status: "pending",
-    })
-    .returning();
+    const [created] = await tx
+      .insert(courierSubscriptionRequestsTable)
+      .values({
+        id,
+        courierId,
+        planId: plan.id,
+        planName: plan.name,
+        planPeriod: plan.period,
+        planPrice: plan.price,
+        paidAmount: body.data.paidAmount,
+        receiptUrl: body.data.receiptUrl ?? null,
+        status: "pending",
+      })
+      .returning();
 
-  res.status(201).json(created);
+    return created;
+  });
+  if (created) res.status(201).json(created);
 });
 
 router.get("/courier/subscription/request/status", requireCourier, async (req, res) => {
@@ -1263,10 +1218,12 @@ router.delete("/courier/subscription/request", requireCourier, async (req, res) 
     return;
   }
 
-  await db
+  const cancelled = await db
     .update(courierSubscriptionRequestsTable)
     .set({ status: "cancelled" })
-    .where(eq(courierSubscriptionRequestsTable.id, pending.id));
+    .where(and(eq(courierSubscriptionRequestsTable.id, pending.id), eq(courierSubscriptionRequestsTable.status, "pending")))
+    .returning();
+  if (!cancelled.length) { res.status(409).json({ error: "تمت مراجعة الطلب بالفعل، حدّث الصفحة" }); return; }
 
   res.json({ ok: true });
 });

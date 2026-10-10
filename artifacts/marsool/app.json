@@ -2,7 +2,7 @@
   "expo": {
     "name": "زبوني",
     "slug": "zaboni",
-    "version": "1.0.17",
+    "version": "1.0.18",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "zaboni",
@@ -27,7 +27,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.zaboni.delivery",
-      "buildNumber": "28",
+      "buildNumber": "31",
       "googleServicesFile": "./GoogleService-Info.plist",
       "entitlements": {
         "aps-environment": "production"
@@ -47,7 +47,7 @@
     },
     "android": {
       "package": "com.zaboni.delivery",
-      "versionCode": 109,
+      "versionCode": 112,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",

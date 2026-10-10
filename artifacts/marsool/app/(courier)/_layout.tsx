@@ -3,6 +3,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
   Platform,
+  useWindowDimensions,
   View,
   ActivityIndicator,
   TouchableOpacity,
@@ -64,6 +65,7 @@ async function checkCourierSubStatus(token: string): Promise<SubStatusResult> {
 
 export default function CourierTabLayout() {
   const colors = useColors();
+  const { fontScale } = useWindowDimensions();
   const { activeOrders } = useCourier();
   const { fontMedium, fontBold } = useTypography();
   const insets = useSafeAreaInsets();
@@ -208,7 +210,7 @@ export default function CourierTabLayout() {
         tabBarStyle: {
           backgroundColor: colors.card,
           borderTopColor: colors.border,
-          height: 68 + insets.bottom,
+          height: Math.max(68, 44 + Math.ceil(16 * fontScale)) + insets.bottom,
           paddingBottom: Math.max(insets.bottom, 8),
           paddingTop: 8,
         },
