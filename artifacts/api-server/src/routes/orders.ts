@@ -1,3 +1,4 @@
+import { getDamascusNow, computeIsOpenFromHours, getHoursForRestaurants } from "../lib/restaurantHours";
 import { dispatchOrderNow } from "../lib/orderDispatch";
 import { Router, type IRouter, type Request } from "express";
 import { db, ordersTable, orderItemsTable, menuItemsTable, orderStatusHistoryTable, orderRatingsTable, restaurantsTable, promoCodesTable, promoUsesTable, promoTargetsTable, usersTable, flashDealsTable, loyaltyTransactionsTable, menuItemOptionsTable, menuItemOptionGroupsTable, orderItemOptionsTable, systemSettingsTable } from "@workspace/db";
@@ -6,7 +7,7 @@ import { z } from "zod";
 import { notifyOrderUpdate, notifyRestaurantNewOrder } from "../orders/server";
 import { haversineKm, getFeeForDistance, DEFAULT_DELIVERY_FEE_SYP, DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON } from "../lib/deliveryZones";
 import { checkCoverage, getActiveCoverageAreas, areaIdsContaining, pointInAllowedArea } from "../lib/coverage";
-import { getLoyaltySettings, calculateRedeemDiscount, redeemLoyaltyPoints } from "../lib/loyalty";
+import { getLoyaltySettings, calculateRedeemDiscount, redeemPointsInTx, refundRedeemedPointsInTx } from "../lib/loyalty";
 import { checkAndAwardAchievements } from "../lib/achievements";
 import { isUserSubscribed, getSubscriptionSettings } from "../lib/customerSubscription";
 
@@ -693,11 +694,21 @@ router.post("/orders", async (req, res) => {
   let restaurantHasCoords = false;
   if (effectiveRestaurantId) {
     const restaurant = await db
-      .select({ lat: restaurantsTable.lat, lon: restaurantsTable.lon, phone: restaurantsTable.phone })
+      .select()
       .from(restaurantsTable)
       .where(eq(restaurantsTable.id, effectiveRestaurantId))
       .limit(1);
     const r = restaurant[0];
+    if (!r) { res.status(404).json({ error: "restaurant_not_found" }); return; }
+    const { dayOfWeek, prevDayOfWeek, nowMinutes } = getDamascusNow();
+    const hours = (await getHoursForRestaurants([r.id], [dayOfWeek, prevDayOfWeek])).get(r.id);
+    if (!computeIsOpenFromHours(hours?.get(dayOfWeek), hours?.get(prevDayOfWeek), nowMinutes, r.isOpen)) {
+      res.status(422).json({ error: "restaurant_closed", message: "المطعم مغلق حالياً، يرجى اختيار مطعم آخر." }); return;
+    }
+    if (r.minOrder > 0 && (itemsTotal == null || itemsTotal < r.minOrder)) {
+      res.status(422).json({ error: "minimum_order_not_met", message: "قيمة الأصناف أقل من الحد الأدنى للطلب.", minimum: r.minOrder }); return;
+    }
+
     if (r?.lat != null && r?.lon != null) {
       originLat = r.lat;
       originLon = r.lon;
@@ -952,16 +963,17 @@ router.post("/orders", async (req, res) => {
       });
     }
     if (loyaltyRedeemData) {
-      const settings = await getLoyaltySettings();
-      const { redeemPointsInTx } = await import("../lib/loyalty");
-      try {
-        await redeemPointsInTx(tx, userId, id, loyaltyRedeemData.points, settings);
-      } catch {
-        loyaltyRedeemData = null;
-      }
+      await redeemPointsInTx(tx, userId, id, loyaltyRedeemData.points, { pointValue: loyaltyPointValue });
     }
     return { inserted, appliedFlashDeal };
+  }).catch((error: unknown) => {
+    if (error instanceof Error && error.message === "Insufficient loyalty points") return null;
+    throw error;
   });
+  if (!rows) {
+    res.status(409).json({ error: "loyalty_balance_changed", message: "تغيّر رصيد النقاط. يرجى مراجعة المبلغ وإعادة المحاولة." });
+    return;
+  }
 
   const flashDealData = rows.appliedFlashDeal;
 
@@ -1123,20 +1135,17 @@ router.delete("/orders/:id", async (req, res) => {
     res.status(409).json({ error: "Order can only be cancelled while searching for a courier" });
     return;
   }
-  const updated = await db
-    .update(ordersTable)
-    .set({ status: "cancelled", updatedAt: new Date() })
-    .where(and(eq(ordersTable.id, id), eq(ordersTable.userId, userId), eq(ordersTable.status, "searching")))
-    .returning();
-  if (updated.length === 0) {
-    res.status(409).json({ error: "Order status changed, cannot cancel" });
-    return;
-  }
-  await db.insert(orderStatusHistoryTable).values({
-    id: `${id}_cancelled_${Date.now()}`,
-    orderId: id,
-    status: "cancelled",
+  const updated = await db.transaction(async (tx) => {
+    const changed = await tx.update(ordersTable)
+      .set({ status: "cancelled", updatedAt: new Date() })
+      .where(and(eq(ordersTable.id, id), eq(ordersTable.userId, userId), eq(ordersTable.status, "searching")))
+      .returning();
+    if (!changed.length) return changed;
+    await refundRedeemedPointsInTx(tx, userId, id);
+    await tx.insert(orderStatusHistoryTable).values({ id: `${id}_cancelled_${Date.now()}`, orderId: id, status: "cancelled" });
+    return changed;
   });
+  if (!updated.length) { res.status(409).json({ error: "Order status changed, cannot cancel" }); return; }
   notifyOrderUpdate(userId, { ...updated[0], cancelNote: null });
   res.json(updated[0]);
 });

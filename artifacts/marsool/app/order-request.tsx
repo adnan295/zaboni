@@ -180,7 +180,7 @@ export default function OrderRequestScreen() {
     }
     setPromoStatus("checking");
     try {
-      const body: { code: string; deliveryFee?: number; lat?: number; lon?: number; restaurantId?: string } = { code: code.trim() };
+      const body: { code: string; itemsTotal?: number; deliveryFee?: number; lat?: number; lon?: number; restaurantId?: string } = { code: code.trim(), itemsTotal: subtotal };
       if (deliveryFee != null) {
         body.deliveryFee = deliveryFee;
       } else if (addrLat != null && addrLon != null) {
@@ -202,7 +202,7 @@ export default function OrderRequestScreen() {
       setPromoResult({ valid: false, error: errorCode });
       setPromoStatus(errorCode as PromoStatus);
     }
-  }, [deliveryFee, addrLat, addrLon, restaurantId]);
+  }, [deliveryFee, addrLat, addrLon, restaurantId, subtotal]);
 
   const handlePromoChange = (text: string) => {
     setPromoCode(text);

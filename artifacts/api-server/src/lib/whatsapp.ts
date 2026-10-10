@@ -6,7 +6,6 @@ import makeWASocket, {
 import QRCode from "qrcode";
 import fs from "node:fs";
 import path from "node:path";
-import type { Agent } from "node:http";
 import { SocksProxyAgent } from "socks-proxy-agent";
 import { HttpsProxyAgent } from "https-proxy-agent";
 import { sendAdminAlert } from "./waverifyMonitor";
@@ -16,7 +15,7 @@ import { logger } from "./logger";
 // connections from some regions (returning statusCode 405), so operators in a
 // blocked region can route WhatsApp through a proxy in an allowed region by
 // setting WA_PROXY_URL (e.g. socks5://user:pass@host:1080 or http://host:8080).
-function makeProxyAgent(): Agent | undefined {
+function makeProxyAgent() {
   const url = process.env["WA_PROXY_URL"]?.trim();
   if (!url) return undefined;
   try {

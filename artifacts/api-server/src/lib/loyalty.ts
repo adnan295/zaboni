@@ -144,7 +144,7 @@ export async function redeemPointsInTx(
   userId: string,
   orderId: string,
   points: number,
-  settings: LoyaltySettings
+  settings: Pick<LoyaltySettings, "pointValue">
 ): Promise<number> {
   const discountAmount = calculateRedeemDiscount(points, settings.pointValue);
   if (discountAmount <= 0 || points <= 0) return 0;
@@ -187,4 +187,20 @@ export async function redeemLoyaltyPoints(
   settings: LoyaltySettings
 ): Promise<number> {
   return db.transaction((tx) => redeemPointsInTx(tx, userId, orderId, points, settings));
+}
+
+/** Caller must lock/change the order in this same transaction before refunding. */
+export async function refundRedeemedPointsInTx(tx: Tx, userId: string, orderId: string): Promise<number> {
+  const redemptions = await tx.select({ points: loyaltyTransactionsTable.points }).from(loyaltyTransactionsTable)
+    .where(and(eq(loyaltyTransactionsTable.userId, userId), eq(loyaltyTransactionsTable.orderId, orderId), eq(loyaltyTransactionsTable.type, "redeem")));
+  const points = redemptions.reduce((total, row) => total + row.points, 0);
+  if (points <= 0) return 0;
+  // Stable primary key makes repeated/admin cancellation refunds idempotent.
+  const inserted = await tx.insert(loyaltyTransactionsTable).values({
+    id: `loy_refund_${orderId}`, userId, orderId, type: "admin_adjust", points,
+    description: `إعادة نقاط الطلب الملغى #${orderId.slice(-6)}`,
+  }).onConflictDoNothing().returning({ id: loyaltyTransactionsTable.id });
+  if (!inserted.length) return 0;
+  await tx.update(usersTable).set({ loyaltyPoints: sql`${usersTable.loyaltyPoints} + ${points}` }).where(eq(usersTable.id, userId));
+  return points;
 }

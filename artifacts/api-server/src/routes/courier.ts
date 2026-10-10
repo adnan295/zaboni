@@ -1,3 +1,4 @@
+import { updateVerifiedProfile, ProfileUpdateError } from "../lib/profileUpdate";
 import { MAX_VISIBLE_RADIUS_KM } from "../lib/courierDispatchPolicy";
 import { dispatchOrderNow } from "../lib/orderDispatch";
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
@@ -1087,6 +1088,7 @@ router.get("/courier/my-ratings", requireCourier, async (req, res) => {
 const updateCourierProfileSchema = z.object({
   name: z.string().min(1).max(60).trim().optional(),
   phone: z.string().min(7).max(20).optional(),
+  phoneVerificationCode: z.string().regex(/^\d{6}$/).optional(),
   avatarUrl: z.string().max(1024).nullable().optional(),
 });
 
@@ -1100,18 +1102,7 @@ router.patch("/courier/profile", requireCourier, async (req, res) => {
 
   const updates: Partial<{ name: string; phone: string; avatarUrl: string | null }> = {};
   if (body.data.name !== undefined) updates.name = body.data.name;
-  if (body.data.phone !== undefined) {
-    const existingWithPhone = await db
-      .select({ id: usersTable.id })
-      .from(usersTable)
-      .where(eq(usersTable.phone, body.data.phone))
-      .limit(1);
-    if (existingWithPhone.length > 0 && existingWithPhone[0].id !== courierId) {
-      res.status(409).json({ error: "رقم الهاتف مستخدم من قِبَل حساب آخر" });
-      return;
-    }
-    updates.phone = body.data.phone;
-  }
+  if (body.data.phone !== undefined) updates.phone = body.data.phone;
   if (body.data.avatarUrl !== undefined) updates.avatarUrl = body.data.avatarUrl;
 
   if (Object.keys(updates).length === 0) {
@@ -1121,11 +1112,13 @@ router.patch("/courier/profile", requireCourier, async (req, res) => {
     return;
   }
 
-  const rows = await db
-    .update(usersTable)
-    .set(updates)
-    .where(eq(usersTable.id, courierId))
-    .returning({ id: usersTable.id, name: usersTable.name, phone: usersTable.phone, avatarUrl: usersTable.avatarUrl });
+  let saved;
+  try { saved = await updateVerifiedProfile(courierId, updates, body.data.phoneVerificationCode); }
+  catch (error) {
+    if (error instanceof ProfileUpdateError) { res.status(error.status).json({ error: error.message }); return; }
+    throw error;
+  }
+  const rows = saved ? [saved] : [];
 
   if (rows.length === 0) {
     res.status(404).json({ error: "Courier not found" });

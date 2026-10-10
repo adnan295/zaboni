@@ -50,7 +50,7 @@ export function installCrashReporter(): void {
 
   try {
   // `ErrorUtils` is a React Native global present in both JSC and Hermes.
-  const g = global as unknown as {
+  const g = globalThis as unknown as {
     ErrorUtils?: {
       getGlobalHandler?: () => ((error: unknown, isFatal?: boolean) => void) | undefined;
       setGlobalHandler?: (handler: (error: unknown, isFatal?: boolean) => void) => void;

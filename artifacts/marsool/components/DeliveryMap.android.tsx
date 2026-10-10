@@ -77,7 +77,7 @@ window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ready' }));
 </html>`;
 
 export function DeliveryMap({ userCoords, courierCoords, isSearching, etaMinutes, height = 220 }: DeliveryMapProps) {
-  const webViewRef = useRef<WebView>(null);
+  const webViewRef = useRef<WebView<unknown>>(null);
   const [mapReady, setMapReady] = useState(false);
   // Android kills the WebView renderer process under memory pressure or on
   // background/foreground. Without handling that, react-native-webview crashes
@@ -110,7 +110,7 @@ export function DeliveryMap({ userCoords, courierCoords, isSearching, etaMinutes
 
   return (
     <View style={{ height, overflow: "hidden" }}>
-      <WebView
+      <WebView<unknown>
         key={webViewKey}
         ref={webViewRef}
         source={{ html: MAP_HTML }}

@@ -1,3 +1,4 @@
+import { updateVerifiedProfile, ProfileUpdateError } from "../lib/profileUpdate";
 import { Router, type IRouter } from "express";
 import { randomInt } from "crypto";
 import { db, otpCodesTable, usersTable, ordersTable, referralCodesTable, referralsTable } from "@workspace/db";
@@ -201,10 +202,10 @@ router.post("/auth/verify-otp", async (req, res) => {
       return;
     }
 
-    await db
-      .update(otpCodesTable)
-      .set({ used: true })
-      .where(eq(otpCodesTable.id, rows[0].id));
+    const consumed = await db.update(otpCodesTable).set({ used: true })
+      .where(and(eq(otpCodesTable.id, rows[0].id), eq(otpCodesTable.used, false)))
+      .returning({ id: otpCodesTable.id });
+    if (!consumed.length) { res.status(401).json({ error: "رمز التحقق مستخدم مسبقاً" }); return; }
   }
 
   const existingUser = await db
@@ -306,6 +307,7 @@ router.get("/auth/me", async (req, res) => {
 const updateProfileSchema = z.object({
   name: z.string().min(1).max(60).optional(),
   phone: e164Phone.optional(),
+  phoneVerificationCode: z.string().regex(/^\d{6}$/).optional(),
   avatarUrl: z.string().max(1024).nullable().optional(),
   referralCode: z.string().length(8).optional(),
 });
@@ -338,18 +340,7 @@ router.patch("/auth/me", async (req, res) => {
 
   const updates: Partial<{ name: string; phone: string; avatarUrl: string | null }> = {};
   if (body.data.name !== undefined) updates.name = body.data.name;
-  if (body.data.phone !== undefined) {
-    const existingWithPhone = await db
-      .select({ id: usersTable.id })
-      .from(usersTable)
-      .where(eq(usersTable.phone, body.data.phone))
-      .limit(1);
-    if (existingWithPhone.length > 0 && existingWithPhone[0].id !== userId) {
-      res.status(409).json({ error: "رقم الهاتف مستخدم من قِبَل حساب آخر" });
-      return;
-    }
-    updates.phone = body.data.phone;
-  }
+  if (body.data.phone !== undefined) updates.phone = body.data.phone;
   if (body.data.avatarUrl !== undefined) updates.avatarUrl = body.data.avatarUrl;
 
   // Validate referral code BEFORE performing the profile update so we can
@@ -374,11 +365,13 @@ router.patch("/auth/me", async (req, res) => {
     return;
   }
 
-  const rows = await db
-    .update(usersTable)
-    .set(updates)
-    .where(eq(usersTable.id, userId))
-    .returning();
+  let saved;
+  try { saved = await updateVerifiedProfile(userId, updates, body.data.phoneVerificationCode); }
+  catch (error) {
+    if (error instanceof ProfileUpdateError) { res.status(error.status).json({ error: error.message }); return; }
+    throw error;
+  }
+  const rows = saved ? [saved] : [];
 
   if (rows.length === 0) { res.status(404).json({ error: "User not found" }); return; }
 
