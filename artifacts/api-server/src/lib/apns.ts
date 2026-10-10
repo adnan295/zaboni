@@ -90,7 +90,7 @@ export async function sendApnsNotifications(
     return result;
   }
 
-  const expirationTimestamp = Math.floor(Date.now() / 1000) + 86400;
+  const expirationTimestamp = Math.floor(Date.now() / 1000) + (data?.type === "new_order" ? 60 : 86400);
 
   const payload = JSON.stringify({
     aps: {
@@ -115,7 +115,7 @@ export async function sendApnsNotifications(
         try { client?.destroy(); } catch { /* noop */ }
         resolve(result);
       }
-    }, CONNECT_TIMEOUT_MS + REQUEST_TIMEOUT_MS * validTokens.length + 2000);
+    }, CONNECT_TIMEOUT_MS + REQUEST_TIMEOUT_MS + 2000);
 
     function finish(): void {
       if (pending > 0) pending--;
@@ -161,14 +161,22 @@ export async function sendApnsNotifications(
             "apns-push-type": "alert",
             "apns-priority": "10",
             "apns-expiration": String(expirationTimestamp),
+            ...(data?.type === "new_order" && data.orderId ? { "apns-collapse-id": data.orderId.slice(0, 64) } : {}),
             "content-type": "application/json",
             "content-length": String(Buffer.byteLength(payload)),
           });
 
+          let settled = false;
+          const settle = (): boolean => {
+            if (settled || resolved) return false;
+            settled = true;
+            return true;
+          };
           let statusCode = 0;
           let responseBody = "";
 
           const reqTimer = setTimeout(() => {
+            if (!settle()) return;
             result.failure++;
             req.destroy();
             finish();
@@ -179,12 +187,13 @@ export async function sendApnsNotifications(
 
           req.on("end", () => {
             clearTimeout(reqTimer);
+            if (!settle()) return;
             if (statusCode === 200) {
               result.success++;
             } else {
               let reason = "unknown";
               try { reason = JSON.parse(responseBody).reason || "unknown"; } catch { /* noop */ }
-              logger.warn({ statusCode, reason, tokenPrefix: deviceToken.slice(0, 8) }, "[APNs] Push rejected");
+              logger.warn({ statusCode, reason, orderId: data?.orderId }, "[APNs] Push rejected");
               if (["BadDeviceToken", "Unregistered", "DeviceTokenNotForTopic"].includes(reason)) {
                 result.invalidTokens.push(deviceToken);
               }
@@ -195,6 +204,7 @@ export async function sendApnsNotifications(
 
           req.on("error", () => {
             clearTimeout(reqTimer);
+            if (!settle()) return;
             result.failure++;
             finish();
           });

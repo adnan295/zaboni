@@ -109,7 +109,7 @@ function SlaAlertsWidget({ alerts, isLoading }: { alerts: SlaAlert[]; isLoading:
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
           </span>
-          تنبيهات التأخير ⏰
+          طلبات تحتاج متابعة — لا تُلغى تلقائياً ⏰
           <span className="flex gap-1.5 mr-1">
             {critical > 0 && (
               <span className="text-xs font-bold bg-red-600 text-white rounded-full px-2 py-0.5 leading-none">
@@ -156,6 +156,7 @@ function SlaAlertsWidget({ alerts, isLoading }: { alerts: SlaAlert[]; isLoading:
                         <span className="font-mono text-xs text-muted-foreground flex-shrink-0">
                           #{alert.id.slice(0, 8)}
                         </span>
+                        {alert.dispatchError && <span className="text-xs text-red-700">تعذّر تنبيه المندوب — متابعة فورية</span>}
                         {alert.restaurantName && (
                           <span className="text-xs font-medium text-foreground/80 flex-shrink-0">
                             {alert.restaurantName}
@@ -207,8 +208,8 @@ export default function Dashboard() {
   });
 
   const { data: slaAlerts = [], isLoading: slaLoading } = useQuery({
-    queryKey: ["admin", "sla-alerts", 5],
-    queryFn: () => api.getSlaAlerts(5),
+    queryKey: ["admin", "sla-alerts", 2],
+    queryFn: () => api.getSlaAlerts(2),
     refetchInterval: 30_000,
   });
 

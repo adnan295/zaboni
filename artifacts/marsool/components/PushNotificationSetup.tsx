@@ -13,9 +13,11 @@ function CourierPushSetup() {
   const { token } = useAuth();
 
   const onNewOrder = useCallback(async () => {
+    // Show available orders immediately; GPS must never block notification taps.
+    await refreshAvailableOrders();
     if (Platform.OS !== "web") {
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
+        const { status } = await Location.getForegroundPermissionsAsync();
         if (status === "granted") {
           try {
             const loc = await Location.getCurrentPositionAsync({

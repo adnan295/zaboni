@@ -1,14 +1,10 @@
 import { useEffect, useRef } from "react";
-import { AppState, type AppStateStatus, Platform } from "react-native";
+import { Alert, Linking, AppState, type AppStateStatus, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
-import Constants, { ExecutionEnvironment } from "expo-constants";
+import { registerForPush } from "@/lib/pushRegistration";
 import { useRouter } from "expo-router";
-import { getApiBaseUrl } from "@/lib/apiConfig";
 import { useAuth } from "@/context/AuthContext";
-
-const isExpoGo =
-  Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -101,105 +97,6 @@ const handledReceivedIds = new Set<string>();
 // re-open its screen on every subsequent cold start.
 const LAUNCH_NOTIF_KEY = "@zaboni_handled_launch_notif_v1";
 
-const REGISTRATION_COOLDOWN_MS = 30_000;
-
-async function getDevicePushTokenWithRetry(
-  retries = 3,
-  delayMs = 1500,
-): Promise<Notifications.DevicePushToken | null> {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      return await Notifications.getDevicePushTokenAsync();
-    } catch (err) {
-      console.warn(
-        `[PushNotifications] getDevicePushTokenAsync attempt ${attempt}/${retries} failed:`,
-        err,
-      );
-      if (attempt < retries) await new Promise((r) => setTimeout(r, delayMs));
-    }
-  }
-  return null;
-}
-
-async function ensureAndroidChannel(): Promise<void> {
-  if (Platform.OS !== "android") return;
-  try {
-    await Notifications.setNotificationChannelAsync("default", {
-      name: "default",
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: "#DC2626",
-      sound: "default",
-    });
-  } catch (err) {
-    console.warn("[PushNotifications] Channel setup failed:", err);
-  }
-}
-
-async function registerForPush(authToken: string): Promise<void> {
-  if (Platform.OS === "web") return;
-  if (isExpoGo) {
-    console.log(
-      "[PushNotifications] Skipped: remote push is not supported in Expo Go (SDK 53+). Use a development or production build.",
-    );
-    return;
-  }
-
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
-
-  if (existingStatus !== "granted") {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
-  if (finalStatus !== "granted") return;
-
-  await ensureAndroidChannel();
-
-  const baseUrl = getApiBaseUrl();
-  const headers = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${authToken}`,
-  };
-
-  const deviceTokenData = await getDevicePushTokenWithRetry();
-  if (deviceTokenData?.data && typeof deviceTokenData.data === "string") {
-    const payload =
-      Platform.OS === "android"
-        ? { fcmToken: deviceTokenData.data }
-        : Platform.OS === "ios"
-          ? { apnToken: deviceTokenData.data }
-          : null;
-    if (payload) {
-      try {
-        await fetch(`${baseUrl}/api/auth/device-tokens`, {
-          method: "PUT",
-          headers,
-          body: JSON.stringify(payload),
-        });
-      } catch (err) {
-        console.warn("[PushNotifications] Failed to save device token:", err);
-      }
-    }
-  }
-
-  try {
-    const projectId = process.env["EXPO_PUBLIC_PROJECT_ID"];
-    const expoTokenData = await Notifications.getExpoPushTokenAsync(
-      projectId ? { projectId } : undefined,
-    );
-    if (expoTokenData?.data) {
-      await fetch(`${baseUrl}/api/push-token`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ token: expoTokenData.data }),
-      }).catch((err) => console.warn("[PushNotifications] Failed to save Expo token:", err));
-    }
-  } catch (err) {
-    console.warn("[PushNotifications] Expo push token unavailable (native token already saved):", err);
-  }
-}
-
 export function usePushNotifications(
   onNewOrderTap?: () => void,
   addNotification?: AddNotificationFn,
@@ -210,7 +107,6 @@ export function usePushNotifications(
   const onNewOrderTapRef = useRef(onNewOrderTap);
   const addNotificationRef = useRef(addNotification);
   const userRoleRef = useRef<"customer" | "courier">(user?.role ?? "customer");
-  const lastRegistrationRef = useRef<number>(0);
   routerRef.current = router;
   onNewOrderTapRef.current = onNewOrderTap;
   addNotificationRef.current = addNotification;
@@ -219,23 +115,51 @@ export function usePushNotifications(
   useEffect(() => {
     if (Platform.OS === "web" || !token) return;
 
-    const tryRegister = () => {
-      const now = Date.now();
-      if (now - lastRegistrationRef.current < REGISTRATION_COOLDOWN_MS) return;
-      lastRegistrationRef.current = now;
-      registerForPush(token).catch((err) =>
-        console.warn("Push notification registration failed:", err),
-      );
+    let disposed = false;
+    let inFlight = false;
+    let warned = false;
+    let tokenChanged = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    const tryRegister = async () => {
+      if (disposed || inFlight) return;
+      inFlight = true;
+      clearTimeout(retryTimer);
+      let ready = false;
+      try {
+        const result = await registerForPush(token);
+        ready = result.ready && !result.retrySoon;
+        if (!disposed && !result.ready && userRoleRef.current === "courier" && !warned) {
+          warned = true;
+          Alert.alert("تنبيهات الطلبات غير جاهزة", result.message, [
+            { text: "فتح الإعدادات", onPress: () => { void Linking.openSettings(); } },
+            { text: "حسناً", style: "cancel" },
+          ]);
+        }
+      } catch (err) { console.warn("Push notification registration failed", err); }
+      finally {
+        inFlight = false;
+        if (!disposed && tokenChanged) {
+          tokenChanged = false;
+          void tryRegister();
+        } else if (!disposed) retryTimer = setTimeout(() => {
+          if (AppState.currentState === "active") void tryRegister();
+        }, ready ? 10 * 60_000 : 30_000);
+      }
     };
-
-    tryRegister();
-
-    const handleAppStateChange = (nextState: AppStateStatus) => {
-      if (nextState === "active") tryRegister();
+    void tryRegister();
+    const subscription = AppState.addEventListener("change", (nextState: AppStateStatus) => {
+      if (nextState === "active") void tryRegister();
+    });
+    const tokenSubscription = Notifications.addPushTokenListener(() => {
+      if (inFlight) tokenChanged = true;
+      else void tryRegister();
+    });
+    return () => {
+      disposed = true;
+      clearTimeout(retryTimer);
+      subscription.remove();
+      tokenSubscription.remove();
     };
-    const subscription = AppState.addEventListener("change", handleAppStateChange);
-
-    return () => subscription.remove();
   }, [token]);
 
   useEffect(() => {

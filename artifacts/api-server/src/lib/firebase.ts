@@ -69,8 +69,10 @@ export async function sendFcmNotification(
         data: data || {},
         android: {
           priority: "high",
+          ...(data?.type === "new_order" ? { ttl: 60_000, collapseKey: data.orderId } : {}),
           notification: {
             channelId: "default",
+            ...(data?.type === "new_order" ? { tag: data.orderId } : {}),
             sound: "default",
             color: "#DC2626",
           },

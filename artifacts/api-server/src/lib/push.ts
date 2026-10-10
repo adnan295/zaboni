@@ -1,11 +1,20 @@
 import { Expo } from "expo-server-sdk";
-import { db, usersTable, userNotificationsTable } from "@workspace/db";
+import { db, pool, usersTable, userNotificationsTable } from "@workspace/db";
 import { and, eq, inArray, isNotNull, or } from "drizzle-orm";
 import { sendFcmNotification, isFcmConfigured } from "./firebase";
 import { sendApnsNotifications, isApnsConfigured } from "./apns";
 import { logger } from "./logger";
 
-const expo = new Expo();
+const expo = new Expo({ accessToken: process.env["EXPO_ACCESS_TOKEN"] });
+
+export async function withPushTimeout<T>(work: Promise<T>, ms = 20_000): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  try {
+    return await Promise.race([work, new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("push_provider_timeout")), ms);
+    })]);
+  } finally { clearTimeout(timer!); }
+}
 
 export type PushTotals = {
   expo: { success: number; failure: number };
@@ -44,18 +53,37 @@ async function sendExpo(
     title,
     body,
     sound: "default" as const,
+    priority: "high" as const,
+    channelId: "default",
+    ...(data?.type === "new_order" ? { ttl: 60, collapseId: data.orderId, tag: data.orderId } : {}),
     ...(data ? { data } : {}),
   }));
 
   const chunks = expo.chunkPushNotifications(messages);
   for (const chunk of chunks) {
     try {
-      const tickets = await expo.sendPushNotificationsAsync(chunk);
-      for (const ticket of tickets) {
-        if (ticket.status === "ok") out.success++;
-        else out.failure++;
+      const tickets = await withPushTimeout(expo.sendPushNotificationsAsync(chunk));
+      for (let i = 0; i < tickets.length; i++) {
+        const ticket = tickets[i]!;
+        if (ticket.status === "ok") {
+          out.success++;
+          // A ticket only means Expo queued the message. Persist it for receipt
+          // checking after restarts; never treat it as device delivery.
+          try {
+            await pool.query(`INSERT INTO push_receipts (id, token, order_id, next_check_at)
+              VALUES ($1, $2, $3, NOW() + INTERVAL '15 seconds') ON CONFLICT DO NOTHING`,
+            [ticket.id, chunk[i]!.to, data?.orderId ?? null]);
+          } catch (err) { logger.error({ err, orderId: data?.orderId }, "Could not persist Expo receipt"); }
+        } else {
+          out.failure++;
+          logger.warn({ code: ticket.details?.error, orderId: data?.orderId }, "Expo push rejected");
+          if (ticket.details?.error === "DeviceNotRegistered") {
+            await clearInvalidTokens({ expo: [String(chunk[i]!.to)] });
+          }
+        }
       }
-    } catch {
+    } catch (err) {
+      logger.warn({ err, orderId: data?.orderId }, "Expo push request failed");
       out.failure += chunk.length;
     }
   }
@@ -85,8 +113,11 @@ async function loadTokensForUserIds(userIds: string[]): Promise<Tokens> {
   return result;
 }
 
-async function clearInvalidTokens(opts: { fcm?: string[]; apns?: string[] }): Promise<void> {
+async function clearInvalidTokens(opts: { fcm?: string[]; apns?: string[]; expo?: string[] }): Promise<void> {
   try {
+    if (opts.expo?.length) {
+      await db.update(usersTable).set({ pushToken: null }).where(inArray(usersTable.pushToken, opts.expo));
+    }
     if (opts.fcm && opts.fcm.length > 0) {
       await db.update(usersTable).set({ fcmToken: null }).where(inArray(usersTable.fcmToken, opts.fcm));
     }
@@ -116,26 +147,33 @@ async function sendToTokens(
     );
   }
 
-  if (isFcmConfigured() && tokens.fcm.length > 0) {
+  if (tokens.fcm.length > 0) {
     tasks.push(
-      sendFcmNotification(tokens.fcm, title, body, data).then(async (r) => {
+      withPushTimeout(sendFcmNotification(tokens.fcm, title, body, data)).then(async (r) => {
+        if (r.errors.length) logger.warn({ errors: r.errors, orderId: data?.orderId }, "FCM push failed");
         totals.fcm.success = r.success;
         totals.fcm.failure = r.failure;
         if (r.invalidTokens.length > 0) {
           await clearInvalidTokens({ fcm: r.invalidTokens });
         }
+      }).catch((err) => {
+        totals.fcm.failure = tokens.fcm.length;
+        logger.warn({ err, orderId: data?.orderId }, "FCM request failed");
       }),
     );
   }
 
-  if (isApnsConfigured() && tokens.apns.length > 0) {
+  if (tokens.apns.length > 0) {
     tasks.push(
-      sendApnsNotifications(tokens.apns, title, body, data).then(async (r) => {
+      withPushTimeout(sendApnsNotifications(tokens.apns, title, body, data)).then(async (r) => {
         totals.apns.success = r.success;
         totals.apns.failure = r.failure;
         if (r.invalidTokens.length > 0) {
           await clearInvalidTokens({ apns: r.invalidTokens });
         }
+      }).catch((err) => {
+        totals.apns.failure = tokens.apns.length;
+        logger.warn({ err, orderId: data?.orderId }, "APNs request failed");
       }),
     );
   }
@@ -281,4 +319,69 @@ export async function sendPushToTokens(
     body,
     data,
   );
+}
+
+
+/** Prefer a native alert; use Expo only if native submission fails/unavailable. */
+export async function sendCourierPush(
+  devices: Array<{ pushToken: string | null; fcmToken: string | null; apnToken: string | null }>,
+  title: string, body: string, data: Record<string, string>,
+  stillSearching: () => Promise<boolean> = async () => true,
+): Promise<{ accepted: number; failed: number }> {
+  let accepted = 0, failed = 0;
+  // Batches keep connections bounded without serializing every courier.
+  for (let offset = 0; offset < devices.length; offset += 20) {
+    if (!(await stillSearching())) break;
+    await Promise.all(devices.slice(offset, offset + 20).map(async device => {
+      const native = await sendPushToTokens({
+        fcm: device.fcmToken && isFcmConfigured() ? [device.fcmToken] : [],
+        apns: device.apnToken && isApnsConfigured() ? [device.apnToken] : [],
+      }, title, body, data);
+      if (totalsSentCount(native) > 0) { accepted++; return; }
+      if (device.pushToken) {
+        const fallback = await sendPushToTokens({ expo: [device.pushToken] }, title, body, data);
+        if (totalsSentCount(fallback) > 0) { accepted++; return; }
+      }
+      failed++;
+    }));
+  }
+  if (failed) logger.warn({ orderId: data.orderId, accepted, failed,
+    fcmConfigured: isFcmConfigured(), apnsConfigured: isApnsConfigured() }, "Courier push submission incomplete");
+  return { accepted, failed };
+}
+
+let checkingReceipts = false;
+export async function checkPushReceipts(): Promise<void> {
+  if (checkingReceipts) return;
+  checkingReceipts = true;
+  try {
+    const pending = await pool.query(`SELECT id, token, order_id, created_at FROM push_receipts
+      WHERE next_check_at <= NOW() ORDER BY next_check_at LIMIT 100`);
+    if (!pending.rows.length) return;
+    const receipts = await withPushTimeout(expo.getPushNotificationReceiptsAsync(pending.rows.map(r => r.id)));
+    for (const row of pending.rows) {
+      const receipt = receipts[row.id];
+      const expired = Date.now() - new Date(row.created_at).getTime() >= 24 * 60 * 60_000;
+      if (!receipt && !expired) {
+        await pool.query("UPDATE push_receipts SET next_check_at = NOW() + INTERVAL '1 minute' WHERE id = $1", [row.id]);
+        continue;
+      }
+      if (receipt?.status === "error" || expired) {
+        logger.error({ orderId: row.order_id, receiptId: row.id,
+          code: receipt?.status === "error" ? receipt.details?.error : "receipt_missing" }, "Expo delivery to provider failed");
+        if (receipt?.status === "error" && receipt.details?.error === "DeviceNotRegistered") {
+          await clearInvalidTokens({ expo: [row.token] });
+        }
+        if (row.order_id) await pool.query(
+          "UPDATE order_dispatch SET next_attempt_at = NOW(), last_error = 'expo_receipt_failed' WHERE order_id = $1", [row.order_id]);
+      }
+      await pool.query("DELETE FROM push_receipts WHERE id = $1", [row.id]);
+    }
+  } catch (err) { logger.error({ err }, "Expo receipt check failed; will retry"); }
+  finally { checkingReceipts = false; }
+}
+
+export function startPushReceiptJob(): void {
+  void checkPushReceipts();
+  setInterval(() => void checkPushReceipts(), 15_000).unref();
 }

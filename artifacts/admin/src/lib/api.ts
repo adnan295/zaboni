@@ -1056,7 +1056,7 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ items }),
     }),
-  getSlaAlerts: (minAge = 5) =>
+  getSlaAlerts: (minAge = 2) =>
     apiFetch<SlaAlert[]>(`/admin/sla-alerts?minAge=${minAge}`),
   getCancellationStats: (days: number) =>
     apiFetch<CancellationStats>(`/admin/cancellation-stats?days=${days}`),
@@ -1113,6 +1113,10 @@ export const api = {
 };
 
 export type SlaAlert = {
+  dispatchAttempts?: number;
+  pushAccepted?: number;
+  pushFailed?: number;
+  dispatchError?: string | null;
   id: string;
   orderText: string;
   restaurantName: string | null;

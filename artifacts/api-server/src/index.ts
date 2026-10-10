@@ -1,8 +1,9 @@
 import { createServer } from "http";
 import { Server as SocketServer } from "socket.io";
 import app from "./app";
-import { setupOrdersNamespace } from "./orders/server";
-import { startOrderExpiryJob } from "./lib/orderExpiry";
+import { setupOrdersNamespace, notifyNearbyCouriers } from "./orders/server";
+import { ensureDispatchSchema, startOrderDispatchJob } from "./lib/orderDispatch";
+import { startPushReceiptJob } from "./lib/push";
 import { startDealExpiryJob } from "./lib/dealExpiry";
 import { startUploadCleanupJob } from "./lib/uploadCleanup";
 import { logger } from "./lib/logger";
@@ -57,13 +58,16 @@ const io = new SocketServer(httpServer, {
 });
 setupOrdersNamespace(io);
 
+await ensureDispatchSchema();
+
 httpServer.listen(port, (err?: Error) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
   }
   logger.info({ port }, "Server listening");
-  startOrderExpiryJob();
+  startOrderDispatchJob(notifyNearbyCouriers);
+  startPushReceiptJob();
   startDealExpiryJob();
   startUploadCleanupJob();
   // Generate banner template preview PNGs at startup so <img> tags work immediately

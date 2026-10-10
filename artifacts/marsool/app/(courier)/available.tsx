@@ -183,8 +183,8 @@ export default function AvailableOrdersScreen() {
   const handleToggleAvailability = useCallback(async () => {
     try {
       await toggleAvailability();
-    } catch {
-      Alert.alert(t("courier.availabilityToggle.errorTitle"), t("courier.availabilityToggle.errorMsg"));
+    } catch (err) {
+      Alert.alert(t("courier.availabilityToggle.errorTitle"), err instanceof Error ? err.message : t("courier.availabilityToggle.errorMsg"));
     }
   }, [toggleAvailability]);
 

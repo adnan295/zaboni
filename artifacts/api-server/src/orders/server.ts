@@ -1,9 +1,10 @@
+import { canReceiveNewOrder, isWithinOrderRadius } from "../lib/courierDispatchPolicy";
 import { Server as SocketServer, Namespace, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
 import { db, usersTable, ordersTable, restaurantsTable } from "@workspace/db";
-import { and, eq, isNotNull, ne, notInArray, or, sql } from "drizzle-orm";
+import { and, eq, ne, notInArray } from "drizzle-orm";
 import { logger } from "../lib/logger";
-import { sendPushToTokens, sendPushToUsers } from "../lib/push";
+import { sendCourierPush, sendPushToUsers } from "../lib/push";
 import { sendWebPushToRestaurant } from "../lib/webPush";
 import type { AuthPayload } from "../middleware/auth";
 import { verifyAdminToken } from "../middleware/adminAuth";
@@ -87,130 +88,57 @@ export async function sendOrderPush(
   }
 }
 
-type ZoneFilter = { type: "all" } | { type: "zone"; zoneId: string | null };
-
-async function getFreeOnlineCouriers(zoneFilter: ZoneFilter): Promise<Array<{
-  id: string;
-  pushToken: string | null;
-  fcmToken: string | null;
-  apnToken: string | null;
-}>> {
-  // "all" = broadcast to every online courier (used for errand orders with no
-  // restaurant, since there is no zone to derive). "zone" matches only couriers
-  // whose zoneId equals the restaurant's zoneId AND is non-null — an unassigned
-  // restaurant (null zoneId) never matches unassigned couriers; it matches no one,
-  // per spec (no fallback/backfill guessing).
-  const zoneCondition =
-    zoneFilter.type === "all"
-      ? undefined
-      : zoneFilter.zoneId === null
-        ? sql`false`
-        : eq(usersTable.zoneId, zoneFilter.zoneId);
-
-  const [couriers, busyRows] = await Promise.all([
-    db
-      .select({
-        id: usersTable.id,
-        pushToken: usersTable.pushToken,
-        fcmToken: usersTable.fcmToken,
-        apnToken: usersTable.apnToken,
-      })
-      .from(usersTable)
-      .where(
-        and(
-          eq(usersTable.role, "courier"),
-          eq(usersTable.isOnline, true),
-          zoneCondition,
-          or(
-            isNotNull(usersTable.pushToken),
-            isNotNull(usersTable.fcmToken),
-            isNotNull(usersTable.apnToken),
-          ),
-        ),
-      ),
-    db
-      .selectDistinct({ courierId: ordersTable.courierId })
-      .from(ordersTable)
-      .where(
-        and(
-          notInArray(ordersTable.status, ["delivered", "cancelled", "searching"]),
-          ne(ordersTable.courierId, ""),
-        ),
-      ),
-  ]);
-
-  const busyIds = new Set(busyRows.map((r) => r.courierId));
-  return couriers.filter((c) => !busyIds.has(c.id));
-}
-
-function extractTokens(couriers: Array<{ pushToken: string | null; fcmToken: string | null; apnToken: string | null }>) {
-  const tokens = { expo: [] as string[], fcm: [] as string[], apns: [] as string[] };
-  for (const c of couriers) {
-    if (c.pushToken) tokens.expo.push(c.pushToken);
-    if (c.fcmToken) tokens.fcm.push(c.fcmToken);
-    if (c.apnToken) tokens.apns.push(c.apnToken);
-  }
-  return tokens;
-}
-
-async function getRestaurantZoneId(restaurantId: string | null): Promise<string | null> {
-  if (!restaurantId) return null;
-  const rows = await db
-    .select({ zoneId: restaurantsTable.zoneId })
-    .from(restaurantsTable)
-    .where(eq(restaurantsTable.id, restaurantId))
-    .limit(1);
-  return rows[0]?.zoneId ?? null;
-}
-
-/**
- * Zone-based dispatch: notify every online, free courier whose assigned work zone
- * matches the order's restaurant's work zone, in a single immediate broadcast
- * (no GPS distance/tiering/location-freshness gating). Errand orders (no
- * restaurant) broadcast to all online couriers since there is no zone to derive.
- */
+/** Called only by the durable dispatch worker. */
 export async function notifyNearbyCouriers(
   orderId: string,
   restaurantId: string | null,
   restaurantName: string,
   deliveryFee: number,
-): Promise<void> {
+  broaden = false,
+): Promise<{ accepted: number; failed: number }> {
+  const [order] = await db.select({ userId: ordersTable.userId, status: ordersTable.status })
+    .from(ordersTable).where(eq(ordersTable.id, orderId)).limit(1);
+  if (!order || order.status !== "searching") return { accepted: 0, failed: 0 };
+  const restaurant = restaurantId ? (await db.select({ zoneId: restaurantsTable.zoneId,
+    lat: restaurantsTable.lat, lon: restaurantsTable.lon }).from(restaurantsTable)
+    .where(eq(restaurantsTable.id, restaurantId)).limit(1))[0] : undefined;
+  const [couriers, active] = await Promise.all([
+    db.select({ id: usersTable.id, zoneId: usersTable.zoneId,
+      lat: usersTable.courierLat, lon: usersTable.courierLon,
+      pushToken: usersTable.pushToken, fcmToken: usersTable.fcmToken, apnToken: usersTable.apnToken })
+      .from(usersTable).where(and(eq(usersTable.role, "courier"), eq(usersTable.isOnline, true),
+        eq(usersTable.isBlocked, false), ne(usersTable.id, order.userId))),
+    db.select({ courierId: ordersTable.courierId, status: ordersTable.status }).from(ordersTable)
+      .where(and(notInArray(ordersTable.status, ["delivered", "cancelled", "searching"]), ne(ordersTable.courierId, ""))),
+  ]);
+  const activeByCourier = new Map<string, string[]>();
+  for (const row of active) activeByCourier.set(row.courierId, [...(activeByCourier.get(row.courierId) ?? []), row.status]);
+  const eligible = couriers.filter(c => canReceiveNewOrder(activeByCourier.get(c.id) ?? []) &&
+    isWithinOrderRadius(c.lat, c.lon, restaurant?.lat ?? null, restaurant?.lon ?? null));
+  const inZone = restaurant?.zoneId ? eligible.filter(c => c.zoneId === restaurant.zoneId) : [];
+  const selected = !broaden && inZone.length ? inZone : eligible;
   const title = "🛵 طلب جديد!";
   const body = restaurantName
     ? `طلب من ${restaurantName} — رسوم التوصيل: ${deliveryFee.toLocaleString("ar-SY")} ل.س`
     : `طلب جديد — رسوم التوصيل: ${deliveryFee.toLocaleString("ar-SY")} ل.س`;
-  const data = { type: "new_order" };
-
-  try {
-    const zoneFilter: ZoneFilter =
-      restaurantId === null ? { type: "all" } : { type: "zone", zoneId: await getRestaurantZoneId(restaurantId) };
-    let couriers = await getFreeOnlineCouriers(zoneFilter);
-
-    // Fallback: if zone dispatch matched nobody — the restaurant has no work
-    // zone assigned, or no courier is assigned to that zone — broadcast to ALL
-    // free online couriers instead of dropping the order silently. Without this
-    // a restaurant order was never announced (no push at all), so a courier only
-    // saw it if they happened to have the orders board open. Errand orders
-    // already broadcast to everyone; this makes restaurant orders behave the
-    // same when zones aren't configured, while still preferring the matching
-    // zone whenever one IS set up.
-    if (couriers.length === 0 && zoneFilter.type === "zone") {
-      couriers = await getFreeOnlineCouriers({ type: "all" });
-      if (couriers.length > 0) {
-        logger.info({ orderId }, "Zone dispatch: no zone match — falling back to all free couriers");
-      }
-    }
-
-    if (couriers.length === 0) {
-      logger.info({ orderId, zoneFilter }, "Zone dispatch: no free online couriers");
-      return;
-    }
-    const tokens = extractTokens(couriers);
-    const totals = await sendPushToTokens(tokens, title, body, data);
-    logger.info({ count: couriers.length, orderId, zoneFilter, totals }, "Zone dispatch: broadcast to couriers");
-  } catch (err) {
-    logger.warn({ err, orderId }, "Failed to notify zone couriers");
+  const data = { type: "new_order", orderId };
+  // Socket is an additional foreground path, never a substitute for OS push.
+  for (const courier of selected) _ordersNs?.to(`user:${courier.id}`).emit("new_order", data);
+  const stillSearching = async () => {
+    const [current] = await db.select({ status: ordersTable.status }).from(ordersTable)
+      .where(eq(ordersTable.id, orderId)).limit(1);
+    return current?.status === "searching";
+  };
+  let result = await sendCourierPush(selected, title, body, data, stillSearching);
+  if (result.accepted === 0 && selected !== eligible) {
+    const selectedIds = new Set(selected.map(c => c.id));
+    const fallback = eligible.filter(c => !selectedIds.has(c.id));
+    for (const courier of fallback) _ordersNs?.to(`user:${courier.id}`).emit("new_order", data);
+    const expanded = await sendCourierPush(fallback, title, body, data, stillSearching);
+    result = { accepted: result.accepted + expanded.accepted, failed: result.failed + expanded.failed };
   }
+  logger.info({ orderId, eligible: eligible.length, broaden, ...result }, "Courier dispatch submission (not device delivery)");
+  return result;
 }
 
 export function notifyCouriersOrderTaken(orderId: string): void {

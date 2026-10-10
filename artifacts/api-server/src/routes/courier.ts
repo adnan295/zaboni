@@ -1,3 +1,5 @@
+import { MAX_VISIBLE_RADIUS_KM } from "../lib/courierDispatchPolicy";
+import { dispatchOrderNow } from "../lib/orderDispatch";
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db, usersTable, ordersTable, orderItemsTable, orderItemOptionsTable, orderStatusHistoryTable, orderRatingsTable, courierSubscriptionsTable, courierSubscriptionPlansTable, courierCustomerRatingsTable, courierApplicationsTable, referralsTable, courierSubscriptionRequestsTable, systemSettingsTable, restaurantsTable, courierPointsTransactionsTable } from "@workspace/db";
 import { and, eq, ne, inArray, notInArray, avg, count, gt, sql, desc, getTableColumns } from "drizzle-orm";
@@ -197,7 +199,7 @@ const SERVICE_AREA_MAX_KM = 500;
 // Proximity dispatch: a searching order is shown to every online courier, nearest
 // restaurant first, but capped to this radius so a courier never sees an order across
 // the city. An order or courier missing GPS is never hidden (shown, sorted last).
-const MAX_VISIBLE_RADIUS_KM = 15;
+
 
 router.patch("/courier/location", requireCourier, async (req, res) => {
   const body = locationSchema.safeParse(req.body);
@@ -702,7 +704,7 @@ router.post("/courier/orders/:orderId/cancel", requireCourier, async (req, res) 
 
   const order = orders[0];
 
-  if (order.status === "delivered" || order.status === "picked_up" || order.status === "on_way") {
+  if (order.status !== "accepted") {
     res.status(409).json({ error: "Cannot cancel after pickup has occurred" });
     return;
   }
@@ -717,7 +719,7 @@ router.post("/courier/orders/:orderId/cancel", requireCourier, async (req, res) 
       status: "searching",
       updatedAt: new Date(),
     })
-    .where(and(eq(ordersTable.id, orderId), eq(ordersTable.courierId, courierId)))
+    .where(and(eq(ordersTable.id, orderId), eq(ordersTable.courierId, courierId), eq(ordersTable.status, "accepted")))
     .returning();
 
   if (updated.length === 0) {
@@ -732,6 +734,7 @@ router.post("/courier/orders/:orderId/cancel", requireCourier, async (req, res) 
     note: `courier_cancelled:${courierId}`,
   });
 
+  void dispatchOrderNow(orderId);
   notifyOrderUpdate(order.userId, { ...updated[0], cancelNote: "courier_cancelled" });
   await sendOrderPush(order.userId, "عذراً، المندوب ألغى الطلب. سيتم البحث عن مندوب آخر.", orderId);
 

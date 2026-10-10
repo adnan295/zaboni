@@ -70,8 +70,8 @@ export default function CourierProfileScreen() {
   const handleToggleAvailability = async () => {
     try {
       await toggleAvailability();
-    } catch {
-      Alert.alert("خطأ", "تعذّر تغيير حالة التوافر، تحقق من اتصالك وحاول مجدداً");
+    } catch (err) {
+      Alert.alert("خطأ", err instanceof Error ? err.message : "تعذّر تغيير حالة التوافر، تحقق من اتصالك وحاول مجدداً");
     }
   };
 
