@@ -1,0 +1,45 @@
+name: Zaboni API quality
+on:
+  pull_request:
+    paths:
+      - 'artifacts/api-server/**'
+      - 'artifacts/marsool/lib/pushRegistration.ts'
+      - 'artifacts/marsool/components/PushNotificationSetup.tsx'
+      - 'lib/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - '.github/workflows/api-quality.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'artifacts/api-server/**'
+      - 'artifacts/marsool/lib/pushRegistration.ts'
+      - 'artifacts/marsool/components/PushNotificationSetup.tsx'
+      - 'lib/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - '.github/workflows/api-quality.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: api-quality-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  api:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @workspace/api-server test
+      - run: pnpm --filter @workspace/api-server build

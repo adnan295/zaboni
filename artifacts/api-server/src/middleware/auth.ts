@@ -58,7 +58,12 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     .from(usersTable)
     .where(eq(usersTable.id, payload.userId));
 
-  if (dbUser?.isBlocked) {
+  if (!dbUser) {
+    res.status(401).json({ error: "Account no longer exists" });
+    return;
+  }
+
+  if (dbUser.isBlocked) {
     res.status(403).json({ error: "Account is blocked" });
     return;
   }

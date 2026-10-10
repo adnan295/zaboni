@@ -120,19 +120,31 @@ router.post("/auth/send-otp", async (req, res) => {
   let channel: "whatsapp" | "sms" = "sms";
 
   if (!preferSms) {
-    const waSent = await whatsappManager.sendMessage(phone, message);
-    if (waSent) {
-      channel = "whatsapp";
-      req.log.info({ phone }, "OTP sent via WhatsApp");
+    try {
+      const waSent = await whatsappManager.sendMessage(phone, message);
+      if (waSent) {
+        channel = "whatsapp";
+        req.log.info("OTP accepted by WhatsApp");
+      }
+    } catch {
+      req.log.warn("WhatsApp OTP delivery failed; trying SMS");
     }
   }
 
   if (channel === "sms") {
     try {
       await sendOtpSms(phone, code);
-      req.log.info({ phone }, "OTP sent via SMS");
-    } catch (err) {
-      req.log.warn({ err: (err as Error).message }, "SMS skipped (no gateway configured)");
+      req.log.info("OTP accepted by SMS gateway");
+    } catch {
+      // Provider errors can contain credentials or the OTP; do not log them.
+      // Keep issued codes valid until expiry: a provider may have accepted a
+      // message even when its acknowledgement timed out.
+      req.log.warn("OTP delivery failed on all attempted channels");
+      res.status(503).json({
+        success: false,
+        error: "تعذّر إرسال رمز التحقق حالياً. حاول مجدداً بعد قليل.",
+      });
+      return;
     }
   }
 
