@@ -31,6 +31,7 @@ const STATUS_LABELS: Record<string, string> = {
   picked_up: "جارٍ التوصيل",
   on_way: "في الطريق",
   delivered: "تم التوصيل",
+  cancelled: "ملغي",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -195,7 +196,7 @@ function SlaAlertsWidget({ alerts, isLoading }: { alerts: SlaAlert[]; isLoading:
 export default function Dashboard() {
   const [range, setRange] = useState<Range>(30);
 
-  const { data: stats, isLoading: statsLoading } = useQuery({
+  const { data: stats, isLoading: statsLoading, isError: statsError, refetch: retryStats } = useQuery({
     queryKey: ["admin", "stats"],
     queryFn: api.getStats,
     refetchInterval: 10_000,
@@ -253,7 +254,7 @@ export default function Dashboard() {
     );
   }
 
-  if (!stats) return null;
+  if (!stats) return <div className="space-y-6"><WhatsAppStatusCard /><div role="alert" className="rounded-xl border border-destructive/30 bg-card p-6"><p>تعذّر تحميل مؤشرات التشغيل.</p><button className="mt-3 text-primary underline" onClick={()=>void retryStats()}>إعادة المحاولة</button></div></div>;
 
   const todayOrders = stats.todayOrders;
   const yesterdayOrders = stats.yesterdayOrders;
@@ -325,6 +326,7 @@ export default function Dashboard() {
       </div>
 
       <WhatsAppStatusCard />
+      {statsError && <p role="alert" className="text-destructive">تعذّر تحديث المؤشرات؛ الأرقام المعروضة من آخر تحديث ناجح. <button className="underline" onClick={()=>void retryStats()}>إعادة المحاولة</button></p>}
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         {statCards.map((s) => (

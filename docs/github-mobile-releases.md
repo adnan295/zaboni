@@ -51,7 +51,9 @@ P12 or keystore to this public repository.
 Run **Zaboni iOS → App Store Connect**. `testflight` uploads an internal beta;
 `app-store` uploads and submits for review with automatic release after approval.
 Apple's review cannot be bypassed. Existing screenshots/review information are
-preserved; release notes come from `fastlane/metadata/en-US/release_notes.txt`.
+preserved; release notes come from `fastlane/metadata/en-US/release_notes.txt` and
+`fastlane/metadata/ar-SA/release_notes.txt`. Both active localizations require
+release notes before review submission.
 
 The workflow imports an existing certificate into a temporary keychain. It does
 not revoke or create distribution certificates and does not change FitoPass.
