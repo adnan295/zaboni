@@ -1,0 +1,42 @@
+name: Zaboni Google Play → store screenshots
+
+# Replaces the Play listing phone screenshots with docs/store-assets/google-play.
+# Does not build or upload an app version, so it works independently of the
+# upload-key state.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: zaboni-google-play-release
+  cancel-in-progress: false
+
+jobs:
+  listing:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CI: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - name: Write Play service account
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          umask 077
+          printf '%s' "$PLAY_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/play-service-account.json"
+          node -e 'JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"))' "$RUNNER_TEMP/play-service-account.json"
+          echo "PLAY_JSON_PATH=$RUNNER_TEMP/play-service-account.json" >> "$GITHUB_ENV"
+      - name: Replace Play phone screenshots
+        run: bundle exec fastlane android listing
+      - name: Remove credentials
+        if: always()
+        run: rm -f "$RUNNER_TEMP/play-service-account.json"

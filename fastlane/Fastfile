@@ -22,6 +22,37 @@ platform :android do
       skip_upload_screenshots: true
     )
   end
+
+  # Replaces the Play store-listing phone screenshots with
+  # docs/store-assets/google-play/*.png, for every language the listing already
+  # has. No build, no binary, no metadata/changelog change.
+  lane :listing do
+    shots = Dir[File.join(ROOT, 'docs/store-assets/google-play/*.png')].sort
+    UI.user_error!('Expected 2-8 phone screenshots') unless shots.length.between?(2, 8)
+    work = File.join(ENV.fetch('RUNNER_TEMP') { require 'tmpdir'; Dir.tmpdir }, 'play-listing')
+    FileUtils.rm_rf(work)
+    download_from_play_store(package_name: BUNDLE_ID, json_key: ENV.fetch('PLAY_JSON_PATH'), metadata_path: work)
+    languages = Dir[File.join(work, '*')].select { |d| File.exist?(File.join(d, 'title.txt')) }
+    UI.user_error!('No existing Play listing languages found') if languages.empty?
+    languages.each do |lang|
+      dir = File.join(lang, 'images', 'phoneScreenshots')
+      FileUtils.rm_rf(dir)
+      FileUtils.mkdir_p(dir)
+      shots.each { |f| FileUtils.cp(f, dir) }
+      UI.message("#{File.basename(lang)}: #{shots.length} phone screenshots")
+    end
+    upload_to_play_store(
+      package_name: BUNDLE_ID,
+      json_key: ENV.fetch('PLAY_JSON_PATH'),
+      metadata_path: work,
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: false
+    )
+  end
 end
 
 platform :ios do
