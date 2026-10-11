@@ -75,6 +75,10 @@ platform :ios do
           # Replaces the store screenshots with fastlane/screenshots/<locale> (6.9" iPhone).
           screenshots_path: File.join(ROOT, 'fastlane/screenshots'), skip_screenshots: false,
           overwrite_screenshots: true,
+          # Cancel a review submission left open for this version (e.g. by an earlier
+          # run that failed mid-submit). Apple locks screenshots while one is open,
+          # and we resubmit the same version right after.
+          reject_if_possible: true,
           force: true, submit_for_review: true, automatic_release: true,
           precheck_include_in_app_purchases: false)
       end
