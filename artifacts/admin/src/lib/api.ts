@@ -1064,6 +1064,8 @@ export const api = {
     apiFetch<CancellationStats>(`/admin/cancellation-stats?days=${days}`),
   getOrderAudit: (days: 7 | 30 | 90 | 0, lateFrom: number, lateTo: number) =>
     apiFetch<OrderAudit>(`/admin/order-audit?days=${days}&lateFrom=${lateFrom}&lateTo=${lateTo}`),
+  getSearchWait: (days: 7 | 30 | 90 | 0, excludeFake: boolean) =>
+    apiFetch<SearchWait>(`/admin/search-wait?days=${days}&excludeFake=${excludeFake ? 1 : 0}`),
   getCourierPerformance: (days: number) =>
     apiFetch<CourierPerformanceRow[]>(`/admin/courier-performance?days=${days}`),
   getCourierPerformanceDetail: (courierId: string, days: number) =>
@@ -1380,6 +1382,7 @@ export type OrderAuditOrder = {
   userName: string;
   userPhone: string;
   cancelBy: "customer" | "customer_after_courier" | "admin" | "system" | null;
+  searchMinutes: number | null;
   flags: OrderAuditFlag[];
 };
 
@@ -1402,4 +1405,51 @@ export type OrderAudit = {
   };
   accounts: OrderAuditAccount[];
   orders: OrderAuditOrder[];
+};
+
+export type SearchWait = {
+  days: number;
+  excludeFake: boolean;
+  excludedAccounts: number;
+  summary: {
+    totalOrders: number;
+    acceptedOrders: number;
+    gaveUpOrders: number;
+    adminCancelledWhileSearching: number;
+    gaveUpRate: number;
+    medianGiveUpMinutes: number | null;
+    medianAcceptMinutes: number | null;
+    p90AcceptMinutes: number | null;
+    lostCustomers: number;
+    returnedCustomers: number;
+    neverServedCustomers: number;
+  };
+  buckets: { label: string; gaveUp: number; accepted: number }[];
+  byHour: { hour: number; orders: number; gaveUp: number; gaveUpRate: number; medianAcceptMinutes: number | null }[];
+  customers: {
+    userId: string;
+    name: string;
+    phone: string;
+    gaveUp: number;
+    avgWaitMinutes: number;
+    maxWaitMinutes: number;
+    totalOrders: number;
+    delivered: number;
+    lastGaveUpAt: string;
+    status: "lost" | "returned";
+  }[];
+  orders: {
+    id: string;
+    createdAt: string;
+    cancelledAt: string | null;
+    waitMinutes: number;
+    hour: number;
+    orderType: string;
+    summary: string;
+    userId: string;
+    userName: string;
+    userPhone: string;
+    cancelBy: "customer" | "admin";
+    cameBack: boolean;
+  }[];
 };

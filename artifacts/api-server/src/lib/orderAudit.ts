@@ -23,6 +23,8 @@ export interface AuditOrderRow {
   createdAt: Date;
   cancelledAt: Date | null;
   cancelNote: string | null;
+  /** First time a courier accepted the order (null if none ever did). */
+  acceptedAt: Date | null;
 }
 
 export type OrderFlag =
@@ -47,6 +49,8 @@ export interface AuditOrder {
   userName: string;
   userPhone: string;
   cancelBy: CancelBy;
+  /** Minutes spent searching for a courier (until accept, or until cancel if none accepted). */
+  searchMinutes: number | null;
   flags: OrderFlag[];
 }
 
@@ -99,6 +103,15 @@ function cancelBy(o: AuditOrderRow): CancelBy {
   if (o.cancelNote === "admin_cancelled") return "admin";
   if (o.cancelNote === "auto_expired") return "system";
   return o.courierId ? "customer_after_courier" : "customer";
+}
+
+const minutesBetween = (a: Date, b: Date) => Math.max(0, Math.round(((b.getTime() - a.getTime()) / 60000) * 10) / 10);
+
+/** Time the order spent waiting for a courier: until accepted, or until cancelled if nobody accepted. */
+export function searchMinutes(o: AuditOrderRow): number | null {
+  if (o.acceptedAt) return minutesBetween(o.createdAt, o.acceptedAt);
+  if (o.status === "cancelled" && o.cancelledAt) return minutesBetween(o.createdAt, o.cancelledAt);
+  return null;
 }
 
 function addressKey(o: AuditOrderRow): string | null {
@@ -274,6 +287,7 @@ export function computeOrderAudit(rows: AuditOrderRow[], opts: AuditOptions) {
     userName: (o.userName ?? "").trim() || "—",
     userPhone: o.userPhone ?? "",
     cancelBy: cancelBy(o),
+    searchMinutes: searchMinutes(o),
     flags: [...(orderFlags.get(o.id) ?? [])],
   });
 
@@ -313,5 +327,172 @@ export function computeOrderAudit(rows: AuditOrderRow[], opts: AuditOptions) {
     },
     accounts,
     orders: flagged,
+  };
+}
+
+// ─── Search wait: where customers give up waiting for a courier ──────────
+
+export const WAIT_BUCKETS = [
+  { label: "أقل من دقيقة", max: 1 },
+  { label: "١–٣ د", max: 3 },
+  { label: "٣–٥ د", max: 5 },
+  { label: "٥–١٠ د", max: 10 },
+  { label: "١٠–٢٠ د", max: 20 },
+  { label: "٢٠–٤٠ د", max: 40 },
+  { label: "أكتر من ٤٠ د", max: Infinity },
+] as const;
+
+function bucketIndex(min: number): number {
+  const i = WAIT_BUCKETS.findIndex((b) => min < b.max);
+  return i === -1 ? WAIT_BUCKETS.length - 1 : i;
+}
+
+function percentile(values: number[], p: number): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1));
+  return Math.round(sorted[idx]! * 10) / 10;
+}
+
+export interface GaveUpOrder {
+  id: string;
+  createdAt: string;
+  cancelledAt: string | null;
+  waitMinutes: number;
+  hour: number;
+  orderType: string;
+  summary: string;
+  userId: string;
+  userName: string;
+  userPhone: string;
+  cancelBy: "customer" | "admin";
+  /** The customer placed another order later that got delivered. */
+  cameBack: boolean;
+}
+
+export interface SearchWaitCustomer {
+  userId: string;
+  name: string;
+  phone: string;
+  gaveUp: number;
+  avgWaitMinutes: number;
+  maxWaitMinutes: number;
+  totalOrders: number;
+  delivered: number;
+  lastGaveUpAt: string;
+  /** lost = never got a delivery after giving up; returned = came back and got served. */
+  status: "lost" | "returned";
+}
+
+/**
+ * Measures how long orders waited for a courier, and how long customers who
+ * cancelled before any courier accepted had waited. Rows from accounts in
+ * `excludeUserIds` (e.g. likely fake accounts) are ignored.
+ */
+export function computeSearchWait(rows: AuditOrderRow[], excludeUserIds: Set<string> = new Set()) {
+  const real = rows.filter((r) => r.userId && r.userId !== "guest" && !excludeUserIds.has(r.userId));
+
+  const gaveUpRows = real.filter((o) => o.status === "cancelled" && !o.acceptedAt && o.cancelledAt);
+  const acceptedRows = real.filter((o) => o.acceptedAt);
+
+  const deliveredByUser = new Map<string, Date[]>();
+  const ordersByUser = new Map<string, number>();
+  for (const o of real) {
+    ordersByUser.set(o.userId, (ordersByUser.get(o.userId) ?? 0) + 1);
+    if (o.status === "delivered") {
+      const l = deliveredByUser.get(o.userId) ?? [];
+      l.push(o.createdAt);
+      deliveredByUser.set(o.userId, l);
+    }
+  }
+
+  const gaveUp: GaveUpOrder[] = gaveUpRows
+    .map((o) => ({
+      id: o.id,
+      createdAt: o.createdAt.toISOString(),
+      cancelledAt: o.cancelledAt ? o.cancelledAt.toISOString() : null,
+      waitMinutes: minutesBetween(o.createdAt, o.cancelledAt!),
+      hour: damascusHour(o.createdAt),
+      orderType: o.orderType,
+      summary: (o.orderType === "errand" ? o.placeName || o.orderText : o.restaurantName || o.orderText).slice(0, 80),
+      userId: o.userId,
+      userName: (o.userName ?? "").trim() || "—",
+      userPhone: o.userPhone ?? "",
+      cancelBy: (o.cancelNote === "admin_cancelled" ? "admin" : "customer") as GaveUpOrder["cancelBy"],
+      cameBack: (deliveredByUser.get(o.userId) ?? []).some((d) => d.getTime() > o.createdAt.getTime()),
+    }))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+  const giveUpWaits = gaveUp.filter((g) => g.cancelBy === "customer").map((g) => g.waitMinutes);
+  const acceptWaits = acceptedRows.map((o) => minutesBetween(o.createdAt, o.acceptedAt!));
+
+  const buckets = WAIT_BUCKETS.map((b) => ({ label: b.label, gaveUp: 0, accepted: 0 }));
+  for (const w of giveUpWaits) buckets[bucketIndex(w)]!.gaveUp++;
+  for (const w of acceptWaits) buckets[bucketIndex(w)]!.accepted++;
+
+  const byHour = Array.from({ length: 24 }, (_, hour) => ({
+    hour,
+    orders: 0,
+    gaveUp: 0,
+    gaveUpRate: 0,
+    medianAcceptMinutes: null as number | null,
+  }));
+  const acceptByHour: number[][] = Array.from({ length: 24 }, () => []);
+  for (const o of real) {
+    const h = damascusHour(o.createdAt);
+    byHour[h]!.orders++;
+    if (o.acceptedAt) acceptByHour[h]!.push(minutesBetween(o.createdAt, o.acceptedAt));
+  }
+  for (const g of gaveUp) if (g.cancelBy === "customer") byHour[g.hour]!.gaveUp++;
+  for (const h of byHour) {
+    h.gaveUpRate = h.orders ? Math.round((h.gaveUp / h.orders) * 1000) / 10 : 0;
+    h.medianAcceptMinutes = percentile(acceptByHour[h.hour]!, 50);
+  }
+
+  const customersMap = new Map<string, GaveUpOrder[]>();
+  for (const g of gaveUp) {
+    if (g.cancelBy !== "customer") continue;
+    const l = customersMap.get(g.userId) ?? [];
+    l.push(g);
+    customersMap.set(g.userId, l);
+  }
+  const customers: SearchWaitCustomer[] = [...customersMap.entries()]
+    .map(([userId, list]) => {
+      const waits = list.map((g) => g.waitMinutes);
+      const latest = list[0]!; // gaveUp is sorted newest first
+      return {
+        userId,
+        name: latest.userName,
+        phone: latest.userPhone,
+        gaveUp: list.length,
+        avgWaitMinutes: Math.round((waits.reduce((a, b) => a + b, 0) / waits.length) * 10) / 10,
+        maxWaitMinutes: Math.max(...waits),
+        totalOrders: ordersByUser.get(userId) ?? list.length,
+        delivered: deliveredByUser.get(userId)?.length ?? 0,
+        lastGaveUpAt: latest.createdAt,
+        status: (latest.cameBack ? "returned" : "lost") as SearchWaitCustomer["status"],
+      };
+    })
+    .sort((a, b) => (a.status === b.status ? b.gaveUp - a.gaveUp : a.status === "lost" ? -1 : 1));
+
+  const customerGaveUp = gaveUp.filter((g) => g.cancelBy === "customer");
+  return {
+    summary: {
+      totalOrders: real.length,
+      acceptedOrders: acceptedRows.length,
+      gaveUpOrders: customerGaveUp.length,
+      adminCancelledWhileSearching: gaveUp.length - customerGaveUp.length,
+      gaveUpRate: real.length ? Math.round((customerGaveUp.length / real.length) * 1000) / 10 : 0,
+      medianGiveUpMinutes: percentile(giveUpWaits, 50),
+      medianAcceptMinutes: percentile(acceptWaits, 50),
+      p90AcceptMinutes: percentile(acceptWaits, 90),
+      lostCustomers: customers.filter((c) => c.status === "lost").length,
+      returnedCustomers: customers.filter((c) => c.status === "returned").length,
+      neverServedCustomers: customers.filter((c) => c.delivered === 0).length,
+    },
+    buckets,
+    byHour,
+    customers,
+    orders: gaveUp,
   };
 }

@@ -3,7 +3,7 @@ import { adminOrderTransitionError } from "../lib/adminOrderTransitions";
 import { dispatchOrderNow } from "../lib/orderDispatch";
 import { checkAndAwardAchievements } from "../lib/achievements";
 import { refundRedeemedPointsInTx } from "../lib/loyalty";
-import { computeOrderAudit, type AuditOrderRow } from "../lib/orderAudit";
+import { computeOrderAudit, computeSearchWait, type AuditOrderRow } from "../lib/orderAudit";
 import { Router, type Request, type Response } from "express";
 import { whatsappManager } from "../lib/whatsapp";
 import { db } from "@workspace/db";
@@ -1073,17 +1073,13 @@ router.get("/admin/cancellation-stats", async (req, res) => {
 });
 
 // ─── Order audit (isolate suspicious orders/accounts) ─────────────────────
-router.get("/admin/order-audit", async (req, res) => {
-  const daysRaw = parseInt(String(req.query["days"] ?? "30"));
-  const days = [7, 30, 90, 0].includes(daysRaw) ? daysRaw : 30;
-  const hour = (v: unknown, d: number) => {
-    const n = parseInt(String(v ?? d));
-    return Number.isInteger(n) && n >= 0 && n <= 23 ? n : d;
-  };
-  const lateFrom = hour(req.query["lateFrom"], 2);
-  const lateTo = hour(req.query["lateTo"], 6);
-  const since = days > 0 ? new Date(Date.now() - days * 24 * 60 * 60 * 1000) : new Date(0);
+function auditSince(daysRaw: unknown): { days: number; since: Date } {
+  const n = parseInt(String(daysRaw ?? "30"));
+  const days = [7, 30, 90, 0].includes(n) ? n : 30;
+  return { days, since: days > 0 ? new Date(Date.now() - days * 24 * 60 * 60 * 1000) : new Date(0) };
+}
 
+async function fetchAuditRows(since: Date): Promise<AuditOrderRow[]> {
   const result = await db.execute(sql`
     SELECT
       o.id, o.user_id AS "userId", u.name AS "userName", u.phone AS "userPhone",
@@ -1092,7 +1088,8 @@ router.get("/admin/order-audit", async (req, res) => {
       o.restaurant_name AS "restaurantName", o.place_name AS "placeName",
       o.total_price AS "totalPrice", o.delivery_fee AS "deliveryFee", o.courier_id AS "courierId",
       o.destination_lat AS "destinationLat", o.destination_lon AS "destinationLon",
-      o.created_at AS "createdAt", osh.created_at AS "cancelledAt", osh.note AS "cancelNote"
+      o.created_at AS "createdAt", osh.created_at AS "cancelledAt", osh.note AS "cancelNote",
+      acc.accepted_at AS "acceptedAt"
     FROM orders o
     LEFT JOIN users u ON u.id = o.user_id
     LEFT JOIN LATERAL (
@@ -1100,11 +1097,15 @@ router.get("/admin/order-audit", async (req, res) => {
       WHERE order_id = o.id AND status = 'cancelled'
       ORDER BY created_at DESC LIMIT 1
     ) osh ON o.status = 'cancelled'
+    LEFT JOIN LATERAL (
+      SELECT MIN(created_at) AS accepted_at FROM order_status_history
+      WHERE order_id = o.id AND status = 'accepted'
+    ) acc ON true
     WHERE o.created_at >= ${since}
   `);
 
   const toDate = (v: unknown) => (v == null ? null : new Date(v as string));
-  const rows: AuditOrderRow[] = (result.rows as Record<string, unknown>[]).map((r) => ({
+  return (result.rows as Record<string, unknown>[]).map((r) => ({
     id: String(r["id"]),
     userId: String(r["userId"] ?? ""),
     userName: (r["userName"] as string | null) ?? null,
@@ -1124,9 +1125,33 @@ router.get("/admin/order-audit", async (req, res) => {
     createdAt: new Date(r["createdAt"] as string),
     cancelledAt: toDate(r["cancelledAt"]),
     cancelNote: (r["cancelNote"] as string | null) ?? null,
+    acceptedAt: toDate(r["acceptedAt"]),
   }));
+}
 
+function lateHour(v: unknown, d: number) {
+  const n = parseInt(String(v ?? d));
+  return Number.isInteger(n) && n >= 0 && n <= 23 ? n : d;
+}
+
+router.get("/admin/order-audit", async (req, res) => {
+  const { days, since } = auditSince(req.query["days"]);
+  const lateFrom = lateHour(req.query["lateFrom"], 2);
+  const lateTo = lateHour(req.query["lateTo"], 6);
+  const rows = await fetchAuditRows(since);
   res.json({ days, lateFrom, lateTo, ...computeOrderAudit(rows, { lateFrom, lateTo }) });
+});
+
+// How long customers waited for a courier before giving up (cancelling with no courier).
+router.get("/admin/search-wait", async (req, res) => {
+  const { days, since } = auditSince(req.query["days"]);
+  const excludeFake = req.query["excludeFake"] !== "0";
+  const rows = await fetchAuditRows(since);
+  // Likely fake accounts distort "where we lose customers" — drop high-risk ones by default.
+  const exclude = excludeFake
+    ? new Set(computeOrderAudit(rows, { lateFrom: 2, lateTo: 6 }).accounts.filter((a) => a.risk === "high").map((a) => a.userId))
+    : new Set<string>();
+  res.json({ days, excludeFake, excludedAccounts: exclude.size, ...computeSearchWait(rows, exclude) });
 });
 
 // ─── Courier Performance ──────────────────────────────────────────────────

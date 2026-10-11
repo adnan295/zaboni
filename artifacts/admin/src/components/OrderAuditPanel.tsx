@@ -364,6 +364,9 @@ export default function OrderAuditPanel() {
                               <span className="font-medium text-red-600">ملغى</span>
                               <p className="text-muted-foreground">{o.cancelBy ? CANCEL_BY[o.cancelBy] : ""}</p>
                               <p className="text-muted-foreground">{fmt(o.cancelledAt)}</p>
+                              {o.searchMinutes != null && (
+                                <p className="text-muted-foreground">⏳ دوّر على مندوب {o.searchMinutes} د</p>
+                              )}
                             </>
                           ) : o.status === "delivered" ? (
                             <span className="font-medium text-green-600">واصل</span>

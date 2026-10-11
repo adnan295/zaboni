@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { api } from "@/lib/api";
 import OrderAuditPanel from "@/components/OrderAuditPanel";
+import SearchWaitPanel from "@/components/SearchWaitPanel";
 
 const DAY_OPTIONS = [
   { value: 7, label: "آخر ٧ أيام" },
@@ -51,7 +52,7 @@ function ReasonCard({
 
 export default function CancellationAnalysis() {
   const [days, setDays] = useState<7 | 30 | 90>(30);
-  const [tab, setTab] = useState<"stats" | "audit">("stats");
+  const [tab, setTab] = useState<"stats" | "wait" | "audit">("stats");
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["admin", "cancellation-stats", days],
@@ -104,6 +105,7 @@ export default function CancellationAnalysis() {
       <div className="flex gap-1 border-b">
         {([
           ["stats", "📊 الإحصائيات"],
+          ["wait", "⏳ وين عم نخسر الزباين"],
           ["audit", "🚩 عزل الطلبات المشبوهة"],
         ] as const).map(([key, label]) => (
           <button
@@ -120,6 +122,7 @@ export default function CancellationAnalysis() {
         ))}
       </div>
 
+      {tab === "wait" && <SearchWaitPanel />}
       {tab === "audit" && <OrderAuditPanel />}
 
       {tab === "stats" && isLoading && (
