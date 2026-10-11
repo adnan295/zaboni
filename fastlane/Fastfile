@@ -71,7 +71,10 @@ platform :ios do
       else
         upload_to_app_store(api_key: api_key, app_identifier: BUNDLE_ID,
           ipa: File.join(ROOT, 'build/Zaboni.ipa'), app_version: ENV.fetch('RELEASE_VERSION'),
-          metadata_path: File.join(ROOT, 'fastlane/metadata'), skip_screenshots: true,
+          metadata_path: File.join(ROOT, 'fastlane/metadata'),
+          # Replaces the store screenshots with fastlane/screenshots/<locale> (6.9" iPhone).
+          screenshots_path: File.join(ROOT, 'fastlane/screenshots'), skip_screenshots: false,
+          overwrite_screenshots: true,
           force: true, submit_for_review: true, automatic_release: true,
           precheck_include_in_app_purchases: false)
       end
