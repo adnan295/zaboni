@@ -25,6 +25,8 @@ export interface AuditOrderRow {
   cancelNote: string | null;
   /** First time a courier accepted the order (null if none ever did). */
   acceptedAt: Date | null;
+  /** Customer-chosen reason when they cancelled while searching (null = not given). */
+  cancelReason?: string | null;
   /** Courier-dispatch diagnostics (null = order never entered the dispatch queue). */
   dispatch?: {
     maxEligible: number | null; // null = recorded before eligibility tracking existed
@@ -57,6 +59,7 @@ export interface AuditOrder {
   cancelBy: CancelBy;
   /** Minutes spent searching for a courier (until accept, or until cancel if none accepted). */
   searchMinutes: number | null;
+  cancelReason: string | null;
   flags: OrderFlag[];
 }
 
@@ -296,6 +299,7 @@ export function computeOrderAudit(rows: AuditOrderRow[], opts: AuditOptions) {
     userPhone: o.userPhone ?? "",
     cancelBy: cancelBy(o),
     searchMinutes: searchMinutes(o),
+    cancelReason: o.cancelReason ?? null,
     flags: [...(orderFlags.get(o.id) ?? [])],
   });
 
@@ -378,6 +382,8 @@ export interface GaveUpOrder {
   cameBack: boolean;
   /** Why no courier took it — see lostReason(). */
   lostReason: LostReason;
+  /** What the customer said when cancelling (null = older app / not given). */
+  cancelReason: string | null;
   /** Most couriers that were available at any dispatch attempt (null = unknown). */
   availableCouriers: number | null;
   /** Most devices the new-order push was accepted for. */
@@ -390,6 +396,9 @@ export interface GaveUpOrder {
  * not_accepted — couriers were notified and none took it (price/distance/attention problem)
  * unknown      — order never reached the dispatcher, or recorded before tracking
  */
+/** Reasons the app offers when a customer cancels; "unknown" = not given. */
+export const CANCEL_REASON_KEYS = ["too_slow", "changed_mind", "wrong_order", "found_elsewhere", "other", "unknown"] as const;
+
 export type LostReason = "no_couriers" | "push_failed" | "not_accepted" | "unknown";
 
 export function lostReason(o: AuditOrderRow): LostReason {
@@ -453,6 +462,7 @@ export function computeSearchWait(rows: AuditOrderRow[], excludeUserIds: Set<str
       cancelBy: (o.cancelNote === "admin_cancelled" ? "admin" : "customer") as GaveUpOrder["cancelBy"],
       cameBack: (deliveredByUser.get(o.userId) ?? []).some((d) => d.getTime() > o.createdAt.getTime()),
       lostReason: lostReason(o),
+      cancelReason: o.cancelReason ?? null,
       availableCouriers: o.dispatch?.maxEligible ?? null,
       notifiedDevices: o.dispatch?.maxAccepted ?? 0,
     }))
@@ -530,6 +540,10 @@ export function computeSearchWait(rows: AuditOrderRow[], excludeUserIds: Set<str
         not_accepted: customerGaveUp.filter((g) => g.lostReason === "not_accepted").length,
         unknown: customerGaveUp.filter((g) => g.lostReason === "unknown").length,
       } satisfies Record<LostReason, number>,
+      byCancelReason: CANCEL_REASON_KEYS.reduce(
+        (acc, k) => ({ ...acc, [k]: customerGaveUp.filter((g) => (g.cancelReason ?? "unknown") === k).length }),
+        {} as Record<(typeof CANCEL_REASON_KEYS)[number], number>,
+      ),
     },
     buckets,
     byHour,

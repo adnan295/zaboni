@@ -1090,7 +1090,7 @@ async function fetchAuditRows(since: Date): Promise<AuditOrderRow[]> {
       o.total_price AS "totalPrice", o.delivery_fee AS "deliveryFee", o.courier_id AS "courierId",
       o.destination_lat AS "destinationLat", o.destination_lon AS "destinationLon",
       o.created_at AS "createdAt", osh.created_at AS "cancelledAt", osh.note AS "cancelNote",
-      acc.accepted_at AS "acceptedAt",
+      acc.accepted_at AS "acceptedAt", o.cancel_reason AS "cancelReason",
       d.max_eligible AS "dispatchMaxEligible", d.max_accepted AS "dispatchMaxAccepted",
       d.last_accepted AS "dispatchLastAccepted", d.last_error AS "dispatchLastError",
       (d.order_id IS NOT NULL) AS "dispatched"
@@ -1131,6 +1131,7 @@ async function fetchAuditRows(since: Date): Promise<AuditOrderRow[]> {
     cancelledAt: toDate(r["cancelledAt"]),
     cancelNote: (r["cancelNote"] as string | null) ?? null,
     acceptedAt: toDate(r["acceptedAt"]),
+    cancelReason: (r["cancelReason"] as string | null) ?? null,
     dispatch: r["dispatched"]
       ? {
           maxEligible: r["dispatchMaxEligible"] == null ? null : Number(r["dispatchMaxEligible"]),

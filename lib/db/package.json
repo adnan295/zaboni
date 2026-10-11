@@ -33,7 +33,8 @@
     "./migrations/add-coverage-areas": "./src/migrations/add-coverage-areas.ts",
     "./migrations/add-courier-points": "./src/migrations/add-courier-points.ts",
     "./migrations/add-promo-engine": "./src/migrations/add-promo-engine.ts",
-    "./migrations/add-restaurant-offers-toggle": "./src/migrations/add-restaurant-offers-toggle.ts"
+    "./migrations/add-restaurant-offers-toggle": "./src/migrations/add-restaurant-offers-toggle.ts",
+    "./migrations/add-order-cancel-reason": "./src/migrations/add-order-cancel-reason.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",

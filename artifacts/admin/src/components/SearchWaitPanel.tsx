@@ -10,7 +10,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { api, type LostReason, type SearchWait, type WaitSettings } from "@/lib/api";
+import { api, type CancelReason, type LostReason, type SearchWait, type WaitSettings } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 const PERIODS = [
@@ -52,6 +52,15 @@ const LOST_REASON: Record<LostReason, { icon: string; label: string; hint: strin
     hint: "طلبات قبل ما نبلّش نسجّل هالمعلومة",
     tone: "text-muted-foreground",
   },
+};
+
+const CANCEL_REASON: Record<CancelReason, { icon: string; label: string }> = {
+  too_slow: { icon: "⏳", label: "طوّل كتير" },
+  changed_mind: { icon: "🤷", label: "غيّر رأيه" },
+  wrong_order: { icon: "✏️", label: "غلط بالطلب أو العنوان" },
+  found_elsewhere: { icon: "🏪", label: "طلب من مكان تاني" },
+  other: { icon: "💬", label: "سبب تاني" },
+  unknown: { icon: "❔", label: "ما ذكر سبب" },
 };
 
 function WaitSettingsCard() {
@@ -315,6 +324,23 @@ export default function SearchWaitPanel() {
             </div>
           </div>
 
+          <div className="rounded-xl border bg-card p-4">
+            <p className="mb-1 text-sm font-semibold">🗣️ شو قال الزبون لمّا ألغى؟</p>
+            <p className="mb-3 text-[11px] text-muted-foreground">
+              من نسخة 1.0.19 بيختار الزبون السبب وهو عم يلغي. "ما ذكر سبب" = نسخ أقدم أو إلغاءات قبل هالميزة.
+            </p>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+              {(Object.keys(CANCEL_REASON) as CancelReason[]).map((k) => (
+                <div key={k} className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">
+                    {CANCEL_REASON[k].icon} {CANCEL_REASON[k].label}
+                  </p>
+                  <p className="mt-1 text-xl font-bold">{(s.byCancelReason?.[k] ?? 0).toLocaleString("ar-SY")}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {insights(data).length > 0 && (
             <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
               <p className="mb-2 text-sm font-semibold">💡 شو بتقول الأرقام</p>
@@ -493,6 +519,11 @@ export default function SearchWaitPanel() {
                           </span>
                           {o.cancelBy === "admin" && (
                             <p className="mt-0.5 text-[11px] text-muted-foreground">ألغته الإدارة</p>
+                          )}
+                          {o.cancelReason && o.cancelReason in CANCEL_REASON && (
+                            <p className="mt-0.5 text-[11px] text-muted-foreground">
+                              {CANCEL_REASON[o.cancelReason as CancelReason].icon} {CANCEL_REASON[o.cancelReason as CancelReason].label}
+                            </p>
                           )}
                         </td>
                         <td className="px-4 py-3 text-xs">

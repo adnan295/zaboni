@@ -37,6 +37,7 @@ import { addCoverageAreas } from "@workspace/db/migrations/add-coverage-areas";
 import { addCourierPoints } from "@workspace/db/migrations/add-courier-points";
 import { addPromoEngine } from "@workspace/db/migrations/add-promo-engine";
 import { addRestaurantOffersToggle } from "@workspace/db/migrations/add-restaurant-offers-toggle";
+import { addOrderCancelReason } from "@workspace/db/migrations/add-order-cancel-reason";
 
 const rawPort = process.env["PORT"];
 
@@ -158,5 +159,8 @@ httpServer.listen(port, (err?: Error) => {
   );
   addRestaurantOffersToggle().catch((e: unknown) =>
     logger.error({ err: e }, "Failed to run restaurant offers toggle migration"),
+  );
+  addOrderCancelReason().catch((e: unknown) =>
+    logger.error({ err: e }, "Failed to run order cancel reason migration"),
   );
 });

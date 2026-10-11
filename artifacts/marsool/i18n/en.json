@@ -530,7 +530,17 @@
       "cancelledNoteAdmin": "Your order was cancelled by the administration.",
       "cannotCancelNote": "Cannot cancel after courier acceptance — chat with the courier instead",
       "alreadyAcceptedTitle": "Cannot Cancel Order",
-      "alreadyAcceptedBody": "A courier has already accepted your order and it can no longer be cancelled"
+      "alreadyAcceptedBody": "A courier has already accepted your order and it can no longer be cancelled",
+      "reasonTitle": "Why are you cancelling?",
+      "reasonSub": "Pick a reason to cancel — it helps us improve",
+      "keepWaiting": "I'll wait a bit more",
+      "reasons": {
+        "too_slow": "It's taking too long",
+        "changed_mind": "I changed my mind",
+        "wrong_order": "Wrong order or address",
+        "found_elsewhere": "Ordered somewhere else",
+        "other": "Other reason"
+      }
     },
     "status": {
       "searching": "Finding Courier",

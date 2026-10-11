@@ -1387,6 +1387,7 @@ export type OrderAuditOrder = {
   userPhone: string;
   cancelBy: "customer" | "customer_after_courier" | "admin" | "system" | null;
   searchMinutes: number | null;
+  cancelReason: string | null;
   flags: OrderAuditFlag[];
 };
 
@@ -1428,6 +1429,7 @@ export type SearchWait = {
     returnedCustomers: number;
     neverServedCustomers: number;
     byLostReason: Record<LostReason, number>;
+    byCancelReason: Record<CancelReason, number>;
   };
   buckets: { label: string; gaveUp: number; accepted: number }[];
   byHour: { hour: number; orders: number; gaveUp: number; gaveUpRate: number; medianAcceptMinutes: number | null }[];
@@ -1457,12 +1459,14 @@ export type SearchWait = {
     cancelBy: "customer" | "admin";
     cameBack: boolean;
     lostReason: LostReason;
+    cancelReason: string | null;
     availableCouriers: number | null;
     notifiedDevices: number;
   }[];
 };
 
 export type LostReason = "no_couriers" | "push_failed" | "not_accepted" | "unknown";
+export type CancelReason = "too_slow" | "changed_mind" | "wrong_order" | "found_elsewhere" | "other" | "unknown";
 
 export type StuckOrders = {
   minutes: number;

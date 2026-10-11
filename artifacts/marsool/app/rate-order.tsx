@@ -17,6 +17,7 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useRatings } from "@/context/RatingsContext";
 import { useNotifications } from "@/context/NotificationsContext";
+import { maybeRequestStoreReview } from "@/lib/storeReview";
 
 function StarPicker({
   label,
@@ -126,7 +127,11 @@ export default function RateOrderScreen() {
     });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setSubmitted(true);
-    setTimeout(() => router.back(), 1800);
+    setTimeout(() => {
+      router.back();
+      // Happy customer → ask for a store rating once the thank-you screen closes.
+      setTimeout(() => void maybeRequestStoreReview(restaurantStars, courierStars), 600);
+    }, 1800);
   };
 
   if (submitted) {

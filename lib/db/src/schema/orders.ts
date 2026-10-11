@@ -48,6 +48,8 @@ export const ordersTable = pgTable("orders", {
   orderType: text("order_type").notNull().default("restaurant"),
   placeName: text("place_name"),
   restaurantNote: text("restaurant_note"),
+  // Why the customer cancelled while searching (see add-order-cancel-reason).
+  cancelReason: text("cancel_reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

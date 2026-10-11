@@ -22,6 +22,7 @@ import { useOrders, OrderStatus } from "@/context/OrderContext";
 import { customFetch, ApiError } from "@workspace/api-client-react";
 import { useRatings } from "@/context/RatingsContext";
 import { DeliveryMap } from "@/components/DeliveryMap";
+import CancelReasonSheet, { type CancelReason } from "@/components/CancelReasonSheet";
 import {
   Coords,
   HOMS_CENTER,
@@ -246,37 +247,30 @@ export default function OrderTrackingScreen() {
 
   const [cancelling, setCancelling] = useState(false);
 
-  const handleCancelOrder = () => {
-    Alert.alert(
-      t("orderTracking.cancelOrder.confirmTitle"),
-      t("orderTracking.cancelOrder.confirmBody"),
-      [
-        { text: t("common.cancel"), style: "cancel" },
-        {
-          text: t("orderTracking.cancelOrder.confirm"),
-          style: "destructive",
-          onPress: async () => {
-            setCancelling(true);
-            try {
-              await customFetch(`/api/orders/${id}`, { method: "DELETE" });
-              router.replace("/(tabs)");
-            } catch (err: unknown) {
-              if (err instanceof ApiError && err.status === 409) {
-                Alert.alert(
-                  t("orderTracking.cancelOrder.alreadyAcceptedTitle"),
-                  t("orderTracking.cancelOrder.alreadyAcceptedBody")
-                );
-                await refreshOrder(id ?? "");
-              } else {
-                Alert.alert(t("common.error"), t("common.retry"));
-              }
-            } finally {
-              setCancelling(false);
-            }
-          },
-        },
-      ]
-    );
+  const [cancelSheetOpen, setCancelSheetOpen] = useState(false);
+
+  const handleCancelOrder = () => setCancelSheetOpen(true);
+
+  const cancelWithReason = async (reason: CancelReason) => {
+    setCancelling(true);
+    try {
+      await customFetch(`/api/orders/${id}`, { method: "DELETE", body: JSON.stringify({ reason }) });
+      setCancelSheetOpen(false);
+      router.replace("/(tabs)");
+    } catch (err: unknown) {
+      setCancelSheetOpen(false);
+      if (err instanceof ApiError && err.status === 409) {
+        Alert.alert(
+          t("orderTracking.cancelOrder.alreadyAcceptedTitle"),
+          t("orderTracking.cancelOrder.alreadyAcceptedBody")
+        );
+        await refreshOrder(id ?? "");
+      } else {
+        Alert.alert(t("common.error"), t("common.retry"));
+      }
+    } finally {
+      setCancelling(false);
+    }
   };
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
@@ -440,6 +434,12 @@ export default function OrderTrackingScreen() {
                 {cancelling ? t("common.loading") : t("orderTracking.cancelOrder.btn")}
               </Text>
             </TouchableOpacity>
+            <CancelReasonSheet
+              visible={cancelSheetOpen}
+              busy={cancelling}
+              onClose={() => setCancelSheetOpen(false)}
+              onSelect={cancelWithReason}
+            />
           </View>
         )}
 

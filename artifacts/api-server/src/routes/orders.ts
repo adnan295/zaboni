@@ -1127,9 +1127,17 @@ router.get("/orders/:id/courier-location", async (req, res) => {
   });
 });
 
+// Why a customer gave up on an order still searching for a courier. Optional:
+// apps before 1.0.19 send no body.
+const CANCEL_REASONS = ["too_slow", "changed_mind", "wrong_order", "found_elsewhere", "other"] as const;
+
 router.delete("/orders/:id", async (req, res) => {
   const userId = resolveUserId(req);
   const { id } = req.params;
+  const rawReason = (req.body as { reason?: unknown } | undefined)?.reason;
+  const cancelReason = (CANCEL_REASONS as readonly string[]).includes(rawReason as string)
+    ? (rawReason as string)
+    : null;
   const rows = await db
     .select()
     .from(ordersTable)
@@ -1145,7 +1153,7 @@ router.delete("/orders/:id", async (req, res) => {
   }
   const updated = await db.transaction(async (tx) => {
     const changed = await tx.update(ordersTable)
-      .set({ status: "cancelled", updatedAt: new Date() })
+      .set({ status: "cancelled", cancelReason, updatedAt: new Date() })
       .where(and(eq(ordersTable.id, id), eq(ordersTable.userId, userId), eq(ordersTable.status, "searching")))
       .returning();
     if (!changed.length) return changed;

@@ -212,3 +212,15 @@ test('customer cancellation refunds inside the order transaction; failures roll 
   if(fail){await assert.rejects(run());assert.equal(state.writes.length,0);}else{await run();assert.equal(res.statusCode,200);assert.equal(refunded,true);}
  }
 });
+test('customer cancellation stores only a known cancel reason', async () => {
+ for (const [body, expected] of [[{reason:'too_slow'},'too_slow'],[{reason:'found_elsewhere'},'found_elsewhere'],[{reason:'<script>'},null],[undefined,null]]) {
+  const state=database({ordersTable:[{id:'o1',userId:'u1',status:'searching'}]});
+  const m=load('artifacts/api-server/src/routes/orders.ts',state,{'../lib/loyalty':{refundRedeemedPointsInTx:async()=>{}}});
+  const res=response();
+  await m.routes.get('delete /orders/:id')(request({params:{id:'o1'},body}),res);
+  assert.equal(res.statusCode,200);
+  const update=state.writes.find(w=>w.op==='update'&&w.values&&w.values.status==='cancelled');
+  assert.ok(update,'order was cancelled');
+  assert.equal(update.values.cancelReason,expected);
+ }
+});
