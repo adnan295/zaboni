@@ -17,6 +17,10 @@ export const orderDispatchTable = pgTable("order_dispatch", {
   lastAccepted: integer("last_accepted").notNull().default(0),
   lastFailed: integer("last_failed").notNull().default(0),
   lastError: text("last_error"),
+  // Max couriers ever eligible / devices ever accepted across attempts (null = not recorded).
+  maxEligible: integer("max_eligible"),
+  maxAccepted: integer("max_accepted").notNull().default(0),
+  customerNudgedAt: timestamp("customer_nudged_at", { withTimezone: true }),
 });
 
 export const pushReceiptsTable = pgTable("push_receipts", {

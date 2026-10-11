@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BarChart,
   Bar,
@@ -10,7 +10,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { api, type SearchWait } from "@/lib/api";
+import { api, type LostReason, type SearchWait, type WaitSettings } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 const PERIODS = [
@@ -26,6 +26,109 @@ const TOOLTIP_STYLE = {
   borderRadius: "8px",
   color: "var(--popover-foreground)",
 };
+
+const LOST_REASON: Record<LostReason, { icon: string; label: string; hint: string; tone: string }> = {
+  no_couriers: {
+    icon: "🚫",
+    label: "ما في مندوب متاح",
+    hint: "كل المناديب كانوا مسكّرين أو مشغولين — بدها مناديب أكتر بهالوقت",
+    tone: "text-red-600",
+  },
+  not_accepted: {
+    icon: "🙈",
+    label: "وصلهن وما حدا قبل",
+    hint: "الإشعار وصل لمناديب ورفضوا أو طنّشوا — شوف الرسوم والمسافة",
+    tone: "text-orange-600",
+  },
+  push_failed: {
+    icon: "📵",
+    label: "الإشعار ما انبعت",
+    hint: "في مناديب متاحين بس الإشعار انرفض — مشكلة تقنية",
+    tone: "text-purple-600",
+  },
+  unknown: {
+    icon: "❔",
+    label: "غير معروف",
+    hint: "طلبات قبل ما نبلّش نسجّل هالمعلومة",
+    tone: "text-muted-foreground",
+  },
+};
+
+function WaitSettingsCard() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data } = useQuery({ queryKey: ["admin", "wait-settings"], queryFn: api.getWaitSettings });
+  const save = useMutation({
+    mutationFn: (next: Omit<WaitSettings, "apologyLast30Days">) => api.updateWaitSettings(next),
+    onSuccess: (res) => {
+      queryClient.setQueryData(["admin", "wait-settings"], res);
+      void queryClient.invalidateQueries({ queryKey: ["admin", "orders", "stuck"] });
+      toast({ title: "انحفظت الإعدادات" });
+    },
+    onError: () => toast({ title: "ما انحفظت الإعدادات", variant: "destructive" }),
+  });
+  if (!data) return null;
+  const base = {
+    searchAlertMinutes: data.searchAlertMinutes,
+    nudgeEnabled: data.nudgeEnabled,
+    apologyEnabled: data.apologyEnabled,
+  };
+  return (
+    <div className="rounded-xl border bg-card p-4">
+      <p className="mb-3 text-sm font-semibold">⚙️ لا تخسر الزبون وهو عم يستنّى</p>
+      <div className="grid gap-3 text-sm md:grid-cols-3">
+        <label className="flex items-center gap-2">
+          <span className="text-muted-foreground">بعد كم دقيقة بحث:</span>
+          <select
+            value={data.searchAlertMinutes}
+            disabled={save.isPending}
+            onChange={(e) => save.mutate({ ...base, searchAlertMinutes: Number(e.target.value) })}
+            className="rounded-md border bg-background px-2 py-1"
+          >
+            {[2, 3, 4, 5, 7, 10, 15].map((m) => (
+              <option key={m} value={m}>
+                {m} د
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={data.nudgeEnabled}
+            disabled={save.isPending}
+            onChange={(e) => save.mutate({ ...base, nudgeEnabled: e.target.checked })}
+          />
+          <span>
+            رسالة طمأنة للزبون
+            <span className="block text-xs text-muted-foreground">"المناديب مشغولين شوي، خليك معنا"</span>
+          </span>
+        </label>
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={data.apologyEnabled}
+            disabled={save.isPending}
+            onChange={(e) => save.mutate({ ...base, apologyEnabled: e.target.checked })}
+          />
+          <span>
+            كود اعتذار تلقائي إذا ألغى
+            <span className="block text-xs text-muted-foreground">
+              توصيل مجاني لطلبه الجاي (٧ أيام، مرة بالشهر للزبون) · آخر ٣٠ يوم: انبعت{" "}
+              {data.apologyLast30Days.issued.toLocaleString("ar-SY")}، انستخدم{" "}
+              {data.apologyLast30Days.used.toLocaleString("ar-SY")}
+            </span>
+          </span>
+        </label>
+      </div>
+      <p className="mt-3 text-[11px] text-muted-foreground">
+        نفس المدة بتشغّل تنبيه الإدارة ⏳ (بكل الصفحات) ورسالة الطمأنة، وما بينبعت كود اعتذار إلا لمين استنّى هالمدة أو أكتر.
+      </p>
+    </div>
+  );
+}
 
 const mins = (v: number | null) => (v == null ? "—" : `${v.toLocaleString("ar-SY")} د`);
 
@@ -89,6 +192,19 @@ function insights(d: SearchWait): string[] {
         .join("، ")} — غالباً ما في مناديب كفاية بهالأوقات.`,
     );
   }
+  const reasons = (Object.entries(s.byLostReason) as [LostReason, number][])
+    .filter(([k]) => k !== "unknown")
+    .sort((a, b) => b[1] - a[1]);
+  const top = reasons[0];
+  if (top && top[1] > 0) {
+    const advice: Record<LostReason, string> = {
+      no_couriers: "يعني المشكلة بعدد المناديب الشغّالين بهالأوقات، مو بالتطبيق.",
+      not_accepted: "يعني في مناديب بس ما عم يقبلوا — راجع رسوم التوصيل والمسافات.",
+      push_failed: "يعني في مشكلة بوصول الإشعارات للمناديب.",
+      unknown: "",
+    };
+    out.push(`أكتر سبب للضياع: ${LOST_REASON[top[0]].label} (${top[1]} طلب) — ${advice[top[0]]}`);
+  }
   if (s.neverServedCustomers > 0) {
     out.push(
       `${s.neverServedCustomers.toLocaleString("ar-SY")} زبون ما وصله ولا طلب أبداً — أول تجربة إلهن كانت انتظار وإلغاء.`,
@@ -150,6 +266,8 @@ export default function SearchWaitPanel() {
         </label>
       </div>
 
+      <WaitSettingsCard />
+
       {isLoading && <div className="py-16 text-center text-sm text-muted-foreground">جارٍ التحليل…</div>}
       {isError && <div className="py-16 text-center text-sm text-destructive">فشل تحميل البيانات</div>}
 
@@ -178,6 +296,23 @@ export default function SearchWaitPanel() {
               sub={`ألغوا وما رجعوا · ${s.returnedCustomers.toLocaleString("ar-SY")} رجعوا وطلبوا`}
               tone={s.lostCustomers > 0 ? "text-red-600" : ""}
             />
+          </div>
+
+          <div className="rounded-xl border bg-card p-4">
+            <p className="mb-3 text-sm font-semibold">🔍 ليش ما لاقوا مندوب؟</p>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {(Object.keys(LOST_REASON) as LostReason[]).map((k) => (
+                <div key={k} title={LOST_REASON[k].hint} className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">
+                    {LOST_REASON[k].icon} {LOST_REASON[k].label}
+                  </p>
+                  <p className={`mt-1 text-xl font-bold ${LOST_REASON[k].tone}`}>
+                    {s.byLostReason[k].toLocaleString("ar-SY")}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">{LOST_REASON[k].hint}</p>
+                </div>
+              ))}
+            </div>
           </div>
 
           {insights(data).length > 0 && (
@@ -334,6 +469,7 @@ export default function SearchWaitPanel() {
                       <th className="px-4 py-3 text-right font-medium">الزبون</th>
                       <th className="px-4 py-3 text-right font-medium">الطلب</th>
                       <th className="px-4 py-3 text-right font-medium">استنّى</th>
+                      <th className="px-4 py-3 text-right font-medium">ليش ما لاقى مندوب</th>
                       <th className="px-4 py-3 text-right font-medium">بعدها</th>
                     </tr>
                   </thead>
@@ -357,6 +493,17 @@ export default function SearchWaitPanel() {
                           </span>
                           {o.cancelBy === "admin" && (
                             <p className="mt-0.5 text-[11px] text-muted-foreground">ألغته الإدارة</p>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-xs">
+                          <span className={`font-medium ${LOST_REASON[o.lostReason].tone}`}>
+                            {LOST_REASON[o.lostReason].icon} {LOST_REASON[o.lostReason].label}
+                          </span>
+                          {o.lostReason === "not_accepted" && (
+                            <p className="text-muted-foreground">
+                              وصل لـ {o.notifiedDevices.toLocaleString("ar-SY")} جهاز
+                              {o.availableCouriers != null && ` · ${o.availableCouriers.toLocaleString("ar-SY")} مندوب متاح`}
+                            </p>
                           )}
                         </td>
                         <td className="px-4 py-3 text-xs">

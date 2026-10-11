@@ -4,6 +4,7 @@ import app from "./app";
 import { ensureOrderCreationSchema } from "./lib/orderCreation";
 import { setupOrdersNamespace, notifyNearbyCouriers } from "./orders/server";
 import { ensureDispatchSchema, startOrderDispatchJob } from "./lib/orderDispatch";
+import { startSearchWatchJob } from "./lib/searchWatch";
 import { startPushReceiptJob } from "./lib/push";
 import { startDealExpiryJob } from "./lib/dealExpiry";
 import { startUploadCleanupJob } from "./lib/uploadCleanup";
@@ -69,6 +70,7 @@ httpServer.listen(port, (err?: Error) => {
   }
   logger.info({ port }, "Server listening");
   startOrderDispatchJob(notifyNearbyCouriers);
+  startSearchWatchJob();
   startPushReceiptJob();
   startDealExpiryJob();
   startUploadCleanupJob();

@@ -25,6 +25,12 @@ export interface AuditOrderRow {
   cancelNote: string | null;
   /** First time a courier accepted the order (null if none ever did). */
   acceptedAt: Date | null;
+  /** Courier-dispatch diagnostics (null = order never entered the dispatch queue). */
+  dispatch?: {
+    maxEligible: number | null; // null = recorded before eligibility tracking existed
+    maxAccepted: number;
+    lastError: string | null;
+  } | null;
 }
 
 export type OrderFlag =
@@ -102,7 +108,9 @@ function cancelBy(o: AuditOrderRow): CancelBy {
   if (o.status !== "cancelled") return null;
   if (o.cancelNote === "admin_cancelled") return "admin";
   if (o.cancelNote === "auto_expired") return "system";
-  return o.courierId ? "customer_after_courier" : "customer";
+  // Customers can only cancel while searching, so a courier who accepted and
+  // then released the order back to searching is visible only via acceptedAt.
+  return o.courierId || o.acceptedAt ? "customer_after_courier" : "customer";
 }
 
 const minutesBetween = (a: Date, b: Date) => Math.max(0, Math.round(((b.getTime() - a.getTime()) / 60000) * 10) / 10);
@@ -368,6 +376,30 @@ export interface GaveUpOrder {
   cancelBy: "customer" | "admin";
   /** The customer placed another order later that got delivered. */
   cameBack: boolean;
+  /** Why no courier took it — see lostReason(). */
+  lostReason: LostReason;
+  /** Most couriers that were available at any dispatch attempt (null = unknown). */
+  availableCouriers: number | null;
+  /** Most devices the new-order push was accepted for. */
+  notifiedDevices: number;
+}
+
+/**
+ * no_couriers  — nobody online and free at any attempt (supply problem)
+ * push_failed  — couriers were available but no push could be delivered (tech problem)
+ * not_accepted — couriers were notified and none took it (price/distance/attention problem)
+ * unknown      — order never reached the dispatcher, or recorded before tracking
+ */
+export type LostReason = "no_couriers" | "push_failed" | "not_accepted" | "unknown";
+
+export function lostReason(o: AuditOrderRow): LostReason {
+  const d = o.dispatch;
+  if (!d) return "unknown";
+  if (d.maxEligible === 0) return "no_couriers";
+  if (d.maxAccepted > 0) return "not_accepted";
+  if (d.lastError === "no_reachable_couriers") return "no_couriers";
+  if (d.lastError === "push_rejected") return "push_failed";
+  return "unknown";
 }
 
 export interface SearchWaitCustomer {
@@ -420,6 +452,9 @@ export function computeSearchWait(rows: AuditOrderRow[], excludeUserIds: Set<str
       userPhone: o.userPhone ?? "",
       cancelBy: (o.cancelNote === "admin_cancelled" ? "admin" : "customer") as GaveUpOrder["cancelBy"],
       cameBack: (deliveredByUser.get(o.userId) ?? []).some((d) => d.getTime() > o.createdAt.getTime()),
+      lostReason: lostReason(o),
+      availableCouriers: o.dispatch?.maxEligible ?? null,
+      notifiedDevices: o.dispatch?.maxAccepted ?? 0,
     }))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
@@ -489,6 +524,12 @@ export function computeSearchWait(rows: AuditOrderRow[], excludeUserIds: Set<str
       lostCustomers: customers.filter((c) => c.status === "lost").length,
       returnedCustomers: customers.filter((c) => c.status === "returned").length,
       neverServedCustomers: customers.filter((c) => c.delivered === 0).length,
+      byLostReason: {
+        no_couriers: customerGaveUp.filter((g) => g.lostReason === "no_couriers").length,
+        push_failed: customerGaveUp.filter((g) => g.lostReason === "push_failed").length,
+        not_accepted: customerGaveUp.filter((g) => g.lostReason === "not_accepted").length,
+        unknown: customerGaveUp.filter((g) => g.lostReason === "unknown").length,
+      } satisfies Record<LostReason, number>,
     },
     buckets,
     byHour,

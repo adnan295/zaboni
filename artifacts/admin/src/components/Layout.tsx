@@ -9,6 +9,7 @@ import { useTheme } from "next-themes";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { io, type Socket } from "socket.io-client";
 import WhatsAppAlertBanner from "@/components/WhatsAppAlertBanner";
+import StuckOrdersBanner from "@/components/StuckOrdersBanner";
 import { useWhatsAppAccounts, summarizeWhatsApp } from "@/lib/whatsappStatus";
 
 interface LayoutProps {
@@ -239,6 +240,7 @@ export default function Layout({ children, onLogout }: LayoutProps) {
             {currentGroup.items.map(item=><Link key={item.href} href={item.href} aria-current={current?.item.href === item.href ? "page" : undefined} className={cn(current?.item.href === item.href && "selected")}>{item.label}</Link>)}
           </nav>
           <WhatsAppAlertBanner />
+          <StuckOrdersBanner />
           {children}
         </div>
       </main>

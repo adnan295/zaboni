@@ -10,6 +10,7 @@ import { haversineKm, getFeeForDistance, DEFAULT_DELIVERY_FEE_SYP, DAMASCUS_CENT
 import { checkCoverage, getActiveCoverageAreas, areaIdsContaining, pointInAllowedArea } from "../lib/coverage";
 import { getLoyaltySettings, calculateRedeemDiscount, redeemPointsInTx, refundRedeemedPointsInTx } from "../lib/loyalty";
 import { checkAndAwardAchievements } from "../lib/achievements";
+import { maybeIssueApologyPromo } from "../lib/searchWatch";
 import { isUserSubscribed, getSubscriptionSettings } from "../lib/customerSubscription";
 
 const router: IRouter = Router();
@@ -1155,6 +1156,8 @@ router.delete("/orders/:id", async (req, res) => {
   if (!updated.length) { res.status(409).json({ error: "Order status changed, cannot cancel" }); return; }
   notifyOrderUpdate(userId, { ...updated[0], cancelNote: null });
   res.json(updated[0]);
+  // Gave up waiting for a courier → apologise with free delivery next time (gated inside).
+  void maybeIssueApologyPromo(userId, id, order.createdAt);
 });
 
 const rateOrderSchema = z.object({

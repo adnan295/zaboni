@@ -53,6 +53,7 @@ async function setup() {
     '../lib/orderCompletion': { completeOrderInTx: async (_, order) => { if (failCompletion) throw Error('ledger unavailable'); completed.push(order.id); return null; }, notifyReferralReward() {} },
     '../lib/loyalty': { refundRedeemedPointsInTx: async () => {} },
     '../lib/orderDispatch': { dispatchOrderNow: async id => events.push(['dispatch', id]) },
+    '../lib/searchWatch': { maybeIssueApologyPromo: async () => 'disabled' },
     '../lib/achievements': { checkAndAwardAchievements: async () => {} },
     '../orders/server': { notifyOrderUpdate: (id, order) => events.push(['update', id, order]), sendOrderPush: async () => {} },
   };

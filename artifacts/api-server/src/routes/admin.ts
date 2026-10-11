@@ -4,6 +4,7 @@ import { dispatchOrderNow } from "../lib/orderDispatch";
 import { checkAndAwardAchievements } from "../lib/achievements";
 import { refundRedeemedPointsInTx } from "../lib/loyalty";
 import { computeOrderAudit, computeSearchWait, type AuditOrderRow } from "../lib/orderAudit";
+import { getStuckOrders, getWaitSettings, saveWaitSettings, getApologyStats } from "../lib/searchWatch";
 import { Router, type Request, type Response } from "express";
 import { whatsappManager } from "../lib/whatsapp";
 import { db } from "@workspace/db";
@@ -1089,9 +1090,13 @@ async function fetchAuditRows(since: Date): Promise<AuditOrderRow[]> {
       o.total_price AS "totalPrice", o.delivery_fee AS "deliveryFee", o.courier_id AS "courierId",
       o.destination_lat AS "destinationLat", o.destination_lon AS "destinationLon",
       o.created_at AS "createdAt", osh.created_at AS "cancelledAt", osh.note AS "cancelNote",
-      acc.accepted_at AS "acceptedAt"
+      acc.accepted_at AS "acceptedAt",
+      d.max_eligible AS "dispatchMaxEligible", d.max_accepted AS "dispatchMaxAccepted",
+      d.last_accepted AS "dispatchLastAccepted", d.last_error AS "dispatchLastError",
+      (d.order_id IS NOT NULL) AS "dispatched"
     FROM orders o
     LEFT JOIN users u ON u.id = o.user_id
+    LEFT JOIN order_dispatch d ON d.order_id = o.id
     LEFT JOIN LATERAL (
       SELECT note, created_at FROM order_status_history
       WHERE order_id = o.id AND status = 'cancelled'
@@ -1126,6 +1131,13 @@ async function fetchAuditRows(since: Date): Promise<AuditOrderRow[]> {
     cancelledAt: toDate(r["cancelledAt"]),
     cancelNote: (r["cancelNote"] as string | null) ?? null,
     acceptedAt: toDate(r["acceptedAt"]),
+    dispatch: r["dispatched"]
+      ? {
+          maxEligible: r["dispatchMaxEligible"] == null ? null : Number(r["dispatchMaxEligible"]),
+          maxAccepted: Math.max(Number(r["dispatchMaxAccepted"] ?? 0), Number(r["dispatchLastAccepted"] ?? 0)),
+          lastError: (r["dispatchLastError"] as string | null) ?? null,
+        }
+      : null,
   }));
 }
 
@@ -1140,6 +1152,34 @@ router.get("/admin/order-audit", async (req, res) => {
   const lateTo = lateHour(req.query["lateTo"], 6);
   const rows = await fetchAuditRows(since);
   res.json({ days, lateFrom, lateTo, ...computeOrderAudit(rows, { lateFrom, lateTo }) });
+});
+
+// Orders still waiting for a courier past the alert threshold (dashboard banner, polled).
+router.get("/admin/orders/stuck", async (_req, res) => {
+  const settings = await getWaitSettings();
+  res.json(await getStuckOrders(settings.searchAlertMinutes));
+});
+
+const waitSettingsSchema = z.object({
+  searchAlertMinutes: z.number().int().min(1).max(60),
+  nudgeEnabled: z.boolean(),
+  apologyEnabled: z.boolean(),
+});
+
+router.get("/admin/wait-settings", async (_req, res) => {
+  const [settings, apology] = await Promise.all([getWaitSettings(), getApologyStats(30)]);
+  res.json({ ...settings, apologyLast30Days: apology });
+});
+
+router.put("/admin/wait-settings", async (req, res) => {
+  const body = waitSettingsSchema.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "إعدادات غير صحيحة" });
+    return;
+  }
+  await saveWaitSettings(body.data);
+  const apology = await getApologyStats(30);
+  res.json({ ...body.data, apologyLast30Days: apology });
 });
 
 // How long customers waited for a courier before giving up (cancelling with no courier).

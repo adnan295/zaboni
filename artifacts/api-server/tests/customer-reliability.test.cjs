@@ -57,6 +57,7 @@ function load(file, dbState = database(), overrides = {}, expose = '', globals =
     'drizzle-orm': orm,
     '../orders/server': new Proxy({}, { get: () => asyncNoop }),
     '../lib/orderDispatch': { dispatchOrderNow: asyncNoop },
+    '../lib/searchWatch': { maybeIssueApologyPromo: asyncNoop },
     '../lib/push': new Proxy({}, { get: () => asyncNoop }),
     '../lib/achievements': { checkAndAwardAchievements: asyncNoop },
     '../lib/customerSubscription': { isUserSubscribed: async () => false, getSubscriptionSettings: async () => ({}) },

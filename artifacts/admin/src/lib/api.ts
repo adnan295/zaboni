@@ -1066,6 +1066,10 @@ export const api = {
     apiFetch<OrderAudit>(`/admin/order-audit?days=${days}&lateFrom=${lateFrom}&lateTo=${lateTo}`),
   getSearchWait: (days: 7 | 30 | 90 | 0, excludeFake: boolean) =>
     apiFetch<SearchWait>(`/admin/search-wait?days=${days}&excludeFake=${excludeFake ? 1 : 0}`),
+  getStuckOrders: () => apiFetch<StuckOrders>("/admin/orders/stuck"),
+  getWaitSettings: () => apiFetch<WaitSettings>("/admin/wait-settings"),
+  updateWaitSettings: (body: Omit<WaitSettings, "apologyLast30Days">) =>
+    apiFetch<WaitSettings>("/admin/wait-settings", { method: "PUT", body: JSON.stringify(body) }),
   getCourierPerformance: (days: number) =>
     apiFetch<CourierPerformanceRow[]>(`/admin/courier-performance?days=${days}`),
   getCourierPerformanceDetail: (courierId: string, days: number) =>
@@ -1423,6 +1427,7 @@ export type SearchWait = {
     lostCustomers: number;
     returnedCustomers: number;
     neverServedCustomers: number;
+    byLostReason: Record<LostReason, number>;
   };
   buckets: { label: string; gaveUp: number; accepted: number }[];
   byHour: { hour: number; orders: number; gaveUp: number; gaveUpRate: number; medianAcceptMinutes: number | null }[];
@@ -1451,5 +1456,36 @@ export type SearchWait = {
     userPhone: string;
     cancelBy: "customer" | "admin";
     cameBack: boolean;
+    lostReason: LostReason;
+    availableCouriers: number | null;
+    notifiedDevices: number;
   }[];
+};
+
+export type LostReason = "no_couriers" | "push_failed" | "not_accepted" | "unknown";
+
+export type StuckOrders = {
+  minutes: number;
+  couriers: { online: number; free: number };
+  orders: {
+    id: string;
+    createdAt: string;
+    waitMinutes: number;
+    orderType: string;
+    summary: string;
+    customerName: string;
+    customerPhone: string;
+    attempts: number;
+    maxEligible: number | null;
+    maxAccepted: number;
+    lastError: string | null;
+    nudged: boolean;
+  }[];
+};
+
+export type WaitSettings = {
+  searchAlertMinutes: number;
+  nudgeEnabled: boolean;
+  apologyEnabled: boolean;
+  apologyLast30Days: { issued: number; used: number };
 };

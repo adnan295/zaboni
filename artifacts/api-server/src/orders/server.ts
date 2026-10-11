@@ -95,7 +95,7 @@ export async function notifyNearbyCouriers(
   restaurantName: string,
   deliveryFee: number,
   broaden = false,
-): Promise<{ accepted: number; failed: number }> {
+): Promise<{ accepted: number; failed: number; eligible?: number }> {
   const [order] = await db.select({ userId: ordersTable.userId, status: ordersTable.status })
     .from(ordersTable).where(eq(ordersTable.id, orderId)).limit(1);
   if (!order || order.status !== "searching") return { accepted: 0, failed: 0 };
@@ -138,7 +138,7 @@ export async function notifyNearbyCouriers(
     result = { accepted: result.accepted + expanded.accepted, failed: result.failed + expanded.failed };
   }
   logger.info({ orderId, eligible: eligible.length, broaden, ...result }, "Courier dispatch submission (not device delivery)");
-  return result;
+  return { ...result, eligible: eligible.length };
 }
 
 export function notifyCouriersOrderTaken(orderId: string): void {

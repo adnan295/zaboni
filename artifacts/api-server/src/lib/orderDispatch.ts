@@ -24,13 +24,20 @@ CREATE TABLE IF NOT EXISTS push_receipts (
   next_check_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS push_receipts_due_idx ON push_receipts(next_check_at);
+-- Diagnostics for "why did this order wait": the most couriers that were ever
+-- eligible and the most devices a push was accepted for, across all attempts
+-- (last_* only keep the latest attempt). NULL max_eligible = recorded before this.
+ALTER TABLE order_dispatch ADD COLUMN IF NOT EXISTS max_eligible INTEGER;
+ALTER TABLE order_dispatch ADD COLUMN IF NOT EXISTS max_accepted INTEGER NOT NULL DEFAULT 0;
+-- When the waiting customer was sent the "couriers are busy, hang on" message.
+ALTER TABLE order_dispatch ADD COLUMN IF NOT EXISTS customer_nudged_at TIMESTAMPTZ;
 `;
 
 export async function ensureDispatchSchema(): Promise<void> {
   await pool.query(DISPATCH_SCHEMA);
 }
 
-type DispatchResult = { accepted: number; failed: number };
+type DispatchResult = { accepted: number; failed: number; eligible?: number };
 type Dispatch = (
   orderId: string,
   restaurantId: string | null,
@@ -99,6 +106,7 @@ export async function runDispatchCycle(orderId?: string): Promise<void> {
         try {
           let accepted = 0,
             failed = 0,
+            eligible: number | null = null,
             error: string | null = null;
           try {
             const current = await pool.query(
@@ -115,6 +123,7 @@ export async function runDispatchCycle(orderId?: string): Promise<void> {
               );
               accepted = result.accepted;
               failed = result.failed;
+              eligible = result.eligible ?? null;
               if (accepted === 0)
                 error = failed ? "push_rejected" : "no_reachable_couriers";
             }
@@ -128,7 +137,10 @@ export async function runDispatchCycle(orderId?: string): Promise<void> {
           await pool.query(
             `UPDATE order_dispatch SET lease_id = NULL, lease_until = NULL,
         last_accepted = $3, last_failed = $4, last_error = $5,
-        next_attempt_at = NOW() + ($6 * INTERVAL '1 second')
+        next_attempt_at = NOW() + ($6 * INTERVAL '1 second'),
+        max_accepted = GREATEST(max_accepted, $3),
+        max_eligible = CASE WHEN $7::int IS NULL THEN max_eligible
+          ELSE GREATEST(COALESCE(max_eligible, 0), $7::int) END
         WHERE order_id = $1 AND lease_id = $2`,
             [
               row.order_id,
@@ -137,6 +149,7 @@ export async function runDispatchCycle(orderId?: string): Promise<void> {
               failed,
               error,
               retryDelaySeconds(row.attempts, accepted),
+              eligible,
             ],
           );
         } finally {

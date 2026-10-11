@@ -35,6 +35,7 @@ async function setup(){
   express:{Router:()=>new Proxy({}, {get:(_,method)=>(url,...handlers)=>routes.set(method+' '+url,handlers.at(-1))})},
   '../orders/server':captures,'../lib/push':captures,'./push':captures,
   '../lib/orderDispatch':{dispatchOrderNow:async id=>events.push({name:'dispatch',args:[id]})},
+  '../lib/searchWatch':{maybeIssueApologyPromo:async()=>'disabled'},
   '../lib/achievements':{checkAndAwardAchievements:async()=>{}},
   '../lib/objectStorage':{ObjectStorageService:class{}},'../lib/webPush':{},'../lib/promoBannerComposer':{},'../lib/whatsapp':{},'../lib/sms':{},
  };
