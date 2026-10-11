@@ -29,3 +29,13 @@ export function compareRestaurantDistance(a: {distanceKm?: number | null}, b: {d
   if (aKnown !== bKnown) return aKnown ? -1 : 1;
   return 0;
 }
+
+/**
+ * Nearest-first ordering is for search only. The home feed keeps the admin's
+ * manual ranking ("ترتيب المطاعم"); the search screens always send a search
+ * term or a category, the home screen never does.
+ */
+export function isRestaurantSearchRequest(options: Record<string, unknown>): boolean {
+  const filled = (v: unknown) => typeof v === "string" && v.trim().length > 0;
+  return filled(options.search) || filled(options.category);
+}

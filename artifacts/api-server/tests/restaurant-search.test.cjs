@@ -22,3 +22,14 @@ test('nearest first, including sub-100m differences, unknown coordinates last',(
  assert.equal(compareRestaurantDistance({distanceKm:null},{distanceKm:undefined}),0);
  assert.equal(compareRestaurantDistance({distanceKm:2},{distanceKm:2}),0);
 });
+test('nearest-first is for search only; the home feed keeps the manual ranking',()=>{
+ const {isRestaurantSearchRequest}=moduleResult.exports;
+ assert.equal(isRestaurantSearchRequest({search:'شاورما',lat:'34.7',lon:'36.7'}),true);
+ assert.equal(isRestaurantSearchRequest({category:'برغر',lat:'34.7',lon:'36.7'}),true);
+ // Home screen: location (+ optional categoryId) but no search term / category text.
+ assert.equal(isRestaurantSearchRequest({lat:'34.7',lon:'36.7'}),false);
+ assert.equal(isRestaurantSearchRequest({lat:'34.7',lon:'36.7',categoryId:'c1'}),false);
+ assert.equal(isRestaurantSearchRequest({search:'   ',category:''}),false);
+ // Search tab "popular" strip asks for rating order without a term.
+ assert.equal(isRestaurantSearchRequest({sortBy:'rating',limit:'6',lat:'34.7',lon:'36.7'}),false);
+});

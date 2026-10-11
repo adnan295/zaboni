@@ -1,4 +1,4 @@
-import { literalSearchPattern, applyRestaurantSearchOptions, compareRestaurantDistance } from "../lib/restaurantSearch";
+import { literalSearchPattern, applyRestaurantSearchOptions, compareRestaurantDistance, isRestaurantSearchRequest } from "../lib/restaurantSearch";
 import { getDamascusNow, computeIsOpenFromHours, getHoursForRestaurants } from "../lib/restaurantHours";
 import { Router, type IRouter, type Request } from "express";
 import { db, restaurantsTable, menuItemsTable, restaurantHoursTable, promoBannersTable, restaurantCategoriesTable, restaurantCategorySortOrdersTable, homeSectionItemsTable, categoryRestaurantExclusionsTable, flashDealsTable, menuItemOptionGroupsTable, menuItemOptionsTable } from "@workspace/db";
@@ -187,10 +187,11 @@ router.get("/restaurants", async (req, res) => {
     };
   });
 
+  // Search results go nearest-first; the home feed keeps the manual ranking.
+  const nearestFirst = hasLocation && isRestaurantSearchRequest(req.query);
   result.sort((a, b) => {
-    // Default discovery is nearest to the delivery location, before manual ranking.
-    // Explicit search sorting is applied after this default order.
-    if (hasLocation) {
+    // Explicit search sorting (rating/fee/fastest) is applied after this order.
+    if (nearestFirst) {
       const distanceOrder = compareRestaurantDistance(a, b);
       if (distanceOrder !== 0) return distanceOrder;
     }
