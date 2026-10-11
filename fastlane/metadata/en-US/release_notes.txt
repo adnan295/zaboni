@@ -1,1 +1,1 @@
-Improved restaurant search and nearby results, safer order retries and delivery fee checks, and a clearer courier workspace with consolidated subscription management. Reliability fixes for order handling and notifications.
+Tell us why you cancel an order so we can improve, and rate the app easily after a great order. For couriers: a notification and battery-saver check with a test-alert button so no order is missed. Plus stability improvements and faster crash detection.
