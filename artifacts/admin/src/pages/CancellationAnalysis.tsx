@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { api } from "@/lib/api";
+import OrderAuditPanel from "@/components/OrderAuditPanel";
 
 const DAY_OPTIONS = [
   { value: 7, label: "آخر ٧ أيام" },
@@ -50,6 +51,7 @@ function ReasonCard({
 
 export default function CancellationAnalysis() {
   const [days, setDays] = useState<7 | 30 | 90>(30);
+  const [tab, setTab] = useState<"stats" | "audit">("stats");
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["admin", "cancellation-stats", days],
@@ -80,6 +82,7 @@ export default function CancellationAnalysis() {
             )}
           </p>
         </div>
+        {tab === "stats" && (
         <div className="flex gap-2">
           {DAY_OPTIONS.map((opt) => (
             <button
@@ -95,16 +98,38 @@ export default function CancellationAnalysis() {
             </button>
           ))}
         </div>
+        )}
       </div>
 
-      {isLoading && (
+      <div className="flex gap-1 border-b">
+        {([
+          ["stats", "📊 الإحصائيات"],
+          ["audit", "🚩 عزل الطلبات المشبوهة"],
+        ] as const).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+              tab === key
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "audit" && <OrderAuditPanel />}
+
+      {tab === "stats" && isLoading && (
         <div className="text-center py-16 text-muted-foreground text-sm">جارٍ التحميل…</div>
       )}
-      {isError && (
+      {tab === "stats" && isError && (
         <div className="text-center py-16 text-destructive text-sm">فشل تحميل البيانات</div>
       )}
 
-      {data && (
+      {tab === "stats" && data && (
         <>
           {/* Three reason cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

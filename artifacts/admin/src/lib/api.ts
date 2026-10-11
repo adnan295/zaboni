@@ -1062,6 +1062,8 @@ export const api = {
     apiFetch<SlaAlert[]>(`/admin/sla-alerts?minAge=${minAge}`),
   getCancellationStats: (days: number) =>
     apiFetch<CancellationStats>(`/admin/cancellation-stats?days=${days}`),
+  getOrderAudit: (days: 7 | 30 | 90 | 0, lateFrom: number, lateTo: number) =>
+    apiFetch<OrderAudit>(`/admin/order-audit?days=${days}&lateFrom=${lateFrom}&lateTo=${lateTo}`),
   getCourierPerformance: (days: number) =>
     apiFetch<CourierPerformanceRow[]>(`/admin/courier-performance?days=${days}`),
   getCourierPerformanceDetail: (courierId: string, days: number) =>
@@ -1334,4 +1336,70 @@ export type CourierSubscriptionRequest = {
   createdAt: string;
   courierName: string | null;
   courierPhone: string | null;
+};
+
+export type OrderAuditFlag =
+  | "repeat_cancel"
+  | "reorder_cancel"
+  | "late_night"
+  | "errand_cancel"
+  | "after_courier"
+  | "suspect_account";
+
+export type OrderAuditAccount = {
+  userId: string;
+  name: string;
+  phone: string;
+  createdAt: string | null;
+  blocked: boolean;
+  totalOrders: number;
+  delivered: number;
+  cancelled: number;
+  cancelRate: number;
+  reorderCancels: number;
+  lateNightCancels: number;
+  afterCourierCancels: number;
+  errandCancels: number;
+  sharedAddressWith: number;
+  score: number;
+  risk: "high" | "medium" | "low";
+  reasons: string[];
+  firstOrderAt: string;
+  lastOrderAt: string;
+};
+
+export type OrderAuditOrder = {
+  id: string;
+  createdAt: string;
+  cancelledAt: string | null;
+  status: string;
+  orderType: string;
+  summary: string;
+  totalPrice: number | null;
+  userId: string;
+  userName: string;
+  userPhone: string;
+  cancelBy: "customer" | "customer_after_courier" | "admin" | "system" | null;
+  flags: OrderAuditFlag[];
+};
+
+export type OrderAudit = {
+  days: number;
+  lateFrom: number;
+  lateTo: number;
+  summary: {
+    totalOrders: number;
+    cancelled: number;
+    cancelRate: number;
+    flaggedOrders: number;
+    suspectAccounts: number;
+    highRiskAccounts: number;
+    suspectOrders: number;
+    suspectDelivered: number;
+    cleanTotalOrders: number;
+    cleanCancelRate: number;
+    byFlag: Record<OrderAuditFlag, number>;
+  };
+  accounts: OrderAuditAccount[];
+  orders: OrderAuditOrder[];
 };

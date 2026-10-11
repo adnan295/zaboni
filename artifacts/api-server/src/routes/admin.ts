@@ -3,6 +3,7 @@ import { adminOrderTransitionError } from "../lib/adminOrderTransitions";
 import { dispatchOrderNow } from "../lib/orderDispatch";
 import { checkAndAwardAchievements } from "../lib/achievements";
 import { refundRedeemedPointsInTx } from "../lib/loyalty";
+import { computeOrderAudit, type AuditOrderRow } from "../lib/orderAudit";
 import { Router, type Request, type Response } from "express";
 import { whatsappManager } from "../lib/whatsapp";
 import { db } from "@workspace/db";
@@ -1069,6 +1070,63 @@ router.get("/admin/cancellation-stats", async (req, res) => {
       rate: Number(r.rate),
     })),
   });
+});
+
+// ─── Order audit (isolate suspicious orders/accounts) ─────────────────────
+router.get("/admin/order-audit", async (req, res) => {
+  const daysRaw = parseInt(String(req.query["days"] ?? "30"));
+  const days = [7, 30, 90, 0].includes(daysRaw) ? daysRaw : 30;
+  const hour = (v: unknown, d: number) => {
+    const n = parseInt(String(v ?? d));
+    return Number.isInteger(n) && n >= 0 && n <= 23 ? n : d;
+  };
+  const lateFrom = hour(req.query["lateFrom"], 2);
+  const lateTo = hour(req.query["lateTo"], 6);
+  const since = days > 0 ? new Date(Date.now() - days * 24 * 60 * 60 * 1000) : new Date(0);
+
+  const result = await db.execute(sql`
+    SELECT
+      o.id, o.user_id AS "userId", u.name AS "userName", u.phone AS "userPhone",
+      u.created_at AS "userCreatedAt", u.is_blocked AS "userBlocked",
+      o.status, o.order_type AS "orderType", o.order_text AS "orderText",
+      o.restaurant_name AS "restaurantName", o.place_name AS "placeName",
+      o.total_price AS "totalPrice", o.delivery_fee AS "deliveryFee", o.courier_id AS "courierId",
+      o.destination_lat AS "destinationLat", o.destination_lon AS "destinationLon",
+      o.created_at AS "createdAt", osh.created_at AS "cancelledAt", osh.note AS "cancelNote"
+    FROM orders o
+    LEFT JOIN users u ON u.id = o.user_id
+    LEFT JOIN LATERAL (
+      SELECT note, created_at FROM order_status_history
+      WHERE order_id = o.id AND status = 'cancelled'
+      ORDER BY created_at DESC LIMIT 1
+    ) osh ON o.status = 'cancelled'
+    WHERE o.created_at >= ${since}
+  `);
+
+  const toDate = (v: unknown) => (v == null ? null : new Date(v as string));
+  const rows: AuditOrderRow[] = (result.rows as Record<string, unknown>[]).map((r) => ({
+    id: String(r["id"]),
+    userId: String(r["userId"] ?? ""),
+    userName: (r["userName"] as string | null) ?? null,
+    userPhone: (r["userPhone"] as string | null) ?? null,
+    userCreatedAt: toDate(r["userCreatedAt"]),
+    userBlocked: (r["userBlocked"] as boolean | null) ?? null,
+    status: String(r["status"]),
+    orderType: String(r["orderType"] ?? "restaurant"),
+    orderText: String(r["orderText"] ?? ""),
+    restaurantName: String(r["restaurantName"] ?? ""),
+    placeName: (r["placeName"] as string | null) ?? null,
+    totalPrice: r["totalPrice"] == null ? null : Number(r["totalPrice"]),
+    deliveryFee: Number(r["deliveryFee"] ?? 0),
+    courierId: String(r["courierId"] ?? ""),
+    destinationLat: r["destinationLat"] == null ? null : Number(r["destinationLat"]),
+    destinationLon: r["destinationLon"] == null ? null : Number(r["destinationLon"]),
+    createdAt: new Date(r["createdAt"] as string),
+    cancelledAt: toDate(r["cancelledAt"]),
+    cancelNote: (r["cancelNote"] as string | null) ?? null,
+  }));
+
+  res.json({ days, lateFrom, lateTo, ...computeOrderAudit(rows, { lateFrom, lateTo }) });
 });
 
 // ─── Courier Performance ──────────────────────────────────────────────────
