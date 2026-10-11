@@ -10,6 +10,7 @@ import { z } from "zod";
 import { notifyOrderUpdate, sendOrderPush, notifyCouriersOrderTaken } from "../orders/server";
 import { getCourierPointValue, getCourierPointsPerDay, redeemCourierPointsForDays } from "../lib/courierPoints";
 import { checkAndAwardAchievements } from "../lib/achievements";
+import { sendCourierPush } from "../lib/push";
 
 const router: IRouter = Router();
 
@@ -169,6 +170,31 @@ router.patch("/courier/availability", requireCourier, async (req, res) => {
     .where(eq(usersTable.id, courierId));
 
   res.json({ ok: true, isOnline: body.data.isOnline });
+});
+
+// Lets a courier check, from the app, that an order alert really reaches their
+// phone (same path and priority as a real new-order push).
+const lastTestPushAt = new Map<string, number>();
+router.post("/courier/test-push", requireCourier, async (req, res) => {
+  const courierId = resolveUserId(req);
+  const last = lastTestPushAt.get(courierId) ?? 0;
+  if (Date.now() - last < 20_000) {
+    res.status(429).json({ error: "استنى شوي قبل ما تجرب مرة تانية" });
+    return;
+  }
+  lastTestPushAt.set(courierId, Date.now());
+
+  const [device] = await db
+    .select({ pushToken: usersTable.pushToken, fcmToken: usersTable.fcmToken, apnToken: usersTable.apnToken })
+    .from(usersTable)
+    .where(eq(usersTable.id, courierId))
+    .limit(1);
+  if (!device || (!device.pushToken && !device.fcmToken && !device.apnToken)) {
+    res.status(409).json({ error: "جهازك مو مسجّل للإشعارات. سكّر التطبيق وافتحه من جديد وفعّل الإشعارات." });
+    return;
+  }
+  const result = await sendCourierPush([device], "🔔 تجربة تنبيه الطلبات", "إذا وصلك هالإشعار، يعني رح توصلك الطلبات الجديدة ✅", { type: "courier_test" });
+  res.json({ ok: result.accepted > 0 });
 });
 
 router.get("/courier/me", requireCourier, async (req, res) => {

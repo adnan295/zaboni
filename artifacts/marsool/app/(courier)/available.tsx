@@ -1,4 +1,5 @@
 import { CourierAvailability } from "@/components/CourierAvailability";
+import { CourierAlertHealthCard } from "@/components/CourierAlertHealthCard";
 import React, { useState, useCallback, useRef } from "react";
 import {
   View,
@@ -262,6 +263,7 @@ export default function AvailableOrdersScreen() {
         ListHeaderComponent={
           <View style={{ gap: 16, marginBottom: 16, alignSelf: "stretch" }}>
             <CourierAvailability online={isOnline} busy={isTogglingOnline} onToggle={handleToggleAvailability} />
+            <CourierAlertHealthCard />
             {activeCount > 0 && (
               <TouchableOpacity
                 accessibilityRole="button"

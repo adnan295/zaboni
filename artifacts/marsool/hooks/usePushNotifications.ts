@@ -62,7 +62,7 @@ function getNotificationTargetRoute(
   const type = data?.type as string | undefined;
   const orderId = data?.orderId as string | undefined;
 
-  if (type === "new_order") {
+  if (type === "new_order" || type === "courier_test") {
     return "/(courier)/available";
   }
 
