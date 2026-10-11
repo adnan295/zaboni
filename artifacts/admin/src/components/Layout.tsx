@@ -10,6 +10,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { io, type Socket } from "socket.io-client";
 import WhatsAppAlertBanner from "@/components/WhatsAppAlertBanner";
 import StuckOrdersBanner from "@/components/StuckOrdersBanner";
+import CrashAlertBanner from "@/components/CrashAlertBanner";
 import { useWhatsAppAccounts, summarizeWhatsApp } from "@/lib/whatsappStatus";
 
 interface LayoutProps {
@@ -241,6 +242,7 @@ export default function Layout({ children, onLogout }: LayoutProps) {
           </nav>
           <WhatsAppAlertBanner />
           <StuckOrdersBanner />
+          <CrashAlertBanner />
           {children}
         </div>
       </main>

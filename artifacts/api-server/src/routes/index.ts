@@ -17,6 +17,7 @@ import subscriptionsRouter from "./subscriptions";
 import supportRouter from "./support";
 import referralRouter from "./referral";
 import coverageRouter from "./coverage";
+import crashesRouter from "./crashes";
 import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
@@ -32,6 +33,7 @@ router.use(restaurantPortalRouter);
 
 router.use(supportRouter);
 router.use(coverageRouter);
+router.use(crashesRouter);
 
 router.use(requireAuth);
 router.use(ordersRouter);

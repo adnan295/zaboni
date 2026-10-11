@@ -1,6 +1,6 @@
 import "@/i18n";
 import { initApiClient } from "@/lib/apiConfig";
-import { installCrashReporter } from "@/lib/crashReporter";
+import { installCrashReporter, setCrashContext } from "@/lib/crashReporter";
 installCrashReporter();
 initApiClient();
 import {
@@ -69,6 +69,13 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       setOnboardingChecked(true);
     });
   }, []);
+
+  useEffect(() => {
+    setCrashContext({
+      route: "/" + segments.join("/"),
+      role: isCourier && isCourierMode ? "courier" : user ? "customer" : "guest",
+    });
+  }, [segments, user, isCourier, isCourierMode]);
 
   useEffect(() => {
     if (isLoading || !onboardingChecked) return;

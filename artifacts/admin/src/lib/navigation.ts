@@ -190,6 +190,10 @@ export const navigationGroups = [
         "label": "واتساب"
       },
       {
+        "href": "/crashes",
+        "label": "أعطال التطبيق"
+      },
+      {
         "href": "/settings",
         "label": "الإعدادات"
       }

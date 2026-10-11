@@ -1067,6 +1067,15 @@ export const api = {
   getSearchWait: (days: 7 | 30 | 90 | 0, excludeFake: boolean) =>
     apiFetch<SearchWait>(`/admin/search-wait?days=${days}&excludeFake=${excludeFake ? 1 : 0}`),
   getStuckOrders: () => apiFetch<StuckOrders>("/admin/orders/stuck"),
+  getCrashes: (days: number) => apiFetch<CrashOverview>(`/admin/crashes?days=${days}`),
+  getCrashAlerts: () => apiFetch<{ alerts: CrashAlert[] }>("/admin/crashes/alerts"),
+  getCrashEvents: (fingerprint: string) =>
+    apiFetch<{ events: CrashEvent[] }>(`/admin/crashes/${encodeURIComponent(fingerprint)}`),
+  updateCrashGroup: (fingerprint: string, body: { muted?: boolean; resolved?: boolean }) =>
+    apiFetch<{ ok: boolean }>(`/admin/crashes/${encodeURIComponent(fingerprint)}`, { method: "PATCH", body: JSON.stringify(body) }),
+  getCrashSettings: () => apiFetch<{ alertPhone: string }>("/admin/crashes/settings"),
+  updateCrashSettings: (alertPhone: string) =>
+    apiFetch<{ alertPhone: string }>("/admin/crashes/settings", { method: "PUT", body: JSON.stringify({ alertPhone }) }),
   getWaitSettings: () => apiFetch<WaitSettings>("/admin/wait-settings"),
   updateWaitSettings: (body: Omit<WaitSettings, "apologyLast30Days">) =>
     apiFetch<WaitSettings>("/admin/wait-settings", { method: "PUT", body: JSON.stringify(body) }),
@@ -1492,4 +1501,58 @@ export type WaitSettings = {
   nudgeEnabled: boolean;
   apologyEnabled: boolean;
   apologyLast30Days: { issued: number; used: number };
+};
+
+export type CrashKind = "fatal" | "render" | "error";
+
+export type CrashGroup = {
+  fingerprint: string;
+  kind: CrashKind;
+  message: string;
+  stack: string;
+  count: number;
+  users: number;
+  firstSeen: string;
+  lastSeen: string;
+  versions: string[];
+  platforms: string[];
+  routes: string[];
+  devices: string[];
+  muted: boolean;
+  resolvedAt: string | null;
+  regressed: boolean;
+};
+
+export type CrashOverview = {
+  days: number;
+  totals: { crashes: number; users: number; groups: number };
+  byDay: { day: string; crashes: number; users: number }[];
+  groups: CrashGroup[];
+};
+
+export type CrashAlert = {
+  fingerprint: string;
+  message: string;
+  count: number;
+  users: number;
+  lastSeen: string;
+  reason: "new" | "regression" | "ongoing";
+};
+
+export type CrashEvent = {
+  id: string;
+  kind: CrashKind;
+  message: string;
+  stack: string;
+  userId: string | null;
+  userName: string | null;
+  userPhone: string | null;
+  role: string;
+  platform: string;
+  osVersion: string;
+  device: string;
+  appVersion: string;
+  updateId: string;
+  route: string;
+  occurredAt: string;
 };

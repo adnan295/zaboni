@@ -28,6 +28,7 @@ import RestaurantOrder from "@/pages/RestaurantOrder";
 import LiveMap from "@/pages/LiveMap";
 import ChatMonitor from "@/pages/ChatMonitor";
 import WhatsApp from "@/pages/WhatsApp";
+import Crashes from "@/pages/Crashes";
 import HomeSections from "@/pages/HomeSections";
 import RestaurantAccounts from "@/pages/RestaurantAccounts";
 import RestaurantPerformance from "@/pages/RestaurantPerformance";
@@ -76,6 +77,7 @@ function Router({ onLogout }: { onLogout: () => void }) {
         <Route path="/live-map" component={LiveMap} />
         <Route path="/chats" component={ChatMonitor} />
         <Route path="/whatsapp" component={WhatsApp} />
+        <Route path="/crashes" component={Crashes} />
         <Route path="/home-sections" component={HomeSections} />
         <Route path="/restaurant-accounts" component={RestaurantAccounts} />
         <Route path="/restaurant-performance" component={RestaurantPerformance} />

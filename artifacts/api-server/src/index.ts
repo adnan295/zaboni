@@ -5,6 +5,7 @@ import { ensureOrderCreationSchema } from "./lib/orderCreation";
 import { setupOrdersNamespace, notifyNearbyCouriers } from "./orders/server";
 import { ensureDispatchSchema, startOrderDispatchJob } from "./lib/orderDispatch";
 import { startSearchWatchJob } from "./lib/searchWatch";
+import { ensureCrashSchema, startCrashRetentionJob } from "./lib/crashReports";
 import { startPushReceiptJob } from "./lib/push";
 import { startDealExpiryJob } from "./lib/dealExpiry";
 import { startUploadCleanupJob } from "./lib/uploadCleanup";
@@ -63,6 +64,7 @@ setupOrdersNamespace(io);
 
 await ensureDispatchSchema();
 await ensureOrderCreationSchema();
+await ensureCrashSchema();
 
 httpServer.listen(port, (err?: Error) => {
   if (err) {
@@ -72,6 +74,7 @@ httpServer.listen(port, (err?: Error) => {
   logger.info({ port }, "Server listening");
   startOrderDispatchJob(notifyNearbyCouriers);
   startSearchWatchJob();
+  startCrashRetentionJob();
   startPushReceiptJob();
   startDealExpiryJob();
   startUploadCleanupJob();
