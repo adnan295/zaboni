@@ -381,7 +381,9 @@ router.get("/courier/orders/active", requireCourier, async (req, res) => {
     .where(eq(ordersTable.courierId, courierId))
     .orderBy(ordersTable.updatedAt);
 
-  const active = rows.filter((o) => o.status !== "delivered" && o.status !== "searching");
+  // Cancelled orders keep their courier_id for history, so they must be excluded
+  // here or an order the admin cancelled stays stuck on the courier's screen.
+  const active = rows.filter((o) => o.status !== "delivered" && o.status !== "searching" && o.status !== "cancelled");
 
   // Fetch structured items + options for active orders
   const activeIds = active.map((o) => o.id);

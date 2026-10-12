@@ -1438,6 +1438,11 @@ router.patch("/admin/orders/:id/status", async (req, res) => {
   if (pushMsg) {
     await sendOrderPush(row.userId, pushMsg, id);
   }
+  // Tell the assigned courier right away so they stop heading to the order.
+  if (cancelNote && row.courierId) {
+    notifyOrderUpdate(row.courierId, { ...row, cancelNote });
+    await sendOrderPush(row.courierId, "❌ الإدارة لغت هالطلب، ما عاد في داعي توصّلو.", id);
+  }
 
   res.json(row);
 });
