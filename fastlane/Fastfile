@@ -1,6 +1,7 @@
 require 'base64'
 require 'securerandom'
 require 'fileutils'
+require 'tmpdir'
 
 ROOT = File.expand_path('..', __dir__)
 APP = File.join(ROOT, 'artifacts', 'marsool')
@@ -11,10 +12,19 @@ platform :android do
   lane :publish do
     track = ENV.fetch('PLAY_TRACK')
     UI.user_error!('Invalid Play track') unless %w[internal production].include?(track)
+    # "What's new" comes from the same Arabic notes App Store uses; the Play
+    # listing has Arabic only, and Play caps the text at 500 characters.
+    notes = File.read(File.join(ROOT, 'fastlane/metadata/ar-SA/release_notes.txt')).strip
+    UI.user_error!('Release notes exceed Play\'s 500 characters') if notes.length > 500
+    work = File.join(ENV.fetch('RUNNER_TEMP') { Dir.tmpdir }, 'play-release-notes')
+    FileUtils.rm_rf(work)
+    FileUtils.mkdir_p(File.join(work, 'ar', 'changelogs'))
+    File.write(File.join(work, 'ar', 'changelogs', 'default.txt'), notes)
     upload_to_play_store(
       package_name: BUNDLE_ID,
       json_key: ENV.fetch('PLAY_JSON_PATH'),
       aab: File.join(APP, 'android/app/build/outputs/bundle/release/app-release.aab'),
+      metadata_path: work,
       track: track,
       release_status: 'completed',
       skip_upload_metadata: true,
@@ -29,7 +39,7 @@ platform :android do
   lane :listing do
     shots = Dir[File.join(ROOT, 'docs/store-assets/google-play/*.png')].sort
     UI.user_error!('Expected 2-8 phone screenshots') unless shots.length.between?(2, 8)
-    work = File.join(ENV.fetch('RUNNER_TEMP') { require 'tmpdir'; Dir.tmpdir }, 'play-listing')
+    work = File.join(ENV.fetch('RUNNER_TEMP') { Dir.tmpdir }, 'play-listing')
     FileUtils.rm_rf(work)
     download_from_play_store(package_name: BUNDLE_ID, json_key: ENV.fetch('PLAY_JSON_PATH'), metadata_path: work)
     languages = Dir[File.join(work, '*')].select { |d| File.exist?(File.join(d, 'title.txt')) }
