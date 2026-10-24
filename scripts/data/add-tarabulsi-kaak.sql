@@ -1,16 +1,13 @@
--- One-off import: كعكة طرابلسية (صاجيات وكعك طحان). Safe to re-run: skips if it exists.
+-- One-off import: صاجيات وكعك طحان (the name on the logo). Safe to re-run:
+-- existing rows are kept and only the restaurant name is brought up to date.
 -- Location from the owner's Google Maps pin. The logo is uploaded from the admin
 -- panel (Restaurants → edit → image).
 BEGIN;
-DO $$ BEGIN
-  IF EXISTS (SELECT 1 FROM restaurants WHERE id = 'rest_tahhan_kaak') THEN
-    RAISE EXCEPTION 'already imported';
-  END IF;
-END $$;
 INSERT INTO restaurants (id, name, name_ar, category, category_ar, rating, review_count, delivery_time,
   delivery_fee, min_order, image, tags, is_open, phone, lat, lon)
-VALUES ('rest_tahhan_kaak', 'Tarabulsi Kaak', 'كعكة طرابلسية', 'medical_services_mod2i9xh', 'المعجنات والفطور', 0, 0,
-  '30-45 دقيقة', 80, 0, '', '[]'::jsonb, true, '0984037151', 34.745945, 36.687397);
+VALUES ('rest_tahhan_kaak', 'Tahhan Saj & Kaak', 'صاجيات وكعك طحان', 'medical_services_mod2i9xh', 'المعجنات والفطور', 0, 0,
+  '30-45 دقيقة', 80, 0, '', '[]'::jsonb, true, '0984037151', 34.745945, 36.687397)
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, name_ar = EXCLUDED.name_ar;
 INSERT INTO menu_items (id, restaurant_id, name, name_ar, description, description_ar, price, image, category, category_ar)
 VALUES
   ('item_tahhan_01', 'rest_tahhan_kaak', 'شلل', 'شلل', '', '', 130, '', 'Chalal kaak', 'كعك بالشلل'),
@@ -41,7 +38,9 @@ VALUES
   ('item_tahhan_26', 'rest_tahhan_kaak', 'MIX', 'MIX', '', '', 200, '', 'Specials', 'المميز'),
   ('item_tahhan_27', 'rest_tahhan_kaak', 'فاهيتا', 'فاهيتا', '', '', 300, '', 'Specials', 'المميز'),
   ('item_tahhan_28', 'rest_tahhan_kaak', 'MIX DILSSO', 'MIX DILSSO', '', '', 230, '', 'Specials', 'المميز'),
-  ('item_tahhan_29', 'rest_tahhan_kaak', 'صحن مشكل صوص', 'صحن مشكل صوص', '', '', 10, '', 'Extras', 'إضافات');
+  ('item_tahhan_29', 'rest_tahhan_kaak', 'صحن مشكل صوص', 'صحن مشكل صوص', '', '', 10, '', 'Extras', 'إضافات')
+ON CONFLICT (id) DO NOTHING;
 SELECT name_ar, COUNT(*) FROM menu_items WHERE restaurant_id='rest_tahhan_kaak' GROUP BY 1 HAVING COUNT(*)>1;
-SELECT (SELECT COUNT(*) FROM menu_items WHERE restaurant_id='rest_tahhan_kaak') AS items_added;
+SELECT name_ar, (SELECT COUNT(*) FROM menu_items WHERE restaurant_id='rest_tahhan_kaak') AS items
+FROM restaurants WHERE id='rest_tahhan_kaak';
 COMMIT;
