@@ -82,4 +82,4 @@ pnpm --filter @workspace/marsool run dev                          # Expo
 
 ## License
 
-Proprietary. All rights reserved.
+Proprietary and confidential — see [`LICENSE`](LICENSE). All rights reserved.
