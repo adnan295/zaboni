@@ -33,6 +33,22 @@ platform :android do
     )
   end
 
+  # Downloads the universal APK that Google Play generates (and signs with the
+  # Play app-signing key) for an uploaded version code. Because it carries the
+  # same signature as the Play build, people who install it directly can later
+  # update from Google Play without uninstalling.
+  lane :universal_apk do
+    version_code = Integer(ENV.fetch('APK_VERSION_CODE'))
+    destination = ENV.fetch('APK_DESTINATION')
+    download_universal_apk_from_google_play(
+      package_name: BUNDLE_ID,
+      json_key: ENV.fetch('PLAY_JSON_PATH'),
+      version_code: version_code,
+      destination: destination
+    )
+    UI.user_error!('Universal APK was not downloaded') unless File.size?(destination)
+  end
+
   # Replaces the Play store-listing phone screenshots with
   # docs/store-assets/google-play/*.png, for every language the listing already
   # has. No build, no binary, no metadata/changelog change.

@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 import rateLimit from "express-rate-limit";
 import router from "./routes";
 import legalRouter from "./routes/legal";
+import downloadRouter from "./routes/download";
 import { logger } from "./lib/logger";
 
 const app: Express = express();
@@ -51,6 +52,7 @@ const adminRateLimit = rateLimit({
 app.use("/api/admin", adminRateLimit);
 
 app.use(legalRouter);
+app.use(downloadRouter);
 app.use("/api", router);
 
 export default app;

@@ -6,6 +6,7 @@ import { setupOrdersNamespace, notifyNearbyCouriers } from "./orders/server";
 import { ensureDispatchSchema, startOrderDispatchJob } from "./lib/orderDispatch";
 import { startSearchWatchJob } from "./lib/searchWatch";
 import { ensureCrashSchema, startCrashRetentionJob } from "./lib/crashReports";
+import { startApkMirrorJob } from "./lib/apkMirror";
 import { startPushReceiptJob } from "./lib/push";
 import { startDealExpiryJob } from "./lib/dealExpiry";
 import { startUploadCleanupJob } from "./lib/uploadCleanup";
@@ -75,6 +76,7 @@ httpServer.listen(port, (err?: Error) => {
   startOrderDispatchJob(notifyNearbyCouriers);
   startSearchWatchJob();
   startCrashRetentionJob();
+  startApkMirrorJob();
   startPushReceiptJob();
   startDealExpiryJob();
   startUploadCleanupJob();

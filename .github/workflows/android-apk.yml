@@ -1,0 +1,84 @@
+name: Zaboni Android → direct-download APK
+
+# Publishes the Google-signed universal APK of an already-uploaded Play
+# version as a GitHub release. zaboni.site mirrors the newest one and serves
+# it at https://zaboni.site/download for people who can't reach Google Play.
+# Run it after "Zaboni Android → Google Play" has uploaded that version code.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Store version (x.y.z)'
+        required: true
+        default: '1.0.19'
+      version_code:
+        description: 'Version code already uploaded to Google Play'
+        required: true
+        default: '113'
+
+permissions:
+  contents: write
+concurrency:
+  group: zaboni-direct-apk
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CI: '1'
+      VERSION: ${{ inputs.version }}
+      VERSION_CODE: ${{ inputs.version_code }}
+    steps:
+      - name: Validate inputs
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Bad version: $VERSION"; exit 1; }
+          [[ "$VERSION_CODE" =~ ^[0-9]+$ ]] || { echo "Bad version code: $VERSION_CODE"; exit 1; }
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - name: Write Play service account
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          umask 077
+          printf '%s' "$PLAY_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/play-service-account.json"
+          node -e 'JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"))' "$RUNNER_TEMP/play-service-account.json"
+          echo "PLAY_JSON_PATH=$RUNNER_TEMP/play-service-account.json" >> "$GITHUB_ENV"
+      - name: Download Google-signed universal APK
+        env:
+          APK_VERSION_CODE: ${{ inputs.version_code }}
+          APK_DESTINATION: ${{ runner.temp }}/apk/zaboni-${{ inputs.version }}.apk
+        run: |
+          mkdir -p "$RUNNER_TEMP/apk"
+          bundle exec fastlane android universal_apk
+      - name: Remove credentials
+        if: always()
+        run: rm -f "$RUNNER_TEMP/play-service-account.json"
+      - name: Check the APK
+        run: |
+          apk="$RUNNER_TEMP/apk/zaboni-$VERSION.apk"
+          unzip -tq "$apk"
+          unzip -l "$apk" | grep -q AndroidManifest.xml
+          size=$(stat -c %s "$apk")
+          [ "$size" -gt 5000000 ] || { echo "APK suspiciously small: $size bytes"; exit 1; }
+          sha=$(sha256sum "$apk" | cut -d' ' -f1)
+          node -e 'const [v,c,s,h]=process.argv.slice(1);process.stdout.write(JSON.stringify({version:v,versionCode:Number(c),size:Number(s),sha256:h,file:`zaboni-${v}.apk`},null,2))' \
+            "$VERSION" "$VERSION_CODE" "$size" "$sha" > "$RUNNER_TEMP/apk/zaboni-apk.json"
+          cat "$RUNNER_TEMP/apk/zaboni-apk.json"
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="android-apk-$VERSION_CODE"
+          gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false \
+            --title "Zaboni Android $VERSION ($VERSION_CODE) — direct download" \
+            --notes "Google Play-signed universal APK, mirrored at https://zaboni.site/download" \
+            "$RUNNER_TEMP/apk/zaboni-$VERSION.apk" "$RUNNER_TEMP/apk/zaboni-apk.json"
