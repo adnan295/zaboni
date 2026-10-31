@@ -8,6 +8,7 @@ import { startSearchWatchJob } from "./lib/searchWatch";
 import { ensureCrashSchema, startCrashRetentionJob } from "./lib/crashReports";
 import { startApkMirrorJob } from "./lib/apkMirror";
 import { startBackupWatchJob } from "./lib/backupStatus";
+import { ensurePerformanceIndexes } from "./lib/dbIndexes";
 import { startPushReceiptJob } from "./lib/push";
 import { startDealExpiryJob } from "./lib/dealExpiry";
 import { startUploadCleanupJob } from "./lib/uploadCleanup";
@@ -67,6 +68,7 @@ setupOrdersNamespace(io);
 await ensureDispatchSchema();
 await ensureOrderCreationSchema();
 await ensureCrashSchema();
+await ensurePerformanceIndexes();
 
 httpServer.listen(port, (err?: Error) => {
   if (err) {

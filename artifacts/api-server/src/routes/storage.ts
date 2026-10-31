@@ -204,6 +204,14 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
 
     res.status(response.status);
     response.headers.forEach((value, key) => res.setHeader(key, value));
+    // Uploads get a fresh random name and are never changed in place (a new
+    // photo is a new URL), so phones and Cloudflare's edge can keep them for
+    // a year instead of fetching every logo from the origin server on every
+    // view ("private, max-age=3600" before, which Cloudflare never cached).
+    res.setHeader(
+      "Cache-Control",
+      filePath.startsWith("uploads/") ? "public, max-age=31536000, immutable" : "public, max-age=3600",
+    );
 
     if (response.body) {
       const nodeStream = Readable.fromWeb(response.body as ReadableStream<Uint8Array>);
