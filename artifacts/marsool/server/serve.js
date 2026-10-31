@@ -33,7 +33,29 @@ const MIME_TYPES = {
   ".ttf": "font/ttf",
   ".otf": "font/otf",
   ".map": "application/json",
+  ".webp": "image/webp",
+  ".txt": "text/plain; charset=utf-8",
 };
+
+// Landing-page assets (images, self-hosted fonts). Served from our own domain
+// so the page loads where Google/CDN hosts are blocked.
+const SITE_ROOT = path.resolve(__dirname, "site");
+
+function serveSiteAsset(urlPath, res) {
+  const rel = path.normalize(urlPath.slice("/site/".length));
+  const filePath = path.join(SITE_ROOT, rel);
+  if (!filePath.startsWith(SITE_ROOT + path.sep) || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+    res.writeHead(404);
+    res.end("Not Found");
+    return;
+  }
+  const ext = path.extname(filePath).toLowerCase();
+  res.writeHead(200, {
+    "content-type": MIME_TYPES[ext] || "application/octet-stream",
+    "cache-control": "public, max-age=86400",
+  });
+  fs.createReadStream(filePath).pipe(res);
+}
 
 function getAppName() {
   try {
@@ -124,6 +146,10 @@ const server = http.createServer((req, res) => {
     if (pathname === "/") {
       return serveLandingPage(req, res, landingPageTemplate, appName);
     }
+  }
+
+  if (pathname.startsWith("/site/")) {
+    return serveSiteAsset(pathname, res);
   }
 
   serveStaticFile(pathname, res);
