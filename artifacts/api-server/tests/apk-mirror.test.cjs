@@ -105,9 +105,9 @@ test('download page offers the APK when mirrored and degrades when not', async (
   }, {}).downloadPage;
   const html = page({ version: '1.0.19', versionCode: 113, size: 73_400_320, sha256: 'ab'.repeat(32), file: 'zaboni-1.0.19.apk' });
   assert.match(html, /href="\/download\/zaboni\.apk"/);
-  assert.match(html, /النسخة 1\.0\.19 · 70\.0 ميغا/);
+  assert.match(html, /النسخة 1\.0\.19 · 70 ميغا/);
   assert.doesNotMatch(html, /fonts\.googleapis|<script src=/, 'no external resources');
   const none = page(null);
   assert.doesNotMatch(none, /zaboni\.apk/);
-  assert.match(none, /عم تتجهّز/);
+  assert.match(none, /عم يتجهّز/);
 });

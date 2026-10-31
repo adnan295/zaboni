@@ -71,7 +71,11 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           chmod +x gradlew
+          # Real phones are ARM (64-bit, plus older 32-bit ones still common in
+          # Syria). Leaving out the x86 emulator ABIs halves the universal APK
+          # served at zaboni.site/download; Play installs are unaffected.
           ./gradlew :app:bundleRelease --no-daemon --max-workers=2 \
+            -PreactNativeArchitectures=armeabi-v7a,arm64-v8a \
             -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=2g -XX:+HeapDumpOnOutOfMemoryError"
       - uses: ruby/setup-ruby@v1
         if: inputs.track != 'build-only'
