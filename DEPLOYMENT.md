@@ -9,7 +9,7 @@ uploaded images into the new setup so the app works "from the first time"
 with all your real data.
 
 The Expo mobile app (`marsool`) is **not** part of this Docker setup — it is
-shipped separately via EAS/Play Store/App Store (see `replit.md`). Once the
+shipped separately via EAS/Play Store/App Store (see `docs/DEVELOPMENT_NOTES.md`). Once the
 API is live on your VPS, point the mobile app at it by setting
 `EXPO_PUBLIC_API_HOST` to your domain (e.g. `https://api.yourdomain.com` or
 `https://yourdomain.com` if you're not using a subdomain — see the routing

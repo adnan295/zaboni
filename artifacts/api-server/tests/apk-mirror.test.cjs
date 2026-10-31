@@ -112,3 +112,27 @@ test('download page offers the APK when mirrored and degrades when not', async (
   assert.doesNotMatch(none, /zaboni\.apk/);
   assert.match(none, /عم يتجهّز/);
 });
+
+test('private repository: uses the token and API asset URLs', async () => {
+  const apk = crypto.randomBytes(2048);
+  const meta = { version: '1.0.20', versionCode: 120, size: apk.length, sha256: crypto.createHash('sha256').update(apk).digest('hex'), file: 'zaboni-1.0.20.apk' };
+  const seen = [];
+  const fetch = async (url, init) => {
+    seen.push({ url, auth: init?.headers?.Authorization, accept: init?.headers?.Accept });
+    if (url.startsWith('https://api.github.com/repos/') && url.includes('/releases?')) {
+      return new Response(JSON.stringify([{ tag_name: 'android-apk-120', draft: false, assets: [
+        { name: 'zaboni-apk.json', browser_download_url: 'https://github.com/public/meta', url: 'https://api.github.com/assets/1' },
+        { name: meta.file, browser_download_url: 'https://github.com/public/apk', url: 'https://api.github.com/assets/2' }] }]));
+    }
+    if (url === 'https://api.github.com/assets/1') return new Response(JSON.stringify(meta));
+    if (url === 'https://api.github.com/assets/2') return new Response(apk);
+    return new Response('not found', { status: 404 });
+  };
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apk-'));
+  const lib = load('lib/apkMirror.ts', { fetch, './logger': { logger: { info: noop, warn: noop } } }, { APK_DIR: dir, APK_GITHUB_TOKEN: 'tok' });
+  const info = await lib.syncApk();
+  assert.equal(info.versionCode, 120);
+  assert.ok(seen.every((r) => r.auth === 'Bearer tok'), 'every GitHub request is authenticated');
+  assert.ok(!seen.some((r) => r.url.startsWith('https://github.com/public')), 'public download URLs are not used');
+  assert.equal(seen.find((r) => r.url.endsWith('/assets/2')).accept, 'application/octet-stream');
+});

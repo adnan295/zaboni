@@ -266,4 +266,4 @@ eas build --platform ios --profile preview
 ```
 [Firebase] Admin SDK initialized
 ```
-إذا ظهر `[Firebase] Missing FIREBASE_*` فالـ secrets ناقصة — راجع `replit.md`.
+إذا ظهر `[Firebase] Missing FIREBASE_*` فالـ secrets ناقصة — راجع `docs/DEVELOPMENT_NOTES.md`.

@@ -1,36 +1,21 @@
-name: Zaboni API quality
+name: Zaboni quality
+# Every push and pull request: type-check every app and library (mobile app,
+# API, admin panel, restaurant portal, website), run the API test suite, and
+# build the API bundle.
 on:
   pull_request:
-    paths:
-      - 'artifacts/api-server/**'
-      - 'artifacts/marsool/lib/pushRegistration.ts'
-      - 'artifacts/marsool/components/PushNotificationSetup.tsx'
-      - 'lib/**'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - 'package.json'
-      - '.github/workflows/api-quality.yml'
   push:
     branches: [main]
-    paths:
-      - 'artifacts/api-server/**'
-      - 'artifacts/marsool/lib/pushRegistration.ts'
-      - 'artifacts/marsool/components/PushNotificationSetup.tsx'
-      - 'lib/**'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - 'package.json'
-      - '.github/workflows/api-quality.yml'
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: api-quality-${{ github.ref }}
+  group: quality-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  api:
+  quality:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -41,5 +26,9 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @workspace/api-server test
-      - run: pnpm --filter @workspace/api-server build
+      - name: Type-check all apps and libraries
+        run: pnpm run typecheck
+      - name: API tests
+        run: pnpm --filter @workspace/api-server test
+      - name: Build API
+        run: pnpm --filter @workspace/api-server build

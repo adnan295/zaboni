@@ -63,6 +63,9 @@ services:
       WAVERIFY_API_KEY: ${WAVERIFY_API_KEY:-}
       ADMIN_ALERT_WEBHOOK_URL: ${ADMIN_ALERT_WEBHOOK_URL:-}
       APPLE_REVIEW_PHONE: ${APPLE_REVIEW_PHONE:-}
+      # Read-only GitHub token so the direct-download APK keeps mirroring once the
+      # repository is private (fine-grained, this repo only, Contents: read).
+      APK_GITHUB_TOKEN: ${APK_GITHUB_TOKEN:-}
     volumes:
       - storage-public:/data/storage/public
       - storage-private:/data/storage/private

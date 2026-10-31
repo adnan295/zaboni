@@ -61,10 +61,8 @@ artifacts/marsool/credentials.json
 *.keystore
 *.jks
 
-# Service account / credential JSONs accidentally pasted into attached_assets
-attached_assets/*firebase-adminsdk*.json
-attached_assets/*service-account*.json
-attached_assets/*.p8
+# Screenshots/logs pasted while developing never belong in the repo
+attached_assets/
 
 # WhatsApp session data (contains credentials)
 artifacts/api-server/whatsapp-session/

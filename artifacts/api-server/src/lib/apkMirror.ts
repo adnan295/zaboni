@@ -50,13 +50,25 @@ export function apkFilePath(info: ApkInfo): string {
   return path.join(apkDir(), info.file);
 }
 
-type Release = { tag_name: string; draft: boolean; assets: { name: string; browser_download_url: string; size: number }[] };
+type Asset = { name: string; browser_download_url: string; url?: string; size: number };
+type Release = { tag_name: string; draft: boolean; assets: Asset[] };
 
-async function gh<T>(url: string): Promise<T> {
-  const res = await fetch(url, {
-    headers: { Accept: "application/vnd.github+json", "User-Agent": "zaboni-apk-mirror" },
-    signal: AbortSignal.timeout(30_000),
-  });
+// Needed once the repository is private (read-only "Contents" access is enough).
+const TOKEN = process.env["APK_GITHUB_TOKEN"];
+
+function ghHeaders(accept: string): Record<string, string> {
+  return { Accept: accept, "User-Agent": "zaboni-apk-mirror", ...(TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {}) };
+}
+
+/** Private repos only serve assets through the API URL with an octet-stream Accept. */
+function assetRequest(asset: Asset): { url: string; headers: Record<string, string> } {
+  return TOKEN && asset.url
+    ? { url: asset.url, headers: ghHeaders("application/octet-stream") }
+    : { url: asset.browser_download_url, headers: { "User-Agent": "zaboni-apk-mirror" } };
+}
+
+async function gh<T>(url: string, headers = ghHeaders("application/vnd.github+json")): Promise<T> {
+  const res = await fetch(url, { headers, signal: AbortSignal.timeout(30_000) });
   if (!res.ok) throw new Error(`GitHub ${res.status} for ${url}`);
   return (await res.json()) as T;
 }
@@ -76,7 +88,8 @@ async function doSync(): Promise<ApkInfo | null> {
 
   const metaAsset = newest.r.assets.find((a) => a.name === "zaboni-apk.json");
   if (!metaAsset) throw new Error(`${newest.r.tag_name} has no zaboni-apk.json`);
-  const meta = await gh<Omit<ApkInfo, "syncedAt">>(metaAsset.browser_download_url);
+  const metaReq = assetRequest(metaAsset);
+  const meta = await gh<Omit<ApkInfo, "syncedAt">>(metaReq.url, metaReq.headers);
   if (!/^zaboni-\d+\.\d+\.\d+\.apk$/.test(meta.file) || meta.versionCode !== newest.code) {
     throw new Error(`${newest.r.tag_name} has unexpected metadata`);
   }
@@ -86,10 +99,8 @@ async function doSync(): Promise<ApkInfo | null> {
   const dir = apkDir();
   await mkdir(dir, { recursive: true });
   const tmp = path.join(dir, `.${meta.file}.part`);
-  const res = await fetch(apkAsset.browser_download_url, {
-    headers: { "User-Agent": "zaboni-apk-mirror" },
-    signal: AbortSignal.timeout(10 * 60_000),
-  });
+  const apkReq = assetRequest(apkAsset);
+  const res = await fetch(apkReq.url, { headers: apkReq.headers, signal: AbortSignal.timeout(10 * 60_000) });
   if (!res.ok || !res.body) throw new Error(`APK download failed: ${res.status}`);
   const hash = createHash("sha256");
   let size = 0;
