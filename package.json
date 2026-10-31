@@ -19,7 +19,18 @@
   "pnpm": {
     "overrides": {
       "react": "19.1.0",
-      "react-dom": "19.1.0"
+      "react-dom": "19.1.0",
+      "proxy-addr@2": "2.0.8",
+      "body-parser@2": "2.4.0",
+      "engine.io@6": "6.6.11",
+      "socket.io-parser@4": "4.2.7",
+      "undici@7": "7.30.1",
+      "axios@1": "1.21.0",
+      "follow-redirects@1": "1.16.2",
+      "ip-address@10": "10.7.5",
+      "fast-xml-parser@5": "5.11.2",
+      "@fastify/busboy@3": "3.2.4",
+      "@grpc/grpc-js@1": "1.14.7"
     }
   }
 }

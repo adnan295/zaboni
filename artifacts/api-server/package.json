@@ -37,7 +37,7 @@
     "pino": "^9",
     "pino-http": "^10",
     "qrcode": "^1.5.4",
-    "sharp": "^0.34.5",
+    "sharp": "^0.35.5",
     "socket.io": "^4.8.3",
     "socks-proxy-agent": "^8.0.5",
     "twilio": "^5.13.1",

@@ -125,6 +125,15 @@ test('complete restaurant order: checkout → restaurant/admin → courier → d
    assert.deepEqual(results.map(r=>r.statusCode).sort(),[200,409],'Both new pickups were accepted simultaneously');
   });
 
+  await t.test('one account cannot flood couriers with open orders',async()=>{
+   const body={restaurantId:'restaurant',lat:33.514,lon:36.277,items:[{menuItemId:'meal',qty:1}]};
+   const open=(await s.pg.query("SELECT count(*)::int n FROM orders WHERE user_id='customer' AND status NOT IN ('delivered','cancelled')")).rows[0].n;
+   for(let i=open;i<3;i++) assert.equal((await s.call('post /orders','customer',body)).statusCode,201);
+   const blocked=await s.call('post /orders','customer',body);
+   assert.equal(blocked.statusCode,429);assert.equal(blocked.body.error,'too_many_open_orders');
+   // Earlier steps' orders are finished from here on, so the checkout tests below start clean.
+   await s.pg.exec("UPDATE orders SET status='delivered' WHERE user_id='customer'");
+  });
   await t.test('concurrent keyed checkouts create one order, one ledger debit and one dispatch',async()=>{
    await s.pg.exec("UPDATE users SET loyalty_points=40 WHERE id='customer'");
    const body={restaurantId:'restaurant',lat:33.514,lon:36.277,usePoints:true,items:[{menuItemId:'meal',qty:1}]};

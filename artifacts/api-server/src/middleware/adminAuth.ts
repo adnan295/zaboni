@@ -3,6 +3,7 @@ import { timingSafeEqual, createHash } from "crypto";
 import bcrypt from "bcryptjs";
 import { db, systemSettingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { clientIp } from "../lib/clientIp";
 
 const ADMIN_SECRET = process.env["ADMIN_SECRET"];
 export const ADMIN_PASSWORD_KEY = "admin_password_hash";
@@ -61,20 +62,66 @@ export async function hasAdminPassword(): Promise<boolean> {
   return (await getAdminPasswordHash()) !== null;
 }
 
-/** Verify a bearer token against the DB password (if set) or ADMIN_SECRET. */
-export async function verifyAdminToken(token: string | null | undefined): Promise<boolean> {
+// Password-guessing protection. Every admin entry point (HTTP, uploads, the
+// orders socket, change-password) goes through verifyAdminToken, so the limit
+// lives here rather than in per-route middleware that other paths could skip.
+// Per client IP: 10 wrong passwords per 15 minutes. Across all IPs: 200, to
+// slow a distributed attack. An already-verified token (cached below) is
+// never throttled, so a signed-in admin keeps working during an attack.
+const FAIL_WINDOW_MS = 15 * 60_000;
+const FAIL_LIMIT_PER_IP = 10;
+const FAIL_LIMIT_GLOBAL = 200;
+const failuresByIp = new Map<string, number[]>();
+let globalFailures: number[] = [];
+
+function recent(list: number[] | undefined, now: number): number[] {
+  return (list ?? []).filter((t) => now - t < FAIL_WINDOW_MS);
+}
+
+export function adminAttemptsBlocked(ip: string): boolean {
+  const now = Date.now();
+  globalFailures = recent(globalFailures, now);
+  return recent(failuresByIp.get(ip), now).length >= FAIL_LIMIT_PER_IP || globalFailures.length >= FAIL_LIMIT_GLOBAL;
+}
+
+function recordAdminFailure(ip: string): void {
+  const now = Date.now();
+  const list = recent(failuresByIp.get(ip), now);
+  list.push(now);
+  failuresByIp.set(ip, list);
+  globalFailures.push(now);
+  if (failuresByIp.size > 10_000) failuresByIp.clear();
+}
+
+/** Test hook. */
+export function resetAdminThrottle(): void {
+  failuresByIp.clear();
+  globalFailures = [];
+}
+
+/**
+ * Verify a bearer token against the DB password (if set) or ADMIN_SECRET.
+ * Pass the caller's real IP (lib/clientIp) so wrong guesses are rate limited.
+ */
+export async function verifyAdminToken(token: string | null | undefined, ip = "unknown"): Promise<boolean> {
   if (!token) return false;
   const hash = await getAdminPasswordHash();
+  const key = sha256(token);
   if (hash) {
-    const key = sha256(token);
     const exp = verifiedTokens.get(key);
     if (exp && exp > Date.now()) return true;
-    const ok = await bcrypt.compare(token, hash);
-    if (ok) verifiedTokens.set(key, Date.now() + TOKEN_TTL_MS);
-    return ok;
   }
-  // Bootstrap: no password set yet — accept the env secret.
-  return envMatches(token);
+  if (adminAttemptsBlocked(ip)) return false;
+  let ok: boolean;
+  if (hash) {
+    ok = await bcrypt.compare(token, hash);
+    if (ok) verifiedTokens.set(key, Date.now() + TOKEN_TTL_MS);
+  } else {
+    // Bootstrap: no password set yet — accept the env secret.
+    ok = envMatches(token);
+  }
+  if (!ok) recordAdminFailure(ip);
+  return ok;
 }
 
 /** Hash and store a new admin password, invalidating all caches. */
@@ -89,6 +136,11 @@ export async function setAdminPassword(newPassword: string): Promise<void> {
     });
   hashCache = null;
   verifiedTokens.clear();
+}
+
+/** App/restaurant JWTs (never an admin password) — header and payload are base64url JSON. */
+export function looksLikeJwt(token: string): boolean {
+  return /^eyJ[A-Za-z0-9_-]*\.eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+$/.test(token);
 }
 
 function bearerToken(req: Request): string | null {
@@ -112,10 +164,15 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
     return;
   }
 
-  verifyAdminToken(token)
+  const ip = clientIp(req);
+  verifyAdminToken(token, ip)
     .then((authorised) => {
       if (!authorised) {
-        req.log.warn({ ip: req.ip }, "Failed admin auth attempt");
+        if (adminAttemptsBlocked(ip)) {
+          res.status(429).json({ error: "محاولات كثيرة، حاول بعد ربع ساعة / Too many attempts, try again in 15 minutes" });
+          return;
+        }
+        req.log.warn({ ip }, "Failed admin auth attempt");
         res.status(401).json({ error: "Unauthorized" });
         return;
       }

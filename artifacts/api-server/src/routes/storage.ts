@@ -1,8 +1,9 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { Readable } from "stream";
 import jwt from "jsonwebtoken";
-import rateLimit from "express-rate-limit";
-import { verifyAdminToken } from "../middleware/adminAuth";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import { looksLikeJwt, verifyAdminToken } from "../middleware/adminAuth";
+import { clientIp } from "../lib/clientIp";
 import {
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
@@ -72,7 +73,9 @@ async function requireUploadAuth(req: Request, res: Response, next: NextFunction
     return;
   }
 
-  if (await verifyAdminToken(token)) {
+  // App users send a JWT (three dot-separated parts); only other tokens are
+  // checked as the admin password, so uploads can't be used to guess it.
+  if (!looksLikeJwt(token) && await verifyAdminToken(token, clientIp(req))) {
     res.locals["isAdmin"] = true;
     next();
     return;
@@ -95,7 +98,7 @@ const uploadRateLimit = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req: Request, res: Response) => {
     const userId = res.locals["userId"] as string | undefined;
-    return userId ?? req.ip ?? "unknown";
+    return userId ?? ipKeyGenerator(clientIp(req));
   },
   message: { error: "Too many upload requests. Please try again later." },
   skip: (_req: Request, res: Response) => res.locals["isAdmin"] === true,

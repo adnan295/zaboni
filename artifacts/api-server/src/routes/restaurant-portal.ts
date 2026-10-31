@@ -4,13 +4,14 @@ import { getVapidPublicKey } from "../lib/webPush";
 import { eq, desc, and, gte, inArray, count, sum, sql } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import { clientIp } from "../lib/clientIp";
 import { z } from "zod";
 import { sendSmsViaGateway } from "../lib/sms";
 import { sendPushToAllCustomers, isFlashDealImminent } from "../lib/push";
 import { whatsappManager } from "../lib/whatsapp";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { composeBannerByTemplate, listPublicTemplates, getPreviewBuffer, ensurePreviewsExist } from "../lib/promoBannerComposer";
-import { randomUUID } from "crypto";
+import { randomInt, randomUUID } from "crypto";
 
 const router = Router();
 const objectStorageService = new ObjectStorageService();
@@ -22,6 +23,11 @@ const VERIFY_OTP_WINDOW_MS = 10 * 60 * 1000;
 
 const sendOtpBucket = new Map<string, { count: number; resetAt: number }>();
 const verifyOtpBucket = new Map<string, { count: number; resetAt: number }>();
+// Password login had no limit at all, so passwords could be guessed endlessly.
+const loginBucket = new Map<string, { count: number; resetAt: number }>();
+const LOGIN_LIMIT_PER_PHONE = 5;
+const LOGIN_LIMIT_PER_IP = 20;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 
 function checkRateLimit(
   map: Map<string, { count: number; resetAt: number }>,
@@ -41,7 +47,7 @@ function checkRateLimit(
 }
 
 function getClientIp(req: Request): string {
-  return (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.socket.remoteAddress ?? "unknown";
+  return clientIp(req);
 }
 
 function getJwtSecret(): string {
@@ -109,6 +115,12 @@ router.post("/restaurant-portal/auth/login", async (req, res) => {
   const parsed = z.object({ phone: z.string().min(1), password: z.string().min(1) }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "رقم الهاتف وكلمة المرور مطلوبان" }); return; }
 
+  const ip = getClientIp(req);
+  if (!checkRateLimit(loginBucket, `phone:${parsed.data.phone}`, LOGIN_LIMIT_PER_PHONE, LOGIN_WINDOW_MS) ||
+      !checkRateLimit(loginBucket, `ip:${ip}`, LOGIN_LIMIT_PER_IP, LOGIN_WINDOW_MS)) {
+    res.status(429).json({ error: "محاولات كثيرة — حاول بعد ربع ساعة" }); return;
+  }
+
   const [user] = await db.select().from(restaurantUsersTable).where(eq(restaurantUsersTable.phone, parsed.data.phone)).limit(1);
   if (!user || !user.isActive) { res.status(401).json({ error: "رقم الهاتف أو كلمة المرور غير صحيحة" }); return; }
   if (user.authMode !== "password" || !user.passwordHash) { res.status(400).json({ error: "يرجى تسجيل الدخول عبر رمز OTP" }); return; }
@@ -136,7 +148,7 @@ router.post("/restaurant-portal/auth/request-otp", async (req, res) => {
   if (!user || !user.isActive) { res.status(404).json({ error: "لا يوجد حساب بهذا الرقم" }); return; }
   if (user.authMode !== "otp") { res.status(400).json({ error: "هذا الحساب يستخدم كلمة المرور للدخول" }); return; }
 
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const code = randomInt(100000, 1000000).toString();
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
   const otpId = `rotp_${Date.now()}`;
 

@@ -91,6 +91,17 @@ if (isLocalStorageMode) {
   sweep.unref();
 }
 
+/**
+ * Joins a request-supplied relative path onto a storage root, refusing any
+ * path that escapes it ("../", absolute paths, encoded slashes decoded by the
+ * router). Returns null for those; never trust nginx to have normalized it.
+ */
+export function resolveInside(root: string, rel: string): string | null {
+  const base = path.resolve(root);
+  const full = path.resolve(base, rel);
+  return full === base || full.startsWith(base + path.sep) ? full : null;
+}
+
 export class ObjectStorageService {
   constructor() {}
 
@@ -146,9 +157,11 @@ export class ObjectStorageService {
 
   async searchPublicObject(filePath: string): Promise<StorageObjectHandle | null> {
     if (isLocalStorageMode) {
-      const absolutePath = path.join(this.getLocalPublicDir(), filePath);
+      const absolutePath = resolveInside(this.getLocalPublicDir(), filePath);
+      if (!absolutePath) return null;
       try {
-        await fsPromises.access(absolutePath);
+        const st = await fsPromises.stat(absolutePath);
+        if (!st.isFile()) return null;
         return { kind: "local", absolutePath, relativePath: filePath };
       } catch {
         return null;
@@ -254,7 +267,8 @@ export class ObjectStorageService {
     const entityId = parts.slice(1).join("/");
 
     if (isLocalStorageMode) {
-      const absolutePath = path.join(this.getLocalPrivateDir(), entityId);
+      const absolutePath = resolveInside(this.getLocalPrivateDir(), entityId);
+      if (!absolutePath) throw new ObjectNotFoundError();
       try {
         await fsPromises.access(absolutePath);
       } catch {
@@ -448,7 +462,8 @@ export class ObjectStorageService {
    */
   async readPublicFile(relPath: string): Promise<{ buffer: Buffer; contentType: string }> {
     if (isLocalStorageMode) {
-      const absolutePath = path.join(this.getLocalPublicDir(), relPath);
+      const absolutePath = resolveInside(this.getLocalPublicDir(), relPath);
+      if (!absolutePath) throw new ObjectNotFoundError();
       try {
         const buffer = await fsPromises.readFile(absolutePath);
         const meta = await readLocalObjectMeta(absolutePath);
@@ -478,7 +493,8 @@ export class ObjectStorageService {
    */
   async writePublicFile(relPath: string, buffer: Buffer, contentType: string): Promise<string> {
     if (isLocalStorageMode) {
-      const absolutePath = path.join(this.getLocalPublicDir(), relPath);
+      const absolutePath = resolveInside(this.getLocalPublicDir(), relPath);
+      if (!absolutePath) throw new ObjectNotFoundError();
       await fsPromises.mkdir(path.dirname(absolutePath), { recursive: true });
       await fsPromises.writeFile(absolutePath, buffer);
       await writeLocalObjectMeta(absolutePath, { contentType });

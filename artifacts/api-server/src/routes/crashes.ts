@@ -3,6 +3,7 @@ import { Router, type IRouter } from "express";
 import jwt from "jsonwebtoken";
 import { requireAdmin } from "../middleware/adminAuth";
 import { logger } from "../lib/logger";
+import { clientIp } from "../lib/clientIp";
 import {
   alertCrash,
   getActiveCrashAlerts,
@@ -48,7 +49,7 @@ router.post("/app/crash", async (req, res) => {
     res.status(400).json({ error: "invalid crash report" });
     return;
   }
-  const ip = req.ip ?? "";
+  const ip = clientIp(req);
   if (rateLimited(ip)) {
     res.status(429).json({ error: "too many reports" });
     return;

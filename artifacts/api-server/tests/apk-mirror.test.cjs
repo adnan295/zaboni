@@ -101,6 +101,7 @@ test('download page offers the APK when mirrored and degrades when not', async (
     '../lib/apkMirror': {},
     '../lib/brandIcon': { ZABONI_ICON_DATA_URI: 'data:x' },
     '../lib/logger': { logger: { info: noop } },
+    '../lib/clientIp': { clientIp: () => '198.51.100.1', clientIpFrom: () => '198.51.100.1', trustProxy: () => false },
     fetch: undefined,
   }, {}).downloadPage;
   const html = page({ version: '1.0.19', versionCode: 113, size: 73_400_320, sha256: 'ab'.repeat(32), file: 'zaboni-1.0.19.apk' });

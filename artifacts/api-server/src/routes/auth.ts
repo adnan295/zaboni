@@ -9,6 +9,7 @@ import { parsePhoneNumber, isValidPhoneNumber } from "libphonenumber-js";
 import { sendSmsViaGateway } from "../lib/sms";
 import { whatsappManager } from "../lib/whatsapp";
 import { sendPushToUsers } from "../lib/push";
+import { clientIp } from "../lib/clientIp";
 
 const router: IRouter = Router();
 
@@ -21,6 +22,10 @@ const VERIFY_OTP_LIMIT = 5;
 const VERIFY_OTP_WINDOW_MS = 10 * 60 * 1000;
 
 const sendOtpBucket = new Map<string, { count: number; resetAt: number }>();
+// Across all callers: a flood of codes to many numbers is what gets the
+// WhatsApp sending numbers banned, so cap the total well above real signups.
+const SEND_OTP_GLOBAL_LIMIT = 100;
+const SEND_OTP_GLOBAL_WINDOW_MS = 10 * 60 * 1000;
 const verifyOtpBucket = new Map<string, { count: number; resetAt: number }>();
 
 function checkRateLimit(
@@ -83,7 +88,7 @@ const sendOtpSchema = z.object({
 const verifyOtpSchema = z.object({
   phone: e164Phone,
   code: z.string().length(OTP_LENGTH),
-  name: z.string().optional(),
+  name: z.string().trim().max(60).optional(),
 });
 
 router.post("/auth/send-otp", async (req, res) => {
@@ -95,11 +100,12 @@ router.post("/auth/send-otp", async (req, res) => {
 
   const { phone, preferSms } = body.data;
 
-  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.socket.remoteAddress ?? "unknown";
+  const ip = clientIp(req);
   const phoneKey = `phone:${phone}`;
   const ipKey = `ip:${ip}`;
   if (!checkRateLimit(sendOtpBucket, phoneKey, SEND_OTP_LIMIT, SEND_OTP_WINDOW_MS) ||
-      !checkRateLimit(sendOtpBucket, ipKey, SEND_OTP_LIMIT * 3, SEND_OTP_WINDOW_MS)) {
+      !checkRateLimit(sendOtpBucket, ipKey, SEND_OTP_LIMIT * 3, SEND_OTP_WINDOW_MS) ||
+      !checkRateLimit(sendOtpBucket, "global", SEND_OTP_GLOBAL_LIMIT, SEND_OTP_GLOBAL_WINDOW_MS)) {
     res.status(429).json({ error: "طلبات كثيرة جداً — حاول لاحقاً / Too many requests, try later" });
     return;
   }
@@ -165,7 +171,7 @@ router.post("/auth/verify-otp", async (req, res) => {
 
   const { phone, code, name } = body.data;
 
-  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.socket.remoteAddress ?? "unknown";
+  const ip = clientIp(req);
   if (!checkRateLimit(verifyOtpBucket, `phone:${phone}`, VERIFY_OTP_LIMIT, VERIFY_OTP_WINDOW_MS) ||
       !checkRateLimit(verifyOtpBucket, `ip:${ip}`, VERIFY_OTP_LIMIT * 3, VERIFY_OTP_WINDOW_MS)) {
     res.status(429).json({ error: "محاولات كثيرة — حاول لاحقاً / Too many attempts, try later" });

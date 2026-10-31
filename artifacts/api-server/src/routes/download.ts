@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { requireAdmin } from "../middleware/adminAuth";
 import { apkFilePath, getApkInfo, syncApk, type ApkInfo } from "../lib/apkMirror";
 import { logger } from "../lib/logger";
+import { clientIp } from "../lib/clientIp";
 
 const router: IRouter = Router();
 
@@ -208,7 +209,7 @@ router.get(APK_PATH, async (req, res) => {
     res.redirect(302, "/download");
     return;
   }
-  logger.info({ version: info.version, ip: req.ip, range: req.headers.range ?? null }, "[apk] direct download");
+  logger.info({ version: info.version, ip: clientIp(req), range: req.headers.range ?? null }, "[apk] direct download");
   res.set({
     "Content-Type": "application/vnd.android.package-archive",
     "Content-Disposition": `attachment; filename="zaboni-${info.version}.apk"`,

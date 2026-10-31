@@ -7,7 +7,8 @@ import { logger } from "../lib/logger";
 import { sendCourierPush, sendPushToUsers } from "../lib/push";
 import { sendWebPushToRestaurant } from "../lib/webPush";
 import type { AuthPayload } from "../middleware/auth";
-import { verifyAdminToken } from "../middleware/adminAuth";
+import { looksLikeJwt, verifyAdminToken } from "../middleware/adminAuth";
+import { clientIpFrom } from "../lib/clientIp";
 
 interface RestaurantPortalSocketPayload {
   tokenType: "restaurant_portal";
@@ -161,7 +162,9 @@ export function setupOrdersNamespace(io: SocketServer): void {
     // Allow admin panel connections via the admin password (DB-stored or the
     // bootstrap ADMIN_SECRET).
     try {
-      if (await verifyAdminToken(token)) {
+      // App users and restaurants send a JWT; only other tokens are checked as
+      // the admin password (and count toward its wrong-guess limit).
+      if (!looksLikeJwt(String(token)) && await verifyAdminToken(token, clientIpFrom(socket.handshake.headers, socket.handshake.address))) {
         socket.isAdmin = true;
         return next();
       }

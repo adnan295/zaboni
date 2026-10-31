@@ -51,6 +51,7 @@ import { sendSmsViaGateway, isSmsGatewayConfigured } from "../lib/sms";
 import { sendAdminAlertWebhook } from "../lib/waverifyMonitor";
 import { z } from "zod";
 import { requireAdmin, verifyAdminToken, setAdminPassword, hasAdminPassword } from "../middleware/adminAuth";
+import { clientIp } from "../lib/clientIp";
 
 const ORDER_STATUSES = [
   "searching",
@@ -105,7 +106,7 @@ router.post("/admin/change-password", async (req, res) => {
     res.status(400).json({ error: "weak_password", message: "كلمة السر يجب أن تكون 8 أحرف على الأقل" });
     return;
   }
-  const ok = await verifyAdminToken(currentPassword);
+  const ok = await verifyAdminToken(currentPassword, clientIp(req));
   if (!ok) {
     res.status(401).json({ error: "wrong_current_password", message: "كلمة السر الحالية غير صحيحة" });
     return;

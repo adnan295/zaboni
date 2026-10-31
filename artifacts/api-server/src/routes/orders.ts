@@ -465,6 +465,26 @@ router.post("/orders/validate-promo", async (req, res) => {
   });
 });
 
+const MAX_OPEN_ORDERS = 3;
+const MAX_ORDERS_PER_HOUR = 10;
+
+async function orderFloodCheck(userId: string): Promise<{ error: string; message: string } | null> {
+  const [row] = await db
+    .select({
+      open: sql<number>`COUNT(*) FILTER (WHERE ${ordersTable.status} NOT IN ('delivered', 'cancelled'))`,
+      lastHour: sql<number>`COUNT(*) FILTER (WHERE ${ordersTable.createdAt} > NOW() - INTERVAL '1 hour')`,
+    })
+    .from(ordersTable)
+    .where(eq(ordersTable.userId, userId));
+  if (Number(row?.open ?? 0) >= MAX_OPEN_ORDERS) {
+    return { error: "too_many_open_orders", message: "عندك طلبات لسا ما خلصت. استنّى لحتى يوصل واحد منها قبل ما تطلب من جديد." };
+  }
+  if (Number(row?.lastHour ?? 0) >= MAX_ORDERS_PER_HOUR) {
+    return { error: "too_many_orders", message: "طلبت كتير بآخر ساعة. جرّب بعد شوي." };
+  }
+  return null;
+}
+
 router.post("/orders", async (req, res) => {
  try {
   const body = createOrderSchema.safeParse(req.body);
@@ -477,6 +497,11 @@ router.post("/orders", async (req, res) => {
   const identity = creationIdentity(req.headers?.["idempotency-key"], body.data);
   const previous = await previousOrderCreation(userId, identity);
   if (previous) { res.status(201).json(previous); return; }
+
+  // One account must not be able to flood every courier with order alerts
+  // (fake accounts did exactly that). Normal customers never get near these.
+  const flood = await orderFloodCheck(userId);
+  if (flood) { res.status(429).json(flood); return; }
 
   // Require the customer's map location on every order. Without it the delivery
   // fee (distance-based) and the courier's navigation cannot be computed, so we
