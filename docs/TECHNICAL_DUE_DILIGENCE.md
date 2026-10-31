@@ -63,7 +63,7 @@ These are documented openly; none blocks operation.
 |---|---|---|
 | Admin access | One shared admin password | Individual operator accounts with roles and session tokens |
 | User sessions | 30-day tokens without server-side revocation | Token versioning to revoke on logout / phone change |
-| Infrastructure | Single VPS; manual database backups | Automated daily off-site backups; restore drill; second instance |
+| Infrastructure | Single VPS. Nightly encrypted off-site backups to Cloudflare R2 (database + files, 30-day retention, dashboard status and alerts; restore procedure tested) | Standby second instance; periodic restore drills |
 | WhatsApp OTP | Uses an unofficial WhatsApp Web library | Move to the WhatsApp Business API when available in-market; SMS fallback exists |
 | Test coverage | Strong on the API; no automated UI tests for the apps | Smoke tests for critical app flows |
 | Code structure | Some large route files (admin API); legacy "marsool" naming in places | Split admin routes by domain; naming cleanup |

@@ -453,3 +453,23 @@ system nginx can serve multiple `sites-enabled` configs on port 80/443 as
 long as each uses a distinct `server_name`, so in most cases the fix is
 combining both projects under the one system nginx rather than running two
 separate nginx instances.
+
+## Backups (Cloudflare R2)
+
+The `backup` service (`docker/backup`) runs nightly at 03:00 (Damascus): it dumps the database
+with `pg_dump`, verifies the dump, encrypts it (AES-256, `BACKUP_PASSPHRASE`) and uploads it to
+`r2:<bucket>/db/`, then syncs uploaded images through an encrypted rclone remote to
+`r2:<bucket>/storage/`. Dumps older than 30 days are removed. The admin dashboard shows the
+last result, and the API sends a WhatsApp alert (to the crash-alert number) if a backup fails
+or none succeeded for 26 hours.
+
+Enable it once:
+
+1. Cloudflare → R2 → create bucket `zaboni-backups`.
+2. R2 → Manage API tokens → create a token with **Object Read & Write** on that bucket.
+3. Add to `.env`: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`,
+   and a long random `BACKUP_PASSPHRASE` — **keep a copy of the passphrase off the server**.
+4. `docker compose --profile backup up -d --build backup` (the first backup runs immediately),
+   then `docker compose logs -f backup`.
+
+Restore instructions: `docker compose --profile backup run --rm backup restore-help`.

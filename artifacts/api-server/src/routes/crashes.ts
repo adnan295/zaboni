@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { requireAdmin } from "../middleware/adminAuth";
 import { logger } from "../lib/logger";
 import { clientIp } from "../lib/clientIp";
+import { readBackupStatus } from "../lib/backupStatus";
 import {
   alertCrash,
   getActiveCrashAlerts,
@@ -65,6 +66,10 @@ router.post("/app/crash", async (req, res) => {
     logger.error({ err }, "[crash] could not record report");
     res.status(500).json({ error: "could not record" });
   }
+});
+
+router.get("/admin/backups/status", requireAdmin, async (_req, res) => {
+  res.json(await readBackupStatus());
 });
 
 router.get("/admin/crashes", requireAdmin, async (req, res) => {

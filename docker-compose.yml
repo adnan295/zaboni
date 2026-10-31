@@ -70,6 +70,7 @@ services:
       - storage-public:/data/storage/public
       - storage-private:/data/storage/private
       - whatsapp-session:/repo/whatsapp-session
+      - backup-status:/backup-status:ro
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/api/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
@@ -113,8 +114,35 @@ services:
     ports:
       - "127.0.0.1:8090:80"
 
+
+  # Nightly encrypted backups (database + uploaded files) to Cloudflare R2.
+  # Disabled until R2 is configured: `docker compose --profile backup up -d`.
+  backup:
+    logging: *default-logging
+    profiles: ["backup"]
+    build:
+      context: .
+      dockerfile: docker/backup/Dockerfile
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DATABASE_URL: ${BACKUP_DATABASE_URL:-${DATABASE_URL:-postgresql://${POSTGRES_USER:-zaboni}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-zaboni}}}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_BUCKET: ${R2_BUCKET:-zaboni-backups}
+      BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}
+      BACKUP_HOUR: ${BACKUP_HOUR:-3}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-30}
+    volumes:
+      - storage-public:/data/storage/public:ro
+      - storage-private:/data/storage/private:ro
+      - backup-status:/backup-status
+
 volumes:
   postgres-data:
+  backup-status:
   storage-public:
   storage-private:
   whatsapp-session:

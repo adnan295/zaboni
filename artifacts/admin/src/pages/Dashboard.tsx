@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { api, type Order, type SlaAlert } from "@/lib/api";
 import WhatsAppStatusCard from "@/components/WhatsAppStatusCard";
+import BackupStatusCard from "@/components/BackupStatusCard";
 import {
   Card,
   CardContent,
@@ -326,6 +327,7 @@ export default function Dashboard() {
       </div>
 
       <WhatsAppStatusCard />
+      <BackupStatusCard />
       {statsError && <p role="alert" className="text-destructive">تعذّر تحديث المؤشرات؛ الأرقام المعروضة من آخر تحديث ناجح. <button className="underline" onClick={()=>void retryStats()}>إعادة المحاولة</button></p>}
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">

@@ -1067,6 +1067,7 @@ export const api = {
   getSearchWait: (days: 7 | 30 | 90 | 0, excludeFake: boolean) =>
     apiFetch<SearchWait>(`/admin/search-wait?days=${days}&excludeFake=${excludeFake ? 1 : 0}`),
   getStuckOrders: () => apiFetch<StuckOrders>("/admin/orders/stuck"),
+  getBackupStatus: () => apiFetch<BackupStatus>("/admin/backups/status"),
   getCrashes: (days: number) => apiFetch<CrashOverview>(`/admin/crashes?days=${days}`),
   getCrashAlerts: () => apiFetch<{ alerts: CrashAlert[] }>("/admin/crashes/alerts"),
   getCrashEvents: (fingerprint: string) =>
@@ -1555,4 +1556,15 @@ export type CrashEvent = {
   updateId: string;
   route: string;
   occurredAt: string;
+};
+
+export type BackupStatus = {
+  configured: boolean;
+  status: "ok" | "failed" | "never";
+  at: string | null;
+  lastSuccessAt: string | null;
+  message: string;
+  dbBytes: number;
+  ageHours: number | null;
+  healthy: boolean;
 };
