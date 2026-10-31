@@ -324,7 +324,7 @@ footer { border-top: 1px solid var(--line); padding: 40px 0 calc(28px + env(safe
   <div class="wrap dl-grid">
     <div class="reveal">
       <h2 class="title">حمّل زبوني هلق</h2>
-      <p class="lead">للآيفون والأندرويد. وإذا غوغل بلاي مو شغّال عندك، في تحميل مباشر من موقعنا.</p>
+      <p class="lead">للآيفون والأندرويد. غوغل بلاي بسوريا بيحتاج VPN، فإذا ما عندك، حمّل التطبيق مباشرة من موقعنا بدون VPN.</p>
       <div class="btns" data-store-buttons data-dark></div>
       <p class="apk-note" id="apk-note">التحميل المباشر هو نفس النسخة الرسمية يلي على غوغل بلاي.</p>
     </div>
@@ -341,7 +341,7 @@ footer { border-top: 1px solid var(--line); padding: 40px 0 calc(28px + env(safe
   <div class="wrap faq">
     <details class="reveal"><summary>وين بتوصّلوا؟</summary><p>منوصّل جوّا مدينة حمص. حدّد موقعك بالتطبيق وبيقلّك إذا منطقتك ضمن التغطية ورسوم التوصيل قبل ما تأكّد الطلب.</p></details>
     <details class="reveal"><summary>كيف بدفع؟</summary><p>الدفع كاش للمندوب لما يوصلك الطلب. بتشوف المجموع كامل مع التوصيل قبل ما تأكّد.</p></details>
-    <details class="reveal"><summary>غوغل بلاي ما عم يفتح عندي، كيف بنزّل التطبيق؟</summary><p>فوت على <a href="/download" style="color:var(--red);font-weight:700">zaboni.site/download</a> واكبس «حمّل التطبيق لأندرويد». هي نفس النسخة الرسمية يلي على غوغل بلاي، وموقّعة من غوغل.</p></details>
+    <details class="reveal"><summary>غوغل بلاي ما عم يفتح عندي، كيف بنزّل التطبيق؟</summary><p>غوغل بلاي بسوريا ما بيفتح بدون VPN، بس ما بتحتاجو: فوت على <a href="/download" style="color:var(--red);font-weight:700">zaboni.site/download</a> واكبس «حمّل التطبيق لأندرويد». هي نفس النسخة الرسمية يلي على غوغل بلاي، وموقّعة من غوغل.</p></details>
     <details class="reveal"><summary>شو هو الطلب الحر؟</summary><p>إذا بدك شي مو من مطعم على التطبيق، اكتب شو بدك ومن وين (صيدلية، سوبرماركت، أي محل)، والمندوب بيجيبلك ياه وبتدفعلو حقّ الأغراض مع التوصيل.</p></details>
     <details class="reveal"><summary>كيف بصير مندوب؟</summary><p>نزّل التطبيق وسجّل، وبعدين اختار «صير مندوب» وعبّي الطلب، ومنتواصل معك.</p></details>
     <details class="reveal"><summary>كيف بتواصل معكن؟</summary><p>من صفحة <a href="/support" style="color:var(--red);font-weight:700">الدعم</a> أو من المحادثة جوّا التطبيق<span data-contact></span>.</p></details>
@@ -383,8 +383,8 @@ footer { border-top: 1px solid var(--line); padding: 40px 0 calc(28px + env(safe
     var dark = el.hasAttribute("data-dark");
     var main = dark ? "btn-white" : "btn-dark";
     var a = btn(main, IOS, apple, "حمّل من", "App Store");
-    var g = btn(main, PLAY, play, "حمّل من", "Google Play");
-    var d = btn("btn-red", "/download", dl, "أندرويد بدون غوغل بلاي", "تحميل مباشر", null);
+    var g = btn(main, PLAY, play, "بسوريا بيحتاج VPN", "Google Play");
+    var d = btn("btn-red", "/download", dl, "أندرويد · بدون VPN", "تحميل مباشر", null);
     el.innerHTML = isIOS ? a + g : isAndroid ? d + g + a : a + g + d;
   });
 

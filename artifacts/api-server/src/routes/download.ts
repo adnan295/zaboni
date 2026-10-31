@@ -46,6 +46,7 @@ export function downloadPage(info: ApkInfo | null): string {
   .btn .small { font-size:13px; opacity:.9; }
   .primary { background:var(--red); color:#fff; box-shadow:0 8px 20px rgba(220,38,38,.35); }
   .primary:active { background:var(--dark); }
+  .vpn { text-align:center; font-size:14px; font-weight:700; color:#15803D; margin:10px 0 2px; }
   .secondary { background:#fff; color:var(--ink); border:1.5px solid var(--line); margin-top:10px; }
   .disabled { background:#F0F0F0; color:var(--muted); }
   h2 { font-size:17px; margin-bottom:10px; }
@@ -72,7 +73,8 @@ export function downloadPage(info: ApkInfo | null): string {
   </div>
   <div class="card android-only">
     ${androidButton}
-    <a class="btn secondary" href="${PLAY_URL}" rel="noopener"><span class="big" style="font-size:16px">أو من Google Play</span><span class="small">إذا كان غوغل بلاي شغّال عندك</span></a>
+    ${info ? `<p class="vpn">✅ التحميل المباشر ما بيحتاج VPN، اكبس وحمّل عادي.</p>` : ""}
+    <a class="btn secondary" href="${PLAY_URL}" rel="noopener"><span class="big" style="font-size:16px">أو من Google Play</span><span class="small">بسوريا بيحتاج VPN</span></a>
   </div>
   <div class="card android-only">
     <h2>كيف بثبّت التطبيق؟</h2>
