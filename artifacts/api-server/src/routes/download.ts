@@ -3,6 +3,8 @@ import { requireAdmin } from "../middleware/adminAuth";
 import { apkFilePath, getApkInfo, syncApk, type ApkInfo } from "../lib/apkMirror";
 import { logger } from "../lib/logger";
 import { clientIp } from "../lib/clientIp";
+import { db, systemSettingsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -17,9 +19,11 @@ const ARABIC_DIGITS = (n: string) => n.replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨
  * the same domain (served by the landing container), never from Google/CDNs,
  * so it loads where those are blocked.
  */
-export function downloadPage(info: ApkInfo | null): string {
+export function downloadPage(info: ApkInfo | null, paused = false): string {
   const size = info ? `${Math.round(info.size / 1_048_576)} ميغا` : "";
-  const androidCta = info
+  const androidCta = paused
+    ? `<div class="btn btn-off big"><span class="t"><b>التحميل المباشر متوقف مؤقتاً</b><small>نزّل التطبيق من Google Play أو App Store</small></span></div>`
+    : info
     ? `<a class="btn btn-red big" href="${APK_PATH}" id="apk">
          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 20h16"/></svg>
          <span class="t"><b>حمّل التطبيق لأندرويد</b><small>النسخة ${info.version} · ${size}</small></span>
@@ -119,6 +123,7 @@ footer { border-top:1px solid var(--line); padding:28px 0 calc(28px + env(safe-a
 .foot nav { display:flex; gap:16px; font-weight:700; }
 .foot nav a:hover { color:var(--red); }
 .ios-only { display:none; }
+body.paused .steps-sec, body.paused .pills { display:none; }
 body.is-ios .ios-only { display:inline-flex; }
 body.is-ios .android-only { display:none; }
 @media (max-width:900px) {
@@ -136,7 +141,7 @@ body.is-ios .android-only { display:none; }
 }
 </style>
 </head>
-<body>
+<body${paused ? ' class="paused"' : ""}>
 <header><div class="wrap nav">
   <a class="brand" href="/"><img src="/site/img/icon-64.png" alt="" width="36" height="36">زبوني</a>
   <a class="home" href="/">← الصفحة الرئيسية</a>
@@ -198,13 +203,31 @@ body.is-ios .android-only { display:none; }
 </html>`;
 }
 
+// Admin switch (Settings → direct_apk_enabled). Off unless explicitly "true",
+// so the direct download can be paused without a deploy.
+let enabledCache: { value: boolean; exp: number } | null = null;
+export async function directDownloadEnabled(): Promise<boolean> {
+  if (enabledCache && enabledCache.exp > Date.now()) return enabledCache.value;
+  let value = false;
+  try {
+    const [row] = await db.select({ value: systemSettingsTable.value }).from(systemSettingsTable)
+      .where(eq(systemSettingsTable.key, "direct_apk_enabled")).limit(1);
+    value = row?.value === "true";
+  } catch {
+    value = false;
+  }
+  enabledCache = { value, exp: Date.now() + 30_000 };
+  return value;
+}
+
 router.get(["/download", "/download/"], async (_req, res) => {
-  const info = await getApkInfo();
-  res.set("Cache-Control", "no-cache").type("html").send(downloadPage(info));
+  const enabled = await directDownloadEnabled();
+  const info = enabled ? await getApkInfo() : null;
+  res.set("Cache-Control", "no-cache").type("html").send(downloadPage(info, !enabled));
 });
 
 router.get(APK_PATH, async (req, res) => {
-  const info = await getApkInfo();
+  const info = (await directDownloadEnabled()) ? await getApkInfo() : null;
   if (!info) {
     res.redirect(302, "/download");
     return;
@@ -223,7 +246,7 @@ router.get(APK_PATH, async (req, res) => {
 
 /** For the app (and anyone) to check which direct-download version is current. */
 router.get("/api/app/android", async (_req, res) => {
-  const info = await getApkInfo();
+  const info = (await directDownloadEnabled()) ? await getApkInfo() : null;
   res.set("Cache-Control", "no-cache").json(
     info
       ? { available: true, version: info.version, versionCode: info.versionCode, size: info.size, sha256: info.sha256, url: APK_PATH, page: "/download" }

@@ -102,12 +102,17 @@ test('download page offers the APK when mirrored and degrades when not', async (
     '../lib/brandIcon': { ZABONI_ICON_DATA_URI: 'data:x' },
     '../lib/logger': { logger: { info: noop } },
     '../lib/clientIp': { clientIp: () => '198.51.100.1', clientIpFrom: () => '198.51.100.1', trustProxy: () => false },
+    '@workspace/db': { db: {}, systemSettingsTable: {} },
+    'drizzle-orm': { eq: () => ({}) },
     fetch: undefined,
   }, {}).downloadPage;
   const html = page({ version: '1.0.19', versionCode: 113, size: 73_400_320, sha256: 'ab'.repeat(32), file: 'zaboni-1.0.19.apk' });
   assert.match(html, /href="\/download\/zaboni\.apk"/);
   assert.match(html, /النسخة 1\.0\.19 · 70 ميغا/);
   assert.doesNotMatch(html, /fonts\.googleapis|<script src=/, 'no external resources');
+  const paused = page({ version: '1.0.19', versionCode: 113, size: 1, sha256: 'ab', file: 'x' }, true);
+  assert.doesNotMatch(paused, /href="\/download\/zaboni\.apk"/, 'no download link while paused');
+  assert.match(paused, /متوقف مؤقتاً/);
   const none = page(null);
   assert.doesNotMatch(none, /zaboni\.apk/);
   assert.match(none, /عم يتجهّز/);
