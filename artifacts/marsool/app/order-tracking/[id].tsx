@@ -26,15 +26,16 @@ import CancelReasonSheet, { type CancelReason } from "@/components/CancelReasonS
 import {
   Coords,
   HOMS_CENTER,
-  simulateCourierStart,
-  interpolateCoords,
   haversineDistance,
   estimateEtaMinutes,
 } from "@/utils/geo";
 
 const USE_NATIVE_DRIVER = Platform.OS !== "web";
-const SIMULATION_DURATION_MS = 7 * 60 * 1000;
-const SIMULATION_STEP_MS = 3000;
+// The courier pings every ~8 s while delivering; poll a little faster than that
+// so the dot moves as soon as a new fix lands.
+const LOCATION_POLL_MS = 4000;
+// Older than this and the dot is shown as "last seen", not live.
+const STALE_AFTER_SECONDS = 60;
 
 export default function OrderTrackingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -66,12 +67,11 @@ export default function OrderTrackingScreen() {
   const [courierCoords, setCourierCoords] = useState<Coords | null>(null);
   const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
   const [isPollingActive, setIsPollingActive] = useState(false);
-  const simulationRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const simulationStartRef = useRef<number>(0);
-  const courierStartRef = useRef<Coords | null>(null);
+  // When the server last heard from the courier's phone (ms epoch). Drives the
+  // "live" vs "last seen X ago" indicator; the 2-second re-render tick below
+  // keeps the age text moving between polls.
+  const [courierSeenAt, setCourierSeenAt] = useState<number | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const gotRealGps = useRef(false);
-  const simulationInitialized = useRef(false);
 
   useEffect(() => {
     const interval = setInterval(() => forceUpdate((n) => n + 1), 2000);
@@ -120,38 +120,6 @@ export default function OrderTrackingScreen() {
     })();
   }, []);
 
-  const startSimulation = useCallback((userPos: Coords, currentStatus: string) => {
-    if (simulationRef.current || simulationInitialized.current) return;
-    simulationInitialized.current = true;
-    if (!courierStartRef.current) {
-      courierStartRef.current = simulateCourierStart(userPos, (currentStatus === "on_way" || currentStatus === "picked_up") ? 1.2 : 2);
-    }
-    setCourierCoords(courierStartRef.current);
-    const startDist = haversineDistance(courierStartRef.current, userPos);
-    setEtaMinutes(estimateEtaMinutes(startDist));
-    simulationStartRef.current = Date.now();
-
-    simulationRef.current = setInterval(() => {
-      const elapsed = Date.now() - simulationStartRef.current;
-      const progress = Math.min(1, elapsed / SIMULATION_DURATION_MS);
-      const currentCourier = interpolateCoords(courierStartRef.current!, userPos, progress);
-      setCourierCoords(currentCourier);
-      const dist = haversineDistance(currentCourier, userPos);
-      setEtaMinutes(estimateEtaMinutes(dist));
-      if (progress >= 1 && simulationRef.current) {
-        clearInterval(simulationRef.current);
-        simulationRef.current = null;
-      }
-    }, SIMULATION_STEP_MS);
-  }, []);
-
-  const stopSimulation = useCallback(() => {
-    if (simulationRef.current) {
-      clearInterval(simulationRef.current);
-      simulationRef.current = null;
-    }
-  }, []);
-
   useEffect(() => {
     if (!userCoords) return;
     const currentOrder = getOrder(id ?? "");
@@ -166,14 +134,15 @@ export default function OrderTrackingScreen() {
 
     const pollLocation = async () => {
       try {
-        const data = await customFetch(`/api/orders/${id}/courier-location`) as { lat: number; lon: number; updatedAt?: string };
+        const data = await customFetch(`/api/orders/${id}/courier-location`) as {
+          lat: number; lon: number; updatedAt?: string; ageSeconds?: number;
+        };
         if (data?.lat != null && data?.lon != null) {
           const realCoords: Coords = { latitude: data.lat, longitude: data.lon };
-          if (!gotRealGps.current) {
-            gotRealGps.current = true;
-            stopSimulation();
-          }
           setCourierCoords(realCoords);
+          // Prefer the server-computed age: phone clocks in the field are often off.
+          const age = data.ageSeconds ?? (data.updatedAt ? (Date.now() - Date.parse(data.updatedAt)) / 1000 : 0);
+          setCourierSeenAt(Date.now() - Math.max(0, age) * 1000);
           const dist = haversineDistance(realCoords, userCoords);
           setEtaMinutes(estimateEtaMinutes(dist));
         }
@@ -182,7 +151,7 @@ export default function OrderTrackingScreen() {
     };
 
     void pollLocation();
-    pollingRef.current = setInterval(pollLocation, 5000);
+    pollingRef.current = setInterval(pollLocation, LOCATION_POLL_MS);
 
     return () => {
       if (pollingRef.current) {
@@ -195,10 +164,6 @@ export default function OrderTrackingScreen() {
 
   useEffect(() => {
     return () => {
-      if (simulationRef.current) {
-        clearInterval(simulationRef.current);
-        simulationRef.current = null;
-      }
       if (pollingRef.current) {
         clearInterval(pollingRef.current);
         pollingRef.current = null;
@@ -301,16 +266,11 @@ export default function OrderTrackingScreen() {
           }
         } else {
           if (current === "searching") {
-            // Courier cancelled — reset all map/simulation state so a new courier
-            // acceptance triggers a fresh simulation and GPS poll cycle
+            // Courier cancelled — forget their position so the next courier's
+            // GPS starts from a clean map.
             setCourierCoords(null);
-            if (simulationRef.current) {
-              clearInterval(simulationRef.current);
-              simulationRef.current = null;
-            }
-            simulationInitialized.current = false;
-            courierStartRef.current = null;
-            gotRealGps.current = false;
+            setCourierSeenAt(null);
+            setEtaMinutes(null);
           }
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }
@@ -342,6 +302,13 @@ export default function OrderTrackingScreen() {
   const isSearching = order.status === "searching";
   const rated = hasRated(order.id);
   const showMap = !isSearching && !isDelivered && !isCancelled;
+  const seenAgoSeconds = courierSeenAt !== null ? Math.max(0, Math.round((Date.now() - courierSeenAt) / 1000)) : null;
+  const locationStale = seenAgoSeconds !== null && seenAgoSeconds > STALE_AFTER_SECONDS;
+  const seenAgoText = seenAgoSeconds === null
+    ? ""
+    : seenAgoSeconds < 60
+      ? t("orderTracking.lastSeenSeconds", { seconds: seenAgoSeconds })
+      : t("orderTracking.lastSeenMinutes", { minutes: Math.round(seenAgoSeconds / 60) });
 
   const getStatusTitle = () => {
     const statusKey = order.status as string;
@@ -387,15 +354,27 @@ export default function OrderTrackingScreen() {
               </Text>
             </View>
           )}
+          {courierCoords && locationStale && !isDelivered && (
+            <View style={[styles.etaBar, { backgroundColor: "#fef2f2", borderTopColor: "#fecaca" }]}>
+              <MaterialIcons name="gps-off" size={16} color="#b91c1c" />
+              <Text style={[styles.etaBarText, { color: "#991b1b" }]}>
+                {t("orderTracking.staleLocation", { ago: seenAgoText })}
+              </Text>
+            </View>
+          )}
           {etaMinutes && !isDelivered && (
             <View style={[styles.etaBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
               <MaterialIcons name="access-time" size={16} color={colors.primary} />
               <Text style={[styles.etaBarText, { color: colors.foreground }]}>
                 {t("orderTracking.eta", { minutes: etaMinutes })}
               </Text>
-              <View style={[styles.etaBadge, { backgroundColor: colors.secondary }]}>
-                <Text style={[styles.etaBadgeText, { color: colors.primary }]}>
-                  {isOnWay ? t("orderTracking.onWayLabel") : t("orderTracking.comingLabel")}
+              <View style={[styles.etaBadge, { backgroundColor: locationStale ? colors.muted : colors.secondary }]}>
+                <Text style={[styles.etaBadgeText, { color: locationStale ? colors.mutedForeground : colors.primary }]}>
+                  {locationStale
+                    ? seenAgoText
+                    : seenAgoSeconds !== null
+                      ? t("orderTracking.liveLabel")
+                      : isOnWay ? t("orderTracking.onWayLabel") : t("orderTracking.comingLabel")}
                 </Text>
               </View>
             </View>

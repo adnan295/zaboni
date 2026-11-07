@@ -23,6 +23,9 @@ _Last updated: 31 October 2026_
 - **Dispatch:** an order is offered to online couriers nearest to the pickup, with automatic widening,
   retries, and persisted diagnostics (eligible couriers, delivery receipts) per order.
 - **Notifications:** native FCM and APNs with Expo push as fallback, delivery receipts checked.
+- **Live tracking:** during a delivery the courier app reports GPS from an OS-level background task
+  (Android foreground service / iOS location background mode), so the customer's map keeps moving
+  with the phone in the courier's pocket; the API returns the fix's age and the app flags stale ones.
 - **Login:** phone OTP delivered via WhatsApp (several numbers with automatic failover) or SMS.
 - **Data:** PostgreSQL with hand-written, idempotent migrations run at startup.
 

@@ -1145,12 +1145,21 @@ router.get("/orders/:id/courier-location", async (req, res) => {
     return;
   }
 
+  // The app shows the age so a frozen dot (courier's phone asleep / offline) is
+  // never mistaken for a live position.
+  const updatedAt = courier.courierLocationUpdatedAt ?? new Date();
+  const ageSeconds = Math.max(0, Math.round((Date.now() - updatedAt.getTime()) / 1000));
   res.json({
     lat: courier.courierLat,
     lon: courier.courierLon,
-    updatedAt: courier.courierLocationUpdatedAt?.toISOString() ?? new Date().toISOString(),
+    updatedAt: updatedAt.toISOString(),
+    ageSeconds,
+    stale: ageSeconds > COURIER_LOCATION_STALE_SECONDS,
   });
 });
+
+/** A courier pings every ~8 s while delivering; anything older than this is not "live". */
+const COURIER_LOCATION_STALE_SECONDS = 60;
 
 // Why a customer gave up on an order still searching for a courier. Optional:
 // apps before 1.0.19 send no body.

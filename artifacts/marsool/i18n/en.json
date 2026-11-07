@@ -578,7 +578,11 @@
     "eta": "ETA: {{minutes}} min",
     "onWayLabel": "On the way",
     "comingLabel": "Coming to you",
-    "waitingLocation": "Waiting for courier location..."
+    "waitingLocation": "Waiting for courier location...",
+    "liveLabel": "Live",
+    "lastSeenSeconds": "{{seconds}} s ago",
+    "lastSeenMinutes": "{{minutes}} min ago",
+    "staleLocation": "Courier location not updating ({{ago}}) — their phone may be offline"
   },
   "chat": {
     "notFound": "Order not found",

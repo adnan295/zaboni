@@ -61,6 +61,8 @@
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
         "android.permission.RECORD_AUDIO"
       ]
     },
@@ -93,10 +95,12 @@
         {
           "locationAlwaysAndWhenInUsePermission": "يحتاج زبوني إلى موقعك لتحديد موقع التوصيل والمندوب القريب",
           "locationWhenInUsePermission": "يحتاج زبوني إلى موقعك لتحديد موقع التوصيل والمندوب القريب",
-          "isIosBackgroundLocationEnabled": false,
-          "isAndroidBackgroundLocationEnabled": false
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
+      "expo-task-manager",
       [
         "expo-image-picker",
         {

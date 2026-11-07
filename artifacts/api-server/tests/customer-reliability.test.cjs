@@ -111,7 +111,20 @@ test('courier location is available only for active deliveries', async () => {
     assert.equal(res.statusCode,active?200:404,status);
     assert.equal(locationReads,active?1:0,status);
     assert.equal('lat' in res.body,active,status);
+    if (active) { assert.equal(res.body.stale,false,status); assert.ok(res.body.ageSeconds<5,status); }
   }
+});
+
+test('courier location older than a minute is flagged stale', async () => {
+  const m=load('artifacts/api-server/src/routes/orders.ts',database({
+    ordersTable:[{courierId:'c1',status:'on_way'}],
+    usersTable:[{courierLat:33.5,courierLon:36.3,courierLocationUpdatedAt:new Date(Date.now()-5*60*1000)}],
+  }));
+  const res=response();
+  await m.routes.get('get /orders/:id/courier-location')(request({params:{id:'o1'}}),res);
+  assert.equal(res.statusCode,200);
+  assert.equal(res.body.stale,true);
+  assert.ok(res.body.ageSeconds>=299 && res.body.ageSeconds<=301);
 });
 
 for (const scenario of [

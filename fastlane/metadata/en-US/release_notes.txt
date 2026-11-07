@@ -1,1 +1,1 @@
-Tell us why you cancel an order so we can improve, and rate the app easily after a great order. For couriers: a notification and battery-saver check with a test-alert button so no order is missed. Plus stability improvements and faster crash detection.
+Real live courier tracking: the courier's position keeps updating even with their phone in a pocket and the screen off, with a clear indicator when it stops. For couriers: a "delivery in progress" notice stays visible while you hold an order. Plus stability improvements.

@@ -13,6 +13,7 @@ import { io } from "socket.io-client";
 import { customFetch } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
 import { getApiBaseUrl } from "@/lib/apiConfig";
+import { startDeliveryTracking, stopDeliveryTracking } from "@/lib/courierLocationTask";
 
 export type CourierOrderStatus = "searching" | "accepted" | "picked_up" | "on_way" | "delivered";
 
@@ -67,9 +68,12 @@ interface CourierContextValue {
 const CourierContext = createContext<CourierContextValue | null>(null);
 
 const POLL_INTERVAL_MS = 8000;
-// How often an online / actively-delivering courier reports its position so the
-// admin live map and the customer's tracking map can follow it.
+// How often an online courier reports its position (foreground only) so the admin
+// live map can follow it. During a delivery the OS-level task in
+// lib/courierLocationTask takes over and keeps pinging with the app in the
+// background; this loop then only fills the gaps while the screen is open.
 const LOCATION_PUSH_INTERVAL_MS = 15000;
+const DELIVERY_PUSH_INTERVAL_MS = 8000;
 
 export function CourierProvider({ children }: { children: React.ReactNode }) {
   const { user, isCourier, token } = useAuth();
@@ -271,12 +275,26 @@ export function CourierProvider({ children }: { children: React.ReactNode }) {
       }
     };
     push();
-    const timer = setInterval(push, LOCATION_PUSH_INTERVAL_MS);
+    const timer = setInterval(push, activeOrders.length > 0 ? DELIVERY_PUSH_INTERVAL_MS : LOCATION_PUSH_INTERVAL_MS);
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
   }, [isCourier, isOnline, activeOrders.length, user?.id, updateLocation]);
+
+  // Background tracking for the whole time a delivery is in progress (screen off,
+  // app behind the maps app, …). Stops as soon as the last active order ends so
+  // the foreground-service notification disappears and the battery is spared.
+  const hasActiveDelivery = activeOrders.length > 0;
+  useEffect(() => {
+    if (!isCourier || Platform.OS === "web") return;
+    if (hasActiveDelivery) void startDeliveryTracking();
+    else void stopDeliveryTracking();
+  }, [isCourier, hasActiveDelivery]);
+  useEffect(() => {
+    if (!isCourier || Platform.OS === "web") return;
+    return () => { void stopDeliveryTracking(); };
+  }, [isCourier]);
 
   useEffect(() => {
     if (!isCourier || !token) return;
