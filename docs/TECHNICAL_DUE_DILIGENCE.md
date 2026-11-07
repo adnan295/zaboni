@@ -34,6 +34,8 @@ _Last updated: 31 October 2026_
 - Store releases, store screenshots, the direct-download APK and release notes are fully scripted.
 - Operational tooling in the dashboard: live operations, stuck-order alerts, WhatsApp health,
   cancellation/fraud analysis, app crash grouping with WhatsApp alerts.
+- Decision reports: per-courier subscription economics (paid vs earned, hours online, offers
+  accepted, renewal risk) and per-restaurant sales (GMV, ticket, trend, simulated commission).
 
 ## 4. Security
 

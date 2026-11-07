@@ -58,6 +58,7 @@ function load(file, dbState = database(), overrides = {}, expose = '', globals =
     '../orders/server': new Proxy({}, { get: () => asyncNoop }),
     '../lib/orderDispatch': { dispatchOrderNow: asyncNoop },
     '../lib/searchWatch': { maybeIssueApologyPromo: asyncNoop },
+    '../lib/courierActivity': { recordAvailability: async () => {}, touchOnlineSession: async () => {}, recordOffers: async () => {} },
     '../lib/clientIp': { clientIp: () => '198.51.100.1', clientIpFrom: () => '198.51.100.1', trustProxy: () => false },
     '../lib/push': new Proxy({}, { get: () => asyncNoop }),
     '../lib/achievements': { checkAndAwardAchievements: asyncNoop },

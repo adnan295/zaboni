@@ -54,6 +54,7 @@ async function setup() {
     '../lib/loyalty': { refundRedeemedPointsInTx: async () => {} },
     '../lib/orderDispatch': { dispatchOrderNow: async id => events.push(['dispatch', id]) },
     '../lib/searchWatch': { maybeIssueApologyPromo: async () => 'disabled' },
+    '../lib/courierActivity': { recordAvailability: async () => {}, touchOnlineSession: async () => {}, recordOffers: async () => {} },
     '../lib/clientIp': { clientIp: () => '198.51.100.1', clientIpFrom: () => '198.51.100.1', trustProxy: () => false },
     '../lib/achievements': { checkAndAwardAchievements: async () => {} },
     '../orders/server': { notifyOrderUpdate: (id, order) => events.push(['update', id, order]), sendOrderPush: async () => {} },

@@ -9,6 +9,7 @@ import { sendWebPushToRestaurant } from "../lib/webPush";
 import type { AuthPayload } from "../middleware/auth";
 import { looksLikeJwt, verifyAdminToken } from "../middleware/adminAuth";
 import { clientIpFrom } from "../lib/clientIp";
+import { recordOffers } from "../lib/courierActivity";
 
 interface RestaurantPortalSocketPayload {
   tokenType: "restaurant_portal";
@@ -130,11 +131,13 @@ export async function notifyNearbyCouriers(
       .where(eq(ordersTable.id, orderId)).limit(1);
     return current?.status === "searching";
   };
+  void recordOffers(orderId, selected.map(c => c.id));
   let result = await sendCourierPush(selected, title, body, data, stillSearching);
   if (result.accepted === 0 && selected !== eligible) {
     const selectedIds = new Set(selected.map(c => c.id));
     const fallback = eligible.filter(c => !selectedIds.has(c.id));
     for (const courier of fallback) _ordersNs?.to(`user:${courier.id}`).emit("new_order", data);
+    void recordOffers(orderId, fallback.map(c => c.id));
     const expanded = await sendCourierPush(fallback, title, body, data, stillSearching);
     result = { accepted: result.accepted + expanded.accepted, failed: result.failed + expanded.failed };
   }

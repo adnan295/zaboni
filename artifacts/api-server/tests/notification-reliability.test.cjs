@@ -595,6 +595,7 @@ test("all zone submissions failing immediately broadens to other eligible courie
     return q;
   }
   const s = load("artifacts/api-server/src/orders/server.ts", {
+    "../lib/courierActivity": { recordAvailability: async () => {}, touchOnlineSession: async () => {}, recordOffers: async () => {} },
     "../lib/clientIp": { clientIp: () => '198.51.100.1', clientIpFrom: () => '198.51.100.1', trustProxy: () => false },
     "../lib/courierDispatchPolicy": {
       canReceiveNewOrder: () => true,

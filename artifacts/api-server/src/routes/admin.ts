@@ -52,6 +52,7 @@ import { sendAdminAlertWebhook } from "../lib/waverifyMonitor";
 import { z } from "zod";
 import { requireAdmin, verifyAdminToken, setAdminPassword, hasAdminPassword } from "../middleware/adminAuth";
 import { clientIp } from "../lib/clientIp";
+import { getCourierEconomics, getRestaurantSales, parsePeriod } from "../lib/businessReports";
 
 const ORDER_STATUSES = [
   "searching",
@@ -1197,6 +1198,20 @@ router.get("/admin/search-wait", async (req, res) => {
 });
 
 // ─── Courier Performance ──────────────────────────────────────────────────
+
+// Business reports: is each courier's subscription worth it, and how much
+// business each restaurant gets through us (basis for a future commission).
+router.get("/admin/reports/courier-economics", async (req, res) => {
+  res.json(await getCourierEconomics(parsePeriod(req.query["days"])));
+});
+
+router.get("/admin/reports/restaurant-sales", async (req, res) => {
+  const [row] = await db.select({ value: systemSettingsTable.value }).from(systemSettingsTable)
+    .where(eq(systemSettingsTable.key, "simulated_commission_pct")).limit(1);
+  const fromQuery = req.query["commissionPct"] != null ? Number(req.query["commissionPct"]) : NaN;
+  const pct = Number.isFinite(fromQuery) ? fromQuery : Number(row?.value ?? 0);
+  res.json(await getRestaurantSales(parsePeriod(req.query["days"]), Math.min(50, Math.max(0, pct || 0))));
+});
 
 router.get("/admin/courier-performance", async (req, res) => {
   const daysRaw = parseInt(String(req.query["days"] ?? "7"));

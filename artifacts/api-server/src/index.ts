@@ -9,6 +9,7 @@ import { ensureCrashSchema, startCrashRetentionJob } from "./lib/crashReports";
 import { startApkMirrorJob } from "./lib/apkMirror";
 import { startBackupWatchJob } from "./lib/backupStatus";
 import { ensurePerformanceIndexes } from "./lib/dbIndexes";
+import { ensureCourierActivitySchema, startCourierActivityJob } from "./lib/courierActivity";
 import { startPushReceiptJob } from "./lib/push";
 import { startDealExpiryJob } from "./lib/dealExpiry";
 import { startUploadCleanupJob } from "./lib/uploadCleanup";
@@ -69,6 +70,7 @@ await ensureDispatchSchema();
 await ensureOrderCreationSchema();
 await ensureCrashSchema();
 await ensurePerformanceIndexes();
+await ensureCourierActivitySchema();
 
 httpServer.listen(port, (err?: Error) => {
   if (err) {
@@ -81,6 +83,7 @@ httpServer.listen(port, (err?: Error) => {
   startCrashRetentionJob();
   startApkMirrorJob();
   startBackupWatchJob();
+  startCourierActivityJob();
   startPushReceiptJob();
   startDealExpiryJob();
   startUploadCleanupJob();

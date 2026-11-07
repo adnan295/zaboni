@@ -158,6 +158,10 @@ export const navigationGroups = [
     "icon": "TrendingUp",
     "items": [
       {
+        "href": "/reports",
+        "label": "تقارير القرار"
+      },
+      {
         "href": "/financial",
         "label": "التقارير المالية"
       },

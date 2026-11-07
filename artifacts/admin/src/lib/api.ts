@@ -1068,6 +1068,9 @@ export const api = {
     apiFetch<SearchWait>(`/admin/search-wait?days=${days}&excludeFake=${excludeFake ? 1 : 0}`),
   getStuckOrders: () => apiFetch<StuckOrders>("/admin/orders/stuck"),
   getBackupStatus: () => apiFetch<BackupStatus>("/admin/backups/status"),
+  getCourierEconomics: (days: number) => apiFetch<CourierEconomics>(`/admin/reports/courier-economics?days=${days}`),
+  getRestaurantSales: (days: number, commissionPct?: number) =>
+    apiFetch<RestaurantSales>(`/admin/reports/restaurant-sales?days=${days}${commissionPct != null ? `&commissionPct=${commissionPct}` : ""}`),
   getCrashes: (days: number) => apiFetch<CrashOverview>(`/admin/crashes?days=${days}`),
   getCrashAlerts: () => apiFetch<{ alerts: CrashAlert[] }>("/admin/crashes/alerts"),
   getCrashEvents: (fingerprint: string) =>
@@ -1567,4 +1570,71 @@ export type BackupStatus = {
   dbBytes: number;
   ageHours: number | null;
   healthy: boolean;
+};
+
+export type CourierVerdict = "profitable" | "marginal" | "losing" | "inactive" | "no_subscription";
+
+export type CourierEconomicsRow = {
+  id: string;
+  name: string;
+  phone: string;
+  isOnline: boolean;
+  isBlocked: boolean;
+  plan: { name: string; period: string; amount: number; endsAt: string; daysLeft: number } | null;
+  subscriptionCost: number;
+  deliveries: number;
+  earnings: number;
+  returnRatio: number | null;
+  offers: number;
+  accepted: number;
+  acceptanceRate: number | null;
+  cancelledAfterAccept: number;
+  onlineHours: number;
+  activeDays: number;
+  deliveriesPerOnlineHour: number | null;
+  earningsPerOnlineHour: number | null;
+  avgRating: number | null;
+  verdict: CourierVerdict;
+  verdictReason: string;
+};
+
+export type CourierEconomics = {
+  days: number;
+  totals: {
+    couriers: number;
+    subscribed: number;
+    subscriptionRevenue: number;
+    deliveries: number;
+    courierEarnings: number;
+    onlineHours: number;
+    byVerdict: Record<CourierVerdict, number>;
+    renewalRisk: number;
+  };
+  couriers: CourierEconomicsRow[];
+  hasActivityData: boolean;
+};
+
+export type RestaurantSalesRow = {
+  id: string;
+  nameAr: string;
+  image: string;
+  isOpen: boolean;
+  orders: number;
+  delivered: number;
+  cancelled: number;
+  cancellationRate: number | null;
+  gmv: number;
+  avgTicket: number | null;
+  deliveryFees: number;
+  customers: number;
+  gmvChange: number | null;
+  avgRating: number | null;
+  commissionAt: number;
+};
+
+export type RestaurantSales = {
+  days: number;
+  commissionPct: number;
+  totals: { gmv: number; delivered: number; deliveryFees: number; commissionAt: number; activeRestaurants: number };
+  restaurants: RestaurantSalesRow[];
 };

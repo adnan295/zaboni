@@ -11,6 +11,7 @@ import { notifyOrderUpdate, sendOrderPush, notifyCouriersOrderTaken } from "../o
 import { getCourierPointValue, getCourierPointsPerDay, redeemCourierPointsForDays } from "../lib/courierPoints";
 import { checkAndAwardAchievements } from "../lib/achievements";
 import { sendCourierPush } from "../lib/push";
+import { recordAvailability, touchOnlineSession } from "../lib/courierActivity";
 
 const router: IRouter = Router();
 
@@ -168,6 +169,7 @@ router.patch("/courier/availability", requireCourier, async (req, res) => {
     .update(usersTable)
     .set({ isOnline: body.data.isOnline })
     .where(eq(usersTable.id, courierId));
+  await recordAvailability(courierId, body.data.isOnline);
 
   res.json({ ok: true, isOnline: body.data.isOnline });
 });
@@ -246,6 +248,8 @@ router.patch("/courier/location", requireCourier, async (req, res) => {
     prev?.courierLocationUpdatedAt !== null &&
     prev?.courierLat !== undefined && prev?.courierLon !== undefined &&
     prev?.courierLocationUpdatedAt !== undefined;
+
+  void touchOnlineSession(courierId);
 
   // Drop obviously-bad pings (GPS glitches) silently instead of returning 4xx, so a
   // single bad ping never blocks tracking. A normal ping is always stored.
