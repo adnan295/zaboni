@@ -21,6 +21,10 @@ export interface DayNumbers {
   subscriptionRevenue: number;
   /** Distinct couriers who delivered at least one order. */
   activeCouriers: number;
+  /** Customer accounts created that day (registered, whether or not they ordered). */
+  signups: number;
+  /** Courier accounts created that day. */
+  courierSignups: number;
 }
 
 export interface TodayPulse {
@@ -71,8 +75,13 @@ const DAY_SQL = (offset: string) => `
     SELECT COUNT(s.id)::int AS subscriptions, COALESCE(SUM(s.amount), 0)::bigint AS subscription_revenue
     FROM d
     LEFT JOIN courier_subscriptions s ON s.status = 'paid' AND NOT s.gifted
-      AND s.created_at >= d.start AND s.created_at < d.finish)
-  SELECT o.*, s.* FROM o, s`;
+      AND s.created_at >= d.start AND s.created_at < d.finish),
+  u AS (
+    SELECT COUNT(u.id) FILTER (WHERE u.role = 'customer')::int AS signups,
+           COUNT(u.id) FILTER (WHERE u.role = 'courier')::int AS courier_signups
+    FROM d
+    LEFT JOIN users u ON u.created_at >= d.start AND u.created_at < d.finish)
+  SELECT o.*, s.*, u.* FROM o, s, u`;
 
 function dayFromRow(r: Record<string, unknown>): DayNumbers {
   return {
@@ -82,6 +91,7 @@ function dayFromRow(r: Record<string, unknown>): DayNumbers {
     orderingCustomers: Number(r["ordering_customers"]),
     subscriptions: Number(r["subscriptions"]), subscriptionRevenue: Number(r["subscription_revenue"]),
     activeCouriers: Number(r["active_couriers"]),
+    signups: Number(r["signups"]), courierSignups: Number(r["courier_signups"]),
   };
 }
 

@@ -18,13 +18,17 @@ function load(mocks) {
 test("today pulse: today vs yesterday vs last week, new vs returning, now-box", async () => {
   const pg = new PGlite();
   await pg.exec(`
-    CREATE TABLE users (id TEXT PRIMARY KEY, role TEXT, is_online BOOLEAN DEFAULT false, is_blocked BOOLEAN DEFAULT false);
+    CREATE TABLE users (id TEXT PRIMARY KEY, role TEXT, is_online BOOLEAN DEFAULT false, is_blocked BOOLEAN DEFAULT false, created_at TIMESTAMPTZ DEFAULT NOW() - INTERVAL '60 days');
     CREATE TABLE orders (id TEXT PRIMARY KEY, user_id TEXT, courier_id TEXT DEFAULT '', status TEXT, total_price INTEGER, delivery_fee INTEGER DEFAULT 0, created_at TIMESTAMPTZ);
     CREATE TABLE courier_subscriptions (id TEXT PRIMARY KEY, courier_id TEXT, status TEXT, gifted BOOLEAN DEFAULT false, is_active BOOLEAN DEFAULT true, amount INTEGER, ends_at TIMESTAMPTZ, created_at TIMESTAMPTZ);
     CREATE TABLE courier_subscription_requests (id TEXT PRIMARY KEY, status TEXT);
     CREATE TABLE courier_applications (id TEXT PRIMARY KEY, status TEXT);
     CREATE TABLE support_tickets (id TEXT PRIMARY KEY, status TEXT);
-    INSERT INTO users VALUES ('c1','courier',true,false),('c2','courier',false,false),('u_new','customer',false,false),('u_old','customer',false,false);
+    INSERT INTO users VALUES ('c1','courier',true,false,NOW() - INTERVAL '60 days'),('c2','courier',false,false,NOW() - INTERVAL '2 minutes'),
+      ('u_new','customer',false,false,NOW() - INTERVAL '6 minutes'),('u_old','customer',false,false,NOW() - INTERVAL '60 days'),
+      -- registered today but never ordered: still a signup
+      ('u_browsing','customer',false,false,NOW() - INTERVAL '1 minute'),
+      ('u_yesterday','customer',false,false,NOW() - INTERVAL '1 day');
     -- "today" = Damascus day containing NOW(). Use small offsets from NOW() so they stay inside today
     -- (tests near midnight could straddle; offsets are minutes so the risk is negligible).
     INSERT INTO orders VALUES
@@ -60,6 +64,9 @@ test("today pulse: today vs yesterday vs last week, new vs returning, now-box", 
   assert.equal(p.today.subscriptions, 1, "gifted/waived subscription is not a sale");
   assert.equal(p.today.subscriptionRevenue, 100000);
   assert.equal(p.today.activeCouriers, 1);
+  assert.equal(p.today.signups, 2, "u_new and u_browsing registered today; ordering is irrelevant");
+  assert.equal(p.today.courierSignups, 1, "c2 registered today");
+  assert.equal(p.yesterday.signups, 1, "u_yesterday");
 
   assert.equal(p.yesterday.orders, 1);
   assert.equal(p.yesterday.gmv, 50000);

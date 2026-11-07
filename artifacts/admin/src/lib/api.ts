@@ -1644,6 +1644,7 @@ export type DayNumbers = {
   orders: number; delivered: number; cancelled: number; gmv: number; deliveryFees: number;
   newCustomers: number; returningCustomers: number; orderingCustomers: number;
   subscriptions: number; subscriptionRevenue: number; activeCouriers: number;
+  signups: number; courierSignups: number;
 };
 
 export type TodayPulse = {

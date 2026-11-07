@@ -73,13 +73,15 @@ export default function TodayPulse() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
         <Metric label="طلبات اليوم" value={num(t.orders)} today={t} yesterday={y} lastWeek={w} pick={(d) => d.orders}
           hint={t.orders > 0 ? `${num(t.delivered)} مسلّم · ${num(t.cancelled)} ملغى` : undefined} />
         <Metric label="مبيعات المطاعم اليوم" value={syp(t.gmv)} money today={t} yesterday={y} lastWeek={w} pick={(d) => d.gmv}
           hint={t.delivered > 0 ? `متوسط الطلب ${syp(t.gmv / t.delivered)}` : undefined} />
-        <Metric label="زبائن جدد اليوم" value={num(t.newCustomers)} today={t} yesterday={y} lastWeek={w} pick={(d) => d.newCustomers}
-          hint={`أول طلب إلهم · ${num(t.returningCustomers)} زبون راجع`} />
+        <Metric label="سجّلوا بالتطبيق اليوم" value={num(t.signups)} today={t} yesterday={y} lastWeek={w} pick={(d) => d.signups}
+          hint={t.courierSignups > 0 ? `حسابات زبائن جديدة · و${num(t.courierSignups)} مندوب سجّل` : "حسابات زبائن جديدة (طلبوا أو لا)"} />
+        <Metric label="أول طلب إلهم اليوم" value={num(t.newCustomers)} today={t} yesterday={y} lastWeek={w} pick={(d) => d.newCustomers}
+          hint={`${num(t.returningCustomers)} زبون راجع طلب اليوم`} />
         <Metric label="اشتراكات مناديب اليوم" value={num(t.subscriptions)} today={t} yesterday={y} lastWeek={w} pick={(d) => d.subscriptions}
           hint={t.subscriptionRevenue > 0 ? syp(t.subscriptionRevenue) : "ما في اشتراك مدفوع اليوم"} />
         <Metric label="مناديب وصّلوا اليوم" value={num(t.activeCouriers)} today={t} yesterday={y} lastWeek={w} pick={(d) => d.activeCouriers}
