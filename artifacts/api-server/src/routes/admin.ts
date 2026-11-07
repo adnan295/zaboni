@@ -53,6 +53,7 @@ import { z } from "zod";
 import { requireAdmin, verifyAdminToken, setAdminPassword, hasAdminPassword } from "../middleware/adminAuth";
 import { clientIp } from "../lib/clientIp";
 import { getCourierEconomics, getRestaurantSales, parsePeriod } from "../lib/businessReports";
+import { getTodayPulse } from "../lib/todayPulse";
 
 const ORDER_STATUSES = [
   "searching",
@@ -1201,6 +1202,11 @@ router.get("/admin/search-wait", async (req, res) => {
 
 // Business reports: is each courier's subscription worth it, and how much
 // business each restaurant gets through us (basis for a future commission).
+router.get("/admin/today", async (_req, res) => {
+  const settings = await getWaitSettings();
+  res.json(await getTodayPulse(settings.searchAlertMinutes));
+});
+
 router.get("/admin/reports/courier-economics", async (req, res) => {
   res.json(await getCourierEconomics(parsePeriod(req.query["days"])));
 });

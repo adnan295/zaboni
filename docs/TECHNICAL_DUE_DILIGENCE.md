@@ -34,6 +34,9 @@ _Last updated: 31 October 2026_
 - Store releases, store screenshots, the direct-download APK and release notes are fully scripted.
 - Operational tooling in the dashboard: live operations, stuck-order alerts, WhatsApp health,
   cancellation/fraud analysis, app crash grouping with WhatsApp alerts.
+- Dashboard opens on today's pulse: orders, GMV, new vs returning customers, subscriptions sold,
+  active couriers and cancellation rate, each vs yesterday and the same weekday last week, with a
+  "needs attention now" list (stuck orders, pending approvals, expiring subscriptions).
 - Decision reports: per-courier subscription economics (paid vs earned, hours online, offers
   accepted, renewal risk) and per-restaurant sales (GMV, ticket, trend, simulated commission).
 

@@ -1068,6 +1068,7 @@ export const api = {
     apiFetch<SearchWait>(`/admin/search-wait?days=${days}&excludeFake=${excludeFake ? 1 : 0}`),
   getStuckOrders: () => apiFetch<StuckOrders>("/admin/orders/stuck"),
   getBackupStatus: () => apiFetch<BackupStatus>("/admin/backups/status"),
+  getToday: () => apiFetch<TodayPulse>("/admin/today"),
   getCourierEconomics: (days: number) => apiFetch<CourierEconomics>(`/admin/reports/courier-economics?days=${days}`),
   getRestaurantSales: (days: number, commissionPct?: number) =>
     apiFetch<RestaurantSales>(`/admin/reports/restaurant-sales?days=${days}${commissionPct != null ? `&commissionPct=${commissionPct}` : ""}`),
@@ -1637,4 +1638,24 @@ export type RestaurantSales = {
   commissionPct: number;
   totals: { gmv: number; delivered: number; deliveryFees: number; commissionAt: number; activeRestaurants: number };
   restaurants: RestaurantSalesRow[];
+};
+
+export type DayNumbers = {
+  orders: number; delivered: number; cancelled: number; gmv: number; deliveryFees: number;
+  newCustomers: number; returningCustomers: number; orderingCustomers: number;
+  subscriptions: number; subscriptionRevenue: number; activeCouriers: number;
+};
+
+export type TodayPulse = {
+  date: string;
+  today: DayNumbers;
+  yesterday: DayNumbers;
+  lastWeek: DayNumbers;
+  yesterdaySameTime: { orders: number; gmv: number };
+  now: {
+    searching: number; inProgress: number; couriersOnline: number; stuck: number;
+    pendingSubscriptionRequests: number; pendingCourierApplications: number; openSupportTickets: number;
+    subscriptionsEndingSoon: number;
+  };
+  hourly: number[];
 };

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api, type Order, type SlaAlert } from "@/lib/api";
 import WhatsAppStatusCard from "@/components/WhatsAppStatusCard";
 import BackupStatusCard from "@/components/BackupStatusCard";
+import TodayPulse from "@/components/TodayPulse";
 import {
   Card,
   CardContent,
@@ -47,53 +48,7 @@ const PIE_COLORS = ["#DC2626", "#3b82f6", "#8b5cf6", "#6366f1", "#22c55e"];
 
 type Range = 7 | 14 | 30;
 
-function TrendBadge({ today, yesterday }: { today: number; yesterday: number }) {
-  if (yesterday === 0 && today === 0) return null;
-  if (yesterday === 0) {
-    return (
-      <span className="text-xs text-green-600 font-medium mr-1">+{today} ↑</span>
-    );
-  }
-  const diff = today - yesterday;
-  const pct = Math.round(Math.abs(diff / yesterday) * 100);
-  if (diff === 0) {
-    return <span className="text-xs text-muted-foreground mr-1">= نفس أمس</span>;
-  }
-  return (
-    <span
-      className={`text-xs font-medium mr-1 ${diff > 0 ? "text-green-600" : "text-red-500"}`}
-    >
-      {diff > 0 ? `+${diff}` : diff} ({pct}%) {diff > 0 ? "↑" : "↓"} مقارنة بالأمس
-    </span>
-  );
-}
 
-function StatCard({
-  label,
-  value,
-  icon,
-  color,
-  trend,
-}: {
-  label: string;
-  value: number | string;
-  icon: string;
-  color: string;
-  trend?: React.ReactNode;
-}) {
-  return (
-    <Card className="shadow-sm">
-      <CardContent className="p-5">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-xl">{icon}</span>
-          <span className={`text-3xl font-bold ${color}`}>{value}</span>
-        </div>
-        <p className="text-sm font-medium text-foreground/80">{label}</p>
-        {trend && <div className="mt-0.5">{trend}</div>}
-      </CardContent>
-    </Card>
-  );
-}
 
 function SlaAlertsWidget({ alerts, isLoading }: { alerts: SlaAlert[]; isLoading: boolean }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -257,47 +212,12 @@ export default function Dashboard() {
 
   if (!stats) return <div className="space-y-6"><WhatsAppStatusCard /><div role="alert" className="rounded-xl border border-destructive/30 bg-card p-6"><p>تعذّر تحميل مؤشرات التشغيل.</p><button className="mt-3 text-primary underline" onClick={()=>void retryStats()}>إعادة المحاولة</button></div></div>;
 
-  const todayOrders = stats.todayOrders;
-  const yesterdayOrders = stats.yesterdayOrders;
-
-  const statCards = [
-    {
-      label: "طلبات اليوم",
-      value: todayOrders,
-      icon: "📅",
-      color: "text-orange-500",
-      trend: <TrendBadge today={todayOrders} yesterday={yesterdayOrders} />,
-    },
-    {
-      label: "إجمالي الطلبات",
-      value: stats.orders,
-      icon: "📦",
-      color: "text-blue-500",
-    },
-    {
-      label: "المطاعم",
-      value: stats.restaurants,
-      icon: "🍽️",
-      color: "text-purple-500",
-    },
-    {
-      label: "العملاء",
-      value: stats.users - stats.couriers,
-      icon: "🛒",
-      color: "text-green-500",
-    },
-    {
-      label: "المندوبون",
-      value: stats.couriers,
-      icon: "🚴",
-      color: "text-indigo-500",
-    },
-    {
-      label: "عناصر القائمة",
-      value: stats.menuItems,
-      icon: "🍔",
-      color: "text-rose-500",
-    },
+  // Lifetime totals, kept as a compact secondary row under today's numbers.
+  const lifetime = [
+    { label: "إجمالي الطلبات", value: stats.orders, icon: "📦" },
+    { label: "العملاء", value: stats.users - stats.couriers, icon: "🛒" },
+    { label: "المندوبون", value: stats.couriers, icon: "🚴" },
+    { label: "المطاعم", value: stats.restaurants, icon: "🍽️" },
   ];
 
   const totalActive = activeOrders.length;
@@ -330,10 +250,13 @@ export default function Dashboard() {
       <BackupStatusCard />
       {statsError && <p role="alert" className="text-destructive">تعذّر تحديث المؤشرات؛ الأرقام المعروضة من آخر تحديث ناجح. <button className="underline" onClick={()=>void retryStats()}>إعادة المحاولة</button></p>}
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        {statCards.map((s) => (
-          <StatCard key={s.label} {...s} />
+      <TodayPulse />
+
+      <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
+        {lifetime.map((l) => (
+          <span key={l.label}>{l.icon} {l.label}: <b className="text-foreground">{l.value.toLocaleString("ar-SY")}</b></span>
         ))}
+        <span>منذ البداية</span>
       </div>
 
       <SlaAlertsWidget alerts={slaAlerts} isLoading={slaLoading} />
