@@ -62,7 +62,9 @@ test("speed report: slow restaurant and slow courier are flagged against the ove
   const pg = new PGlite();
   await pg.exec(`
     CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, phone TEXT);
-    CREATE TABLE orders (id TEXT PRIMARY KEY, courier_id TEXT, restaurant_name TEXT, status TEXT, created_at TIMESTAMPTZ);
+    CREATE TABLE restaurants (id TEXT PRIMARY KEY, lat REAL, lon REAL);
+    -- No restaurant pins here, so distances are unknown and couriers are judged on ride time.
+    CREATE TABLE orders (id TEXT PRIMARY KEY, courier_id TEXT, restaurant_name TEXT, status TEXT, created_at TIMESTAMPTZ, restaurant_id TEXT, destination_lat DOUBLE PRECISION, destination_lon DOUBLE PRECISION);
     CREATE TABLE order_status_history (id TEXT PRIMARY KEY, order_id TEXT, status TEXT, note TEXT, created_at TIMESTAMPTZ);
     INSERT INTO users VALUES ('cf','سريع','0911'),('cs','بطيء','0922');
   `);
@@ -89,6 +91,45 @@ test("speed report: slow restaurant and slow courier are flagged against the ove
   assert.deepEqual(r.restaurants.map((x) => [x.name, x.avgPickupMinutes, x.verdict]), [["مطعم بطيء", 25, "slow"], ["مطعم سريع", 5, "fast"]]);
   assert.deepEqual(r.couriers.map((x) => [x.name, x.avgRideMinutes, x.verdict]), [["بطيء", 40, "slow"], ["سريع", 10, "fast"]]);
   assert.equal(r.couriers[1].deliveries, 7);
+  assert.equal(r.couriers[0].judgedBy, "ride_time", "no distances known: falls back to ride time");
   assert.equal(lib.speedVerdict(40, 25, 4), "few_orders", "under 5 orders: no verdict");
+  await pg.close();
+});
+
+test("speed report: a courier who takes the far orders is judged on pace, not on ride time", async () => {
+  const pg = new PGlite();
+  await pg.exec(`
+    CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, phone TEXT);
+    CREATE TABLE restaurants (id TEXT PRIMARY KEY, lat REAL, lon REAL);
+    CREATE TABLE orders (id TEXT PRIMARY KEY, courier_id TEXT, restaurant_id TEXT, restaurant_name TEXT, status TEXT, destination_lat DOUBLE PRECISION, destination_lon DOUBLE PRECISION, created_at TIMESTAMPTZ);
+    CREATE TABLE order_status_history (id TEXT PRIMARY KEY, order_id TEXT, status TEXT, note TEXT, created_at TIMESTAMPTZ);
+    INSERT INTO users VALUES ('far','بعيد','0911'),('near','قريب','0922'),('lazy','متمهّل','0933');
+    INSERT INTO restaurants VALUES ('r', 34.73, 36.71);
+  `);
+  // 0.009 degrees of latitude is ~1 km.
+  const add = async (id, courier, km, ride) => {
+    await pg.query(`INSERT INTO orders VALUES ($1,$2,'r','مطعم','delivered', 34.73 + $3::float8 * 0.009, 36.71, NOW() - INTERVAL '3 hours')`, [id, courier, km]);
+    await pg.query(`INSERT INTO order_status_history VALUES
+      ($1 || 'a', $1, 'accepted',  NULL, NOW() - INTERVAL '3 hours' + INTERVAL '2 minutes'),
+      ($1 || 'p', $1, 'picked_up', NULL, NOW() - INTERVAL '3 hours' + INTERVAL '10 minutes'),
+      ($1 || 'd', $1, 'delivered', NULL, NOW() - INTERVAL '3 hours' + make_interval(mins => 10 + $2::int))`, [id, ride]);
+  };
+  for (let i = 0; i < 6; i++) {
+    await add("f" + i, "far", 6, 18);   // 6 km in 18 min: 3 min/km, the longest rides but the best pace
+    await add("n" + i, "near", 1, 4);   // 1 km in 4 min: 4 min/km
+    await add("l" + i, "lazy", 1, 12);  // 1 km in 12 min: 12 min/km
+  }
+  const lib = load({ "@workspace/db": { pool: { query: (sql, args) => pg.query(sql, args) } } });
+  const r = JSON.parse(JSON.stringify(await lib.getSpeedReport(30)));
+  const by = Object.fromEntries(r.couriers.map((c) => [c.name, c]));
+
+  assert.equal(by["بعيد"].avgRideMinutes, 18, "longest rides of all");
+  assert.equal(Math.round(by["بعيد"].avgKm), 6);
+  assert.equal(by["بعيد"].judgedBy, "pace");
+  assert.notEqual(by["بعيد"].verdict, "slow", "far orders must not make a quick courier look slow");
+  assert.equal(by["بعيد"].verdict, "fast");
+  assert.equal(by["متمهّل"].verdict, "slow", "12 minutes for one km");
+  assert.equal(r.couriers[0].name, "متمهّل", "slowest pace listed first");
+  assert.ok(Math.abs(r.overall.minutesPerKm - 4.3) < 0.2, "34 ride minutes over ~8 km per trio");
   await pg.close();
 });

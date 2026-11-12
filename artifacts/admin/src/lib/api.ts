@@ -140,11 +140,12 @@ export type RestaurantSpeedRow = {
 };
 export type CourierSpeedRow = {
   id: string; name: string; phone: string; deliveries: number; avgRideMinutes: number | null;
-  avgPickupMinutes: number | null; avgDeliveryMinutes: number | null; slowestDeliveryMinutes: number | null; verdict: SpeedVerdict;
+  avgPickupMinutes: number | null; avgDeliveryMinutes: number | null; slowestDeliveryMinutes: number | null;
+  avgKm: number | null; minutesPerKm: number | null; judgedBy: "pace" | "ride_time"; verdict: SpeedVerdict;
 };
 export type SpeedReport = {
   days: number; orders: number;
-  overall: { avgWaitMinutes: number | null; avgPickupMinutes: number | null; avgRideMinutes: number | null; avgDeliveryMinutes: number | null; avgTotalMinutes: number | null };
+  overall: { avgWaitMinutes: number | null; avgPickupMinutes: number | null; avgRideMinutes: number | null; avgDeliveryMinutes: number | null; avgTotalMinutes: number | null; avgKm: number | null; minutesPerKm: number | null };
   restaurants: RestaurantSpeedRow[]; couriers: CourierSpeedRow[];
 };
 

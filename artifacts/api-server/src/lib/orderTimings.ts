@@ -89,6 +89,12 @@ export interface CourierSpeedRow {
   /** Accepted → handed to the customer. */
   avgDeliveryMinutes: number | null;
   slowestDeliveryMinutes: number | null;
+  /** Average straight-line distance restaurant → customer, km. */
+  avgKm: number | null;
+  /** Riding minutes per km: the fair comparison, since a courier who takes the far orders rides longer. */
+  minutesPerKm: number | null;
+  /** What the verdict was measured on: pace when distances are known, else raw ride time. */
+  judgedBy: "pace" | "ride_time";
   verdict: SpeedVerdict;
 }
 
@@ -101,6 +107,8 @@ export interface SpeedReport {
     avgRideMinutes: number | null;
     avgDeliveryMinutes: number | null;
     avgTotalMinutes: number | null;
+    avgKm: number | null;
+    minutesPerKm: number | null;
   };
   restaurants: RestaurantSpeedRow[];
   couriers: CourierSpeedRow[];
@@ -135,8 +143,14 @@ const STEPS_CTE = `
            EXTRACT(EPOCH FROM (h.picked_up_at - h.accepted_at))  / 60 AS pickup_m,
            EXTRACT(EPOCH FROM (h.delivered_at - h.picked_up_at)) / 60 AS ride_m,
            EXTRACT(EPOCH FROM (h.delivered_at - h.accepted_at))  / 60 AS delivery_m,
-           EXTRACT(EPOCH FROM (h.delivered_at - o.created_at))   / 60 AS total_m
+           EXTRACT(EPOCH FROM (h.delivered_at - o.created_at))   / 60 AS total_m,
+           CASE WHEN r.lat IS NOT NULL AND r.lon IS NOT NULL AND o.destination_lat IS NOT NULL AND o.destination_lon IS NOT NULL
+                THEN 6371 * 2 * ASIN(SQRT(
+                  POWER(SIN(RADIANS(o.destination_lat - r.lat) / 2), 2) +
+                  COS(RADIANS(r.lat)) * COS(RADIANS(o.destination_lat)) * POWER(SIN(RADIANS(o.destination_lon - r.lon) / 2), 2)))
+           END AS km
     FROM orders o JOIN h ON h.order_id = o.id
+    LEFT JOIN restaurants r ON r.id = o.restaurant_id
     WHERE o.status = 'delivered' AND o.created_at >= NOW() - make_interval(days => $1)),
   t AS (
     SELECT id, courier_id, restaurant_name,
@@ -144,14 +158,19 @@ const STEPS_CTE = `
            CASE WHEN pickup_m   BETWEEN 0 AND ${MAX_STEP_MINUTES} THEN pickup_m   END AS pickup_m,
            CASE WHEN ride_m     BETWEEN 0 AND ${MAX_STEP_MINUTES} THEN ride_m     END AS ride_m,
            CASE WHEN delivery_m BETWEEN 0 AND ${MAX_STEP_MINUTES} THEN delivery_m END AS delivery_m,
-           CASE WHEN total_m    BETWEEN 0 AND ${MAX_STEP_MINUTES * 2} THEN total_m END AS total_m
+           CASE WHEN total_m    BETWEEN 0 AND ${MAX_STEP_MINUTES * 2} THEN total_m END AS total_m,
+           -- Distance and ride of the same order, only when both are usable: under 300 m the
+           -- pace is all noise (lifts, stairs), and the two must come from the same orders.
+           CASE WHEN km BETWEEN 0.3 AND 30 AND ride_m BETWEEN 0 AND ${MAX_STEP_MINUTES} THEN km     END AS pace_km,
+           CASE WHEN km BETWEEN 0.3 AND 30 AND ride_m BETWEEN 0 AND ${MAX_STEP_MINUTES} THEN ride_m END AS pace_m
     FROM raw)`;
 
 export async function getSpeedReport(days: number): Promise<SpeedReport> {
   const [overall, restaurants, couriers] = await Promise.all([
     pool.query(`${STEPS_CTE}
       SELECT COUNT(*)::int AS orders, AVG(wait_m) AS wait, AVG(pickup_m) AS pickup, AVG(ride_m) AS ride,
-             AVG(delivery_m) AS delivery, AVG(total_m) AS total FROM t`, [days]),
+             AVG(delivery_m) AS delivery, AVG(total_m) AS total,
+             AVG(pace_km) AS km, SUM(pace_m) / NULLIF(SUM(pace_km), 0) AS pace FROM t`, [days]),
     pool.query(`${STEPS_CTE}
       SELECT restaurant_name AS name, COUNT(*)::int AS orders, COUNT(pickup_m)::int AS sample,
              AVG(pickup_m) AS pickup, AVG(total_m) AS total, MAX(pickup_m) AS slowest
@@ -159,7 +178,8 @@ export async function getSpeedReport(days: number): Promise<SpeedReport> {
     pool.query(`${STEPS_CTE}
       SELECT t.courier_id AS id, COALESCE(u.name, '') AS name, COALESCE(u.phone, '') AS phone,
              COUNT(*)::int AS deliveries, COUNT(t.ride_m)::int AS sample,
-             AVG(t.ride_m) AS ride, AVG(t.pickup_m) AS pickup, AVG(t.delivery_m) AS delivery, MAX(t.delivery_m) AS slowest
+             AVG(t.ride_m) AS ride, AVG(t.pickup_m) AS pickup, AVG(t.delivery_m) AS delivery, MAX(t.delivery_m) AS slowest,
+             COUNT(t.pace_km)::int AS pace_sample, AVG(t.pace_km) AS km, SUM(t.pace_m) / NULLIF(SUM(t.pace_km), 0) AS pace
       FROM t LEFT JOIN users u ON u.id = t.courier_id
       WHERE t.courier_id IS NOT NULL AND t.courier_id <> ''
       GROUP BY t.courier_id, u.name, u.phone`, [days]),
@@ -167,6 +187,8 @@ export async function getSpeedReport(days: number): Promise<SpeedReport> {
   const o = overall.rows[0] ?? {};
   const overallPickup = n(o["pickup"]);
   const overallRide = n(o["ride"]);
+  const dec = (v: unknown): number | null => (v == null ? null : Math.round(Number(v) * 10) / 10);
+  const overallPace = dec(o["pace"]);
   // Slowest first: the list is read to find what to fix.
   const bySlowest = <T>(pick: (r: T) => number | null) => (a: T, b: T) => (pick(b) ?? -1) - (pick(a) ?? -1);
   return {
@@ -175,17 +197,29 @@ export async function getSpeedReport(days: number): Promise<SpeedReport> {
     overall: {
       avgWaitMinutes: n(o["wait"]), avgPickupMinutes: overallPickup, avgRideMinutes: overallRide,
       avgDeliveryMinutes: n(o["delivery"]), avgTotalMinutes: n(o["total"]),
+      avgKm: dec(o["km"]), minutesPerKm: overallPace,
     },
     restaurants: restaurants.rows.map((r): RestaurantSpeedRow => ({
       name: String(r["name"]), orders: Number(r["orders"]),
       avgPickupMinutes: n(r["pickup"]), avgTotalMinutes: n(r["total"]), slowestPickupMinutes: n(r["slowest"]),
       verdict: speedVerdict(n(r["pickup"]), overallPickup, Number(r["sample"])),
     })).sort(bySlowest((r) => r.avgPickupMinutes)),
-    couriers: couriers.rows.map((r): CourierSpeedRow => ({
-      id: String(r["id"]), name: String(r["name"]), phone: String(r["phone"]), deliveries: Number(r["deliveries"]),
-      avgRideMinutes: n(r["ride"]), avgPickupMinutes: n(r["pickup"]), avgDeliveryMinutes: n(r["delivery"]),
-      slowestDeliveryMinutes: n(r["slowest"]),
-      verdict: speedVerdict(n(r["ride"]), overallRide, Number(r["sample"])),
-    })).sort(bySlowest((r) => r.avgRideMinutes)),
+    couriers: couriers.rows.map((r): CourierSpeedRow => {
+      // Judge the pace, not the clock: a courier who takes the far orders rides longer
+      // without being slow. Raw ride time is only the fallback when distances are unknown
+      // (errands, restaurants without a pin).
+      const pace = dec(r["pace"]);
+      const byPace = pace != null && overallPace != null && Number(r["pace_sample"]) >= SPEED_MIN_SAMPLE;
+      return {
+        id: String(r["id"]), name: String(r["name"]), phone: String(r["phone"]), deliveries: Number(r["deliveries"]),
+        avgRideMinutes: n(r["ride"]), avgPickupMinutes: n(r["pickup"]), avgDeliveryMinutes: n(r["delivery"]),
+        slowestDeliveryMinutes: n(r["slowest"]),
+        avgKm: dec(r["km"]), minutesPerKm: pace,
+        judgedBy: byPace ? "pace" : "ride_time",
+        verdict: byPace
+          ? speedVerdict(pace, overallPace, Number(r["pace_sample"]))
+          : speedVerdict(n(r["ride"]), overallRide, Number(r["sample"])),
+      };
+    }).sort(bySlowest((r) => r.minutesPerKm ?? r.avgRideMinutes)),
   };
 }

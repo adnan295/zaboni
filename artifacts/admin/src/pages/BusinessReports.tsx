@@ -261,6 +261,8 @@ const SPEED: Record<SpeedVerdict, { label: string; cls: string }> = {
   few_orders: { label: "طلبات قليلة", cls: "bg-muted text-muted-foreground" },
 };
 const mins = (n: number | null) => (n == null ? "—" : `${num(n)} د`);
+const km = (n: number | null) => (n == null ? "—" : `${n.toLocaleString("ar-SY", { maximumFractionDigits: 1 })} كم`);
+const pace = (n: number | null) => (n == null ? "—" : `${n.toLocaleString("ar-SY", { maximumFractionDigits: 1 })} د/كم`);
 
 function SpeedBadge({ v }: { v: SpeedVerdict }) {
   return <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${SPEED[v].cls}`}>{SPEED[v].label}</span>;
@@ -314,22 +316,29 @@ function SpeedTab({ days }: { days: number }) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">🛵 المناديب · الأبطأ أولاً {slowCouriers > 0 && <span className="text-sm font-normal text-red-600">({num(slowCouriers)} بطيء)</span>}</CardTitle>
-            <p className="text-xs text-muted-foreground">الحكم على وقت الطريق بس (من الاستلام للتسليم) لحتى ما ينظلم المندوب بسبب مطعم بطيء.</p>
+            <p className="text-xs text-muted-foreground">
+              الحكم على <b>الدقايق لكل كيلومتر</b> بالطريق، مو على الوقت: اللي بياخد الطلبات البعيدة مشواره أطول بس مو بطيء، والمطعم البطيء ما بينحسب عليه.
+              متوسط الكل {pace(o.minutesPerKm)} ومتوسط المسافة {km(o.avgKm)}.
+            </p>
           </CardHeader>
           <CardContent className="p-0">
             <table className="w-full text-sm">
               <thead className="border-y bg-muted/50 text-xs">
-                <tr><th className="px-3 py-2 text-right">المندوب</th><th className="px-3 py-2 text-right">توصيلات</th><th className="px-3 py-2 text-right">متوسط الطريق</th><th className="px-3 py-2 text-right">من القبول للتسليم</th><th className="px-3 py-2 text-right">أسوأ مرة</th><th className="px-3 py-2 text-right">الحكم</th></tr>
+                <tr><th className="px-3 py-2 text-right">المندوب</th><th className="px-3 py-2 text-right">توصيلات</th><th className="px-3 py-2 text-right">السرعة</th><th className="px-3 py-2 text-right">متوسط المسافة</th><th className="px-3 py-2 text-right">متوسط الطريق</th><th className="px-3 py-2 text-right">من القبول للتسليم</th><th className="px-3 py-2 text-right">الحكم</th></tr>
               </thead>
               <tbody className="divide-y">
                 {data.couriers.map((c) => (
                   <tr key={c.id}>
                     <td className="px-3 py-2"><div className="font-medium">{c.name || "—"}</div><div className="font-mono text-[11px] text-muted-foreground" dir="ltr">{c.phone}</div></td>
                     <td className="px-3 py-2 tabular-nums">{num(c.deliveries)}</td>
-                    <td className={`px-3 py-2 font-bold tabular-nums ${c.verdict === "slow" ? "text-red-600" : c.verdict === "fast" ? "text-green-700" : ""}`}>{mins(c.avgRideMinutes)}</td>
+                    <td className={`px-3 py-2 font-bold tabular-nums ${c.verdict === "slow" ? "text-red-600" : c.verdict === "fast" ? "text-green-700" : ""}`}>{pace(c.minutesPerKm)}</td>
+                    <td className="px-3 py-2 tabular-nums">{km(c.avgKm)}</td>
+                    <td className="px-3 py-2 tabular-nums">{mins(c.avgRideMinutes)}</td>
                     <td className="px-3 py-2 tabular-nums">{mins(c.avgDeliveryMinutes)}</td>
-                    <td className="px-3 py-2 tabular-nums text-muted-foreground">{mins(c.slowestDeliveryMinutes)}</td>
-                    <td className="px-3 py-2"><SpeedBadge v={c.verdict} /></td>
+                    <td className="px-3 py-2">
+                      <SpeedBadge v={c.verdict} />
+                      {c.judgedBy === "ride_time" && c.verdict !== "few_orders" && <div className="mt-0.5 text-[10px] text-muted-foreground">على الوقت (مسافات غير معروفة)</div>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -338,7 +347,7 @@ function SpeedTab({ days }: { days: number }) {
         </Card>
       </div>
       <p className="text-xs text-muted-foreground">
-        "بطيء" = أبطأ من متوسط الكل بربع أو أكثر، و"سريع" = أسرع بخُمس أو أكثر. اللي عندو أقل من ٥ طلبات ما منحكم عليه. الخطوات اللي أطول من ٣ ساعات (نسي يكبس الزر) ما بتنحسب.
+        المسافة خط مستقيم من المطعم للزبون، فالرقم للمقارنة بين المناديب مو قياس للطريق الفعلي. "بطيء" = أبطأ من متوسط الكل بربع أو أكثر، و"سريع" = أسرع بخُمس أو أكثر. اللي عندو أقل من ٥ طلبات ما منحكم عليه. الخطوات اللي أطول من ٣ ساعات (نسي يكبس الزر) ما بتنحسب.
       </p>
     </div>
   );
