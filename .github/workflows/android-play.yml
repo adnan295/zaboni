@@ -15,6 +15,11 @@ on:
         type: choice
         options: [build-only, internal, production]
         default: build-only
+      review:
+        description: 'send: Play reviews the release right away. hold: upload and save only, you press "Send for review" in Play Console (needed when a new permission declaration has to be filled in first).'
+        type: choice
+        options: [send, hold]
+        default: send
 
 permissions:
   contents: read
@@ -32,6 +37,7 @@ jobs:
       RELEASE_VERSION: ${{ inputs.version }}
       RELEASE_BUILD: ${{ inputs.build }}
       PLAY_TRACK: ${{ inputs.track }}
+      PLAY_HOLD_REVIEW: ${{ inputs.review == 'hold' && 'true' || 'false' }}
       EXPO_PUBLIC_API_HOST: zaboni.site
     steps:
       - uses: actions/checkout@v4

@@ -20,6 +20,13 @@ platform :android do
     FileUtils.rm_rf(work)
     FileUtils.mkdir_p(File.join(work, 'ar', 'changelogs'))
     File.write(File.join(work, 'ar', 'changelogs', 'default.txt'), notes)
+    # Play refuses a bundle that adds a permission needing a declaration (e.g.
+    # FOREGROUND_SERVICE_LOCATION) until the declaration is filled in, and only
+    # shows that form once such a bundle exists. PLAY_HOLD_REVIEW=true breaks the
+    # loop: the release is uploaded and saved but not sent for review; fill in the
+    # declaration in Play Console, then press "Send for review" there.
+    hold = ENV['PLAY_HOLD_REVIEW'] == 'true'
+    UI.important('Release will be saved without sending it for review') if hold
     upload_to_play_store(
       package_name: BUNDLE_ID,
       json_key: ENV.fetch('PLAY_JSON_PATH'),
@@ -27,6 +34,7 @@ platform :android do
       metadata_path: work,
       track: track,
       release_status: 'completed',
+      changes_not_sent_for_review: hold,
       skip_upload_metadata: true,
       skip_upload_images: true,
       skip_upload_screenshots: true
