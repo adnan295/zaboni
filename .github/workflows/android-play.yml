@@ -83,6 +83,14 @@ jobs:
           ./gradlew :app:bundleRelease --no-daemon --max-workers=2 \
             -PreactNativeArchitectures=armeabi-v7a,arm64-v8a \
             -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=2g -XX:+HeapDumpOnOutOfMemoryError"
+      # Kept before publishing so the signed bundle survives a Play rejection
+      # (e.g. a pending permission declaration) and can be uploaded by hand.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zaboni-android-${{ inputs.version }}-${{ inputs.build }}
+          path: artifacts/marsool/android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+          retention-days: 14
       - uses: ruby/setup-ruby@v1
         if: inputs.track != 'build-only'
         with:
@@ -91,12 +99,6 @@ jobs:
       - name: Publish to selected Google Play track
         if: inputs.track != 'build-only'
         run: bundle exec fastlane android publish
-      - uses: actions/upload-artifact@v4
-        with:
-          name: zaboni-android-${{ inputs.version }}-${{ inputs.build }}
-          path: artifacts/marsool/android/app/build/outputs/bundle/release/*.aab
-          if-no-files-found: error
-          retention-days: 14
       - name: Remove temporary signing files
         if: always()
         run: node ci/mobile-release.mjs cleanup
