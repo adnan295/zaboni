@@ -32,6 +32,27 @@ const STATUS_COLORS: Record<string, string> = {
 
 const PAGE_SIZE = 50;
 
+const mins = (n: number | null | undefined) => (n == null ? "—" : `${n.toLocaleString("ar-SY")} د`);
+const clock = (iso: string | null | undefined) =>
+  iso ? new Date(iso).toLocaleTimeString("ar-SY", { hour: "2-digit", minute: "2-digit" }) : "—";
+
+/** Accepted → delivered, coloured against what the customer was promised. */
+function DeliveryDuration({ order }: { order: Order }) {
+  const t = order.timing;
+  if (!t || t.acceptedAt == null) return <span className="text-muted-foreground">—</span>;
+  if (t.deliveryMinutes == null) {
+    if (order.status === "cancelled") return <span className="text-muted-foreground">—</span>;
+    const running = Math.max(0, Math.round((Date.now() - new Date(t.acceptedAt).getTime()) / 60000));
+    return <span className="text-blue-700">جاري · {mins(running)}</span>;
+  }
+  const late = t.totalMinutes != null && order.estimatedMinutes > 0 && t.totalMinutes > order.estimatedMinutes * 1.25;
+  return (
+    <span className={`font-semibold tabular-nums ${late ? "text-red-600" : "text-green-700"}`} title="من قبول المندوب للتسليم">
+      {mins(t.deliveryMinutes)}
+    </span>
+  );
+}
+
 function exportCSV(orders: Order[]) {
   const headers = [
     "المعرف",
@@ -45,6 +66,9 @@ function exportCSV(orders: Order[]) {
     "العنوان",
     "الدفع",
     "الوقت المقدر (دقيقة)",
+    "انتظار مندوب (دقيقة)",
+    "مدة التوصيل من القبول للتسليم (دقيقة)",
+    "المدة الكلية (دقيقة)",
     "تاريخ الإنشاء",
     "تاريخ التحديث",
   ];
@@ -61,6 +85,9 @@ function exportCSV(orders: Order[]) {
     `"${(o.address ?? "").replace(/"/g, '""')}"`,
     o.paymentMethod,
     o.estimatedMinutes,
+    o.timing?.waitMinutes ?? "",
+    o.timing?.deliveryMinutes ?? "",
+    o.timing?.totalMinutes ?? "",
     new Date(o.createdAt).toISOString(),
     new Date(o.updatedAt).toISOString(),
   ]);
@@ -240,6 +267,7 @@ export default function Orders() {
                 <th className="text-right px-4 py-3 font-medium">المطعم</th>
                 <th className="text-right px-4 py-3 font-medium">الحالة</th>
                 <th className="text-right px-4 py-3 font-medium">المندوب</th>
+                <th className="text-right px-4 py-3 font-medium">مدة التوصيل</th>
                 <th className="text-right px-4 py-3 font-medium">الدفع</th>
                 <th className="text-right px-4 py-3 font-medium">التاريخ</th>
               </tr>
@@ -341,6 +369,7 @@ function OrderRow({ order }: { order: Order }) {
             <span className="text-muted-foreground">غير معين</span>
           )}
         </td>
+        <td className="px-4 py-3 text-sm whitespace-nowrap"><DeliveryDuration order={order} /></td>
         <td className="px-4 py-3 text-sm capitalize">{order.paymentMethod}</td>
         <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
           {new Date(order.createdAt).toLocaleString("ar-SY")}
@@ -348,7 +377,24 @@ function OrderRow({ order }: { order: Order }) {
       </tr>
       {expanded && (
         <tr className="bg-muted/20">
-          <td colSpan={7} className="px-4 py-4">
+          <td colSpan={8} className="px-4 py-4">
+            {order.timing?.acceptedAt && (
+              <div className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border bg-background px-3 py-2 text-xs">
+                <span className="font-bold">⏱ خط الزمن:</span>
+                <span>طلب {clock(order.createdAt)}</span>
+                <span className="text-muted-foreground">← انتظر مندوب {mins(order.timing.waitMinutes)} ←</span>
+                <span>قبِل {clock(order.timing.acceptedAt)}</span>
+                <span className="text-muted-foreground">← استلام من المطعم {mins(order.timing.pickupMinutes)} ←</span>
+                <span>استلم {clock(order.timing.pickedUpAt)}</span>
+                <span className="text-muted-foreground">← الطريق {mins(order.timing.deliveryMinutes != null && order.timing.pickupMinutes != null ? order.timing.deliveryMinutes - order.timing.pickupMinutes : null)} ←</span>
+                <span>سلّم {clock(order.timing.deliveredAt)}</span>
+                {order.timing.deliveryMinutes != null && (
+                  <span className="ms-auto font-bold">
+                    من القبول للتسليم {mins(order.timing.deliveryMinutes)} · الكلي {mins(order.timing.totalMinutes)} (الموعود {mins(order.estimatedMinutes)})
+                  </span>
+                )}
+              </div>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mb-4">
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1">

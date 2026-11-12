@@ -12,6 +12,7 @@ import { getLoyaltySettings, calculateRedeemDiscount, redeemPointsInTx, refundRe
 import { checkAndAwardAchievements } from "../lib/achievements";
 import { maybeIssueApologyPromo } from "../lib/searchWatch";
 import { isUserSubscribed, getSubscriptionSettings } from "../lib/customerSubscription";
+import { getLearnedTimes, estimateOrderMinutes, liveEtaMinutes } from "../lib/deliveryEstimates";
 
 const router: IRouter = Router();
 
@@ -63,15 +64,6 @@ async function getErrandDeliveryFee(): Promise<number> {
   } catch {
     return DEFAULT_ERRAND_DELIVERY_FEE;
   }
-}
-
-// Rough delivery ETA from the trip distance: a base for prep/pickup handling
-// plus travel time. ~4 min/km reflects slow in-city delivery (road detours,
-// traffic, pickup), clamped to a sane 15–120 minute window. Replaces the old
-// random 30–44 min guess so the customer sees a distance-aware estimate.
-function estimateMinutesFromDistance(distanceKm: number): number {
-  const mins = 15 + Math.round((Number.isFinite(distanceKm) ? distanceKm : 0) * 4);
-  return Math.max(15, Math.min(mins, 120));
 }
 
 type PromoContext = {
@@ -544,7 +536,7 @@ router.post("/orders", async (req, res) => {
     }
 
     const errandDeliveryFee = await getErrandDeliveryFee();
-    const estimatedMinutes = estimateMinutesFromDistance(errandDistanceKm);
+    const estimatedMinutes = estimateOrderMinutes(errandDistanceKm, null, await getLearnedTimes());
 
     const errandOrder = {
       id,
@@ -753,7 +745,9 @@ router.post("/orders", async (req, res) => {
 
   const distanceKm = haversineKm(originLat, originLon, destLat, destLon);
   const feeResult = await getFeeForDistance(distanceKm);
-  const estimatedMinutes = estimateMinutesFromDistance(distanceKm);
+  // Learned from real deliveries (wait + this restaurant's pickup + ride); falls
+  // back to the distance-only formula until there is enough history.
+  const estimatedMinutes = estimateOrderMinutes(distanceKm, effectiveRestaurantId, await getLearnedTimes());
 
   // Coverage gate. When coverage areas (regions/cities) are configured the
   // customer AND the restaurant must be in the SAME area — so a customer can't
@@ -1109,7 +1103,10 @@ router.get("/orders/:id/courier-location", async (req, res) => {
   const { id } = req.params;
 
   const orders = await db
-    .select({ courierId: ordersTable.courierId, status: ordersTable.status })
+    .select({
+      courierId: ordersTable.courierId, status: ordersTable.status, restaurantId: ordersTable.restaurantId,
+      destinationLat: ordersTable.destinationLat, destinationLon: ordersTable.destinationLon, updatedAt: ordersTable.updatedAt,
+    })
     .from(ordersTable)
     .where(and(eq(ordersTable.id, id), eq(ordersTable.userId, userId)))
     .limit(1);
@@ -1149,12 +1146,36 @@ router.get("/orders/:id/courier-location", async (req, res) => {
   // never mistaken for a live position.
   const updatedAt = courier.courierLocationUpdatedAt ?? new Date();
   const ageSeconds = Math.max(0, Math.round((Date.now() - updatedAt.getTime()) / 1000));
+  const stale = ageSeconds > COURIER_LOCATION_STALE_SECONDS;
+
+  // Minutes left, from how long this restaurant and our couriers really take.
+  // Optional: the app falls back to its own distance guess when it is null.
+  let etaMinutes: number | null = null;
+  try {
+    const restaurant = order.restaurantId
+      ? (await db.select({ lat: restaurantsTable.lat, lon: restaurantsTable.lon }).from(restaurantsTable)
+          .where(eq(restaurantsTable.id, order.restaurantId)).limit(1))[0]
+      : undefined;
+    etaMinutes = liveEtaMinutes({
+      status: order.status,
+      statusSince: order.updatedAt ?? new Date(),
+      courier: { lat: courier.courierLat, lon: courier.courierLon },
+      courierFresh: !stale,
+      restaurant: restaurant?.lat != null && restaurant?.lon != null ? { lat: restaurant.lat, lon: restaurant.lon } : null,
+      destination: order.destinationLat != null && order.destinationLon != null ? { lat: order.destinationLat, lon: order.destinationLon } : null,
+      restaurantId: order.restaurantId,
+    }, await getLearnedTimes());
+  } catch {
+    etaMinutes = null;
+  }
+
   res.json({
     lat: courier.courierLat,
     lon: courier.courierLon,
     updatedAt: updatedAt.toISOString(),
     ageSeconds,
-    stale: ageSeconds > COURIER_LOCATION_STALE_SECONDS,
+    stale,
+    etaMinutes,
   });
 });
 

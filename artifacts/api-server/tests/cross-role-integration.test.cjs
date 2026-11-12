@@ -57,6 +57,7 @@ async function setup() {
     '../lib/courierActivity': { recordAvailability: async () => {}, touchOnlineSession: async () => {}, recordOffers: async () => {} },
     '../lib/clientIp': { clientIp: () => '198.51.100.1', clientIpFrom: () => '198.51.100.1', trustProxy: () => false },
     '../lib/achievements': { checkAndAwardAchievements: async () => {} },
+    '../lib/orderTimings': { getOrderTimings: async () => ({}), getSpeedReport: async () => ({}) },
     '../orders/server': { notifyOrderUpdate: (id, order) => events.push(['update', id, order]), sendOrderPush: async () => {} },
   };
   load('routes/admin.ts', deps); load('routes/courier.ts', deps);

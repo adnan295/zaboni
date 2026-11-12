@@ -54,6 +54,7 @@ import { requireAdmin, verifyAdminToken, setAdminPassword, hasAdminPassword } fr
 import { clientIp } from "../lib/clientIp";
 import { getCourierEconomics, getRestaurantSales, parsePeriod } from "../lib/businessReports";
 import { getTodayPulse } from "../lib/todayPulse";
+import { getOrderTimings, getSpeedReport } from "../lib/orderTimings";
 
 const ORDER_STATUSES = [
   "searching",
@@ -894,8 +895,11 @@ router.get("/admin/orders", async (req, res) => {
       .limit(limit),
   ]);
 
+  // Timings are a nice-to-have on the list: never fail the page over them.
+  const timings = await getOrderTimings(rows.map((r) => ({ id: r.id, createdAt: r.createdAt }))).catch(() => ({} as Awaited<ReturnType<typeof getOrderTimings>>));
+
   res.json({
-    data: rows,
+    data: rows.map((r) => ({ ...r, timing: timings[r.id] ?? null })),
     total: totalRow?.count ?? 0,
     page,
     limit,
@@ -1209,6 +1213,10 @@ router.get("/admin/today", async (_req, res) => {
 
 router.get("/admin/reports/courier-economics", async (req, res) => {
   res.json(await getCourierEconomics(parsePeriod(req.query["days"])));
+});
+
+router.get("/admin/reports/speed", async (req, res) => {
+  res.json(await getSpeedReport(parsePeriod(req.query["days"])));
 });
 
 router.get("/admin/reports/restaurant-sales", async (req, res) => {

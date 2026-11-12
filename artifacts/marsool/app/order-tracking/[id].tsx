@@ -135,7 +135,7 @@ export default function OrderTrackingScreen() {
     const pollLocation = async () => {
       try {
         const data = await customFetch(`/api/orders/${id}/courier-location`) as {
-          lat: number; lon: number; updatedAt?: string; ageSeconds?: number;
+          lat: number; lon: number; updatedAt?: string; ageSeconds?: number; etaMinutes?: number | null;
         };
         if (data?.lat != null && data?.lon != null) {
           const realCoords: Coords = { latitude: data.lat, longitude: data.lon };
@@ -143,8 +143,14 @@ export default function OrderTrackingScreen() {
           // Prefer the server-computed age: phone clocks in the field are often off.
           const age = data.ageSeconds ?? (data.updatedAt ? (Date.now() - Date.parse(data.updatedAt)) / 1000 : 0);
           setCourierSeenAt(Date.now() - Math.max(0, age) * 1000);
-          const dist = haversineDistance(realCoords, userCoords);
-          setEtaMinutes(estimateEtaMinutes(dist));
+          // The server's ETA knows this restaurant's real pickup time and our couriers'
+          // real pace; the distance guess is only for servers that don't send it yet.
+          if (typeof data.etaMinutes === "number" && data.etaMinutes > 0) {
+            setEtaMinutes(data.etaMinutes);
+          } else {
+            const dist = haversineDistance(realCoords, userCoords);
+            setEtaMinutes(estimateEtaMinutes(dist));
+          }
         }
       } catch {
       }

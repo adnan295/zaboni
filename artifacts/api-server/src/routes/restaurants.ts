@@ -5,6 +5,7 @@ import { db, restaurantsTable, menuItemsTable, restaurantHoursTable, promoBanner
 import { and, asc, desc, eq, gt, inArray, isNull, lt, lte, notInArray, or, sql } from "drizzle-orm";
 import { getActiveCoverageAreas, areaIdsContaining, pointInAllowedArea } from "../lib/coverage";
 import { makeFeeCalculator } from "../lib/deliveryZones";
+import { getLearnedTimes, restaurantDeliveryRange } from "../lib/deliveryEstimates";
 
 const router: IRouter = Router();
 
@@ -226,7 +227,12 @@ router.get("/restaurants", async (req, res) => {
     }
   });
 
-  res.json(applyRestaurantSearchOptions(result, req.query));
+  // Show how long deliveries from each restaurant really take; restaurants without
+  // enough history keep the text entered in the dashboard.
+  const learned = await getLearnedTimes();
+  const withRealTimes = result.map((r) => ({ ...r, deliveryTime: restaurantDeliveryRange(r.id, learned) ?? r.deliveryTime }));
+
+  res.json(applyRestaurantSearchOptions(withRealTimes, req.query));
 });
 
 router.get("/restaurants/food-categories", async (_req, res) => {
@@ -258,7 +264,8 @@ router.get("/restaurants/:id", async (req, res) => {
   const byDay = hoursMap.get(restaurant.id);
   const isOpen = computeIsOpenFromHours(byDay?.get(dayOfWeek), byDay?.get(prevDayOfWeek), nowMinutes, restaurant.isOpen);
 
-  res.json({ ...restaurant, isOpen });
+  const deliveryTime = restaurantDeliveryRange(restaurant.id, await getLearnedTimes()) ?? restaurant.deliveryTime;
+  res.json({ ...restaurant, isOpen, deliveryTime });
 });
 
 router.get("/restaurants/:id/flash-deal", async (req, res) => {

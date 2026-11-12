@@ -118,6 +118,34 @@ export type Order = {
   customerPhone?: string | null;
   orderType?: string | null;
   placeName?: string | null;
+  timing?: OrderTiming | null;
+};
+
+export type OrderTiming = {
+  acceptedAt: string | null; pickedUpAt: string | null; deliveredAt: string | null;
+  /** Placed → accepted. */
+  waitMinutes: number | null;
+  /** Accepted → collected. */
+  pickupMinutes: number | null;
+  /** Accepted → delivered. */
+  deliveryMinutes: number | null;
+  /** Placed → delivered. */
+  totalMinutes: number | null;
+};
+
+export type SpeedVerdict = "fast" | "normal" | "slow" | "few_orders";
+export type RestaurantSpeedRow = {
+  name: string; orders: number; avgPickupMinutes: number | null; avgTotalMinutes: number | null;
+  slowestPickupMinutes: number | null; verdict: SpeedVerdict;
+};
+export type CourierSpeedRow = {
+  id: string; name: string; phone: string; deliveries: number; avgRideMinutes: number | null;
+  avgPickupMinutes: number | null; avgDeliveryMinutes: number | null; slowestDeliveryMinutes: number | null; verdict: SpeedVerdict;
+};
+export type SpeedReport = {
+  days: number; orders: number;
+  overall: { avgWaitMinutes: number | null; avgPickupMinutes: number | null; avgRideMinutes: number | null; avgDeliveryMinutes: number | null; avgTotalMinutes: number | null };
+  restaurants: RestaurantSpeedRow[]; couriers: CourierSpeedRow[];
 };
 
 export type OrdersPage = {
@@ -1069,6 +1097,7 @@ export const api = {
   getStuckOrders: () => apiFetch<StuckOrders>("/admin/orders/stuck"),
   getBackupStatus: () => apiFetch<BackupStatus>("/admin/backups/status"),
   getToday: () => apiFetch<TodayPulse>("/admin/today"),
+  getSpeedReport: (days: number) => apiFetch<SpeedReport>(`/admin/reports/speed?days=${days}`),
   getCourierEconomics: (days: number) => apiFetch<CourierEconomics>(`/admin/reports/courier-economics?days=${days}`),
   getRestaurantSales: (days: number, commissionPct?: number) =>
     apiFetch<RestaurantSales>(`/admin/reports/restaurant-sales?days=${days}${commissionPct != null ? `&commissionPct=${commissionPct}` : ""}`),

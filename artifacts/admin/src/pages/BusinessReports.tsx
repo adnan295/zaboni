@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { api, type CourierEconomicsRow, type CourierVerdict, type RestaurantSalesRow } from "@/lib/api";
+import { api, type CourierEconomicsRow, type CourierVerdict, type RestaurantSalesRow, type SpeedVerdict } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -254,9 +254,99 @@ function RestaurantRow({ r, rank }: { r: RestaurantSalesRow; rank: number }) {
   );
 }
 
+const SPEED: Record<SpeedVerdict, { label: string; cls: string }> = {
+  slow: { label: "بطيء", cls: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300" },
+  normal: { label: "عادي", cls: "bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200" },
+  fast: { label: "سريع", cls: "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300" },
+  few_orders: { label: "طلبات قليلة", cls: "bg-muted text-muted-foreground" },
+};
+const mins = (n: number | null) => (n == null ? "—" : `${num(n)} د`);
+
+function SpeedBadge({ v }: { v: SpeedVerdict }) {
+  return <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${SPEED[v].cls}`}>{SPEED[v].label}</span>;
+}
+
+/** Who is slow and who is fast, measured from the real order timeline. Slowest first. */
+function SpeedTab({ days }: { days: number }) {
+  const { data, isLoading } = useQuery({ queryKey: ["admin", "reports", "speed", days], queryFn: () => api.getSpeedReport(days) });
+  if (isLoading || !data) return <p className="text-muted-foreground">جارٍ التحميل…</p>;
+  if (data.orders === 0) return <p className="text-muted-foreground">ما في طلبات مسلّمة بهالفترة لنقيس عليها.</p>;
+  const o = data.overall;
+  const slowRestaurants = data.restaurants.filter((r) => r.verdict === "slow").length;
+  const slowCouriers = data.couriers.filter((c) => c.verdict === "slow").length;
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        <Stat label="انتظار مندوب" value={mins(o.avgWaitMinutes)} sub="من الطلب لقبول المندوب" />
+        <Stat label="الاستلام من المطعم" value={mins(o.avgPickupMinutes)} sub="من القبول للاستلام" />
+        <Stat label="الطريق للزبون" value={mins(o.avgRideMinutes)} sub="من الاستلام للتسليم" />
+        <Stat label="من القبول للتسليم" value={mins(o.avgDeliveryMinutes)} sub="شغل المندوب كامل" />
+        <Stat label="الكلي عند الزبون" value={mins(o.avgTotalMinutes)} sub={`متوسط ${num(data.orders)} طلب مسلّم`} />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">🍽️ المطاعم · الأبطأ أولاً {slowRestaurants > 0 && <span className="text-sm font-normal text-red-600">({num(slowRestaurants)} بطيء)</span>}</CardTitle>
+            <p className="text-xs text-muted-foreground">الوقت من قبول المندوب لحد ما يستلم الطلب: مشواره للمطعم وانتظاره للأكل. المطعم البطيء بيعلّق المندوب وبيأخّر الزبون.</p>
+          </CardHeader>
+          <CardContent className="p-0">
+            <table className="w-full text-sm">
+              <thead className="border-y bg-muted/50 text-xs">
+                <tr><th className="px-3 py-2 text-right">المطعم</th><th className="px-3 py-2 text-right">طلبات</th><th className="px-3 py-2 text-right">متوسط الاستلام</th><th className="px-3 py-2 text-right">أسوأ مرة</th><th className="px-3 py-2 text-right">الكلي للزبون</th><th className="px-3 py-2 text-right">الحكم</th></tr>
+              </thead>
+              <tbody className="divide-y">
+                {data.restaurants.map((r) => (
+                  <tr key={r.name}>
+                    <td className="px-3 py-2 font-medium">{r.name}</td>
+                    <td className="px-3 py-2 tabular-nums">{num(r.orders)}</td>
+                    <td className={`px-3 py-2 font-bold tabular-nums ${r.verdict === "slow" ? "text-red-600" : r.verdict === "fast" ? "text-green-700" : ""}`}>{mins(r.avgPickupMinutes)}</td>
+                    <td className="px-3 py-2 tabular-nums text-muted-foreground">{mins(r.slowestPickupMinutes)}</td>
+                    <td className="px-3 py-2 tabular-nums">{mins(r.avgTotalMinutes)}</td>
+                    <td className="px-3 py-2"><SpeedBadge v={r.verdict} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">🛵 المناديب · الأبطأ أولاً {slowCouriers > 0 && <span className="text-sm font-normal text-red-600">({num(slowCouriers)} بطيء)</span>}</CardTitle>
+            <p className="text-xs text-muted-foreground">الحكم على وقت الطريق بس (من الاستلام للتسليم) لحتى ما ينظلم المندوب بسبب مطعم بطيء.</p>
+          </CardHeader>
+          <CardContent className="p-0">
+            <table className="w-full text-sm">
+              <thead className="border-y bg-muted/50 text-xs">
+                <tr><th className="px-3 py-2 text-right">المندوب</th><th className="px-3 py-2 text-right">توصيلات</th><th className="px-3 py-2 text-right">متوسط الطريق</th><th className="px-3 py-2 text-right">من القبول للتسليم</th><th className="px-3 py-2 text-right">أسوأ مرة</th><th className="px-3 py-2 text-right">الحكم</th></tr>
+              </thead>
+              <tbody className="divide-y">
+                {data.couriers.map((c) => (
+                  <tr key={c.id}>
+                    <td className="px-3 py-2"><div className="font-medium">{c.name || "—"}</div><div className="font-mono text-[11px] text-muted-foreground" dir="ltr">{c.phone}</div></td>
+                    <td className="px-3 py-2 tabular-nums">{num(c.deliveries)}</td>
+                    <td className={`px-3 py-2 font-bold tabular-nums ${c.verdict === "slow" ? "text-red-600" : c.verdict === "fast" ? "text-green-700" : ""}`}>{mins(c.avgRideMinutes)}</td>
+                    <td className="px-3 py-2 tabular-nums">{mins(c.avgDeliveryMinutes)}</td>
+                    <td className="px-3 py-2 tabular-nums text-muted-foreground">{mins(c.slowestDeliveryMinutes)}</td>
+                    <td className="px-3 py-2"><SpeedBadge v={c.verdict} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        "بطيء" = أبطأ من متوسط الكل بربع أو أكثر، و"سريع" = أسرع بخُمس أو أكثر. اللي عندو أقل من ٥ طلبات ما منحكم عليه. الخطوات اللي أطول من ٣ ساعات (نسي يكبس الزر) ما بتنحسب.
+      </p>
+    </div>
+  );
+}
+
 export default function BusinessReports() {
   const [days, setDays] = useState(30);
-  const [tab, setTab] = useState<"couriers" | "restaurants">("couriers");
+  const [tab, setTab] = useState<"couriers" | "restaurants" | "speed">("couriers");
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -266,13 +356,13 @@ export default function BusinessReports() {
         ))}
       </div>
       <div className="flex gap-2 border-b">
-        {([["couriers", "🛵 اقتصاد المناديب"], ["restaurants", "🍽️ مبيعات المطاعم"]] as const).map(([k, label]) => (
+        {([["couriers", "🛵 اقتصاد المناديب"], ["restaurants", "🍽️ مبيعات المطاعم"], ["speed", "⏱ السرعة والجودة"]] as const).map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)} className={`-mb-px border-b-2 px-4 py-2 text-sm font-bold ${tab === k ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}>
             {label}
           </button>
         ))}
       </div>
-      {tab === "couriers" ? <CouriersTab days={days} /> : <RestaurantsTab days={days} />}
+      {tab === "couriers" ? <CouriersTab days={days} /> : tab === "restaurants" ? <RestaurantsTab days={days} /> : <SpeedTab days={days} />}
     </div>
   );
 }
