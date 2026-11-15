@@ -17,7 +17,7 @@ import {
   useFonts as useInterFonts,
 } from "@expo-google-fonts/inter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack, useRouter, useSegments } from "expo-router";
+import { Stack, useRouter, useRootNavigationState, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useState } from "react";
@@ -60,6 +60,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, isLoading, isCourierMode, isCourier } = useAuth();
   const router = useRouter();
   const segments = useSegments();
+  // Set once the root navigator has mounted. Redirecting before that throws
+  // "Attempted to navigate before mounting the Root Layout component".
+  const navigationReady = !!useRootNavigationState()?.key;
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
 
@@ -78,7 +81,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   }, [segments, user, isCourier, isCourierMode]);
 
   useEffect(() => {
-    if (isLoading || !onboardingChecked) return;
+    if (isLoading || !onboardingChecked || !navigationReady) return;
     const inAuthGroup = segments[0] === "auth";
     const inCourierGroup = segments[0] === "(courier)";
     const inTabsGroup = segments[0] === "(tabs)";
@@ -104,8 +107,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     } else if (user && (!isCourier || !isCourierMode) && inCourierGroup) {
       router.replace("/(tabs)");
     }
-  }, [user, isLoading, segments, isCourierMode, isCourier, hasSeenOnboarding, onboardingChecked]);
+  }, [user, isLoading, segments, isCourierMode, isCourier, hasSeenOnboarding, onboardingChecked, navigationReady]);
 
+  // While the session loads only the spinner is shown: mounting the screens early
+  // would let them call the API before the stored token is in place. The navigator
+  // therefore first mounts in the same render that wants to redirect, which is why
+  // the redirect above waits for `navigationReady` and re-runs when it flips.
   if (isLoading || !onboardingChecked) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#F8F8F8" }}>
