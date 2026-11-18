@@ -36,6 +36,9 @@ async function setup() {
       ('order_abc123','cust','cour','r1','صاجيات وكعك طحان','0984037151',NULL,'شلل × 2','الحمرا، جانب الصيدلية',34.7301,36.7092),
       ('order_nopin1','cust','cour','r_nopin','مطعم بلا موقع','',NULL,'وجبة','الحمرا',34.7301,36.7092),
       ('order_nocour','cust','','r1','صاجيات وكعك طحان','',NULL,'وجبة','الحمرا',34.7301,36.7092),
+      -- errand ("طلب حر"): a typed place name, no restaurant and no pin
+      ('order_errand','cust','cour',NULL,'','','صيدلية الشفاء','صيدلية الشفاء: علبة بنادول','الحمرا',34.7301,36.7092),
+      ('order_blank1','cust','cour',NULL,'','',NULL,'شي','الحمرا',34.7301,36.7092),
       ('order_droid1','cust','droid','r1','صاجيات وكعك طحان','',NULL,'وجبة','الحمرا',34.7301,36.7092),
       ('order_moved1','cust','moved','r1','صاجيات وكعك طحان','',NULL,'وجبة','الحمرا',34.7301,36.7092),
       ('order_legacy','cust','legacy','r1','صاجيات وكعك طحان','',NULL,'وجبة','الحمرا',34.7301,36.7092);
@@ -69,7 +72,7 @@ test("accepting sends the restaurant's map link; collecting sends the customer's
 
 test("nothing is sent without a pin, without a courier, or when the admin switches it off", async () => {
   const { pg, lib, sent } = await setup();
-  assert.equal(await lib.sendCourierDirections("order_nopin1", "to_restaurant"), false, "restaurant has no pin");
+  assert.equal(await lib.sendCourierDirections("order_blank1", "to_restaurant"), false, "no pin and no name: nothing useful to send");
   assert.equal(await lib.sendCourierDirections("order_nopin1", "to_customer"), true, "customer pin still works");
   assert.equal(await lib.sendCourierDirections("order_nocour", "to_restaurant"), false);
   assert.equal(await lib.sendCourierDirections("missing", "to_restaurant"), false);
@@ -107,5 +110,22 @@ test("only iPhone couriers are messaged", async () => {
   await lib.recordDevicePlatform("droid", "ios");
   assert.equal(await lib.sendCourierDirections("order_droid1", "to_restaurant"), true);
   assert.equal(lib.isIphoneCourier({ device_platform: null, apn_token: null }), false);
+  await pg.close();
+});
+
+test("errand (free order): the place name and a map search on accept, the customer's pin on pickup", async () => {
+  const { pg, lib, sent } = await setup();
+  assert.equal(await lib.sendCourierDirections("order_errand", "to_restaurant"), true);
+  assert.match(sent[0].text, /صيدلية الشفاء/);
+  assert.match(sent[0].text, /علبة بنادول/, "what to buy is in the message");
+  assert.ok(sent[0].text.includes("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent("صيدلية الشفاء حمص")));
+  assert.ok(!sent[0].text.includes("34.730100"), "customer location still waits for pickup");
+
+  assert.equal(await lib.sendCourierDirections("order_errand", "to_customer"), true);
+  assert.ok(sent[1].text.includes("destination=34.730100,36.709200"));
+
+  // A restaurant that has no pin gets the same name search rather than silence.
+  assert.equal(await lib.sendCourierDirections("order_nopin1", "to_restaurant"), true);
+  assert.match(sent[2].text, /مطعم بلا موقع/);
   await pg.close();
 });

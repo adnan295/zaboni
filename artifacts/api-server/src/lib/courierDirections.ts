@@ -54,6 +54,15 @@ export function appleDirectionsUrl(lat: number, lon: number): string {
   return `https://maps.apple.com/?daddr=${coord(lat)},${coord(lon)}&dirflg=d`;
 }
 
+/** Map search by name, for a place with no pin: an errand's shop, or a restaurant missing its location. */
+export function googleSearchUrl(name: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}`;
+}
+
+export function appleSearchUrl(name: string): string {
+  return `https://maps.apple.com/?q=${encodeURIComponent(name)}`;
+}
+
 export interface DirectionsInput {
   stage: DirectionsStage;
   orderId: string;
@@ -73,7 +82,23 @@ const shortId = (id: string) => `#${id.slice(-6)}`;
 /** The message text, or null when there is nothing useful to send (no pin for this stage). */
 export function directionsText(i: DirectionsInput): string | null {
   if (i.stage === "to_restaurant") {
-    if (!hasPin(i.place)) return null;
+    if (!hasPin(i.place)) {
+      // Errand ("طلب حر"): the customer typed a place name, there is no pin. Send what to
+      // buy and a map search for the name instead of staying silent.
+      const name = i.placeName.trim();
+      if (!name) return null;
+      return [
+        `🛍 *طلب جديد ${shortId(i.orderId)}*`,
+        `📍 المكان: *${name}*`,
+        i.placePhone ? `📞 ${i.placePhone}` : null,
+        i.orderText ? `🧾 ${i.orderText.slice(0, 300)}` : null,
+        "",
+        `🗺 دوّر عليه بخرائط غوغل:\n${googleSearchUrl(`${name} حمص`)}`,
+        `🍎 خرائط آبل:\n${appleSearchUrl(`${name} حمص`)}`,
+        "",
+        "ما في موقع محدد لهالمكان، فالرابط بحث بالاسم. بس تستلم الطلب اكبس «استلمت الطلب» وبنبعتلك موقع الزبون.",
+      ].filter((l) => l !== null).join("\n");
+    }
     return [
       `🛵 *طلب جديد ${shortId(i.orderId)}*`,
       `📍 الاستلام من: *${i.placeName || "المطعم"}*`,
