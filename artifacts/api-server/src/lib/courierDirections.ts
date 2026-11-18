@@ -1,7 +1,8 @@
-// Sends the courier a WhatsApp message with a tappable map link at the two moments
-// they need to navigate: the restaurant when they accept an order, and the customer
-// when they mark it collected. Some couriers' phones (notably iPhones) do not open
-// turn-by-turn directions from inside the app; a map link in WhatsApp always does.
+// Sends an iPhone courier a WhatsApp message with a tappable map link at the two
+// moments they need to navigate: the restaurant when they accept an order, and the
+// customer when they mark it collected. On iPhones the app does not open turn-by-turn
+// directions; a map link in WhatsApp always does. Android couriers navigate from the
+// app and get no message.
 //
 // Best effort by design: a failed or disabled message must never affect the order.
 
@@ -13,6 +14,27 @@ export type DirectionsStage = "to_restaurant" | "to_customer";
 
 /** Admin switch (system_settings). On unless explicitly set to "false". */
 export const DIRECTIONS_SETTING_KEY = "courier_whatsapp_directions";
+
+/** Adds the column that records which phone a user last registered for notifications from. */
+export async function ensureDevicePlatformSchema(): Promise<void> {
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS device_platform TEXT`);
+}
+
+/** Called when the app registers a native push token: iOS sends an APNs token, Android an FCM one. */
+export async function recordDevicePlatform(userId: string, platform: "ios" | "android"): Promise<void> {
+  await pool.query(`UPDATE users SET device_platform = $2 WHERE id = $1`, [userId, platform]).catch(() => {});
+}
+
+/**
+ * Is this courier on an iPhone? The platform of their latest token registration decides.
+ * Couriers who have not opened the app since that started being recorded fall back to
+ * "has an APNs token", which only an iPhone can produce.
+ */
+export function isIphoneCourier(row: { device_platform?: unknown; apn_token?: unknown }): boolean {
+  if (row.device_platform === "ios") return true;
+  if (row.device_platform === "android") return false;
+  return row.apn_token != null && row.apn_token !== "";
+}
 
 type Place = { lat: number | null; lon: number | null };
 
@@ -88,7 +110,7 @@ export async function sendCourierDirections(orderId: string, stage: DirectionsSt
       `SELECT o.id, o.order_text, o.address, o.restaurant_name, o.restaurant_phone, o.place_name,
               o.destination_lat, o.destination_lon,
               r.lat AS r_lat, r.lon AS r_lon, r.phone AS r_phone,
-              c.phone AS courier_phone, u.name AS customer_name, u.phone AS customer_phone
+              c.phone AS courier_phone, c.apn_token, c.device_platform, u.name AS customer_name, u.phone AS customer_phone
        FROM orders o
        LEFT JOIN restaurants r ON r.id = o.restaurant_id
        LEFT JOIN users c ON c.id = o.courier_id
@@ -98,6 +120,7 @@ export async function sendCourierDirections(orderId: string, stage: DirectionsSt
     );
     const o = rows[0];
     if (!o?.courier_phone) return false;
+    if (!isIphoneCourier(o)) return false;
     const num = (v: unknown): number | null => (v == null ? null : Number(v));
     const text = directionsText({
       stage,

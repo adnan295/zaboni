@@ -8,6 +8,7 @@ import { requireAuth } from "../middleware/auth";
 import { requireAdmin } from "../middleware/adminAuth";
 import { sendPushToRole, sendPushToUsers, totalsSentCount, totalsFailedCount } from "../lib/push";
 
+import { recordDevicePlatform } from "../lib/courierDirections";
 const router = Router();
 
 router.use("/admin/notifications", requireAdmin);
@@ -343,6 +344,9 @@ router.put("/auth/device-tokens", requireAuth, async (req, res) => {
   if (parsed.data.apnToken !== undefined) updates.apnToken = parsed.data.apnToken || null;
 
   await db.update(usersTable).set(updates).where(eq(usersTable.id, userId));
+  // Remember which phone this is: an iPhone registers an APNs token, Android an FCM one.
+  if (parsed.data.apnToken) void recordDevicePlatform(userId, "ios");
+  else if (parsed.data.fcmToken) void recordDevicePlatform(userId, "android");
   res.json({ ok: true });
 });
 

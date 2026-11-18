@@ -10,6 +10,7 @@ import { startApkMirrorJob } from "./lib/apkMirror";
 import { startBackupWatchJob } from "./lib/backupStatus";
 import { ensurePerformanceIndexes } from "./lib/dbIndexes";
 import { ensureCourierActivitySchema, startCourierActivityJob } from "./lib/courierActivity";
+import { ensureDevicePlatformSchema } from "./lib/courierDirections";
 import { startPushReceiptJob } from "./lib/push";
 import { startDealExpiryJob } from "./lib/dealExpiry";
 import { startUploadCleanupJob } from "./lib/uploadCleanup";
@@ -71,6 +72,7 @@ await ensureOrderCreationSchema();
 await ensureCrashSchema();
 await ensurePerformanceIndexes();
 await ensureCourierActivitySchema();
+await ensureDevicePlatformSchema();
 
 httpServer.listen(port, (err?: Error) => {
   if (err) {

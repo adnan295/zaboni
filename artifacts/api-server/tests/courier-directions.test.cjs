@@ -19,16 +19,26 @@ async function setup() {
   const pg = new PGlite();
   await pg.exec(`
     CREATE TABLE system_settings (key TEXT PRIMARY KEY, value TEXT);
-    CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, phone TEXT);
+    CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, phone TEXT, apn_token TEXT, fcm_token TEXT, device_platform TEXT);
     CREATE TABLE restaurants (id TEXT PRIMARY KEY, lat REAL, lon REAL, phone TEXT);
     CREATE TABLE orders (id TEXT PRIMARY KEY, user_id TEXT, courier_id TEXT, restaurant_id TEXT, restaurant_name TEXT, restaurant_phone TEXT,
       place_name TEXT, order_text TEXT, address TEXT, destination_lat DOUBLE PRECISION, destination_lon DOUBLE PRECISION);
-    INSERT INTO users VALUES ('cust','خضر','+963911111111'),('cour','حسين','+963922222222');
+    INSERT INTO users VALUES ('cust','خضر','+963911111111',NULL,NULL,NULL),
+      ('cour','حسين','+963922222222','apn-abc',NULL,'ios'),
+      -- Android courier: never gets the message
+      ('droid','يوسف','+963933333333',NULL,'fcm-1','android'),
+      -- moved from an iPhone to Android: the old APNs token is still stored, the latest registration wins
+      ('moved','هاشم','+963944444444','apn-old','fcm-2','android'),
+      -- iPhone courier who has not opened the app since platforms started being recorded
+      ('legacy','غزوان','+963955555555','apn-xyz',NULL,NULL);
     INSERT INTO restaurants VALUES ('r1', 34.745945, 36.687397, '0984037151'), ('r_nopin', NULL, NULL, '');
     INSERT INTO orders VALUES
       ('order_abc123','cust','cour','r1','صاجيات وكعك طحان','0984037151',NULL,'شلل × 2','الحمرا، جانب الصيدلية',34.7301,36.7092),
       ('order_nopin1','cust','cour','r_nopin','مطعم بلا موقع','',NULL,'وجبة','الحمرا',34.7301,36.7092),
-      ('order_nocour','cust','','r1','صاجيات وكعك طحان','',NULL,'وجبة','الحمرا',34.7301,36.7092);
+      ('order_nocour','cust','','r1','صاجيات وكعك طحان','',NULL,'وجبة','الحمرا',34.7301,36.7092),
+      ('order_droid1','cust','droid','r1','صاجيات وكعك طحان','',NULL,'وجبة','الحمرا',34.7301,36.7092),
+      ('order_moved1','cust','moved','r1','صاجيات وكعك طحان','',NULL,'وجبة','الحمرا',34.7301,36.7092),
+      ('order_legacy','cust','legacy','r1','صاجيات وكعك طحان','',NULL,'وجبة','الحمرا',34.7301,36.7092);
   `);
   const sent = [];
   const lib = load({
@@ -80,4 +90,22 @@ test("a WhatsApp failure is reported as not sent and never throws", async () => 
   assert.equal(await lib.sendCourierDirections("x", "to_customer"), false);
   assert.equal(lib.directionsText({ stage: "to_customer", orderId: "o1", placeName: "", placePhone: "", place: { lat: null, lon: null },
     customerName: "", customerPhone: "", address: "", destination: { lat: 0, lon: 0 }, orderText: "" }), null, "0,0 is not a real location");
+});
+
+test("only iPhone couriers are messaged", async () => {
+  const { pg, lib, sent } = await setup();
+  for (const stage of ["to_restaurant", "to_customer"]) {
+    assert.equal(await lib.sendCourierDirections("order_droid1", stage), false, "Android courier");
+    assert.equal(await lib.sendCourierDirections("order_moved1", stage), false, "switched to Android: stale APNs token must not count");
+  }
+  assert.equal(sent.length, 0);
+  assert.equal(await lib.sendCourierDirections("order_legacy", "to_restaurant"), true, "APNs token and no recorded platform: an iPhone");
+  assert.equal(sent[0].phone, "+963955555555");
+
+  // Registering a token records the platform, so a courier who changes phone is picked up on their next app open.
+  await lib.ensureDevicePlatformSchema();
+  await lib.recordDevicePlatform("droid", "ios");
+  assert.equal(await lib.sendCourierDirections("order_droid1", "to_restaurant"), true);
+  assert.equal(lib.isIphoneCourier({ device_platform: null, apn_token: null }), false);
+  await pg.close();
 });
