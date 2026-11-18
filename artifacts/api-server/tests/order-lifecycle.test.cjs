@@ -37,6 +37,7 @@ async function setup(){
   '../lib/orderDispatch':{dispatchOrderNow:async id=>events.push({name:'dispatch',args:[id]})},
   '../lib/searchWatch':{maybeIssueApologyPromo:async()=>'disabled'},
   '../lib/achievements':{checkAndAwardAchievements:async()=>{}},
+  '../lib/courierDirections':{sendCourierDirections:async(id,stage)=>{events.push({name:'directions',args:[id,stage]});return true;}},
   '../lib/objectStorage':{ObjectStorageService:class{}},'../lib/webPush':{},'../lib/promoBannerComposer':{},'../lib/whatsapp':{},'../lib/sms':{},
  };
  function load(file){
@@ -84,6 +85,8 @@ test('complete restaurant order: checkout → restaurant/admin → courier → d
    assert.equal((await s.call('patch /courier/orders/:orderId/status','courier',{status:'delivered'},{orderId:id})).statusCode,409);
    const rewards=await s.db.select().from(schema.loyaltyTransactionsTable);assert.equal(rewards.filter(r=>r.orderId===id&&r.type==='earn').length,1);
    const history=await s.pg.query('SELECT status FROM order_status_history WHERE order_id=$1 ORDER BY created_at',[id]);assert.deepEqual(history.rows.map(r=>r.status),['searching','accepted','picked_up','on_way','delivered']);
+   // The courier gets the restaurant's map link on accept and the customer's on pickup, once each, in that order.
+   assert.deepEqual(s.events.filter(e=>e.name==='directions'&&e.args[0]===id).map(e=>e.args[1]),['to_restaurant','to_customer']);
   });
   await t.test('rating reaches restaurant and courier, and cannot be duplicated',async()=>{
    const body={restaurantStars:5,courierStars:4,comment:'اختبار محلي'};

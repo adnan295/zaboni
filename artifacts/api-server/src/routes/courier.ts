@@ -12,6 +12,7 @@ import { getCourierPointValue, getCourierPointsPerDay, redeemCourierPointsForDay
 import { checkAndAwardAchievements } from "../lib/achievements";
 import { sendCourierPush } from "../lib/push";
 import { recordAvailability, touchOnlineSession } from "../lib/courierActivity";
+import { sendCourierDirections } from "../lib/courierDirections";
 
 const router: IRouter = Router();
 
@@ -550,6 +551,8 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   notifyOrderUpdate(accepted.userId, accepted);
   notifyCouriersOrderTaken(orderId);
   await sendOrderPush(accepted.userId, `${accepted.courierName} قبل طلبك وهو في الطريق لاستلامه!`, orderId);
+  // Map link to the restaurant on the courier's WhatsApp. Not awaited: never delays the accept.
+  void sendCourierDirections(orderId, "to_restaurant");
 
   res.json(accepted);
 });
@@ -644,6 +647,10 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
 
   if (body.data.status === "delivered") {
     void checkAndAwardAchievements(currentOrder.userId);
+  }
+  // Collected: now send the customer's location.
+  if (body.data.status === "picked_up") {
+    void sendCourierDirections(orderId, "to_customer");
   }
 
   res.json(updated[0]);

@@ -1,4 +1,5 @@
 import DirectDownloadCard from "@/components/DirectDownloadCard";
+import CourierDirectionsCard from "@/components/CourierDirectionsCard";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, setAdminToken, type HomeFilter, type TabBarItem, type AvailableTabType } from "@/lib/api";
@@ -254,6 +255,7 @@ export default function Settings() {
 
       {/* Admin Password Section */}
       <DirectDownloadCard />
+      <CourierDirectionsCard />
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">

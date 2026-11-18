@@ -55,6 +55,7 @@ async function setup() {
     '../lib/orderDispatch': { dispatchOrderNow: async id => events.push(['dispatch', id]) },
     '../lib/searchWatch': { maybeIssueApologyPromo: async () => 'disabled' },
     '../lib/courierActivity': { recordAvailability: async () => {}, touchOnlineSession: async () => {}, recordOffers: async () => {} },
+    '../lib/courierDirections': { sendCourierDirections: async () => false },
     '../lib/clientIp': { clientIp: () => '198.51.100.1', clientIpFrom: () => '198.51.100.1', trustProxy: () => false },
     '../lib/achievements': { checkAndAwardAchievements: async () => {} },
     '../lib/orderTimings': { getOrderTimings: async () => ({}), getSpeedReport: async () => ({}) },
