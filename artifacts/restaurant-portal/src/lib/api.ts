@@ -37,6 +37,10 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 }
 
 export const api = {
+  getKitchen: () => apiFetch<KitchenPortal>("/restaurant-portal/kitchen"),
+  setKitchenPortions: (mealId: string, day: string, portions: number) =>
+    apiFetch<{ portions: number; sold: number }>(`/restaurant-portal/kitchen/meals/${mealId}/days/${day}`, { method: "PUT", body: JSON.stringify({ portions }) }),
+
   login: (data: { phone: string; password: string }) =>
     apiFetch<AuthInfo>("/restaurant-portal/auth/login", { method: "POST", body: JSON.stringify(data) }),
 
@@ -335,3 +339,14 @@ export type Analytics = {
   topItems: { name: string; count: number }[];
   peakHours: { hour: number; count: number }[];
 };
+
+// A kitchen of the pre-order section ("بيتي وصحّي"). isKitchen is false for ordinary restaurants.
+export type KitchenPortal =
+  | { isKitchen: false }
+  | {
+      isKitchen: true;
+      days: { day: string; open: boolean; closesAt: string }[];
+      meals: { id: string; nameAr: string; price: number; image: string; isAvailable: boolean }[];
+      mealDays: { mealId: string; day: string; portions: number; sold: number }[];
+      summaries: ({ orders: number; day: string; lines: { nameAr: string; qty: number }[]; byWindow: { window: string; orders: number }[] } | null)[];
+    };

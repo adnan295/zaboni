@@ -16,6 +16,7 @@ import Analytics from "@/pages/Analytics";
 import Ratings from "@/pages/Ratings";
 import Promos from "@/pages/Promos";
 import FlashDeals from "@/pages/FlashDeals";
+import KitchenDays from "@/pages/KitchenDays";
 import NotFound from "@/pages/not-found";
 import { useRestaurantSocket } from "@/hooks/useRestaurantSocket";
 import { useWebPush } from "@/hooks/useWebPush";
@@ -45,6 +46,7 @@ function Router({ restaurantName, onLogout }: { restaurantName: string; onLogout
         <Route path="/menu" component={Menu} />
         <Route path="/orders" component={Orders} />
         <Route path="/hours" component={Hours} />
+        <Route path="/kitchen-days" component={KitchenDays} />
         <Route path="/analytics" component={Analytics} />
         <Route path="/ratings" component={Ratings} />
         <Route path="/promos" component={Promos} />

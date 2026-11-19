@@ -22,7 +22,10 @@ import {
   Bell,
   BellOff,
   BellRing,
+  CalendarDays,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 import type { PushPermission } from "@/hooks/useWebPush";
 
 interface LayoutProps {
@@ -39,12 +42,13 @@ interface LayoutProps {
   onDisablePush?: () => void;
 }
 
-const navItems = [
+const allNavItems: { href: string; label: string; icon: typeof CalendarDays; badgeKey?: boolean; kitchenOnly?: boolean }[] = [
   { href: "/", label: "لوحة التحكم", icon: LayoutDashboard },
   { href: "/analytics", label: "التقارير", icon: BarChart2 },
   { href: "/ratings", label: "التقييمات", icon: Star },
   { href: "/menu", label: "قائمة الطعام", icon: UtensilsCrossed },
   { href: "/orders", label: "الطلبات", icon: ClipboardList, badgeKey: true },
+  { href: "/kitchen-days", label: "حصص الأيام", icon: CalendarDays, kitchenOnly: true },
   { href: "/hours", label: "أوقات العمل", icon: Clock },
   { href: "/flash-deals", label: "عروض فلاش", icon: Zap },
   { href: "/promos", label: "أكواد الخصم", icon: Tag },
@@ -69,6 +73,9 @@ export default function Layout({ children, onLogout, restaurantName, newOrderCou
     }
   };
 
+  // "حصص الأيام" is only for kitchens of the pre-order section.
+  const { data: kitchen } = useQuery({ queryKey: ["portal-kitchen"], queryFn: api.getKitchen, staleTime: 60_000, retry: false });
+  const navItems = allNavItems.filter((n) => !n.kitchenOnly || kitchen?.isKitchen === true);
   const currentLabel = navItems.find(n => n.href === location || (n.href !== "/" && location.startsWith(n.href)))?.label ?? "بوابة المطعم";
 
   return (

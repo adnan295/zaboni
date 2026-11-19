@@ -9,6 +9,7 @@ interface Props {
 }
 
 const STATUS_MAP: Record<string, { label: string; color: string; Icon: React.ElementType }> = {
+  scheduled: { label: "طلب مسبق مجدول", color: "text-emerald-700 bg-emerald-50 border-emerald-200", Icon: Search },
   searching: { label: "يبحث عن سائق", color: "text-amber-600 bg-amber-50 border-amber-200", Icon: Search },
   accepted:  { label: "مقبول — الكابتن في الطريق للمطعم", color: "text-blue-600 bg-blue-50 border-blue-200", Icon: CheckCircle2 },
   on_way:    { label: "في الطريق للعميل", color: "text-purple-600 bg-purple-50 border-purple-200", Icon: Bike },
