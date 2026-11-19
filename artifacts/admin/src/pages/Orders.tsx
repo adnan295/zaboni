@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 
 const STATUS_LABELS: Record<string, string> = {
+  scheduled: "مجدول (طلب مسبق)",
   searching: "يبحث عن مندوب",
   accepted: "قبِل المندوب",
   picked_up: "جارٍ التوصيل",
@@ -22,6 +23,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
+  scheduled: "bg-emerald-100 text-emerald-800",
   searching: "bg-yellow-100 text-yellow-800",
   accepted: "bg-blue-100 text-blue-800",
   picked_up: "bg-purple-100 text-purple-800",

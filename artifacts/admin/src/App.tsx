@@ -30,6 +30,7 @@ import ChatMonitor from "@/pages/ChatMonitor";
 import WhatsApp from "@/pages/WhatsApp";
 import Crashes from "@/pages/Crashes";
 import BusinessReports from "@/pages/BusinessReports";
+import Kitchen from "@/pages/Kitchen";
 import HomeSections from "@/pages/HomeSections";
 import RestaurantAccounts from "@/pages/RestaurantAccounts";
 import RestaurantPerformance from "@/pages/RestaurantPerformance";
@@ -80,6 +81,7 @@ function Router({ onLogout }: { onLogout: () => void }) {
         <Route path="/whatsapp" component={WhatsApp} />
         <Route path="/crashes" component={Crashes} />
         <Route path="/reports" component={BusinessReports} />
+        <Route path="/kitchen" component={Kitchen} />
         <Route path="/home-sections" component={HomeSections} />
         <Route path="/restaurant-accounts" component={RestaurantAccounts} />
         <Route path="/restaurant-performance" component={RestaurantPerformance} />

@@ -623,6 +623,7 @@ export const api = {
   get: <T>(path: string) => apiFetch<T>(path),
   post: <T>(path: string, body: unknown) => apiFetch<T>(path, { method: "POST", body: JSON.stringify(body) }),
   patch: <T>(path: string, body: unknown) => apiFetch<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
+  put: <T>(path: string, body: unknown) => apiFetch<T>(path, { method: "PUT", body: JSON.stringify(body) }),
   del: (path: string) => apiFetch<void>(path, { method: "DELETE" }),
 
   async changeAdminPassword(currentPassword: string, newPassword: string): Promise<void> {
@@ -1689,4 +1690,26 @@ export type TodayPulse = {
     subscriptionsEndingSoon: number;
   };
   hourly: number[];
+};
+
+// ─── "بيتي وصحّي" pre-order section ─────────────────────────────────────────
+export type KitchenDay = { day: string; open: boolean; closesAt: string };
+export type KitchenMealAdmin = {
+  id: string; kitchenId: string; nameAr: string; price: number; image: string; isAvailable: boolean;
+  section: string | null; calories: number | null; proteinG: number | null; carbsG: number | null; fatG: number | null; tags: string[];
+};
+export type KitchenOverview = {
+  settings: { enabled: boolean; title: string; cutoffHour: number; windows: string[]; subscriptionDiscountPct: number; releaseLeadMinutes: number };
+  days: KitchenDay[];
+  kitchens: { id: string; nameAr: string; phone: string | null; isOpen: boolean; rating: number }[];
+  otherRestaurants: { id: string; nameAr: string }[];
+  meals: KitchenMealAdmin[];
+  mealDays: { mealId: string; day: string; portions: number; sold: number }[];
+  upcoming: { day: string; orders: number; total: number }[];
+  subscriptions: { active: number; total: number };
+};
+export type KitchenDayOrders = {
+  day: string;
+  orders: { id: string; status: string; orderText: string; kitchenName: string; address: string; window: string; totalPrice: number; deliveryFee: number; subscriptionId: string | null; customerName: string | null; customerPhone: string | null }[];
+  summaries: { kitchenId: string; kitchenName: string; orders: number; lines: { nameAr: string; qty: number }[]; byWindow: { window: string; orders: number }[] }[];
 };

@@ -52,6 +52,10 @@ export const navigationGroups = [
       {
         "href": "/restaurant-performance",
         "label": "أداء المطاعم"
+      },
+      {
+        "href": "/kitchen",
+        "label": "بيتي وصحّي"
       }
     ]
   },
