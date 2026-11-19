@@ -1,8 +1,10 @@
-import { pgTable, text, real, integer, timestamp, doublePrecision } from "drizzle-orm/pg-core";
+import { date, pgTable, text, real, integer, timestamp, doublePrecision } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 export const ORDER_STATUSES = [
+  // Ordered ahead for a delivery window; becomes "searching" shortly before it (lib/kitchen).
+  "scheduled",
   "searching",
   "accepted",
   "picked_up",
@@ -50,6 +52,13 @@ export const ordersTable = pgTable("orders", {
   restaurantNote: text("restaurant_note"),
   // Why the customer cancelled while searching (see add-order-cancel-reason).
   cancelReason: text("cancel_reason"),
+  // "بيتي وصحّي" pre-orders: the delivery day and window (Damascus time), when the
+  // customer placed it (created_at is reset when the order is released to couriers),
+  // and the weekly subscription it belongs to, if any.
+  scheduledDay: date("scheduled_day"),
+  scheduledWindow: text("scheduled_window"),
+  placedAt: timestamp("placed_at", { withTimezone: true }),
+  mealSubscriptionId: text("meal_subscription_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

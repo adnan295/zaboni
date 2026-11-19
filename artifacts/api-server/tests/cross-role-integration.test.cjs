@@ -56,6 +56,7 @@ async function setup() {
     '../lib/searchWatch': { maybeIssueApologyPromo: async () => 'disabled' },
     '../lib/courierActivity': { recordAvailability: async () => {}, touchOnlineSession: async () => {}, recordOffers: async () => {} },
     '../lib/courierDirections': { sendCourierDirections: async () => false },
+    '../lib/kitchen': new Proxy({ KitchenError: class extends Error {}, isDay: () => false }, { get: (o, k) => k in o ? o[k] : async () => null }),
     '../lib/clientIp': { clientIp: () => '198.51.100.1', clientIpFrom: () => '198.51.100.1', trustProxy: () => false },
     '../lib/achievements': { checkAndAwardAchievements: async () => {} },
     '../lib/orderTimings': { getOrderTimings: async () => ({}), getSpeedReport: async () => ({}) },

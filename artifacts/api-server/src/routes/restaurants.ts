@@ -42,7 +42,8 @@ router.get("/restaurants", async (req, res) => {
 
   let query = db.select().from(restaurantsTable).$dynamic();
 
-  const conditions = [];
+  // Kitchens of the pre-order section are never listed as restaurants.
+  const conditions = [sql`${restaurantsTable.kind} <> 'kitchen'`];
   if (search) {
     const pattern = literalSearchPattern(search);
     conditions.push(

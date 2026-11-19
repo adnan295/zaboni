@@ -55,6 +55,7 @@ import { clientIp } from "../lib/clientIp";
 import { getCourierEconomics, getRestaurantSales, parsePeriod } from "../lib/businessReports";
 import { getTodayPulse } from "../lib/todayPulse";
 import { getOrderTimings, getSpeedReport } from "../lib/orderTimings";
+import { adminOverview, setRestaurantKind, updateMealNutrition, setMealDay, listScheduledOrders, adminCancelScheduled, getDaySummaries, isDay } from "../lib/kitchen";
 
 const ORDER_STATUSES = [
   "searching",
@@ -2468,6 +2469,50 @@ router.delete("/admin/work-zones/:id", async (req, res) => {
     await tx.delete(workZonesTable).where(eq(workZonesTable.id, id));
   });
   res.status(204).end();
+});
+
+// ─── "بيتي وصحّي" pre-order section ─────────────────────────────────────────
+
+router.get("/admin/kitchen", async (_req, res) => {
+  res.json(await adminOverview());
+});
+
+router.put("/admin/kitchen/restaurants/:id", async (req, res) => {
+  const kitchen = (req.body as { kitchen?: unknown } | undefined)?.kitchen === true;
+  if (!(await setRestaurantKind(String(req.params["id"]), kitchen))) { res.status(404).json({ error: "Not found" }); return; }
+  res.json({ ok: true });
+});
+
+router.put("/admin/kitchen/meals/:id", async (req, res) => {
+  const body = z.object({
+    section: z.string().optional(), calories: z.number().nullable().optional(), proteinG: z.number().nullable().optional(),
+    carbsG: z.number().nullable().optional(), fatG: z.number().nullable().optional(), tags: z.array(z.string()).optional(),
+  }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: "Invalid body" }); return; }
+  if (!(await updateMealNutrition(String(req.params["id"]), body.data))) { res.status(404).json({ error: "Not a kitchen meal" }); return; }
+  res.json({ ok: true });
+});
+
+router.put("/admin/kitchen/meals/:id/days/:day", async (req, res) => {
+  const portions = Number((req.body as { portions?: unknown } | undefined)?.portions);
+  const out = await setMealDay(String(req.params["id"]), String(req.params["day"]), portions);
+  if (!out) { res.status(404).json({ error: "Not a kitchen meal or bad day" }); return; }
+  res.json(out);
+});
+
+router.get("/admin/kitchen/orders", async (req, res) => {
+  const day = String(req.query["day"] ?? "");
+  if (!isDay(day)) { res.status(400).json({ error: "day=YYYY-MM-DD required" }); return; }
+  res.json({ day, orders: await listScheduledOrders(day), summaries: await getDaySummaries(day) });
+});
+
+// Cancels a pre-order with no cutoff (e.g. the kitchen cannot cook) and gives the portions back.
+router.post("/admin/kitchen/orders/:id/cancel", async (req, res) => {
+  const order = await adminCancelScheduled(String(req.params["id"]));
+  if (!order) { res.status(409).json({ error: "Order is not scheduled" }); return; }
+  notifyOrderUpdate(String(order["user_id"]), { id: order["id"], status: "cancelled", cancelNote: "admin_cancelled" });
+  void sendOrderPush(String(order["user_id"]), "نعتذر منك، تم إلغاء طلبك المسبق من «بيتي وصحّي».", String(order["id"]));
+  res.json({ ok: true });
 });
 
 router.get("/admin/settings", async (_req, res) => {

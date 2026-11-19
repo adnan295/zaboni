@@ -26,6 +26,9 @@ export const restaurantsTable = pgTable("restaurants", {
   offersEnabled: boolean("offers_enabled").notNull().default(true),
   sortOrder: integer("sort_order"),
   zoneId: text("zone_id"),
+  // 'restaurant' or 'kitchen'. Kitchens belong to the pre-order "بيتي وصحّي" section and
+  // are never listed with restaurants.
+  kind: text("kind").notNull().default("restaurant"),
 });
 
 export const insertRestaurantSchema = createInsertSchema(restaurantsTable);

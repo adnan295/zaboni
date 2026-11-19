@@ -60,6 +60,7 @@ function load(file, dbState = database(), overrides = {}, expose = '', globals =
     '../lib/searchWatch': { maybeIssueApologyPromo: asyncNoop },
     '../lib/courierActivity': { recordAvailability: async () => {}, touchOnlineSession: async () => {}, recordOffers: async () => {} },
     '../lib/courierDirections': { sendCourierDirections: async () => false },
+    '../lib/kitchen': new Proxy({ KitchenError: class extends Error {}, isDay: () => false }, { get: (o, k) => k in o ? o[k] : async () => null }),
     '../lib/clientIp': { clientIp: () => '198.51.100.1', clientIpFrom: () => '198.51.100.1', trustProxy: () => false },
     '../lib/deliveryEstimates': { getLearnedTimes: async () => ({ sample: 0, byRestaurantId: {} }), estimateOrderMinutes: () => 30, liveEtaMinutes: () => 12, restaurantDeliveryRange: () => null },
     '../lib/push': new Proxy({}, { get: () => asyncNoop }),

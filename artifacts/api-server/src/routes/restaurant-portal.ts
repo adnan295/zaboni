@@ -13,6 +13,7 @@ import { ObjectStorageService } from "../lib/objectStorage";
 import { composeBannerByTemplate, listPublicTemplates, getPreviewBuffer, ensurePreviewsExist } from "../lib/promoBannerComposer";
 import { randomInt, randomUUID } from "crypto";
 
+import { kitchenPortalDays, setMealDay } from "../lib/kitchen";
 const router = Router();
 const objectStorageService = new ObjectStorageService();
 
@@ -489,6 +490,23 @@ router.put("/restaurant-portal/hours", requireRestaurantAuth, async (req, res) =
 
   const hours = await db.select().from(restaurantHoursTable).where(eq(restaurantHoursTable.restaurantId, restaurantId)).orderBy(restaurantHoursTable.dayOfWeek);
   res.json(hours);
+});
+
+// A kitchen of the pre-order section: the cook sets how many portions she will make
+// each day and sees what has been ordered. Empty for ordinary restaurants.
+router.get("/restaurant-portal/kitchen", requireRestaurantAuth, async (req, res) => {
+  const { restaurantId } = getRestaurantAuth(req);
+  const [r] = await db.select({ kind: restaurantsTable.kind }).from(restaurantsTable).where(eq(restaurantsTable.id, restaurantId)).limit(1);
+  if (r?.kind !== "kitchen") { res.json({ isKitchen: false }); return; }
+  res.json({ isKitchen: true, ...(await kitchenPortalDays(restaurantId)) });
+});
+
+router.put("/restaurant-portal/kitchen/meals/:id/days/:day", requireRestaurantAuth, async (req, res) => {
+  const { restaurantId } = getRestaurantAuth(req);
+  const portions = Number((req.body as { portions?: unknown } | undefined)?.portions);
+  const out = await setMealDay(String(req.params["id"]), String(req.params["day"]), portions, restaurantId);
+  if (!out) { res.status(404).json({ error: "Not your meal or bad day" }); return; }
+  res.json(out);
 });
 
 router.get("/restaurant-portal/orders", requireRestaurantAuth, async (req, res) => {

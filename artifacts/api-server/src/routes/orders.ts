@@ -13,6 +13,7 @@ import { checkAndAwardAchievements } from "../lib/achievements";
 import { maybeIssueApologyPromo } from "../lib/searchWatch";
 import { isUserSubscribed, getSubscriptionSettings } from "../lib/customerSubscription";
 import { getLearnedTimes, estimateOrderMinutes, liveEtaMinutes } from "../lib/deliveryEstimates";
+import { cancelScheduledOrder, KitchenError } from "../lib/kitchen";
 
 const router: IRouter = Router();
 
@@ -463,7 +464,7 @@ const MAX_ORDERS_PER_HOUR = 10;
 async function orderFloodCheck(userId: string): Promise<{ error: string; message: string } | null> {
   const [row] = await db
     .select({
-      open: sql<number>`COUNT(*) FILTER (WHERE ${ordersTable.status} NOT IN ('delivered', 'cancelled'))`,
+      open: sql<number>`COUNT(*) FILTER (WHERE ${ordersTable.status} NOT IN ('delivered', 'cancelled', 'scheduled'))`,
       lastHour: sql<number>`COUNT(*) FILTER (WHERE ${ordersTable.createdAt} > NOW() - INTERVAL '1 hour')`,
     })
     .from(ordersTable)
@@ -728,6 +729,10 @@ router.post("/orders", async (req, res) => {
     const hours = (await getHoursForRestaurants([r.id], [dayOfWeek, prevDayOfWeek])).get(r.id);
     if (!computeIsOpenFromHours(hours?.get(dayOfWeek), hours?.get(prevDayOfWeek), nowMinutes, r.isOpen)) {
       res.status(422).json({ error: "restaurant_closed", message: "المطعم مغلق حالياً، يرجى اختيار مطعم آخر." }); return;
+    }
+    // Kitchens cook to order for a set day: they are ordered through /kitchen/orders only.
+    if (r.kind === "kitchen") {
+      res.status(422).json({ error: "kitchen_preorder_only", message: "هالمطبخ بيشتغل بالطلب المسبق من قسم «بيتي وصحّي»." }); return;
     }
     if (r.minOrder > 0 && (itemsTotal == null || itemsTotal < r.minOrder)) {
       res.status(422).json({ error: "minimum_order_not_met", message: "قيمة الأصناف أقل من الحد الأدنى للطلب.", minimum: r.minOrder }); return;
@@ -1202,6 +1207,19 @@ router.delete("/orders/:id", async (req, res) => {
     return;
   }
   const order = rows[0]!;
+  // A pre-ordered meal: cancellable until that day's cutoff, and its portions go back on sale.
+  if (order.status === "scheduled") {
+    try {
+      await cancelScheduledOrder(userId, id);
+      const [fresh] = await db.select().from(ordersTable).where(eq(ordersTable.id, id)).limit(1);
+      notifyOrderUpdate(userId, { ...fresh, cancelNote: null });
+      res.json(fresh);
+    } catch (err) {
+      if (err instanceof KitchenError) res.status(err.status).json({ error: err.code, message: err.message });
+      else throw err;
+    }
+    return;
+  }
   if (order.status !== "searching") {
     res.status(409).json({ error: "Order can only be cancelled while searching for a courier" });
     return;

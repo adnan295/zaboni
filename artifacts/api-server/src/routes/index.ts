@@ -18,6 +18,7 @@ import supportRouter from "./support";
 import referralRouter from "./referral";
 import coverageRouter from "./coverage";
 import crashesRouter from "./crashes";
+import kitchenRouter from "./kitchen";
 import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
@@ -44,5 +45,6 @@ router.use(loyaltyRouter);
 router.use(achievementsRouter);
 router.use(subscriptionsRouter);
 router.use(referralRouter);
+router.use(kitchenRouter);
 
 export default router;

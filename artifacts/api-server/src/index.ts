@@ -2,8 +2,8 @@ import { createServer } from "http";
 import { Server as SocketServer } from "socket.io";
 import app from "./app";
 import { ensureOrderCreationSchema } from "./lib/orderCreation";
-import { setupOrdersNamespace, notifyNearbyCouriers } from "./orders/server";
-import { ensureDispatchSchema, startOrderDispatchJob } from "./lib/orderDispatch";
+import { setupOrdersNamespace, notifyNearbyCouriers, notifyOrderUpdate, sendOrderPush } from "./orders/server";
+import { ensureDispatchSchema, startOrderDispatchJob, dispatchOrderNow } from "./lib/orderDispatch";
 import { startSearchWatchJob } from "./lib/searchWatch";
 import { ensureCrashSchema, startCrashRetentionJob } from "./lib/crashReports";
 import { startApkMirrorJob } from "./lib/apkMirror";
@@ -11,6 +11,8 @@ import { startBackupWatchJob } from "./lib/backupStatus";
 import { ensurePerformanceIndexes } from "./lib/dbIndexes";
 import { ensureCourierActivitySchema, startCourierActivityJob } from "./lib/courierActivity";
 import { ensureDevicePlatformSchema } from "./lib/courierDirections";
+import { ensureKitchenSchema, startKitchenJob } from "./lib/kitchen";
+import { whatsappManager } from "./lib/whatsapp";
 import { startPushReceiptJob } from "./lib/push";
 import { startDealExpiryJob } from "./lib/dealExpiry";
 import { startUploadCleanupJob } from "./lib/uploadCleanup";
@@ -73,6 +75,7 @@ await ensureCrashSchema();
 await ensurePerformanceIndexes();
 await ensureCourierActivitySchema();
 await ensureDevicePlatformSchema();
+await ensureKitchenSchema();
 
 httpServer.listen(port, (err?: Error) => {
   if (err) {
@@ -86,6 +89,18 @@ httpServer.listen(port, (err?: Error) => {
   startApkMirrorJob();
   startBackupWatchJob();
   startCourierActivityJob();
+  // Hands pre-ordered meals to couriers shortly before their delivery window and
+  // tells each kitchen what to cook once ordering closes.
+  startKitchenJob(
+    {
+      dispatch: (orderId) => dispatchOrderNow(orderId),
+      notifyCustomer: (userId, order) => {
+        notifyOrderUpdate(userId, { id: order["id"], status: "searching" });
+        void sendOrderPush(userId, "عم نجهّز طلبك من «بيتي وصحّي» وبيطلع عالطريق قريباً 🍲", String(order["id"]));
+      },
+    },
+    (phone, text) => whatsappManager.sendMessage(phone, text),
+  );
   startPushReceiptJob();
   startDealExpiryJob();
   startUploadCleanupJob();
