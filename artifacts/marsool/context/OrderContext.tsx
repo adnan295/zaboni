@@ -12,7 +12,8 @@ import { createCheckoutSender } from "@/lib/checkoutRequest";
 import { customFetch } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
 
-export type OrderStatus = "searching" | "accepted" | "picked_up" | "on_way" | "delivered" | "cancelled";
+// "scheduled": a meal ordered ahead from the "بيتي وصحّي" section, waiting for its delivery day.
+export type OrderStatus = "scheduled" | "searching" | "accepted" | "picked_up" | "on_way" | "delivered" | "cancelled";
 
 export interface OrderItem {
   menuItemId: string | null;
@@ -61,6 +62,10 @@ export interface Order {
   totalPrice?: number | null;
   orderType?: string;
   placeName?: string | null;
+  /** Pre-orders: delivery day (YYYY-MM-DD), window ("13-14") and weekly subscription, if any. */
+  scheduledDay?: string | null;
+  scheduledWindow?: string | null;
+  mealSubscriptionId?: string | null;
 }
 
 interface OrderContextValue {
@@ -69,6 +74,8 @@ interface OrderContextValue {
   placeOrder: (input: PlaceOrderInput) => Promise<Order>;
   getOrder: (id: string) => Order | undefined;
   refreshOrder: (id: string) => Promise<void>;
+  /** Reloads the order list, e.g. right after placing pre-orders. */
+  refreshOrders: () => Promise<void>;
   setStatusChangeHandler: (handler: (order: Order, newStatus: OrderStatus) => void) => void;
 }
 
@@ -95,6 +102,9 @@ function apiOrderToLocal(apiOrder: {
   flashDealDiscount?: number | null;
   deliveryFee?: number | null;
   totalPrice?: number | null;
+  scheduledDay?: string | null;
+  scheduledWindow?: string | null;
+  mealSubscriptionId?: string | null;
 }): Order {
   return {
     id: apiOrder.id,
@@ -120,12 +130,16 @@ function apiOrderToLocal(apiOrder: {
     flashDealDiscount: apiOrder.flashDealDiscount ?? undefined,
     deliveryFee: apiOrder.deliveryFee ?? undefined,
     totalPrice: apiOrder.totalPrice ?? undefined,
+    scheduledDay: apiOrder.scheduledDay ? String(apiOrder.scheduledDay).slice(0, 10) : null,
+    scheduledWindow: apiOrder.scheduledWindow ?? null,
+    mealSubscriptionId: apiOrder.mealSubscriptionId ?? null,
   };
 }
 
 const ACTIVE_POLL_MS = 12000;
 const IDLE_POLL_MS = 60000;
-const TERMINAL_STATUSES: OrderStatus[] = ["delivered", "cancelled"];
+// A scheduled pre-order is days away: it is neither the "active order" nor a reason to poll fast.
+const TERMINAL_STATUSES: OrderStatus[] = ["delivered", "cancelled", "scheduled"];
 
 export function OrderProvider({ children }: { children: React.ReactNode }) {
   const { user, isLoading: authLoading } = useAuth();
@@ -243,10 +257,10 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const activeOrder = orders.find((o) => o.status !== "delivered" && o.status !== "cancelled") ?? null;
+  const activeOrder = orders.find((o) => !TERMINAL_STATUSES.includes(o.status)) ?? null;
 
   return (
-    <OrderContext.Provider value={{ orders, activeOrder, placeOrder, getOrder, refreshOrder, setStatusChangeHandler }}>
+    <OrderContext.Provider value={{ orders, activeOrder, placeOrder, getOrder, refreshOrder, refreshOrders: fetchOrders, setStatusChangeHandler }}>
       {children}
     </OrderContext.Provider>
   );

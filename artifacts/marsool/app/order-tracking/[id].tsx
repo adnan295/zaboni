@@ -23,6 +23,7 @@ import { customFetch, ApiError } from "@workspace/api-client-react";
 import { useRatings } from "@/context/RatingsContext";
 import { DeliveryMap } from "@/components/DeliveryMap";
 import CancelReasonSheet, { type CancelReason } from "@/components/CancelReasonSheet";
+import ScheduledOrderView from "@/components/ScheduledOrderView";
 import {
   Coords,
   HOMS_CENTER,
@@ -300,6 +301,9 @@ export default function OrderTrackingScreen() {
       </View>
     );
   }
+
+  // A pre-ordered meal has no courier to track yet: show the booking instead.
+  if (order.status === "scheduled") return <ScheduledOrderView order={order} />;
 
   const isDelivered = order.status === "delivered";
   const isCancelled = order.status === "cancelled";

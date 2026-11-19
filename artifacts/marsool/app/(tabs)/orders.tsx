@@ -23,6 +23,7 @@ const PAGE_LIMIT = 20;
 const formatWaPhone = (phone: string) => phone.replace(/[^0-9]/g, "");
 
 const STATUS_COLOR: Record<OrderStatus, string> = {
+  scheduled: "#1F4D3A",
   searching: "#d97706",
   accepted: "#2563eb",
   picked_up: "#9C27B0",
@@ -32,6 +33,7 @@ const STATUS_COLOR: Record<OrderStatus, string> = {
 };
 
 const STATUS_ICON: Record<OrderStatus, keyof typeof MaterialIcons.glyphMap> = {
+  scheduled: "event-available",
   searching: "search",
   accepted: "check-circle",
   picked_up: "inventory",
@@ -74,6 +76,7 @@ function ActiveOrderBanner({ order }: { order: Order }) {
   const { t } = useTranslation();
 
   const STATUS_LABEL: Record<OrderStatus, string> = {
+    scheduled: t("orders.status.scheduled"),
     searching: t("orders.status.searching"),
     accepted: t("orders.status.accepted"),
     picked_up: t("orders.status.picked_up"),
@@ -129,6 +132,7 @@ function OrderCard({ order }: { order: Order }) {
   const isActive = order.status !== "delivered" && order.status !== "cancelled";
 
   const STATUS_LABEL: Record<OrderStatus, string> = {
+    scheduled: t("orders.status.scheduled"),
     searching: t("orders.status.searching"),
     accepted: t("orders.status.accepted"),
     picked_up: t("orders.status.picked_up"),
@@ -160,7 +164,11 @@ function OrderCard({ order }: { order: Order }) {
         </View>
       </View>
 
-      <Text style={[styles.date, { color: colors.mutedForeground }]}>{formatDate(order.createdAt)}</Text>
+      <Text style={[styles.date, { color: colors.mutedForeground }]}>
+        {order.status === "scheduled" && order.scheduledDay
+          ? t("orders.deliveryOn", { day: order.scheduledDay.split("-").reverse().slice(0, 2).map(Number).join("/") })
+          : formatDate(order.createdAt)}
+      </Text>
 
       <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
@@ -185,12 +193,14 @@ function OrderCard({ order }: { order: Order }) {
               router.push({ pathname: "/order-tracking/[id]", params: { id: order.id } })
             }
           >
-            <MaterialIcons name="delivery-dining" size={16} color={colors.primary} />
-            <Text style={[styles.trackBtnText, { color: colors.primary }]}>{t("orders.track")}</Text>
+            <MaterialIcons name={order.status === "scheduled" ? "event-available" : "delivery-dining"} size={16} color={colors.primary} />
+            <Text style={[styles.trackBtnText, { color: colors.primary }]}>
+              {order.status === "scheduled" ? t("orders.viewBooking") : t("orders.track")}
+            </Text>
           </TouchableOpacity>
         )}
 
-        {isActive && order.status !== "searching" && (
+        {isActive && order.status !== "searching" && order.status !== "scheduled" && (
           <TouchableOpacity
             style={[styles.chatBtn, { backgroundColor: "#25D366" }]}
             onPress={() => {

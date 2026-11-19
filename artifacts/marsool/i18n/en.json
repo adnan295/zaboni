@@ -187,7 +187,8 @@
       "picked_up": "Courier picked up your order",
       "on_way": "On the way",
       "delivered": "Delivered",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "scheduled": "Booked"
     },
     "courier": "Courier",
     "track": "Track Order",
@@ -196,7 +197,9 @@
     "rate": "Rate Order",
     "reorder": "Order Again",
     "allLoaded": "All orders loaded",
-    "activeOrder": "Active Order"
+    "activeOrder": "Active Order",
+    "viewBooking": "Booking details",
+    "deliveryOn": "Delivery on {{day}}"
   },
   "favorites": {
     "title": "Favorites",
@@ -649,6 +652,10 @@
     "cancelled": {
       "title": "Order Cancelled",
       "body": "Your order has been successfully cancelled"
+    },
+    "scheduled": {
+      "title": "Meal booked",
+      "body": "It arrives on its day"
     }
   },
   "map": {
@@ -813,7 +820,8 @@
     "delete": "Delete",
     "loading": "Loading...",
     "error": "An error occurred",
-    "retry": "Retry"
+    "retry": "Retry",
+    "ok": "OK"
   },
   "editProfile": {
     "title": "Edit Profile",
@@ -949,5 +957,105 @@
     "step1": "Share your unique code with a friend",
     "step2": "They enter it when signing up",
     "step3": "When their first order is delivered, you earn bonus points"
+  },
+  "kitchen": {
+    "defaultTitle": "Home & Healthy",
+    "kcal": "kcal",
+    "gram": "g",
+    "calories": "Calories",
+    "protein": "Protein",
+    "carbs": "Carbs",
+    "fat": "Fat",
+    "backToZaboni": "Back to Zaboni",
+    "tagline": "Home cooking and healthy meals, cooked to order and delivered on time.",
+    "soonTitle": "Coming soon",
+    "soonBody": "We are preparing this section. It opens soon.",
+    "door": {
+      "subtitle": "Home cooking and healthy meals with calories · book for tomorrow",
+      "cta": "Enter"
+    },
+    "sections": {
+      "home": "Home cooking",
+      "healthy": "Healthy meals",
+      "dessert": "Healthy sweets"
+    },
+    "left": "{{n}} left",
+    "soldOut": "Sold out",
+    "closesIn": "Booking for {{day}} closes in {{time}}",
+    "closedForDay": "Booking for {{day}} is closed, pick another day",
+    "emptyTitle": "No meals for this day",
+    "emptyBody": "Try another day or section.",
+    "howItWorks": "Meals are cooked to order in limited portions. Book before {{hour}}:00 to get it the next day.",
+    "meal": {
+      "notFound": "This meal is no longer available.",
+      "by": "By {{name}}",
+      "deliveryDay": "Delivery day",
+      "window": "Delivery time",
+      "qty": "Quantity",
+      "leftNote": "{{n}} of {{total}} portions left",
+      "deliverTo": "Deliver to: {{label}}",
+      "pickAddress": "Set a delivery address",
+      "change": "Change",
+      "items": "Meals",
+      "delivery": "Delivery",
+      "book": "Book for {{day}}",
+      "closed": "Booking closed for this day",
+      "bookedTitle": "Meal booked",
+      "bookedBody": "It arrives on {{day}} between {{window}}. Pay on delivery."
+    },
+    "goals": {
+      "cut": {
+        "title": "Cut",
+        "body": "Lowest calories"
+      },
+      "balanced": {
+        "title": "Balanced",
+        "body": "Varied healthy meals"
+      },
+      "home": {
+        "title": "Home food",
+        "body": "Home dishes daily"
+      }
+    },
+    "sub": {
+      "title": "Weekly plan",
+      "body": "A meal every day, {{pct}}% off · {{n}} days or more",
+      "intro": "Pick a meal for each day you want. {{pct}}% off every meal, {{n}} days minimum.",
+      "stepGoal": "What is your goal?",
+      "stepDays": "Pick a meal per day (at least {{n}} days)",
+      "skipped": "Skip this day",
+      "noDays": "No days are open for booking right now.",
+      "payNote": "You pay day by day on delivery. Any day can be cancelled before its booking closes.",
+      "mealsCount": "{{n}} meals",
+      "saved": "saved {{amount}}",
+      "deliveryAll": "Delivery (all days)",
+      "confirm": "Subscribe",
+      "needMore": "Pick {{n}} more days",
+      "doneTitle": "Subscribed",
+      "doneBody": "{{n}} meals booked. Total {{total}}, paid day by day on delivery.",
+      "activeTitle": "Your plan is active",
+      "activeBody": "{{n}} meals coming",
+      "cancel": "Cancel",
+      "cancelTitle": "Cancel the plan?",
+      "cancelBody": "Every meal whose booking is still open will be cancelled.",
+      "cancelConfirm": "Cancel plan",
+      "cancelledTitle": "Plan cancelled",
+      "keptNote": "{{n}} meal(s) were already being prepared and will still be delivered."
+    },
+    "booking": {
+      "title": "Your meal is booked",
+      "between": "between {{window}}",
+      "steps": {
+        "cook": "The kitchen cooks it fresh on the delivery day.",
+        "courier": "We send a courier at that time and you can track it here.",
+        "pay": "Pay on delivery."
+      },
+      "partOfSub": "This meal is part of your weekly plan.",
+      "cancel": "Cancel booking",
+      "cancelNote": "You can cancel until booking closes the evening before.",
+      "cancelTitle": "Cancel this booking?",
+      "cancelBody": "The portion goes back on sale.",
+      "cancelConfirm": "Cancel booking"
+    }
   }
 }

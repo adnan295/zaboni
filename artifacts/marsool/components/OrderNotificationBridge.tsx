@@ -11,6 +11,7 @@ export default function OrderNotificationBridge() {
   useEffect(() => {
     setStatusChangeHandler((order: Order, newStatus: OrderStatus) => {
       const labels: Record<OrderStatus, string> = {
+        scheduled: t("orderNotification.scheduled.title"),
         searching: t("orderNotification.searching.title"),
         accepted: t("orderNotification.accepted.title"),
         picked_up: t("orderNotification.picked_up.title"),
@@ -19,6 +20,7 @@ export default function OrderNotificationBridge() {
         cancelled: t("orderNotification.cancelled.title"),
       };
       const bodies: Record<OrderStatus, string> = {
+        scheduled: t("orderNotification.scheduled.body"),
         searching: t("orderNotification.searching.body"),
         accepted: t("orderNotification.accepted.body"),
         picked_up: t("orderNotification.picked_up.body"),

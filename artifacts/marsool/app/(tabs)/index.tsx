@@ -28,6 +28,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getApiBaseUrl, buildImageUrl } from "@/lib/apiConfig";
 import { customFetch } from "@workspace/api-client-react";
 import AutoPromoBanner from "@/components/AutoPromoBanner";
+import KitchenDoorCard from "@/components/KitchenDoorCard";
 import { CATEGORIES } from "@/data/restaurants";
 import * as Location from "expo-location";
 
@@ -554,6 +555,9 @@ export default function HomeScreen() {
 
       {/* ===== Auto-apply promos the user is eligible for (e.g. free first delivery) ===== */}
       <AutoPromoBanner />
+
+      {/* ===== Door to the "بيتي وصحّي" pre-order section (hidden until the admin enables it) ===== */}
+      <KitchenDoorCard />
 
       {/* ===== Active Order Banner ===== */}
       {activeOrder && (

@@ -1,6 +1,7 @@
 // Customer API for the "بيتي وصحّي" pre-order section (see lib/kitchen).
 import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
+import { pool } from "@workspace/db";
 import {
   KitchenError, getKitchenSettings, listDays, getMenu, getMeal, placeOrder, placeSubscription,
   cancelSubscription, listSubscriptions, isDay, SUBSCRIPTION_GOALS, type DeliveryQuote,
@@ -76,6 +77,26 @@ router.get("/kitchen/meals/:id", async (req, res) => {
     if (!meal) throw new KitchenError("not_found", "الوجبة غير متوفرة لهاليوم.", 404);
     const slot = listDays(s, new Date()).find((d) => d.day === day);
     res.json({ meal, day, open: !!slot?.open, closesAt: slot?.closesAt ?? null, windows: s.windows });
+  } catch (err) { fail(res, err); }
+});
+
+// The delivery fee the customer will pay per kitchen, so the app can show the real
+// total before they confirm. One fee per kitchen per delivery day.
+router.get("/kitchen/quote", async (req, res) => {
+  try {
+    const lat = Number(req.query["lat"]), lon = Number(req.query["lon"]);
+    const ids = String(req.query["kitchenIds"] ?? "").split(",").map((x) => x.trim()).filter(Boolean).slice(0, 10);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || ids.length === 0) throw new KitchenError("bad_request", "بيانات ناقصة.", 400);
+    const { rows } = await pool.query(`SELECT id, lat, lon FROM restaurants WHERE id = ANY($1) AND kind = 'kitchen'`, [ids]);
+    const quote = makeQuote(userIdOf(req));
+    const fees: Record<string, number> = {};
+    for (const r of rows) {
+      fees[String(r.id)] = await quote(
+        { id: String(r.id), lat: r.lat == null ? null : Number(r.lat), lon: r.lon == null ? null : Number(r.lon) },
+        { lat, lon },
+      );
+    }
+    res.json({ fees });
   } catch (err) { fail(res, err); }
 });
 
