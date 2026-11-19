@@ -23,7 +23,6 @@ const ACTIVE_STATUSES = ["searching", "accepted", "on_way"] as const;
 type ActiveStatus = typeof ACTIVE_STATUSES[number];
 
 const KANBAN_COLS: Record<ActiveStatus, { label: string; color: string; bg: string; Icon: React.ElementType }> = {
-  scheduled: { label: "طلب مسبق مجدول", color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200", Icon: Search },
   searching: { label: "يبحث عن سائق", color: "text-amber-700", bg: "bg-amber-50 border-amber-200", Icon: Search },
   accepted:  { label: "مقبول",          color: "text-blue-700",  bg: "bg-blue-50 border-blue-200",   Icon: CheckCircle2 },
   on_way:    { label: "في الطريق",       color: "text-purple-700",bg: "bg-purple-50 border-purple-200", Icon: Bike },
