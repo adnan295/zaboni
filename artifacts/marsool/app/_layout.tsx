@@ -17,7 +17,7 @@ import {
   useFonts as useInterFonts,
 } from "@expo-google-fonts/inter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack, useRouter, useRootNavigationState, useSegments } from "expo-router";
+import { Stack, useRouter, useNavigationContainerRef, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useState } from "react";
@@ -60,9 +60,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, isLoading, isCourierMode, isCourier } = useAuth();
   const router = useRouter();
   const segments = useSegments();
-  // Set once the root navigator has mounted. Redirecting before that throws
-  // "Attempted to navigate before mounting the Root Layout component".
-  const navigationReady = !!useRootNavigationState()?.key;
+  // Redirecting before the root navigator is ready throws "Attempted to navigate
+  // before mounting the Root Layout component". The router decides that with
+  // `navigationRef.isReady()`, so the same check is used here. It flips without a
+  // render of its own, hence the short poll once the Stack below is on screen.
+  const navigationRef = useNavigationContainerRef();
+  const [navigationReady, setNavigationReady] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
 
@@ -73,6 +76,22 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const stackMounted = !isLoading && onboardingChecked;
+  useEffect(() => {
+    if (!stackMounted || navigationReady) return;
+    if (navigationRef.isReady()) {
+      setNavigationReady(true);
+      return;
+    }
+    const id = setInterval(() => {
+      if (navigationRef.isReady()) {
+        clearInterval(id);
+        setNavigationReady(true);
+      }
+    }, 30);
+    return () => clearInterval(id);
+  }, [stackMounted, navigationReady, navigationRef]);
+
   useEffect(() => {
     setCrashContext({
       route: "/" + segments.join("/"),
@@ -81,7 +100,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   }, [segments, user, isCourier, isCourierMode]);
 
   useEffect(() => {
-    if (isLoading || !onboardingChecked || !navigationReady) return;
+    if (isLoading || !onboardingChecked || !navigationReady || !navigationRef.isReady()) return;
     const inAuthGroup = segments[0] === "auth";
     const inCourierGroup = segments[0] === "(courier)";
     const inTabsGroup = segments[0] === "(tabs)";
