@@ -19,7 +19,7 @@ const router: IRouter = Router();
 /** What a customer sees: no phone number (the courier gets it with the order). */
 const publicPlace = (p: DirectoryPlace) => ({
   id: p.id, nameAr: p.nameAr, lat: p.lat, lon: p.lon, district: p.district, category: p.category,
-  menu: p.menu, menuImages: p.menuImages,
+  menu: p.menu, menuImages: p.menuImages, logo: p.logo,
 });
 
 export interface DirectoryQuote {
@@ -84,6 +84,7 @@ const placeSchema = z.object({
   category: z.string().max(40).optional(),
   menu: z.array(sectionSchema).max(60).optional(),
   menuImages: z.array(z.string().max(500)).max(20).optional(),
+  logo: z.string().max(500).nullable().optional(),
   isPublished: z.boolean().optional(),
 });
 

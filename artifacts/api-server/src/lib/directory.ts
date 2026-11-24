@@ -21,6 +21,8 @@ export interface DirectoryPlace {
   category: string;
   menu: MenuSection[];
   menuImages: string[];
+  /** The place's logo, shown on its map pin and at the top of its menu booklet. */
+  logo: string | null;
   isPublished: boolean;
 }
 
@@ -33,6 +35,7 @@ export interface DirectoryListItem {
   category: string;
   itemCount: number;
   cover: string | null;
+  logo: string | null;
   /** Menu items that matched the search, so the list can show "كبة لبنية" under the place. */
   matches?: string[];
 }
@@ -56,10 +59,12 @@ export function ensureDirectorySchema(): Promise<void> {
       category TEXT NOT NULL DEFAULT '',
       menu JSONB NOT NULL DEFAULT '[]',
       menu_images JSONB NOT NULL DEFAULT '[]',
+      logo TEXT,
       is_published BOOLEAN NOT NULL DEFAULT TRUE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    ALTER TABLE directory_places ADD COLUMN IF NOT EXISTS logo TEXT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS directory_place_id TEXT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS pickup_lat DOUBLE PRECISION;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS pickup_lon DOUBLE PRECISION;
@@ -77,6 +82,7 @@ const rowToPlace = (r: Record<string, unknown>): DirectoryPlace => ({
   category: String(r["category"] ?? ""),
   menu: Array.isArray(r["menu"]) ? (r["menu"] as MenuSection[]) : [],
   menuImages: Array.isArray(r["menu_images"]) ? (r["menu_images"] as string[]) : [],
+  logo: r["logo"] ? String(r["logo"]) : null,
   isPublished: Boolean(r["is_published"]),
 });
 
@@ -130,7 +136,7 @@ export async function listPlaces(opts: { q?: string; category?: string }): Promi
     }
     out.push({
       id: p.id, nameAr: p.nameAr, lat: p.lat, lon: p.lon, district: p.district, category: p.category,
-      itemCount: itemCount(p), cover: p.menuImages[0] ?? null, ...(matches?.length ? { matches } : {}),
+      itemCount: itemCount(p), cover: p.menuImages[0] ?? null, logo: p.logo, ...(matches?.length ? { matches } : {}),
     });
   }
   return out;
@@ -158,6 +164,7 @@ export interface PlaceInput {
   category?: string;
   menu?: MenuSection[];
   menuImages?: string[];
+  logo?: string | null;
   isPublished?: boolean;
 }
 
@@ -190,14 +197,14 @@ export async function upsertPlaces(inputs: PlaceInput[]): Promise<{ saved: numbe
     if (reason) { rejected.push({ index, reason }); continue; }
     const id = p.id?.trim() || `dp_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
     await pool.query(
-      `INSERT INTO directory_places (id, name_ar, phone, lat, lon, district, category, menu, menu_images, is_published)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10)
+      `INSERT INTO directory_places (id, name_ar, phone, lat, lon, district, category, menu, menu_images, is_published, logo)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,$11)
        ON CONFLICT (id) DO UPDATE SET name_ar = EXCLUDED.name_ar, phone = EXCLUDED.phone, lat = EXCLUDED.lat, lon = EXCLUDED.lon,
          district = EXCLUDED.district, category = EXCLUDED.category, menu = EXCLUDED.menu, menu_images = EXCLUDED.menu_images,
-         is_published = EXCLUDED.is_published, updated_at = NOW()`,
+         is_published = EXCLUDED.is_published, logo = EXCLUDED.logo, updated_at = NOW()`,
       [id, p.nameAr.trim(), (p.phone ?? "").trim(), p.lat, p.lon, (p.district ?? "").trim(), (p.category ?? "").trim(),
         JSON.stringify(cleanMenu(p.menu)), JSON.stringify((p.menuImages ?? []).filter((u) => typeof u === "string").slice(0, 20)),
-        p.isPublished ?? true],
+        p.isPublished ?? true, typeof p.logo === "string" && p.logo.trim() ? p.logo.trim().slice(0, 500) : null],
     );
     saved++;
   }

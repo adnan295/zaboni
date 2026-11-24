@@ -1080,6 +1080,7 @@
     "orderRequired": "Write what you'd like to order",
     "outOfArea": "Your address is outside delivery range from this place",
     "loadError": "Couldn't load the directory, try again",
-    "retry": "Retry"
+    "retry": "Retry",
+    "originalMenu": "See the original menu photo"
   }
 }

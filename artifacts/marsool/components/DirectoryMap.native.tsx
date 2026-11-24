@@ -9,6 +9,7 @@ export interface DirectoryPin {
   lat: number;
   lon: number;
   category: string;
+  logo?: string | null;
 }
 
 interface Props {
@@ -32,9 +33,12 @@ const MAP_HTML = `<!DOCTYPE html>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body, #map { width: 100%; height: 100%; }
 .leaflet-control-zoom { display: none !important; }
-.pin { background: #DC2626; color: #fff; border: 2px solid #fff; border-radius: 16px; padding: 3px 9px; font: 600 12px -apple-system, sans-serif;
-       white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,.3); transform: translate(-50%, -100%); position: absolute; direction: rtl; }
-.pin:after { content: ""; position: absolute; left: 50%; bottom: -6px; margin-left: -5px; border: 5px solid transparent; border-top-color: #DC2626; border-bottom: 0; }
+.pin { position: absolute; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; direction: rtl; }
+.logo { width: 44px; height: 44px; border-radius: 50%; border: 3px solid #fff; background: #DC2626 center/cover no-repeat;
+        box-shadow: 0 2px 7px rgba(0,0,0,.35); color: #fff; font: 800 18px -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; }
+.tip { width: 0; height: 0; border: 6px solid transparent; border-top-color: #fff; border-bottom: 0; margin-top: -1px; }
+.name { margin-top: 2px; background: rgba(255,255,255,.95); color: #111; border-radius: 8px; padding: 1px 6px; font: 700 11px -apple-system, sans-serif;
+        white-space: nowrap; max-width: 120px; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
 </style>
 </head><body><div id="map"></div>
 <script>
@@ -48,7 +52,10 @@ function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return '&#
 window.setData = function (d) {
   cluster.clearLayers();
   d.places.forEach(function (p) {
-    var icon = L.divIcon({ className: '', html: '<div class="pin">' + esc(p.nameAr) + '<\\/div>', iconSize: [0, 0] });
+    var face = p.logo
+      ? '<div class="logo" style="background-image:url(&quot;' + esc(p.logo) + '&quot;)"><\\/div>'
+      : '<div class="logo">' + esc(p.nameAr.trim().charAt(0)) + '<\\/div>';
+    var icon = L.divIcon({ className: '', html: '<div class="pin">' + face + '<div class="tip"><\\/div><div class="name">' + esc(p.nameAr) + '<\\/div><\\/div>', iconSize: [0, 0] });
     var m = L.marker([p.lat, p.lon], { icon: icon });
     m.on('click', function () { window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'select', id: p.id })); });
     cluster.addLayer(m);
@@ -74,7 +81,7 @@ export default function DirectoryMap({ places, home, onSelect }: Props) {
   const push = useCallback(() => {
     if (!ready) return;
     const data = {
-      places: places.map((p) => ({ id: p.id, nameAr: p.nameAr, lat: p.lat, lon: p.lon })),
+      places: places.map((p) => ({ id: p.id, nameAr: p.nameAr, lat: p.lat, lon: p.lon, logo: p.logo ?? null })),
       home: home ? { lat: home.latitude, lon: home.longitude } : null,
     };
     ref.current?.injectJavaScript(`window.setData && window.setData(${JSON.stringify(data)}); true;`);

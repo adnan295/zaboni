@@ -19,6 +19,7 @@ import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import { useAddresses } from "@/context/AddressContext";
 import DirectoryMap from "@/components/DirectoryMap";
+import PlaceLogo from "@/components/PlaceLogo";
 import { Coords, haversineDistance } from "@/utils/geo";
 
 interface ListPlace {
@@ -30,6 +31,7 @@ interface ListPlace {
   category: string;
   itemCount: number;
   cover: string | null;
+  logo?: string | null;
   matches?: string[];
 }
 
@@ -200,9 +202,7 @@ export default function DirectoryScreen() {
               activeOpacity={0.85}
               style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
             >
-              <View style={[styles.avatar, { backgroundColor: "#fee2e2" }]}>
-                <MaterialIcons name={item.category === "كافيه" ? "local-cafe" : "restaurant"} size={22} color={colors.primary} />
-              </View>
+              <PlaceLogo logo={item.logo} name={item.nameAr} size={48} />
               <View style={{ flex: 1, gap: 2 }}>
                 <Text style={[styles.name, { color: colors.foreground }]} numberOfLines={1}>{item.nameAr}</Text>
                 <Text style={[styles.meta, { color: colors.mutedForeground }]} numberOfLines={1}>

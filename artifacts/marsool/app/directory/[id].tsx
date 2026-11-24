@@ -23,6 +23,7 @@ import { useBackIcon } from "@/hooks/useTypography";
 import { useAddresses } from "@/context/AddressContext";
 import { useOrders } from "@/context/OrderContext";
 import { addItemToOrderText } from "@/utils/orderText";
+import MenuBooklet from "@/components/MenuBooklet";
 
 interface Place {
   id: string;
@@ -33,6 +34,7 @@ interface Place {
   category: string;
   menu: { title: string; items: string[] }[];
   menuImages: string[];
+  logo?: string | null;
 }
 
 interface Quote {
@@ -154,46 +156,23 @@ export default function DirectoryPlaceScreen() {
         </View>
 
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]} keyboardShouldPersistTaps="handled">
-          {place.menuImages.length > 0 && (
-            <View style={{ gap: 8 }}>
-              <Text style={[styles.section, { color: colors.foreground }]}>{t("directory.menuPhotos")}</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                {place.menuImages.map((uri) => (
-                  <TouchableOpacity key={uri} onPress={() => setPhoto(uri)} activeOpacity={0.85}>
-                    <Image source={{ uri }} style={[styles.thumb, { borderColor: colors.border }]} resizeMode="cover" />
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-
-          {place.menu.length > 0 && (
-            <View style={{ gap: 10 }}>
-              <View style={{ gap: 2 }}>
-                <Text style={[styles.section, { color: colors.foreground }]}>{t("directory.menu")}</Text>
-                <Text style={[styles.hint, { color: colors.mutedForeground }]}>{t("directory.tapToAdd")}</Text>
-              </View>
-              {place.menu.map((s, si) => (
-                <View key={`${si}-${s.title}`} style={[styles.menuCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  {s.title ? <Text style={[styles.menuTitle, { color: colors.primary }]}>{s.title}</Text> : null}
-                  <View style={styles.items}>
-                    {s.items.map((item, ii) => (
-                      <TouchableOpacity
-                        key={`${ii}-${item}`}
-                        onPress={() => setOrderText((txt) => addItemToOrderText(txt, item))}
-                        style={[styles.item, { borderColor: colors.border, backgroundColor: colors.background }]}
-                        activeOpacity={0.7}
-                      >
-                        <MaterialIcons name="add" size={14} color={colors.primary} />
-                        <Text style={[styles.itemText, { color: colors.foreground }]}>{item}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-              ))}
-              <Text style={[styles.hint, { color: colors.mutedForeground }]}>{t("directory.noPrices")}</Text>
-            </View>
-          )}
+          <View style={{ gap: 8 }}>
+            <Text style={[styles.hint, { color: colors.mutedForeground, textAlign: "center" }]}>{t("directory.tapToAdd")}</Text>
+            <MenuBooklet
+              name={place.nameAr}
+              logo={place.logo}
+              subtitle={[place.category, place.district].filter(Boolean).join(" · ")}
+              menu={place.menu}
+              onAddItem={(item) => setOrderText((txt) => addItemToOrderText(txt, item))}
+            />
+            <Text style={[styles.hint, { color: colors.mutedForeground, textAlign: "center" }]}>{t("directory.noPrices")}</Text>
+            {place.menuImages.length > 0 && (
+              <TouchableOpacity onPress={() => setPhoto(place.menuImages[0])} style={styles.originalLink}>
+                <MaterialIcons name="photo-library" size={16} color={colors.mutedForeground} />
+                <Text style={[styles.hint, { color: colors.mutedForeground, textDecorationLine: "underline" }]}>{t("directory.originalMenu")}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
           <View style={{ gap: 6 }}>
             <Text style={[styles.section, { color: colors.foreground }]}>{t("directory.yourOrder")}</Text>
@@ -276,12 +255,7 @@ const styles = StyleSheet.create({
   content: { padding: 16, gap: 18 },
   section: { fontSize: 16, fontWeight: "800" },
   hint: { fontSize: 12 },
-  thumb: { width: 120, height: 160, borderRadius: 10, borderWidth: 1 },
-  menuCard: { borderWidth: 1, borderRadius: 14, padding: 12, gap: 8 },
-  menuTitle: { fontSize: 14, fontWeight: "800" },
-  items: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  item: { flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6 },
-  itemText: { fontSize: 13 },
+  originalLink: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingVertical: 4 },
   textArea: { borderWidth: 1, borderRadius: 12, padding: 12, minHeight: 110, fontSize: 15, lineHeight: 22 },
   addressRow: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 12, padding: 12 },
   addressText: { flex: 1, fontSize: 14 },
