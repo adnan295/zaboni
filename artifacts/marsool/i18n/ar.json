@@ -199,7 +199,8 @@
     "allLoaded": "تم تحميل جميع الطلبات",
     "activeOrder": "طلب نشط",
     "viewBooking": "تفاصيل الحجز",
-    "deliveryOn": "التوصيل يوم {{day}}"
+    "deliveryOn": "التوصيل يوم {{day}}",
+    "callCourier": "اتصل بالمندوب"
   },
   "favorites": {
     "title": "المفضلة",
@@ -564,7 +565,8 @@
       "whatsapp": "تواصل عبر واتساب",
       "chatPromptNote": "تواصل معه عبر الدردشة لتنسيق التفاصيل",
       "chatPromptBtn": "فتح الدردشة",
-      "chatPromptDismiss": "لاحقاً"
+      "chatPromptDismiss": "لاحقاً",
+      "viaLine": "اتصال عبر رقم زبوني"
     },
     "statusSteps": {
       "accepted": "قَبِل المندوب طلبك",

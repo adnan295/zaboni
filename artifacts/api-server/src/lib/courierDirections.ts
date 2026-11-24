@@ -1,3 +1,4 @@
+import { publicLineNumber } from "./callBridge";
 // Sends an iPhone courier a WhatsApp message with a tappable map link at the two
 // moments they need to navigate: the restaurant when they accept an order, and the
 // customer when they mark it collected. On iPhones the app does not open turn-by-turn
@@ -154,7 +155,7 @@ export async function sendCourierDirections(orderId: string, stage: DirectionsSt
       placePhone: String(o.restaurant_phone || o.r_phone || ""),
       place: { lat: num(o.r_lat), lon: num(o.r_lon) },
       customerName: String(o.customer_name ?? ""),
-      customerPhone: String(o.customer_phone ?? ""),
+      customerPhone: publicLineNumber(String(o.id)) ?? String(o.customer_phone ?? ""),
       address: String(o.address ?? ""),
       destination: { lat: num(o.destination_lat), lon: num(o.destination_lon) },
       orderText: String(o.order_text ?? ""),

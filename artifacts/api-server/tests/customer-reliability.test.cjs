@@ -60,6 +60,7 @@ function load(file, dbState = database(), overrides = {}, expose = '', globals =
     '../lib/searchWatch': { maybeIssueApologyPromo: asyncNoop },
     '../lib/courierActivity': { recordAvailability: async () => {}, touchOnlineSession: async () => {}, recordOffers: async () => {} },
     '../lib/courierDirections': { sendCourierDirections: async () => false },
+    '../lib/callBridge': { publicLineNumber: () => null, maskCourierPhone: (o) => o },
     '../lib/directory': { getPlace: async () => null },
     './directory': { quoteFromPlace: async () => ({ fee: 0, km: 0, outOfArea: false }) },
     '../lib/kitchen': new Proxy({ KitchenError: class extends Error {}, isDay: () => false }, { get: (o, k) => k in o ? o[k] : async () => null }),

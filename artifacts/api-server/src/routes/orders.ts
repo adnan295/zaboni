@@ -1,3 +1,4 @@
+import { maskCourierPhone } from "../lib/callBridge";
 import { creationIdentity, previousOrderCreation, createOrderOnce, OrderCreationError } from "../lib/orderCreation";
 import { getDamascusNow, computeIsOpenFromHours, getHoursForRestaurants } from "../lib/restaurantHours";
 import { dispatchOrderNow } from "../lib/orderDispatch";
@@ -404,7 +405,7 @@ router.get("/orders", async (req, res) => {
     }
   }
 
-  const orders = allRows.map((o) => ({
+  const orders = allRows.map((o) => maskCourierPhone({
     ...o,
     courierRating: courierRatingMap[o.courierId] ?? o.courierRating,
     pointsEarned: pointsMap[o.id]?.pointsEarned ?? 0,
@@ -1127,10 +1128,10 @@ router.get("/orders/:id", async (req, res) => {
       .orderBy(desc(orderStatusHistoryTable.createdAt))
       .limit(1);
     const note = history[0]?.note ?? null;
-    res.json({ ...order, courierRating, cancelNote: note, pointsEarned, pointsRedeemed, items });
+    res.json(maskCourierPhone({ ...order, courierRating, cancelNote: note, pointsEarned, pointsRedeemed, items }));
     return;
   }
-  res.json({ ...order, courierRating, pointsEarned, pointsRedeemed, items });
+  res.json(maskCourierPhone({ ...order, courierRating, pointsEarned, pointsRedeemed, items }));
 });
 
 router.get("/orders/:id/courier-location", async (req, res) => {

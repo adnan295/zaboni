@@ -1,3 +1,4 @@
+import { publicLineNumber } from "../lib/callBridge";
 import { completeOrderInTx, notifyReferralReward, type ReferralReward } from "../lib/orderCompletion";
 import { updateVerifiedProfile, ProfileUpdateError } from "../lib/profileUpdate";
 import { MAX_VISIBLE_RADIUS_KM } from "../lib/courierDispatchPolicy";
@@ -435,7 +436,9 @@ router.get("/courier/orders/active", requireCourier, async (req, res) => {
     return {
       ...o,
       customerName: contactRevealed ? o.customerName : null,
-      customerPhone: contactRevealed ? o.customerPhone : null,
+      // With the office line on, the courier calls the company number and is put through.
+      customerPhone: contactRevealed ? (publicLineNumber(o.id) ?? o.customerPhone) : null,
+      phoneMasked: contactRevealed && publicLineNumber(o.id) != null,
       items: itemsByOrderId.get(o.id) ?? [],
     };
   });

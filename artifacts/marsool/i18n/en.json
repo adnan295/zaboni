@@ -199,7 +199,8 @@
     "allLoaded": "All orders loaded",
     "activeOrder": "Active Order",
     "viewBooking": "Booking details",
-    "deliveryOn": "Delivery on {{day}}"
+    "deliveryOn": "Delivery on {{day}}",
+    "callCourier": "Call courier"
   },
   "favorites": {
     "title": "Favorites",
@@ -564,7 +565,8 @@
       "whatsapp": "Contact via WhatsApp",
       "chatPromptNote": "Chat with the courier to coordinate delivery details",
       "chatPromptBtn": "Open Chat",
-      "chatPromptDismiss": "Later"
+      "chatPromptDismiss": "Later",
+      "viaLine": "Call via Zaboni line"
     },
     "statusSteps": {
       "accepted": "Courier accepted your order",

@@ -13,6 +13,7 @@ import { ensureCourierActivitySchema, startCourierActivityJob } from "./lib/cour
 import { ensureDevicePlatformSchema } from "./lib/courierDirections";
 import { ensureKitchenSchema, startKitchenJob } from "./lib/kitchen";
 import { ensureDirectorySchema } from "./lib/directory";
+import { ensureCallBridgeSchema, startBridgeStateRefresh } from "./lib/callBridge";
 import { whatsappManager } from "./lib/whatsapp";
 import { startPushReceiptJob } from "./lib/push";
 import { startDealExpiryJob } from "./lib/dealExpiry";
@@ -78,6 +79,8 @@ await ensureCourierActivitySchema();
 await ensureDevicePlatformSchema();
 await ensureKitchenSchema();
 await ensureDirectorySchema();
+await ensureCallBridgeSchema();
+startBridgeStateRefresh();
 
 httpServer.listen(port, (err?: Error) => {
   if (err) {

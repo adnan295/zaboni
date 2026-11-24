@@ -49,6 +49,7 @@ function worker(pool) {
       "node:crypto": require("node:crypto"),
       "@workspace/db": { pool },
       "./logger": { logger },
+      "./callBridge": { publicLineNumber: () => null, maskCourierPhone: (o) => o },
     },
     "exports.setSend = fn => { dispatch = fn; };",
   );
@@ -232,6 +233,7 @@ function pushHarness({ nativeOK = true, configured = true } = {}) {
     "@workspace/db": { pool, db: { update: () => update }, usersTable: {} },
     "drizzle-orm": { inArray: noop },
     "./logger": { logger: { ...logger, warn: (...x) => warnings.push(x) } },
+    "./callBridge": { publicLineNumber: () => null, maskCourierPhone: (o) => o },
     "./firebase": {
       isFcmConfigured: () => configured,
       sendFcmNotification: async () => ({
@@ -457,6 +459,7 @@ test("direct FCM uses an urgent visible alert with short expiry and order identi
       }),
     },
     "./logger": { logger },
+    "./callBridge": { publicLineNumber: () => null, maskCourierPhone: (o) => o },
   });
   await f.sendFcmNotification(["long-native-device-token"], "title", "body", {
     type: "new_order",
@@ -500,6 +503,7 @@ test("APNs alert is production priority 10, expires in one minute and counts eac
       },
       jsonwebtoken: { sign: () => "mock-jwt" },
       "./logger": { logger },
+      "./callBridge": { publicLineNumber: () => null, maskCourierPhone: (o) => o },
     },
     "",
     {
@@ -611,6 +615,7 @@ test("all zone submissions failing immediately broadens to other eligible courie
     },
     "drizzle-orm": { and: noop, eq: noop, ne: noop, notInArray: noop },
     "../lib/logger": { logger },
+    "../lib/callBridge": { publicLineNumber: () => null, maskCourierPhone: (o) => o },
     "../lib/push": {
       sendCourierPush: async (devices) => {
         calls.push(devices.map((d) => d.id));

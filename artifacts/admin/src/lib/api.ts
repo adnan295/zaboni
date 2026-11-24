@@ -621,6 +621,13 @@ export type CourierApplicationItem = {
   zoneId: string | null;
 };
 
+export interface CallLine { id: string; label: string; phone: string; enabled: boolean; lastSeenAt: string | null; online: boolean }
+export interface CallLogRow {
+  id: string; lineId: string; orderId: string | null; callerRole: string | null; callerName: string | null;
+  targetName: string | null; status: string; reason: string | null; createdAt: string; talkSeconds: number | null;
+}
+export interface CallBridgeState { enabled: boolean; masking: boolean; lines: CallLine[]; calls: CallLogRow[] }
+
 export const api = {
   get: <T>(path: string) => apiFetch<T>(path),
   post: <T>(path: string, body: unknown) => apiFetch<T>(path, { method: "POST", body: JSON.stringify(body) }),
@@ -1111,6 +1118,14 @@ export const api = {
     apiFetch<{ events: CrashEvent[] }>(`/admin/crashes/${encodeURIComponent(fingerprint)}`),
   updateCrashGroup: (fingerprint: string, body: { muted?: boolean; resolved?: boolean }) =>
     apiFetch<{ ok: boolean }>(`/admin/crashes/${encodeURIComponent(fingerprint)}`, { method: "PATCH", body: JSON.stringify(body) }),
+  getCallBridge: () => apiFetch<CallBridgeState>("/admin/call-bridge"),
+  setCallBridgeEnabled: (enabled: boolean) =>
+    apiFetch<{ ok: boolean; masking: boolean }>("/admin/call-bridge/enabled", { method: "PUT", body: JSON.stringify({ enabled }) }),
+  createCallLine: (body: { label: string; phone: string }) =>
+    apiFetch<{ id: string; token: string }>("/admin/call-bridge/lines", { method: "POST", body: JSON.stringify(body) }),
+  setCallLineEnabled: (id: string, enabled: boolean) =>
+    apiFetch<{ ok: boolean }>(`/admin/call-bridge/lines/${id}`, { method: "PATCH", body: JSON.stringify({ enabled }) }),
+  deleteCallLine: (id: string) => apiFetch<{ ok: boolean }>(`/admin/call-bridge/lines/${id}`, { method: "DELETE" }),
   getCrashSettings: () => apiFetch<{ alertPhone: string }>("/admin/crashes/settings"),
   updateCrashSettings: (alertPhone: string) =>
     apiFetch<{ alertPhone: string }>("/admin/crashes/settings", { method: "PUT", body: JSON.stringify({ alertPhone }) }),

@@ -18,6 +18,7 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import { useOrders, OrderStatus } from "@/context/OrderContext";
+import { callAboutOrder } from "@/utils/companyCall";
 import { customFetch, ApiError } from "@workspace/api-client-react";
 import { useRatings } from "@/context/RatingsContext";
 import { DeliveryMap } from "@/components/DeliveryMap";
@@ -484,8 +485,8 @@ export default function OrderTrackingScreen() {
                 </View>
                 <View style={styles.courierInfo}>
                   <Text style={[styles.courierName, { color: colors.foreground }]}>{order.courierName}</Text>
-                  <TouchableOpacity onPress={() => order.courierPhone && Linking.openURL(`tel:${order.courierPhone}`)} activeOpacity={0.7}>
-                    <Text style={[styles.courierPhone, { color: colors.primary }]}>{order.courierPhone}</Text>
+                  <TouchableOpacity onPress={() => order.courierPhone && void callAboutOrder(order.id, order.courierPhone, !!order.phoneMasked)} activeOpacity={0.7}>
+                    <Text style={[styles.courierPhone, { color: colors.primary }]}>{order.phoneMasked ? t("orderTracking.courier.viaLine") : order.courierPhone}</Text>
                   </TouchableOpacity>
                   <View style={styles.courierRatingRow}>
                     <MaterialIcons name="star" size={14} color="#FFB800" />
@@ -499,22 +500,24 @@ export default function OrderTrackingScreen() {
                 <TouchableOpacity
                   style={[styles.chatBtn, { backgroundColor: "#2563eb", flex: 1 }]}
                   onPress={() => {
-                    if (order.courierPhone) Linking.openURL(`tel:${order.courierPhone}`);
+                    if (order.courierPhone) void callAboutOrder(order.id, order.courierPhone, !!order.phoneMasked);
                   }}
                 >
                   <MaterialIcons name="phone" size={20} color="#fff" />
                   <Text style={styles.chatBtnText}>{t("orderTracking.courier.call")}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.chatBtn, { backgroundColor: "#25D366", flex: 1 }]}
-                  onPress={() => {
-                    const phone = formatWaPhone(order.courierPhone ?? "");
-                    if (phone) Linking.openURL(`https://wa.me/${phone}`);
-                  }}
-                >
-                  <MaterialCommunityIcons name="whatsapp" size={20} color="#fff" />
-                  <Text style={styles.chatBtnText}>{t("orderTracking.courier.whatsapp")}</Text>
-                </TouchableOpacity>
+                {!order.phoneMasked && (
+                  <TouchableOpacity
+                    style={[styles.chatBtn, { backgroundColor: "#25D366", flex: 1 }]}
+                    onPress={() => {
+                      const phone = formatWaPhone(order.courierPhone ?? "");
+                      if (phone) Linking.openURL(`https://wa.me/${phone}`);
+                    }}
+                  >
+                    <MaterialCommunityIcons name="whatsapp" size={20} color="#fff" />
+                    <Text style={styles.chatBtnText}>{t("orderTracking.courier.whatsapp")}</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </Animated.View>
 

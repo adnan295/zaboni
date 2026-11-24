@@ -198,6 +198,10 @@ export const navigationGroups = [
         "label": "واتساب"
       },
       {
+        "href": "/call-line",
+        "label": "هاتف الإدارة"
+      },
+      {
         "href": "/crashes",
         "label": "أعطال التطبيق"
       },

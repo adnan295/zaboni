@@ -17,6 +17,7 @@ import { useColors } from "@/hooks/useColors";
 import { useOrders, OrderStatus, Order } from "@/context/OrderContext";
 import { useCart } from "@/context/CartContext";
 import { useRatings } from "@/context/RatingsContext";
+import { callAboutOrder } from "@/utils/companyCall";
 import { customFetch } from "@workspace/api-client-react";
 
 const PAGE_LIMIT = 20;
@@ -202,14 +203,18 @@ function OrderCard({ order }: { order: Order }) {
 
         {isActive && order.status !== "searching" && order.status !== "scheduled" && (
           <TouchableOpacity
-            style={[styles.chatBtn, { backgroundColor: "#25D366" }]}
+            style={[styles.chatBtn, { backgroundColor: order.phoneMasked ? "#2563eb" : "#25D366" }]}
             onPress={() => {
+              // With the office line on there is no personal number to message: call through the line.
+              if (order.phoneMasked) { void callAboutOrder(order.id, order.courierPhone ?? "", true); return; }
               const phone = formatWaPhone(order.courierPhone ?? "");
               if (phone) Linking.openURL(`https://wa.me/${phone}`);
             }}
           >
-            <MaterialCommunityIcons name="whatsapp" size={16} color="#fff" />
-            <Text style={[styles.chatBtnText, { color: "#fff" }]}>{t("orders.whatsapp")}</Text>
+            {order.phoneMasked
+              ? <MaterialIcons name="phone" size={16} color="#fff" />
+              : <MaterialCommunityIcons name="whatsapp" size={16} color="#fff" />}
+            <Text style={[styles.chatBtnText, { color: "#fff" }]}>{order.phoneMasked ? t("orders.callCourier") : t("orders.whatsapp")}</Text>
           </TouchableOpacity>
         )}
 
@@ -279,6 +284,7 @@ type PaginatedOrdersResponse = {
     status: string;
     courierName: string;
     courierPhone: string;
+    phoneMasked?: boolean;
     courierRating: number;
     courierId: string;
     createdAt: string;
@@ -303,6 +309,7 @@ function toLocalOrder(o: PaginatedOrdersResponse["orders"][number]): Order {
     status: o.status as OrderStatus,
     courierName: o.courierName,
     courierPhone: o.courierPhone,
+    phoneMasked: o.phoneMasked === true,
     courierRating: o.courierRating,
     courierId: o.courierId,
     createdAt: new Date(o.createdAt).getTime(),

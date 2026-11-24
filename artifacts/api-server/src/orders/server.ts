@@ -1,3 +1,4 @@
+import { maskCourierPhone } from "../lib/callBridge";
 import { canReceiveNewOrder, isWithinOrderRadius } from "../lib/courierDispatchPolicy";
 import { Server as SocketServer, Namespace, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
@@ -32,7 +33,9 @@ let _ordersNs: Namespace | null = null;
 
 export function notifyOrderUpdate(customerId: string, order: unknown): void {
   if (!_ordersNs) return;
-  _ordersNs.to(`user:${customerId}`).emit("order_status_update", order);
+  // The customer gets the company line in place of the courier's own number.
+  const safe = order && typeof order === "object" ? maskCourierPhone(order as { id?: string; courierPhone?: string }) : order;
+  _ordersNs.to(`user:${customerId}`).emit("order_status_update", safe);
   logger.debug({ customerId }, "Emitted order_status_update to customer");
 }
 

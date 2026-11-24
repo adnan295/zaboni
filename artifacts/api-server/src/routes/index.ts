@@ -20,6 +20,7 @@ import coverageRouter from "./coverage";
 import crashesRouter from "./crashes";
 import kitchenRouter from "./kitchen";
 import directoryRouter from "./directory";
+import callBridgeRouter from "./callBridge";
 import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
@@ -38,6 +39,8 @@ router.use(coverageRouter);
 router.use(crashesRouter);
 // Browsing the directory needs no account; admin paths check their own token.
 router.use(directoryRouter);
+// The office line phones authenticate with their own token; admin paths check theirs.
+router.use(callBridgeRouter);
 
 router.use(requireAuth);
 router.use(ordersRouter);

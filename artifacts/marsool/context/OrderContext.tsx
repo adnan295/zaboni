@@ -51,6 +51,8 @@ export interface Order {
   status: OrderStatus;
   courierName: string;
   courierPhone: string;
+  /** courierPhone is the company line (هاتف الإدارة), not the courier's own number. */
+  phoneMasked?: boolean;
   courierRating: number;
   courierId: string;
   createdAt: number;
@@ -96,6 +98,8 @@ function apiOrderToLocal(apiOrder: {
   status: string;
   courierName: string;
   courierPhone: string;
+  /** courierPhone is the company line (هاتف الإدارة), not the courier's own number. */
+  phoneMasked?: boolean;
   courierRating: number;
   courierId: string;
   createdAt: string | Date;
@@ -123,6 +127,7 @@ function apiOrderToLocal(apiOrder: {
     status: apiOrder.status as OrderStatus,
     courierName: apiOrder.courierName,
     courierPhone: apiOrder.courierPhone,
+    phoneMasked: apiOrder.phoneMasked === true,
     courierRating: apiOrder.courierRating,
     courierId: apiOrder.courierId,
     createdAt:

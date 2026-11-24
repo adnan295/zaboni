@@ -48,6 +48,7 @@ async function setup() {
   const lib = load({
     "@workspace/db": { pool: { query: (sql, args) => pg.query(sql, args) } },
     "./logger": { logger: { warn() {} } },
+    "./callBridge": { publicLineNumber: () => null },
     "./whatsapp": { whatsappManager: { sendMessage: async (phone, text) => { sent.push({ phone, text }); return true; } } },
   });
   return { pg, lib, sent };
@@ -89,6 +90,7 @@ test("a WhatsApp failure is reported as not sent and never throws", async () => 
   const lib = load({
     "@workspace/db": { pool: { query: async () => { throw new Error("db down"); } } },
     "./logger": { logger: { warn() {} } },
+    "./callBridge": { publicLineNumber: () => null },
     "./whatsapp": { whatsappManager: { sendMessage: async () => true } },
   });
   assert.equal(await lib.sendCourierDirections("x", "to_customer"), false);

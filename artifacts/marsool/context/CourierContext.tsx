@@ -33,6 +33,8 @@ export interface CourierOrder {
   createdAt: string;
   customerName?: string;
   customerPhone?: string;
+  /** customerPhone is the company line (هاتف الإدارة), not the customer's own number. */
+  phoneMasked?: boolean;
   distanceKm?: number;
   destinationLat?: number | null;
   destinationLon?: number | null;

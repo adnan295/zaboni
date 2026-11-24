@@ -25,6 +25,7 @@ import {
   CourierOrderStatus,
   CourierDeliveryStatus,
 } from "@/context/CourierContext";
+import { callAboutOrder } from "@/utils/companyCall";
 import { customFetch } from "@workspace/api-client-react";
 import { CourierMap } from "@/components/CourierMap";
 
@@ -239,9 +240,7 @@ export default function ActiveOrderScreen() {
 
   const callCustomer = () => {
     if (!order) return;
-    const raw = order.customerPhone ?? "";
-    const phone = raw.replace(/(?!^\+)[^0-9]/g, "");
-    if (phone) Linking.openURL(`tel:${phone}`);
+    void callAboutOrder(order.id, order.customerPhone ?? "", !!order.phoneMasked);
   };
 
   const sanitizedRestaurantPhone = (order?.restaurantPhone ?? "").replace(
@@ -995,19 +994,22 @@ export default function ActiveOrderScreen() {
               </TouchableOpacity>
             ) : null}
 
-            <TouchableOpacity
-              style={[
-                styles.chatBtn,
-                { backgroundColor: "#25D366", borderColor: "#25D366" },
-              ]}
-              onPress={openWhatsApp}
-              activeOpacity={0.8}
-            >
-              <MaterialCommunityIcons name="whatsapp" size={20} color="#fff" />
-              <Text style={[styles.chatBtnText, { color: "#fff" }]}>
-                {t("courier.active.whatsapp")}
-              </Text>
-            </TouchableOpacity>
+            {/* With the office line on, the customer's number stays private: calls only. */}
+            {order.customerPhone && !order.phoneMasked ? (
+              <TouchableOpacity
+                style={[
+                  styles.chatBtn,
+                  { backgroundColor: "#25D366", borderColor: "#25D366" },
+                ]}
+                onPress={openWhatsApp}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="whatsapp" size={20} color="#fff" />
+                <Text style={[styles.chatBtnText, { color: "#fff" }]}>
+                  {t("courier.active.whatsapp")}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
 
           {/* Relinquishing an assignment is allowed only before pickup. */}
