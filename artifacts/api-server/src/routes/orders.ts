@@ -1169,6 +1169,7 @@ router.get("/orders/:id/courier-location", async (req, res) => {
       restaurant: restaurant?.lat != null && restaurant?.lon != null ? { lat: restaurant.lat, lon: restaurant.lon } : null,
       destination: order.destinationLat != null && order.destinationLon != null ? { lat: order.destinationLat, lon: order.destinationLon } : null,
       restaurantId: order.restaurantId,
+      courierId: order.courierId,
     }, await getLearnedTimes());
   } catch {
     etaMinutes = null;

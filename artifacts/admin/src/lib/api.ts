@@ -145,7 +145,9 @@ export type CourierSpeedRow = {
 };
 export type SpeedReport = {
   days: number; orders: number;
-  overall: { avgWaitMinutes: number | null; avgPickupMinutes: number | null; avgRideMinutes: number | null; avgDeliveryMinutes: number | null; avgTotalMinutes: number | null; avgKm: number | null; minutesPerKm: number | null };
+  overall: { avgWaitMinutes: number | null; avgPickupMinutes: number | null; avgRideMinutes: number | null; avgDeliveryMinutes: number | null; avgTotalMinutes: number | null; avgKm: number | null; minutesPerKm: number | null;
+    /** Older servers omit these three. */
+    onTimePercent?: number | null; promisedOrders?: number; avgLateMinutes?: number | null };
   restaurants: RestaurantSpeedRow[]; couriers: CourierSpeedRow[];
 };
 

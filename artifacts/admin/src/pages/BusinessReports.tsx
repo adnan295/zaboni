@@ -278,7 +278,14 @@ function SpeedTab({ days }: { days: number }) {
   const slowCouriers = data.couriers.filter((c) => c.verdict === "slow").length;
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
+        <Stat
+          label="وصل بالوقت الموعود"
+          value={o.onTimePercent != null ? `${o.onTimePercent}٪` : "—"}
+          sub={o.promisedOrders
+            ? `من ${num(o.promisedOrders)} طلب · ${o.avgLateMinutes != null && o.avgLateMinutes > 0 ? `متأخر ${o.avgLateMinutes} د بالمتوسط` : "بالوقت أو أبكر"}`
+            : "بيبلّش القياس مع أول طلبات بعد التحديث"}
+        />
         <Stat label="انتظار مندوب" value={mins(o.avgWaitMinutes)} sub="من الطلب لقبول المندوب" />
         <Stat label="الاستلام من المطعم" value={mins(o.avgPickupMinutes)} sub="من القبول للاستلام" />
         <Stat label="الطريق للزبون" value={mins(o.avgRideMinutes)} sub="من الاستلام للتسليم" />

@@ -23,14 +23,35 @@ export interface LearnedTimes {
   pickup: number | null;
   /** Riding minutes per straight-line km, restaurant → customer. */
   minutesPerKm: number | null;
+  /**
+   * Fixed minutes of every ride whatever its length: leaving the restaurant,
+   * parking, finding the door, handing over. Absent on older data → 0.
+   */
+  rideFixed?: number | null;
   sample: number;
   byRestaurantId: Record<string, RestaurantLearned>;
+  /** How this courier rides compared with everyone (1 = average, 1.3 = 30% slower). */
+  courierPace?: Record<string, number>;
+  /** How long pickups take at each Damascus hour compared with the day's average. */
+  pickupByHour?: number[];
 }
 
-export const EMPTY_LEARNED: LearnedTimes = { wait: null, pickup: null, minutesPerKm: null, sample: 0, byRestaurantId: {} };
+export const EMPTY_LEARNED: LearnedTimes = { wait: null, pickup: null, minutesPerKm: null, rideFixed: null, sample: 0, byRestaurantId: {}, courierPace: {}, pickupByHour: [] };
 
 /** Below this many delivered orders an average is noise, so the fallback is used. */
 export const MIN_SAMPLE = 5;
+/**
+ * Shrinkage: a restaurant or courier with n orders is trusted n/(n+K) and the
+ * rest comes from everyone's average, so two odd orders cannot swing a quote
+ * while a busy restaurant soon speaks for itself.
+ */
+const SHRINK_RESTAURANT = 3;
+const SHRINK_COURIER = 5;
+const SHRINK_HOUR = 10;
+/** Recent deliveries count more: weight halves roughly every 10 days. */
+const RECENCY_DAYS = 14;
+/** Delivered within this many minutes of ordering = a captain's practice order. */
+export const PRACTICE_ORDER_MAX_MINUTES = 5;
 const FALLBACK_WAIT = 3;
 const FALLBACK_PICKUP = 12;
 const FALLBACK_MIN_PER_KM = 4;
@@ -51,7 +72,9 @@ const STEPS_SQL = `
            MAX(created_at) FILTER (WHERE status = 'delivered') AS delivered_at
     FROM order_status_history GROUP BY order_id),
   t AS (
-    SELECT o.restaurant_id,
+    SELECT o.restaurant_id, o.courier_id,
+           EXTRACT(HOUR FROM h.accepted_at AT TIME ZONE 'Asia/Damascus')::int AS hour,
+           EXP(-EXTRACT(EPOCH FROM (NOW() - o.created_at)) / 86400 / ${RECENCY_DAYS}) AS w,
            EXTRACT(EPOCH FROM (h.accepted_at  - o.created_at))   / 60 AS wait_m,
            EXTRACT(EPOCH FROM (h.picked_up_at - h.accepted_at))  / 60 AS pickup_m,
            EXTRACT(EPOCH FROM (h.delivered_at - h.picked_up_at)) / 60 AS ride_m,
@@ -61,45 +84,94 @@ const STEPS_SQL = `
     FROM orders o
     JOIN h ON h.order_id = o.id
     LEFT JOIN restaurants r ON r.id = o.restaurant_id
-    WHERE o.status = 'delivered' AND o.created_at >= NOW() - make_interval(days => ${WINDOW_DAYS}))`;
+    WHERE o.status = 'delivered' AND o.created_at >= NOW() - make_interval(days => ${WINDOW_DAYS})
+      -- Practice orders a captain completes on the spot would teach "2 minutes".
+      AND h.delivered_at - o.created_at > make_interval(mins => ${PRACTICE_ORDER_MAX_MINUTES}))`;
 
 const ok = (col: string, max = MAX_STEP_MINUTES) => `${col} BETWEEN 0 AND ${max}`;
 
+const wavg = (col: string, cond: string) => `SUM(w * ${col}) FILTER (WHERE ${cond}) / NULLIF(SUM(w) FILTER (WHERE ${cond}), 0)`;
+const RIDE_OK = `${ok("ride_m", 60)} AND ride_m >= 1 AND km BETWEEN 0.2 AND 30`;
+
 export async function loadLearnedTimes(): Promise<LearnedTimes> {
-  const [overall, perRestaurant] = await Promise.all([
+  const [overall, perRestaurant, perCourier, perHour] = await Promise.all([
     pool.query(`${STEPS_SQL}
       SELECT COUNT(*) FILTER (WHERE ${ok("total_m", MAX_STEP_MINUTES * 2)})::int AS sample,
-             AVG(wait_m)   FILTER (WHERE ${ok("wait_m")})   AS wait,
-             AVG(pickup_m) FILTER (WHERE ${ok("pickup_m")}) AS pickup,
-             SUM(ride_m) FILTER (WHERE ${ok("ride_m")} AND km BETWEEN 0.3 AND 30)
-               / NULLIF(SUM(km) FILTER (WHERE ${ok("ride_m")} AND km BETWEEN 0.3 AND 30), 0) AS min_per_km
+             ${wavg("wait_m", ok("wait_m"))}     AS wait,
+             ${wavg("pickup_m", ok("pickup_m"))} AS pickup,
+             COUNT(*) FILTER (WHERE ${RIDE_OK})::int AS rides,
+             REGR_SLOPE(ride_m, km)     FILTER (WHERE ${RIDE_OK}) AS slope,
+             REGR_INTERCEPT(ride_m, km) FILTER (WHERE ${RIDE_OK}) AS fixed
       FROM t`),
     pool.query(`${STEPS_SQL}
       SELECT restaurant_id AS id,
              COUNT(*) FILTER (WHERE ${ok("total_m", MAX_STEP_MINUTES * 2)})::int AS sample,
-             AVG(pickup_m) FILTER (WHERE ${ok("pickup_m")}) AS pickup,
+             COUNT(*) FILTER (WHERE ${ok("pickup_m")})::int AS pickups,
+             ${wavg("pickup_m", ok("pickup_m"))} AS pickup,
              PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY total_m) FILTER (WHERE ${ok("total_m", MAX_STEP_MINUTES * 2)}) AS low,
              PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY total_m) FILTER (WHERE ${ok("total_m", MAX_STEP_MINUTES * 2)}) AS high
       FROM t WHERE restaurant_id IS NOT NULL GROUP BY restaurant_id`),
+    pool.query(`${STEPS_SQL}
+      SELECT courier_id AS id, COUNT(*)::int AS n, SUM(ride_m) AS ride, SUM(km) AS km
+      FROM t WHERE courier_id IS NOT NULL AND courier_id <> '' AND ${RIDE_OK} GROUP BY courier_id`),
+    pool.query(`${STEPS_SQL}
+      SELECT hour, COUNT(*)::int AS n, ${wavg("pickup_m", ok("pickup_m"))} AS pickup
+      FROM t WHERE hour IS NOT NULL AND ${ok("pickup_m")} GROUP BY hour`),
   ]);
   const o = overall.rows[0] ?? {};
   const sample = Number(o["sample"] ?? 0);
   const enough = sample >= MIN_SAMPLE;
   const num = (v: unknown): number | null => (v == null ? null : Number(v));
+  const globalPickup = enough ? num(o["pickup"]) : null;
+
+  // Ride = fixed + slope × km, fitted on real rides. Guarded so a handful of odd
+  // rides cannot produce a negative or absurd line.
+  const rides = Number(o["rides"] ?? 0);
+  const fitted = enough && rides >= MIN_SAMPLE * 2 && o["slope"] != null && o["fixed"] != null;
+  const minutesPerKm = fitted ? clamp(Number(o["slope"]), 1, 10) : null;
+  const rideFixed = fitted ? clamp(Number(o["fixed"]), 2, 15) : null;
+
   const byRestaurantId: Record<string, RestaurantLearned> = {};
   for (const r of perRestaurant.rows) {
-    if (Number(r["sample"]) < MIN_SAMPLE || r["low"] == null || r["high"] == null) continue;
+    const n = Number(r["pickups"] ?? 0);
+    if (n === 0 || r["pickup"] == null) continue;
+    const own = Number(r["pickup"]);
+    const pickup = globalPickup == null ? own : (n * own + SHRINK_RESTAURANT * globalPickup) / (n + SHRINK_RESTAURANT);
     byRestaurantId[String(r["id"])] = {
-      pickup: Number(r["pickup"] ?? FALLBACK_PICKUP), totalLow: Number(r["low"]), totalHigh: Number(r["high"]), sample: Number(r["sample"]),
+      pickup, totalLow: Number(r["low"]), totalHigh: Number(r["high"]), sample: Number(r["sample"]),
     };
   }
+
+  const courierPace: Record<string, number> = {};
+  if (minutesPerKm != null && rideFixed != null) {
+    for (const r of perCourier.rows) {
+      const n = Number(r["n"]);
+      const expected = n * rideFixed + minutesPerKm * Number(r["km"]);
+      if (!(n > 0 && expected > 0)) continue;
+      const own = Number(r["ride"]) / expected;
+      courierPace[String(r["id"])] = clamp((n * own + SHRINK_COURIER) / (n + SHRINK_COURIER), 0.6, 1.6);
+    }
+  }
+
+  const pickupByHour: number[] = [];
+  if (globalPickup) {
+    for (const r of perHour.rows) {
+      const n = Number(r["n"]);
+      const ratio = Number(r["pickup"]) / globalPickup;
+      if (!(n > 0 && Number.isFinite(ratio))) continue;
+      pickupByHour[Number(r["hour"])] = clamp((n * ratio + SHRINK_HOUR) / (n + SHRINK_HOUR), 0.7, 1.5);
+    }
+  }
+
   return {
     wait: enough ? num(o["wait"]) : null,
-    pickup: enough ? num(o["pickup"]) : null,
-    // Guard against a nonsense pace from a handful of odd rides.
-    minutesPerKm: enough && o["min_per_km"] != null ? Math.min(12, Math.max(1.5, Number(o["min_per_km"]))) : null,
+    pickup: globalPickup,
+    minutesPerKm,
+    rideFixed,
     sample,
     byRestaurantId,
+    courierPace,
+    pickupByHour,
   };
 }
 
@@ -120,13 +192,30 @@ export async function getLearnedTimes(): Promise<LearnedTimes> {
 
 const roundTo5 = (n: number) => Math.round(n / 5) * 5;
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
-const rideMinutes = (km: number, l: LearnedTimes) => Math.max(2, (Number.isFinite(km) ? Math.max(0, km) : 0) * (l.minutesPerKm ?? FALLBACK_MIN_PER_KM));
+/**
+ * Minutes for a ride of `km`. `remaining` = the courier is already moving, so
+ * only the arrival half of the fixed time is still ahead.
+ */
+const rideMinutes = (km: number, l: LearnedTimes, courierId?: string | null, remaining = false) => {
+  const d = Number.isFinite(km) ? Math.max(0, km) : 0;
+  const fixed = (l.rideFixed ?? 0) * (remaining ? 0.5 : 1);
+  const pace = (courierId && l.courierPace?.[courierId]) || 1;
+  return Math.max(2, (fixed + d * (l.minutesPerKm ?? FALLBACK_MIN_PER_KM)) * pace);
+};
+
+const damascusHour = (at: Date) => (at.getUTCHours() + 3) % 24;
+
+/** This restaurant's usual pickup, adjusted for how busy this hour of the day runs. */
+const pickupMinutes = (restaurantId: string | null | undefined, l: LearnedTimes, at: Date) => {
+  const base = (restaurantId && l.byRestaurantId[restaurantId]?.pickup) || l.pickup || FALLBACK_PICKUP;
+  return base * (l.pickupByHour?.[damascusHour(at)] || 1);
+};
 
 /** Estimate stored on a new order: wait for a courier + pickup at this restaurant + the ride. */
-export function estimateOrderMinutes(distanceKm: number, restaurantId: string | null | undefined, l: LearnedTimes): number {
+export function estimateOrderMinutes(distanceKm: number, restaurantId: string | null | undefined, l: LearnedTimes, now = new Date()): number {
   const km = Number.isFinite(distanceKm) ? distanceKm : 0;
   if (l.sample < MIN_SAMPLE) return clamp(15 + Math.round(km * 4), 15, 120);
-  const pickup = (restaurantId && l.byRestaurantId[restaurantId]?.pickup) || l.pickup || FALLBACK_PICKUP;
+  const pickup = pickupMinutes(restaurantId, l, now);
   const total = (l.wait ?? FALLBACK_WAIT) + pickup + rideMinutes(km, l);
   return clamp(Math.ceil(total / 5) * 5, 10, 120);
 }
@@ -134,7 +223,7 @@ export function estimateOrderMinutes(distanceKm: number, restaurantId: string | 
 /** "25-35" for a restaurant card, or null to keep the admin-entered text. */
 export function restaurantDeliveryRange(restaurantId: string, l: LearnedTimes): string | null {
   const r = l.byRestaurantId[restaurantId];
-  if (!r) return null;
+  if (!r || r.sample < MIN_SAMPLE || !Number.isFinite(r.totalLow) || !Number.isFinite(r.totalHigh)) return null;
   const low = clamp(roundTo5(r.totalLow), 10, 115);
   const high = clamp(Math.max(low + 5, roundTo5(r.totalHigh)), low + 5, 120);
   return `${low}-${high}`;
@@ -159,6 +248,8 @@ export function liveEtaMinutes(input: {
   restaurant: Point;
   destination: Point;
   restaurantId?: string | null;
+  /** The assigned courier: their own riding pace is used once known. */
+  courierId?: string | null;
   now?: Date;
 }, l: LearnedTimes): number | null {
   const { destination, restaurant } = input;
@@ -170,18 +261,64 @@ export function liveEtaMinutes(input: {
 
   if (input.status === "accepted") {
     // Still has to collect the order: what is left of this restaurant's usual pickup time, then the ride from it.
-    const pickup = (input.restaurantId && l.byRestaurantId[input.restaurantId]?.pickup) || l.pickup || FALLBACK_PICKUP;
+    const pickup = pickupMinutes(input.restaurantId, l, input.statusSince);
     const fromKm = km(restaurant) ?? km(courier);
     if (fromKm == null) return null;
-    return Math.max(2, Math.round(Math.max(2, pickup - elapsed) + rideMinutes(fromKm, l)));
+    return Math.max(2, Math.round(Math.max(2, pickup - elapsed) + rideMinutes(fromKm, l, input.courierId)));
   }
   if (input.status === "picked_up" || input.status === "on_way") {
     const live = km(courier);
-    if (live != null) return Math.max(1, Math.round(rideMinutes(live, l)));
+    if (live != null) return Math.max(1, Math.round(rideMinutes(live, l, input.courierId, true)));
     // No trustworthy position: count down the usual ride from the restaurant instead of freezing.
     const fromKm = km(restaurant);
     if (fromKm == null) return null;
-    return Math.max(2, Math.round(rideMinutes(fromKm, l) - elapsed));
+    return Math.max(2, Math.round(rideMinutes(fromKm, l, input.courierId) - elapsed));
   }
   return null;
+}
+
+// ─── Promises ────────────────────────────────────────────────────────────────
+// When a courier accepts, the arrival time the customer is shown is written
+// down once, so the admin can see how often we keep our word and whether the
+// learning is actually getting better.
+
+let promisesReady: Promise<void> | null = null;
+function ensurePromises(): Promise<void> {
+  promisesReady ??= pool.query(`
+    CREATE TABLE IF NOT EXISTS order_eta_promises (
+      order_id TEXT PRIMARY KEY REFERENCES orders(id) ON DELETE CASCADE,
+      promised_minutes INTEGER NOT NULL,
+      promised_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      promised_by TIMESTAMPTZ NOT NULL
+    )`).then(() => undefined).catch((err) => { promisesReady = null; throw err; });
+  return promisesReady;
+}
+
+/** Records the promise for a just-accepted order. Never throws: it must not affect the accept. */
+export async function recordPromisedEta(orderId: string, now = new Date()): Promise<number | null> {
+  try {
+    await ensurePromises();
+    const { rows } = await pool.query(
+      `SELECT o.restaurant_id, o.courier_id, o.destination_lat, o.destination_lon, r.lat AS r_lat, r.lon AS r_lon
+       FROM orders o LEFT JOIN restaurants r ON r.id = o.restaurant_id WHERE o.id = $1`, [orderId]);
+    const o = rows[0];
+    if (!o) return null;
+    const pt = (lat: unknown, lon: unknown): Point => (lat == null || lon == null ? null : { lat: Number(lat), lon: Number(lon) });
+    const minutes = liveEtaMinutes({
+      status: "accepted", statusSince: now, now,
+      courier: null, courierFresh: false,
+      restaurant: pt(o["r_lat"], o["r_lon"]),
+      destination: pt(o["destination_lat"], o["destination_lon"]),
+      restaurantId: o["restaurant_id"] ?? null,
+      courierId: o["courier_id"] ?? null,
+    }, await getLearnedTimes());
+    if (minutes == null) return null;
+    await pool.query(
+      `INSERT INTO order_eta_promises (order_id, promised_minutes, promised_at, promised_by)
+       VALUES ($1, $2, $3, $3::timestamptz + make_interval(mins => $2)) ON CONFLICT (order_id) DO NOTHING`,
+      [orderId, minutes, now.toISOString()]);
+    return minutes;
+  } catch {
+    return null;
+  }
 }

@@ -13,6 +13,7 @@ import { checkAndAwardAchievements } from "../lib/achievements";
 import { sendCourierPush } from "../lib/push";
 import { recordAvailability, touchOnlineSession } from "../lib/courierActivity";
 import { sendCourierDirections } from "../lib/courierDirections";
+import { recordPromisedEta } from "../lib/deliveryEstimates";
 
 const router: IRouter = Router();
 
@@ -553,6 +554,8 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
   await sendOrderPush(accepted.userId, `${accepted.courierName} قبل طلبك وهو في الطريق لاستلامه!`, orderId);
   // Map link to the restaurant on the courier's WhatsApp. Not awaited: never delays the accept.
   void sendCourierDirections(orderId, "to_restaurant");
+  // Write down the arrival time we are promising, to measure on-time delivery.
+  void recordPromisedEta(orderId);
 
   res.json(accepted);
 });

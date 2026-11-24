@@ -109,6 +109,12 @@ export interface SpeedReport {
     avgTotalMinutes: number | null;
     avgKm: number | null;
     minutesPerKm: number | null;
+    /** Delivered no later than 5 minutes after the time promised when the courier accepted. */
+    onTimePercent: number | null;
+    /** How many delivered orders carry a promise (recorded from this version on). */
+    promisedOrders: number;
+    /** Average minutes late (+) or early (−) against the promise. */
+    avgLateMinutes: number | null;
   };
   restaurants: RestaurantSpeedRow[];
   couriers: CourierSpeedRow[];
@@ -151,7 +157,9 @@ const STEPS_CTE = `
            END AS km
     FROM orders o JOIN h ON h.order_id = o.id
     LEFT JOIN restaurants r ON r.id = o.restaurant_id
-    WHERE o.status = 'delivered' AND o.created_at >= NOW() - make_interval(days => $1)),
+    WHERE o.status = 'delivered' AND o.created_at >= NOW() - make_interval(days => $1)
+      -- A captain's practice order, completed on the spot, is not a delivery.
+      AND h.delivered_at - o.created_at > make_interval(mins => 5)),
   t AS (
     SELECT id, courier_id, restaurant_name,
            CASE WHEN wait_m     BETWEEN 0 AND ${MAX_STEP_MINUTES} THEN wait_m     END AS wait_m,
@@ -166,7 +174,7 @@ const STEPS_CTE = `
     FROM raw)`;
 
 export async function getSpeedReport(days: number): Promise<SpeedReport> {
-  const [overall, restaurants, couriers] = await Promise.all([
+  const [overall, restaurants, couriers, promises] = await Promise.all([
     pool.query(`${STEPS_CTE}
       SELECT COUNT(*)::int AS orders, AVG(wait_m) AS wait, AVG(pickup_m) AS pickup, AVG(ride_m) AS ride,
              AVG(delivery_m) AS delivery, AVG(total_m) AS total,
@@ -183,7 +191,18 @@ export async function getSpeedReport(days: number): Promise<SpeedReport> {
       FROM t LEFT JOIN users u ON u.id = t.courier_id
       WHERE t.courier_id IS NOT NULL AND t.courier_id <> ''
       GROUP BY t.courier_id, u.name, u.phone`, [days]),
+    // The promise table appears with this version; before that there is nothing to measure.
+    pool.query(`SELECT to_regclass('order_eta_promises') IS NOT NULL AS ok`).then((r): Promise<{ rows: Record<string, unknown>[] }> | { rows: Record<string, unknown>[] } => r.rows[0]?.["ok"]
+      ? pool.query(`${STEPS_CTE}
+          SELECT COUNT(*)::int AS n,
+                 AVG(CASE WHEN EXTRACT(EPOCH FROM (dl.delivered_at - p.promised_by)) / 60 <= 5 THEN 100.0 ELSE 0 END) AS on_time,
+                 AVG(EXTRACT(EPOCH FROM (dl.delivered_at - p.promised_by)) / 60) AS late
+          FROM t JOIN order_eta_promises p ON p.order_id = t.id
+          JOIN (SELECT order_id, MAX(created_at) AS delivered_at FROM order_status_history WHERE status = 'delivered' GROUP BY order_id) dl
+            ON dl.order_id = t.id`, [days])
+      : { rows: [] }),
   ]);
+  const pr = promises.rows[0] ?? {};
   const o = overall.rows[0] ?? {};
   const overallPickup = n(o["pickup"]);
   const overallRide = n(o["ride"]);
@@ -198,6 +217,9 @@ export async function getSpeedReport(days: number): Promise<SpeedReport> {
       avgWaitMinutes: n(o["wait"]), avgPickupMinutes: overallPickup, avgRideMinutes: overallRide,
       avgDeliveryMinutes: n(o["delivery"]), avgTotalMinutes: n(o["total"]),
       avgKm: dec(o["km"]), minutesPerKm: overallPace,
+      promisedOrders: Number(pr["n"] ?? 0),
+      onTimePercent: Number(pr["n"] ?? 0) > 0 ? Math.round(Number(pr["on_time"])) : null,
+      avgLateMinutes: Number(pr["n"] ?? 0) > 0 ? dec(pr["late"]) : null,
     },
     restaurants: restaurants.rows.map((r): RestaurantSpeedRow => ({
       name: String(r["name"]), orders: Number(r["orders"]),
