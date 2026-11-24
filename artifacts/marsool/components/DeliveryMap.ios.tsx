@@ -1,26 +1,46 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { View, StyleSheet } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import MapView, { Marker } from "react-native-maps";
-import { Coords } from "@/utils/geo";
+import { Coords, HOMS_CENTER } from "@/utils/geo";
+import { mapFrameKey } from "@/components/deliveryMapShared";
 
 interface DeliveryMapProps {
-  userCoords: Coords | null;
+  /** The delivery address the customer picked (not where their phone is right now). */
+  destinationCoords: Coords | null;
+  /** The restaurant the courier collects from; absent for errands. */
+  restaurantCoords?: Coords | null;
   courierCoords: Coords | null;
   isSearching?: boolean;
   etaMinutes?: number | null;
   height?: number;
 }
 
-export function DeliveryMap({ userCoords, courierCoords, isSearching, etaMinutes, height = 220 }: DeliveryMapProps) {
-  const center = userCoords ?? { latitude: 33.5138, longitude: 36.2765 };
+export function DeliveryMap({ destinationCoords, restaurantCoords, courierCoords, isSearching, etaMinutes, height = 220 }: DeliveryMapProps) {
+  const mapRef = useRef<MapView>(null);
+  const center = destinationCoords ?? restaurantCoords ?? HOMS_CENTER;
+  const courier = courierCoords && !isSearching ? courierCoords : null;
+
+  // Frame the whole trip once each point is known. Following every courier ping
+  // would fight the customer's own panning and zooming.
+  const frameKey = mapFrameKey(destinationCoords, restaurantCoords ?? null, courier);
+  useEffect(() => {
+    const points = [destinationCoords, restaurantCoords, courier].filter((p): p is Coords => !!p);
+    if (points.length < 2) return;
+    mapRef.current?.fitToCoordinates(points, {
+      edgePadding: { top: 60, right: 50, bottom: 40, left: 50 },
+      animated: true,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frameKey]);
 
   return (
     <View style={{ height, overflow: "hidden" }}>
       <MapView
+        ref={mapRef}
         style={{ flex: 1 }}
-        region={{
+        initialRegion={{
           latitude: center.latitude,
           longitude: center.longitude,
           latitudeDelta: 0.022,
@@ -37,26 +57,24 @@ export function DeliveryMap({ userCoords, courierCoords, isSearching, etaMinutes
         pitchEnabled={true}
         rotateEnabled={false}
       >
-        {userCoords && (
-          <Marker
-            coordinate={userCoords}
-            title="موقعك"
-            anchor={{ x: 0.5, y: 0.5 }}
-          >
-            <View style={styles.userMarker}>
-              <View style={styles.userMarkerOuter}>
-                <View style={styles.userMarkerInner} />
-              </View>
+        {restaurantCoords && (
+          <Marker coordinate={restaurantCoords} title="المطعم" anchor={{ x: 0.5, y: 0.5 }}>
+            <View style={styles.restaurantMarker}>
+              <MaterialIcons name="restaurant" size={18} color="#fff" />
             </View>
           </Marker>
         )}
 
-        {courierCoords && !isSearching && (
-          <Marker
-            coordinate={courierCoords}
-            title="المندوب"
-            anchor={{ x: 0.5, y: 0.5 }}
-          >
+        {destinationCoords && (
+          <Marker coordinate={destinationCoords} title="عنوان التوصيل" anchor={{ x: 0.5, y: 0.5 }}>
+            <View style={styles.homeMarker}>
+              <MaterialIcons name="home" size={20} color="#fff" />
+            </View>
+          </Marker>
+        )}
+
+        {courier && (
+          <Marker coordinate={courier} title="المندوب" anchor={{ x: 0.5, y: 0.5 }}>
             <View style={styles.courierMarker}>
               <MaterialIcons name="delivery-dining" size={22} color="#fff" />
             </View>
@@ -74,24 +92,20 @@ export function DeliveryMap({ userCoords, courierCoords, isSearching, etaMinutes
   );
 }
 
+const pin = {
+  alignItems: "center" as const,
+  justifyContent: "center" as const,
+  borderWidth: 3,
+  borderColor: "#fff",
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.25,
+  shadowRadius: 4,
+};
+
 const styles = StyleSheet.create({
-  userMarker: { alignItems: "center", justifyContent: "center" },
-  userMarkerOuter: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(59,130,246,0.25)",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2.5,
-    borderColor: "#3b82f6",
-  },
-  userMarkerInner: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: "#3b82f6",
-  },
+  homeMarker: { ...pin, width: 38, height: 38, borderRadius: 19, backgroundColor: "#2563eb" },
+  restaurantMarker: { ...pin, width: 34, height: 34, borderRadius: 17, backgroundColor: "#ea580c" },
   courierMarker: {
     width: 44,
     height: 44,

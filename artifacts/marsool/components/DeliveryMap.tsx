@@ -5,7 +5,8 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Coords } from "@/utils/geo";
+import { Coords, HOMS_CENTER } from "@/utils/geo";
+import { mapFrameKey } from "@/components/deliveryMapShared";
 
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
@@ -14,19 +15,27 @@ L.Icon.Default.mergeOptions({
 });
 
 interface DeliveryMapProps {
-  userCoords: Coords | null;
+  /** The delivery address the customer picked (not where their phone is right now). */
+  destinationCoords: Coords | null;
+  /** The restaurant the courier collects from; absent for errands. */
+  restaurantCoords?: Coords | null;
   courierCoords: Coords | null;
   isSearching?: boolean;
   etaMinutes?: number | null;
   height?: number;
 }
 
-const userIcon = L.divIcon({
-  className: "",
-  html: `<div style="width:32px;height:32px;border-radius:50%;background:rgba(59,130,246,0.25);border:2.5px solid #3b82f6;display:flex;align-items:center;justify-content:center;"><div style="width:14px;height:14px;border-radius:50%;background:#3b82f6;"></div></div>`,
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
-});
+function pinIcon(bg: string, glyph: string, size: number) {
+  return L.divIcon({
+    className: "",
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${bg};border:3px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:${Math.round(size / 2)}px;box-sizing:border-box;">${glyph}</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
+const homeIcon = pinIcon("#2563eb", "🏠", 38);
+const restaurantIcon = pinIcon("#ea580c", "🍽", 34);
 
 const courierIcon = L.divIcon({
   className: "",
@@ -35,14 +44,18 @@ const courierIcon = L.divIcon({
   iconAnchor: [22, 22],
 });
 
-function MapPanner({ center }: { center: Coords }) {
+/** Frames the trip when a point first appears, never on a plain courier ping. */
+function MapFramer({ points, frameKey }: { points: Coords[]; frameKey: string }) {
   const map = useMap();
-  const prev = useRef<string>("");
+  const prev = useRef("");
   useEffect(() => {
-    const key = `${center.latitude},${center.longitude}`;
-    if (key === prev.current) return;
-    prev.current = key;
-    map.panTo([center.latitude, center.longitude], { animate: true, duration: 0.5 });
+    if (frameKey === prev.current) return;
+    prev.current = frameKey;
+    if (points.length >= 2) {
+      map.fitBounds(points.map((p) => [p.latitude, p.longitude] as [number, number]), { padding: [45, 45], maxZoom: 16 });
+    } else if (points.length === 1) {
+      map.setView([points[0].latitude, points[0].longitude], 15);
+    }
   });
   return null;
 }
@@ -65,8 +78,10 @@ function LiveCourierMarker({ coords }: { coords: Coords }) {
   );
 }
 
-export function DeliveryMap({ userCoords, courierCoords, isSearching, etaMinutes, height = 220 }: DeliveryMapProps) {
-  const center = userCoords ?? { latitude: 33.5138, longitude: 36.2765 };
+export function DeliveryMap({ destinationCoords, restaurantCoords, courierCoords, isSearching, etaMinutes, height = 220 }: DeliveryMapProps) {
+  const center = destinationCoords ?? restaurantCoords ?? HOMS_CENTER;
+  const courier = courierCoords && !isSearching ? courierCoords : null;
+  const points = [destinationCoords, restaurantCoords ?? null, courier].filter((p): p is Coords => !!p);
 
   return (
     <View style={{ height, overflow: "hidden" }}>
@@ -78,14 +93,17 @@ export function DeliveryMap({ userCoords, courierCoords, isSearching, etaMinutes
         attributionControl={false}
       >
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <MapFramer points={points} frameKey={mapFrameKey(destinationCoords, restaurantCoords ?? null, courier)} />
 
-        {userCoords && (
-          <Marker position={[userCoords.latitude, userCoords.longitude]} icon={userIcon} />
+        {restaurantCoords && (
+          <Marker position={[restaurantCoords.latitude, restaurantCoords.longitude]} icon={restaurantIcon} />
         )}
 
-        {courierCoords && !isSearching && (
-          <LiveCourierMarker coords={courierCoords} />
+        {destinationCoords && (
+          <Marker position={[destinationCoords.latitude, destinationCoords.longitude]} icon={homeIcon} />
         )}
+
+        {courier && <LiveCourierMarker coords={courier} />}
       </MapContainer>
 
       {etaMinutes != null && !isSearching && (

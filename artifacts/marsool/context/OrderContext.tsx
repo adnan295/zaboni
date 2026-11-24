@@ -66,6 +66,9 @@ export interface Order {
   scheduledDay?: string | null;
   scheduledWindow?: string | null;
   mealSubscriptionId?: string | null;
+  /** Where the order is delivered — the pin the customer chose, not where their phone is now. */
+  destinationLat?: number | null;
+  destinationLon?: number | null;
 }
 
 interface OrderContextValue {
@@ -105,6 +108,8 @@ function apiOrderToLocal(apiOrder: {
   scheduledDay?: string | null;
   scheduledWindow?: string | null;
   mealSubscriptionId?: string | null;
+  destinationLat?: number | null;
+  destinationLon?: number | null;
 }): Order {
   return {
     id: apiOrder.id,
@@ -133,6 +138,8 @@ function apiOrderToLocal(apiOrder: {
     scheduledDay: apiOrder.scheduledDay ? String(apiOrder.scheduledDay).slice(0, 10) : null,
     scheduledWindow: apiOrder.scheduledWindow ?? null,
     mealSubscriptionId: apiOrder.mealSubscriptionId ?? null,
+    destinationLat: typeof apiOrder.destinationLat === "number" ? apiOrder.destinationLat : null,
+    destinationLon: typeof apiOrder.destinationLon === "number" ? apiOrder.destinationLon : null,
   };
 }
 

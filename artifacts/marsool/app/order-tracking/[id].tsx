@@ -14,7 +14,6 @@ import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
-import * as Location from "expo-location";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
@@ -24,12 +23,8 @@ import { useRatings } from "@/context/RatingsContext";
 import { DeliveryMap } from "@/components/DeliveryMap";
 import CancelReasonSheet, { type CancelReason } from "@/components/CancelReasonSheet";
 import ScheduledOrderView from "@/components/ScheduledOrderView";
-import {
-  Coords,
-  HOMS_CENTER,
-  haversineDistance,
-  estimateEtaMinutes,
-} from "@/utils/geo";
+import { Coords } from "@/utils/geo";
+import { fallbackEtaMinutes } from "@/utils/trackingEta";
 
 const USE_NATIVE_DRIVER = Platform.OS !== "web";
 // The courier pings every ~8 s while delivering; poll a little faster than that
@@ -64,7 +59,13 @@ export default function OrderTrackingScreen() {
   const initialAccepted = initialOrder?.status === "accepted" || initialOrder?.status === "on_way" || initialOrder?.status === "delivered";
   const acceptedScale = useRef(new Animated.Value(initialAccepted ? 1 : 0)).current;
 
-  const [userCoords, setUserCoords] = useState<Coords | null>(null);
+  // The map and the arrival estimate are about the delivery address the customer
+  // picked, never the phone's current position (they may have ordered home from work).
+  const destLat = order?.destinationLat;
+  const destLon = order?.destinationLon;
+  const destinationCoords: Coords | null =
+    typeof destLat === "number" && typeof destLon === "number" ? { latitude: destLat, longitude: destLon } : null;
+  const [restaurantCoords, setRestaurantCoords] = useState<Coords | null>(null);
   const [courierCoords, setCourierCoords] = useState<Coords | null>(null);
   const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
   const [isPollingActive, setIsPollingActive] = useState(false);
@@ -105,24 +106,30 @@ export default function OrderTrackingScreen() {
     };
   }, [id, order?.status]);
 
+  // Where the courier collects the order, for the map pin and the estimate.
+  // Errands have no restaurant; a failed lookup just leaves the pin off.
+  const restaurantId = order?.restaurantId ?? null;
   useEffect(() => {
+    if (!restaurantId) return;
+    let cancelled = false;
     (async () => {
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === "granted") {
-          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          setUserCoords({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
-        } else {
-          setUserCoords(HOMS_CENTER);
+        const r = await customFetch(`/api/restaurants/${restaurantId}`) as { lat?: number | null; lon?: number | null };
+        if (!cancelled && typeof r?.lat === "number" && typeof r?.lon === "number") {
+          setRestaurantCoords({ latitude: r.lat, longitude: r.lon });
         }
       } catch {
-        setUserCoords(HOMS_CENTER);
       }
     })();
-  }, []);
+    return () => { cancelled = true; };
+  }, [restaurantId]);
+
+  // Read through refs inside the poll so a new order snapshot every few seconds
+  // does not restart the interval.
+  const etaInputsRef = useRef({ destinationCoords, restaurantCoords });
+  etaInputsRef.current = { destinationCoords, restaurantCoords };
 
   useEffect(() => {
-    if (!userCoords) return;
     const currentOrder = getOrder(id ?? "");
     if (!currentOrder || currentOrder.status === "searching" || currentOrder.status === "delivered" || currentOrder.status === "cancelled") return;
 
@@ -149,8 +156,13 @@ export default function OrderTrackingScreen() {
           if (typeof data.etaMinutes === "number" && data.etaMinutes > 0) {
             setEtaMinutes(data.etaMinutes);
           } else {
-            const dist = haversineDistance(realCoords, userCoords);
-            setEtaMinutes(estimateEtaMinutes(dist));
+            const { destinationCoords: destination, restaurantCoords: restaurant } = etaInputsRef.current;
+            setEtaMinutes(fallbackEtaMinutes({
+              status: getOrder(id ?? "")?.status ?? "",
+              courier: realCoords,
+              restaurant,
+              destination,
+            }));
           }
         }
       } catch {
@@ -167,7 +179,7 @@ export default function OrderTrackingScreen() {
       }
       setIsPollingActive(false);
     };
-  }, [userCoords, id, order?.status]);
+  }, [id, order?.status]);
 
   useEffect(() => {
     return () => {
@@ -350,7 +362,8 @@ export default function OrderTrackingScreen() {
       {showMap && (
         <View style={styles.mapSection}>
           <DeliveryMap
-            userCoords={userCoords}
+            destinationCoords={destinationCoords}
+            restaurantCoords={restaurantCoords}
             courierCoords={courierCoords}
             isSearching={isSearching}
             etaMinutes={etaMinutes}
