@@ -10,7 +10,8 @@ export default function ErrandTab() {
     useCallback(() => {
       if (!hasNavigated.current) {
         hasNavigated.current = true;
-        router.push("/errand-request" as any);
+        // The Homs directory; it falls back to the typed free order while it is empty.
+        router.push("/directory" as any);
       } else {
         hasNavigated.current = false;
         router.navigate("/" as any);

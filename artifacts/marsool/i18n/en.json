@@ -1057,5 +1057,29 @@
       "cancelBody": "The portion goes back on sale.",
       "cancelConfirm": "Cancel booking"
     }
+  },
+  "directory": {
+    "title": "Homs Directory",
+    "searchPlaceholder": "Search a place or a dish…",
+    "all": "All",
+    "list": "List",
+    "map": "Map",
+    "kmAway": "{{km}} km",
+    "itemsCount": "{{count}} items",
+    "empty": "Nothing found",
+    "notListed": "Not listed? Order from anywhere",
+    "menu": "Menu",
+    "menuPhotos": "Menu photos",
+    "tapToAdd": "Tap an item to add it to your order",
+    "yourOrder": "What would you like?",
+    "orderPlaceholder": "Type your order, or tap items in the menu above",
+    "deliveryFee": "Delivery fee",
+    "billNote": "You pay the place's bill as printed, and receive the original receipt with your order.",
+    "noPrices": "Prices aren't listed. You pay as per the receipt.",
+    "submit": "Order from {{name}}",
+    "orderRequired": "Write what you'd like to order",
+    "outOfArea": "Your address is outside delivery range from this place",
+    "loadError": "Couldn't load the directory, try again",
+    "retry": "Retry"
   }
 }

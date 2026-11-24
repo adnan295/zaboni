@@ -59,6 +59,11 @@ export const ordersTable = pgTable("orders", {
   scheduledWindow: text("scheduled_window"),
   placedAt: timestamp("placed_at", { withTimezone: true }),
   mealSubscriptionId: text("meal_subscription_id"),
+  // Free orders from the Homs directory (lib/directory): which place, and its
+  // exact location, so the fee and the courier's directions start from there.
+  directoryPlaceId: text("directory_place_id"),
+  pickupLat: doublePrecision("pickup_lat"),
+  pickupLon: doublePrecision("pickup_lon"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

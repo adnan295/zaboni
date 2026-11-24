@@ -315,8 +315,9 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
       updatedAt: ordersTable.updatedAt,
       orderType: ordersTable.orderType,
       placeName: ordersTable.placeName,
-      restaurantLat: restaurantsTable.lat,
-      restaurantLon: restaurantsTable.lon,
+      // Directory free orders have no restaurant row: use the place's own pin.
+      restaurantLat: sql<number | null>`COALESCE(${restaurantsTable.lat}, ${ordersTable.pickupLat})`,
+      restaurantLon: sql<number | null>`COALESCE(${restaurantsTable.lon}, ${ordersTable.pickupLon})`,
     })
     .from(ordersTable)
     .leftJoin(restaurantsTable, eq(ordersTable.restaurantId, restaurantsTable.id))
@@ -378,8 +379,9 @@ router.get("/courier/orders/active", requireCourier, async (req, res) => {
       ...getTableColumns(ordersTable),
       customerName: usersTable.name,
       customerPhone: usersTable.phone,
-      restaurantLat: restaurantsTable.lat,
-      restaurantLon: restaurantsTable.lon,
+      // Directory free orders have no restaurant row: use the place's own pin.
+      restaurantLat: sql<number | null>`COALESCE(${restaurantsTable.lat}, ${ordersTable.pickupLat})`,
+      restaurantLon: sql<number | null>`COALESCE(${restaurantsTable.lon}, ${ordersTable.pickupLon})`,
     })
     .from(ordersTable)
     .leftJoin(usersTable, eq(ordersTable.userId, usersTable.id))

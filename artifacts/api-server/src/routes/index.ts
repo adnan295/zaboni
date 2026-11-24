@@ -19,6 +19,7 @@ import referralRouter from "./referral";
 import coverageRouter from "./coverage";
 import crashesRouter from "./crashes";
 import kitchenRouter from "./kitchen";
+import directoryRouter from "./directory";
 import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
@@ -35,6 +36,8 @@ router.use(restaurantPortalRouter);
 router.use(supportRouter);
 router.use(coverageRouter);
 router.use(crashesRouter);
+// Browsing the directory needs no account; admin paths check their own token.
+router.use(directoryRouter);
 
 router.use(requireAuth);
 router.use(ordersRouter);

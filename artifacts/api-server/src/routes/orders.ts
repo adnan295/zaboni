@@ -14,6 +14,8 @@ import { maybeIssueApologyPromo } from "../lib/searchWatch";
 import { isUserSubscribed, getSubscriptionSettings } from "../lib/customerSubscription";
 import { getLearnedTimes, estimateOrderMinutes, liveEtaMinutes } from "../lib/deliveryEstimates";
 import { cancelScheduledOrder, KitchenError } from "../lib/kitchen";
+import { getPlace as getDirectoryPlace } from "../lib/directory";
+import { quoteFromPlace } from "./directory";
 
 const router: IRouter = Router();
 
@@ -38,13 +40,16 @@ const createOrderSchema = z
     flashDealId: z.string().optional(),
     orderType: z.enum(["restaurant", "errand"]).default("restaurant"),
     placeName: z.string().max(200).optional(),
+    /** A free order from a place in the Homs directory: fee measured from that place. */
+    directoryPlaceId: z.string().max(64).optional(),
     restaurantNote: z.string().max(500).optional(),
   })
   .refine(
     (d) =>
       (d.items != null && d.items.length > 0) ||
       (d.orderText != null && d.orderText.trim().length > 0) ||
-      (d.orderType === "errand" && d.placeName != null && d.placeName.trim().length > 0),
+      (d.orderType === "errand" && d.placeName != null && d.placeName.trim().length > 0) ||
+      (d.orderType === "errand" && d.directoryPlaceId != null),
     { message: "items_or_orderText_required" },
   );
 
@@ -506,9 +511,16 @@ router.post("/orders", async (req, res) => {
 
   const id = `${Date.now()}${Math.random().toString(36).slice(2, 9)}`;
 
-  // Errand (concierge) order: fixed 10,000 SYP delivery fee, no restaurant lookup.
+  // Errand (concierge) order. Typed place name: the admin-set errand fee, measured
+  // from the city centre. A place picked from the Homs directory: its real
+  // location is known, so the fee is the normal zone fee from that place.
   if (body.data.orderType === "errand") {
-    const placeName = body.data.placeName?.trim() ?? "";
+    const place = body.data.directoryPlaceId ? await getDirectoryPlace(body.data.directoryPlaceId).catch(() => null) : null;
+    if (body.data.directoryPlaceId && !place) {
+      res.status(404).json({ error: "directory_place_not_found", message: "هالمحل مو موجود بالدليل حالياً." });
+      return;
+    }
+    const placeName = place?.nameAr ?? body.data.placeName?.trim() ?? "";
     const itemsText = body.data.orderText?.trim() ?? "";
     if (!placeName) {
       res.status(400).json({ error: "errand_place_name_required" });
@@ -518,25 +530,39 @@ router.post("/orders", async (req, res) => {
     const destLat = body.data.lat ?? DAMASCUS_CENTER_LAT;
     const destLon = body.data.lon ?? DAMASCUS_CENTER_LON;
 
-    // Reject errands whose destination is outside the delivery coverage area.
-    // A drawn coverage polygon is authoritative; otherwise fall back to the
-    // distance-based cutoff (measured from the city center, since an errand has
-    // no restaurant origin).
-    const errandCoverage = await checkCoverage(destLat, destLon);
-    const errandDistanceKm = haversineKm(DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON, destLat, destLon);
-    const errandFeeResult = await getFeeForDistance(errandDistanceKm);
-    const errandOutOfArea = errandCoverage.hasCoverage
-      ? !errandCoverage.inside
-      : errandFeeResult.outOfRange;
-    if (errandOutOfArea) {
-      res.status(422).json({
-        error: "outside_delivery_area",
-        message: "عذراً، موقعك خارج نطاق التوصيل المتاح حالياً، لا يمكن إتمام الطلب لهذا الموقع.",
-      });
-      return;
+    let errandDistanceKm: number;
+    let errandDeliveryFee: number;
+    if (place) {
+      const quote = await quoteFromPlace(place, { lat: destLat, lon: destLon }, userId);
+      if (quote.outOfArea) {
+        res.status(422).json({
+          error: "outside_delivery_area",
+          message: "عذراً، موقعك خارج نطاق التوصيل المتاح حالياً، لا يمكن إتمام الطلب لهذا الموقع.",
+        });
+        return;
+      }
+      errandDistanceKm = quote.km;
+      errandDeliveryFee = quote.fee;
+    } else {
+      // Reject errands whose destination is outside the delivery coverage area.
+      // A drawn coverage polygon is authoritative; otherwise fall back to the
+      // distance-based cutoff (measured from the city center, since an errand has
+      // no restaurant origin).
+      const errandCoverage = await checkCoverage(destLat, destLon);
+      errandDistanceKm = haversineKm(DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON, destLat, destLon);
+      const errandFeeResult = await getFeeForDistance(errandDistanceKm);
+      const errandOutOfArea = errandCoverage.hasCoverage
+        ? !errandCoverage.inside
+        : errandFeeResult.outOfRange;
+      if (errandOutOfArea) {
+        res.status(422).json({
+          error: "outside_delivery_area",
+          message: "عذراً، موقعك خارج نطاق التوصيل المتاح حالياً، لا يمكن إتمام الطلب لهذا الموقع.",
+        });
+        return;
+      }
+      errandDeliveryFee = await getErrandDeliveryFee();
     }
-
-    const errandDeliveryFee = await getErrandDeliveryFee();
     const estimatedMinutes = estimateOrderMinutes(errandDistanceKm, null, await getLearnedTimes());
 
     const errandOrder = {
@@ -544,7 +570,8 @@ router.post("/orders", async (req, res) => {
       userId,
       orderText: errandOrderText,
       restaurantName: "",
-      restaurantPhone: "",
+      // The courier calls the place ahead from the order screen.
+      restaurantPhone: place?.phone ?? "",
       restaurantId: null as string | null,
       status: "searching" as const,
       courierName: "",
@@ -561,6 +588,9 @@ router.post("/orders", async (req, res) => {
       estimatedMinutes,
       orderType: "errand",
       placeName,
+      directoryPlaceId: place?.id ?? null,
+      pickupLat: place?.lat ?? null,
+      pickupLon: place?.lon ?? null,
     };
     const outcome = await createOrderOnce(userId, identity, async (tx) => {
       await tx.insert(ordersTable).values(errandOrder);
@@ -1111,6 +1141,7 @@ router.get("/orders/:id/courier-location", async (req, res) => {
     .select({
       courierId: ordersTable.courierId, status: ordersTable.status, restaurantId: ordersTable.restaurantId,
       destinationLat: ordersTable.destinationLat, destinationLon: ordersTable.destinationLon, updatedAt: ordersTable.updatedAt,
+      pickupLat: ordersTable.pickupLat, pickupLon: ordersTable.pickupLon,
     })
     .from(ordersTable)
     .where(and(eq(ordersTable.id, id), eq(ordersTable.userId, userId)))
@@ -1166,7 +1197,9 @@ router.get("/orders/:id/courier-location", async (req, res) => {
       statusSince: order.updatedAt ?? new Date(),
       courier: { lat: courier.courierLat, lon: courier.courierLon },
       courierFresh: !stale,
-      restaurant: restaurant?.lat != null && restaurant?.lon != null ? { lat: restaurant.lat, lon: restaurant.lon } : null,
+      restaurant: restaurant?.lat != null && restaurant?.lon != null
+        ? { lat: restaurant.lat, lon: restaurant.lon }
+        : order.pickupLat != null && order.pickupLon != null ? { lat: order.pickupLat, lon: order.pickupLon } : null,
       destination: order.destinationLat != null && order.destinationLon != null ? { lat: order.destinationLat, lon: order.destinationLon } : null,
       restaurantId: order.restaurantId,
       courierId: order.courierId,

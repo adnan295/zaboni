@@ -12,6 +12,7 @@ import { ensurePerformanceIndexes } from "./lib/dbIndexes";
 import { ensureCourierActivitySchema, startCourierActivityJob } from "./lib/courierActivity";
 import { ensureDevicePlatformSchema } from "./lib/courierDirections";
 import { ensureKitchenSchema, startKitchenJob } from "./lib/kitchen";
+import { ensureDirectorySchema } from "./lib/directory";
 import { whatsappManager } from "./lib/whatsapp";
 import { startPushReceiptJob } from "./lib/push";
 import { startDealExpiryJob } from "./lib/dealExpiry";
@@ -76,6 +77,7 @@ await ensurePerformanceIndexes();
 await ensureCourierActivitySchema();
 await ensureDevicePlatformSchema();
 await ensureKitchenSchema();
+await ensureDirectorySchema();
 
 httpServer.listen(port, (err?: Error) => {
   if (err) {

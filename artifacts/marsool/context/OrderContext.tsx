@@ -36,6 +36,8 @@ export interface PlaceOrderInput {
   flashDealId?: string;
   orderType?: "restaurant" | "errand";
   placeName?: string;
+  /** A free order picked from the Homs directory. */
+  directoryPlaceId?: string;
   restaurantNote?: string;
 }
 
@@ -216,7 +218,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
 
   const placeOrder = useCallback(
     async (input: PlaceOrderInput): Promise<Order> => {
-      const { items, orderText, restaurantName, address, promoCode, lat, lon, restaurantId, usePoints, flashDealId, orderType, placeName, restaurantNote } = input;
+      const { items, orderText, restaurantName, address, promoCode, lat, lon, restaurantId, usePoints, flashDealId, orderType, placeName, directoryPlaceId, restaurantNote } = input;
       const result = await checkoutSender.current!(user?.id ?? "", JSON.stringify({
           ...(items && items.length > 0 ? { items } : {}),
           ...(orderText ? { orderText } : {}),
@@ -230,6 +232,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
           ...(flashDealId ? { flashDealId } : {}),
           ...(orderType ? { orderType } : {}),
           ...(placeName ? { placeName } : {}),
+          ...(directoryPlaceId ? { directoryPlaceId } : {}),
           ...(restaurantNote ? { restaurantNote } : {}),
         }));
       if (currentUserId.current !== user?.id) throw new Error("تغيّر الحساب أثناء إرسال الطلب");

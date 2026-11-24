@@ -299,7 +299,7 @@ export async function recordPromisedEta(orderId: string, now = new Date()): Prom
   try {
     await ensurePromises();
     const { rows } = await pool.query(
-      `SELECT o.restaurant_id, o.courier_id, o.destination_lat, o.destination_lon, r.lat AS r_lat, r.lon AS r_lon
+      `SELECT o.restaurant_id, o.courier_id, o.destination_lat, o.destination_lon, COALESCE(r.lat, o.pickup_lat) AS r_lat, COALESCE(r.lon, o.pickup_lon) AS r_lon
        FROM orders o LEFT JOIN restaurants r ON r.id = o.restaurant_id WHERE o.id = $1`, [orderId]);
     const o = rows[0];
     if (!o) return null;

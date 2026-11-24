@@ -134,7 +134,7 @@ export async function sendCourierDirections(orderId: string, stage: DirectionsSt
     const { rows } = await pool.query(
       `SELECT o.id, o.order_text, o.address, o.restaurant_name, o.restaurant_phone, o.place_name,
               o.destination_lat, o.destination_lon,
-              r.lat AS r_lat, r.lon AS r_lon, r.phone AS r_phone,
+              COALESCE(r.lat, o.pickup_lat) AS r_lat, COALESCE(r.lon, o.pickup_lon) AS r_lon, r.phone AS r_phone,
               c.phone AS courier_phone, c.apn_token, c.device_platform, u.name AS customer_name, u.phone AS customer_phone
        FROM orders o
        LEFT JOIN restaurants r ON r.id = o.restaurant_id

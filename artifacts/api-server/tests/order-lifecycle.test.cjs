@@ -37,6 +37,8 @@ async function setup(){
   '../lib/orderDispatch':{dispatchOrderNow:async id=>events.push({name:'dispatch',args:[id]})},
   '../lib/searchWatch':{maybeIssueApologyPromo:async()=>'disabled'},
   '../lib/achievements':{checkAndAwardAchievements:async()=>{}},
+  '../lib/directory': { getPlace: async () => null },
+  './directory': { quoteFromPlace: async () => ({ fee: 0, km: 0, outOfArea: false }) },
   '../lib/kitchen':new Proxy({KitchenError:class extends Error{},isDay:()=>false},{get:(o,k)=>k in o?o[k]:async()=>null}),
   '../lib/courierDirections':{sendCourierDirections:async(id,stage)=>{events.push({name:'directions',args:[id,stage]});return true;}},
   '../lib/objectStorage':{ObjectStorageService:class{}},'../lib/webPush':{},'../lib/promoBannerComposer':{},'../lib/whatsapp':{},'../lib/sms':{},

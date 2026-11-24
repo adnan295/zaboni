@@ -22,7 +22,8 @@ async function setup() {
     CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, phone TEXT, apn_token TEXT, fcm_token TEXT, device_platform TEXT);
     CREATE TABLE restaurants (id TEXT PRIMARY KEY, lat REAL, lon REAL, phone TEXT);
     CREATE TABLE orders (id TEXT PRIMARY KEY, user_id TEXT, courier_id TEXT, restaurant_id TEXT, restaurant_name TEXT, restaurant_phone TEXT,
-      place_name TEXT, order_text TEXT, address TEXT, destination_lat DOUBLE PRECISION, destination_lon DOUBLE PRECISION);
+      place_name TEXT, order_text TEXT, address TEXT, destination_lat DOUBLE PRECISION, destination_lon DOUBLE PRECISION,
+      pickup_lat DOUBLE PRECISION, pickup_lon DOUBLE PRECISION);
     INSERT INTO users VALUES ('cust','خضر','+963911111111',NULL,NULL,NULL),
       ('cour','حسين','+963922222222','apn-abc',NULL,'ios'),
       -- Android courier: never gets the message
