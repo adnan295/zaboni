@@ -653,23 +653,33 @@ export function summaryText(s: KitchenDaySummary): string {
 
 /**
  * After the cutoff, tells each kitchen once what to cook tomorrow. `send` is the
- * WhatsApp sender; a marker in system_settings keeps a restart from re-sending.
+ * WhatsApp sender. Each kitchen has its own marker in system_settings: it is
+ * claimed before sending (so a restart or a second instance does not re-send)
+ * and released again if the send fails, so the next tick retries that kitchen
+ * until midnight instead of the kitchen never hearing about tomorrow's orders.
  */
 export async function sendCutoffSummaries(send: (phone: string, text: string) => Promise<boolean>, now = new Date()): Promise<number> {
   const s = await getKitchenSettings();
   if (!s.enabled) return 0;
   const tomorrow = addDays(damascusDay(now), 1);
   if (isDayOpen(tomorrow, s, now)) return 0;
-  const claim = await pool.query(
-    `INSERT INTO system_settings (key, value) VALUES ('kitchen_last_summary_day', $1)
-     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value WHERE system_settings.value IS DISTINCT FROM EXCLUDED.value RETURNING value`,
-    [tomorrow],
-  );
-  if (claim.rows.length === 0) return 0;
   let sent = 0;
   for (const summary of await getDaySummaries(tomorrow)) {
     if (!summary.phone) continue;
-    if (await send(summary.phone, summaryText(summary)).catch(() => false)) sent++;
+    const key = `kitchen_summary_sent:${summary.kitchenId}`;
+    const claim = await pool.query(
+      `INSERT INTO system_settings (key, value) VALUES ($1, $2)
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value WHERE system_settings.value IS DISTINCT FROM EXCLUDED.value RETURNING value`,
+      [key, tomorrow],
+    );
+    if (claim.rows.length === 0) continue;
+    const ok = await send(summary.phone, summaryText(summary)).catch(() => false);
+    if (ok) {
+      sent++;
+    } else {
+      await pool.query(`DELETE FROM system_settings WHERE key = $1 AND value = $2`, [key, tomorrow]);
+      logger.warn({ kitchenId: summary.kitchenId, day: tomorrow }, "[kitchen] cutoff summary not delivered, will retry");
+    }
   }
   return sent;
 }

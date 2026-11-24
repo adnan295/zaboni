@@ -213,6 +213,26 @@ test("after the cutoff each kitchen is told once what to cook", async () => {
   await pg.close();
 });
 
+test("a summary that fails to send is retried on the next tick", async () => {
+  const { pg, lib, quote, base } = await setup();
+  await lib.placeOrder({ ...base, day: FRI, items: [{ mealId: "m_freekeh", qty: 1 }] }, quote, NOW);
+  let up = false;
+  const sent = [];
+  const send = async (phone, text) => { if (!up) return false; sent.push({ phone, text }); return true; };
+
+  assert.equal(await lib.sendCutoffSummaries(send, new Date("2026-11-19T18:05:00Z")), 0, "WhatsApp down");
+  up = true;
+  assert.equal(await lib.sendCutoffSummaries(send, new Date("2026-11-19T18:06:00Z")), 1, "retried once WhatsApp is back");
+  assert.equal(await lib.sendCutoffSummaries(send, new Date("2026-11-19T18:07:00Z")), 0, "not repeated after success");
+  assert.equal(sent.length, 1);
+
+  const throwing = async () => { throw new Error("socket closed"); };
+  await lib.placeOrder({ ...base, day: SAT, items: [{ mealId: "m_freekeh", qty: 1 }] }, quote, NOW);
+  assert.equal(await lib.sendCutoffSummaries(throwing, new Date("2026-11-20T18:05:00Z")), 0, "send threw");
+  assert.equal(await lib.sendCutoffSummaries(send, new Date("2026-11-20T18:06:00Z")), 1, "retried after a thrown error");
+  await pg.close();
+});
+
 test("admin: portions never drop below what is sold; nutrition only on kitchen meals", async () => {
   const { pg, lib, quote, base } = await setup();
   await lib.placeOrder({ ...base, day: FRI, items: [{ mealId: "m_freekeh", qty: 2 }] }, quote, NOW);
