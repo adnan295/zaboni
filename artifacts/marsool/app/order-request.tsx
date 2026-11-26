@@ -377,7 +377,8 @@ export default function OrderRequestScreen() {
           </View>
         )}
 
-        {restaurantName ? (
+        {/* The header already says «من …» once there are items; the badge is for the typed order only. */}
+        {restaurantName && !hasItems ? (
           <View style={[styles.restaurantBadge, { backgroundColor: colors.secondary }]}>
             <MaterialIcons name="restaurant" size={16} color={colors.primary} />
             <Text style={[styles.restaurantBadgeText, { color: colors.primary }]}>

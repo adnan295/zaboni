@@ -67,9 +67,9 @@ const CATEGORY_ICONS: Record<SupportTicketCategory, keyof typeof MaterialIcons.g
 
 const ORDER_STATUS_MAP: Record<string, string> = {
   searching: "جاري البحث عن سائق",
-  accepted: "السائق في طريقه للمطعم",
-  picked_up: "السائق استلم طلبك",
-  on_way: "السائق في الطريق إليك",
+  accepted: "المندوب رايح عالمطعم",
+  picked_up: "المندوب استلم طلبك",
+  on_way: "المندوب بالطريق لعندك",
   delivered: "تم التسليم",
   cancelled: "ملغى",
 };

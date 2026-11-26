@@ -589,18 +589,7 @@ export default function ActiveOrderScreen() {
                 }
                 onNavigate={handleNavigate}
               />
-              <TouchableOpacity
-                style={styles.mapNavigateBtn}
-                onPress={handleNavigate}
-                activeOpacity={0.85}
-              >
-                <MaterialIcons name="navigation" size={16} color="#fff" />
-                <Text style={styles.mapNavigateBtnText}>
-                  {navigatesToRestaurant
-                    ? t("courier.active.toRestaurant")
-                    : t("courier.active.toCustomer")}
-                </Text>
-              </TouchableOpacity>
+              {/* No second «go» button here: the step card above already has it. */}
             </View>
           ) : null}
 

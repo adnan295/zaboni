@@ -202,7 +202,7 @@ export default function CourierProfileScreen() {
           </View>
 
           {application && (application.vehicleType || application.createdAt) ? <>
-            {sectionTitle("بيانات السائق")}
+            {sectionTitle("بيانات المندوب")}
             <View style={[styles.menuSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
               {application.vehicleType ? <View style={styles.infoRow}>
                 <MaterialIcons name="two-wheeler" size={22} color={colors.primary} />

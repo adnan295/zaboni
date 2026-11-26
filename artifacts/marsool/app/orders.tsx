@@ -1,3 +1,4 @@
+import { syrianDateTime } from "@/utils/syrianDate";
 import React, { useState, useCallback } from "react";
 import {
   View,
@@ -93,14 +94,7 @@ function OrderCard({ order }: { order: Order }) {
     cancelled: t("orders.status.cancelled"),
   };
 
-  const formatDate = (ts: number) =>
-    new Date(ts).toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const formatDate = (ts: number) => syrianDateTime(ts);
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>

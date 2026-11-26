@@ -312,7 +312,7 @@ export default function ProfileScreen() {
   };
 
   const menuItems: MenuItemDef[] = [
-    { icon: "receipt-long", label: t("profile.menu.orders"), onPress: () => router.push("/orders"), badge: orders.length > 0 ? orders.length : undefined },
+    { icon: "receipt-long", label: t("profile.menu.orders"), onPress: () => router.navigate("/(tabs)/orders" as any), badge: orders.length > 0 ? orders.length : undefined },
     { icon: "favorite", label: t("profile.menu.favorites"), onPress: () => router.push("/favorites"), badge: favorites.length > 0 ? favorites.length : undefined },
     { icon: "location-on", label: t("profile.menu.addresses"), onPress: () => router.push("/addresses") },
     { icon: "stars", label: t("loyalty.viewHistory"), onPress: () => router.push("/loyalty-history") },
@@ -327,7 +327,12 @@ export default function ProfileScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: topPadding + 16, backgroundColor: colors.primary }]}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: bottomPadding + 20 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* The header scrolls with the page instead of holding a third of the screen. */}
+      <View style={[styles.header, { paddingTop: topPadding + 16, backgroundColor: colors.card }]}>
         <TouchableOpacity style={styles.avatarContainer} onPress={() => router.push("/edit-profile")} activeOpacity={0.8}>
           {user?.avatarUrl ? (
             <Image
@@ -336,8 +341,8 @@ export default function ProfileScreen() {
               contentFit="cover"
             />
           ) : (
-            <View style={styles.avatar}>
-              <Text style={styles.avatarInitial}>
+            <View style={[styles.avatar, { backgroundColor: colors.secondary }]}>
+              <Text style={[styles.avatarInitial, { color: colors.primaryDark }]}>
                 {user?.name ? user.name.charAt(0) : "؟"}
               </Text>
             </View>
@@ -347,14 +352,14 @@ export default function ProfileScreen() {
           </View>
         </TouchableOpacity>
         <View style={styles.nameRow}>
-          <Text style={styles.name}>{user?.name ?? t("profile.defaultUser")}</Text>
+          <Text style={[styles.name, { color: colors.foreground }]}>{user?.name ?? t("profile.defaultUser")}</Text>
           <TouchableOpacity onPress={() => router.push("/edit-profile")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <MaterialIcons name="edit" size={18} color="rgba(255,255,255,0.8)" />
+            <MaterialIcons name="edit" size={18} color={colors.mutedForeground} />
           </TouchableOpacity>
         </View>
-        <Text style={styles.phone}>{displayPhone}</Text>
+        <Text style={[styles.phone, { color: colors.mutedForeground }]}>{displayPhone}</Text>
         {isCourier && (
-          <View style={styles.courierBadge}>
+          <View style={[styles.courierBadge, { backgroundColor: colors.secondary }]}>
             <MaterialIcons name="verified" size={14} color="#DC2626" />
             <Text style={styles.courierBadgeText}>{t("profile.courier.badge")}</Text>
             {isCourierMode && (
@@ -369,11 +374,8 @@ export default function ProfileScreen() {
         )}
       </View>
 
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: bottomPadding + 20 }}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Stats */}
+        {/* Stats — hidden while everything would read 0 */}
+        {(statsLoading || (customerStats?.totalOrders ?? orders.length) > 0 || favorites.length > 0) && (
         <View style={[styles.statsRow, { backgroundColor: colors.card }]}>
           <View style={styles.stat}>
             <Text style={[styles.statNum, { color: colors.primary }]}>
@@ -394,17 +396,18 @@ export default function ProfileScreen() {
             <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{t("profile.stats.favorites")}</Text>
           </View>
         </View>
+        )}
 
 
         {/* Loyalty card */}
         {!isCourier && loyaltyData !== null && (
           <TouchableOpacity
-            style={[styles.loyaltyCard, { backgroundColor: colors.primary }]}
+            style={[styles.loyaltyCard, { backgroundColor: colors.secondary }]}
             onPress={() => router.push("/loyalty-history")}
             activeOpacity={0.85}
           >
             <View style={styles.loyaltyLeft}>
-              <MaterialIcons name="stars" size={28} color="#fff" />
+              <MaterialIcons name="stars" size={28} color={colors.primary} />
               <View>
                 <Text style={styles.loyaltyLabel}>{t("loyalty.balance")}</Text>
                 <Text style={styles.loyaltyPoints}>
@@ -420,7 +423,7 @@ export default function ProfileScreen() {
                 )}
               </View>
             </View>
-            <MaterialIcons name="chevron-left" size={22} color="rgba(255,255,255,0.7)" />
+            <MaterialIcons name="chevron-left" size={22} color={colors.primaryDark} />
           </TouchableOpacity>
         )}
 
@@ -800,7 +803,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
     alignItems: "center",
-    paddingBottom: 28,
+    paddingBottom: 20,
     paddingHorizontal: 16,
   },
   avatarContainer: { marginBottom: 12, position: "relative" },
@@ -825,8 +828,8 @@ const styles = StyleSheet.create({
   },
   avatarInitial: { fontSize: 32, fontWeight: "800", color: "#fff" },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  name: { fontSize: 20, fontWeight: "800", color: "#fff" },
-  phone: { fontSize: 14, color: "rgba(255,255,255,0.8)", marginTop: 4 },
+  name: { fontSize: 22, fontWeight: "800" },
+  phone: { fontSize: 14, marginTop: 4 },
   courierBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -896,9 +899,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   loyaltyLeft: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
-  loyaltyLabel: { fontSize: 11, color: "rgba(255,255,255,0.75)", fontWeight: "600" },
-  loyaltyPoints: { fontSize: 20, fontWeight: "900", color: "#fff" },
-  loyaltyValue: { fontSize: 12, color: "rgba(255,255,255,0.85)", marginTop: 2 },
+  loyaltyLabel: { fontSize: 13, color: "#B91C1C", fontWeight: "600", textAlign: "left" },
+  loyaltyPoints: { fontSize: 20, fontWeight: "800", color: "#7F1D1D", textAlign: "left" },
+  loyaltyValue: { fontSize: 13, color: "#7F1D1D", marginTop: 2, textAlign: "left" },
   courierCard: {
     marginHorizontal: 16,
     marginTop: 12,

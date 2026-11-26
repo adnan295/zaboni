@@ -1,3 +1,5 @@
+import { cardShadow } from "@/constants/colors";
+import { syrianDateTime } from "@/utils/syrianDate";
 import { useTabBarSpace } from "@/hooks/useTabBarSpace";
 import React, { useState, useCallback } from "react";
 import {
@@ -143,14 +145,7 @@ function OrderCard({ order }: { order: Order }) {
     cancelled: t("orders.status.cancelled"),
   };
 
-  const formatDate = (ts: number) =>
-    new Date(ts).toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const formatDate = (ts: number) => syrianDateTime(ts);
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -177,6 +172,15 @@ function OrderCard({ order }: { order: Order }) {
       <Text style={[styles.orderText, { color: colors.foreground }]} numberOfLines={2}>
         {order.orderText}
       </Text>
+
+      {/* What it cost: items + delivery (a free order shows the delivery only; the bill is paid as printed) */}
+      {((order.totalPrice ?? 0) > 0 || (order.deliveryFee ?? 0) > 0) && (
+        <Text style={[styles.totalLine, { color: colors.foreground }]}>
+          {(order.totalPrice ?? 0) > 0
+            ? `${t("orders.total", "المجموع")} ${((order.totalPrice ?? 0) + (order.deliveryFee ?? 0)).toLocaleString("en-US")} ل.س`
+            : `${t("orders.deliveryOnly", "التوصيل")} ${(order.deliveryFee ?? 0).toLocaleString("en-US")} ل.س`}
+        </Text>
+      )}
 
       {order.status !== "searching" && order.status !== "cancelled" && (
         <View style={styles.courierRow}>
@@ -291,6 +295,8 @@ type PaginatedOrdersResponse = {
     createdAt: string;
     address: string;
     estimatedMinutes: number;
+    totalPrice?: number | null;
+    deliveryFee?: number | null;
     restaurantId?: string | null;
     items?: { menuItemId: string | null; nameAr: string; unitPrice: number; qty: number; lineTotal: number }[];
   }[];
@@ -316,6 +322,8 @@ function toLocalOrder(o: PaginatedOrdersResponse["orders"][number]): Order {
     createdAt: new Date(o.createdAt).getTime(),
     address: o.address,
     estimatedMinutes: o.estimatedMinutes,
+    totalPrice: o.totalPrice ?? null,
+    deliveryFee: o.deliveryFee ?? null,
   };
 }
 
@@ -496,7 +504,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   trackBannerBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
-  card: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 12, gap: 8 },
+  card: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 12, gap: 8, ...cardShadow },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -513,7 +521,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   statusText: { fontSize: 12, fontWeight: "700" },
-  date: { fontSize: 12 },
+  date: { fontSize: 13 },
+  totalLine: { fontSize: 14, fontWeight: "700", textAlign: "left" },
   divider: { height: 1 },
   orderText: { fontSize: 13, lineHeight: 20, textAlign: "left" },
   courierRow: { flexDirection: "row", alignItems: "center", gap: 6 },

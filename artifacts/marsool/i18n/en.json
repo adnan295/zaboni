@@ -201,7 +201,9 @@
     "activeOrder": "Active Order",
     "viewBooking": "Booking details",
     "deliveryOn": "Delivery on {{day}}",
-    "callCourier": "Call courier"
+    "callCourier": "Call courier",
+    "total": "Total",
+    "deliveryOnly": "Delivery"
   },
   "favorites": {
     "title": "Favorites",
@@ -526,7 +528,7 @@
     "tips": [
       "Have the exact amount ready to speed up the delivery process.",
       "Enter your address accurately to ensure the courier reaches you.",
-      "You can chat with the courier through the in-app chat."
+      "You can call your courier from the order tracking page."
     ]
   },
   "orderTracking": {
@@ -539,7 +541,7 @@
       "cancelledNote": "Your order has been cancelled. You can place a new order at any time.",
       "cancelledNoteExpired": "No courier was found within 30 minutes. Please try again.",
       "cancelledNoteAdmin": "Your order was cancelled by the administration.",
-      "cannotCancelNote": "Cannot cancel after courier acceptance — chat with the courier instead",
+      "cannotCancelNote": "You can't cancel once a courier accepts — call them if you need to change something",
       "alreadyAcceptedTitle": "Cannot Cancel Order",
       "alreadyAcceptedBody": "A courier has already accepted your order and it can no longer be cancelled",
       "reasonTitle": "Why are you cancelling?",
@@ -573,7 +575,8 @@
       "chatPromptNote": "Chat with the courier to coordinate delivery details",
       "chatPromptBtn": "Open Chat",
       "chatPromptDismiss": "Later",
-      "viaLine": "Call via Zaboni line"
+      "viaLine": "Call via Zaboni line",
+      "newCourier": "New courier"
     },
     "statusSteps": {
       "accepted": "Courier accepted your order",

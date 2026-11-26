@@ -12,15 +12,13 @@ export interface CourierMapProps {
   onNavigate: () => void;
 }
 
-export function CourierMap({ destinationLat, destinationLon, address, onNavigate }: CourierMapProps) {
+export function CourierMap({ address, onNavigate }: CourierMapProps) {
   return (
     <TouchableOpacity onPress={onNavigate} activeOpacity={0.9} style={styles.mapFallback}>
       <MaterialIcons name="map" size={40} color="#DC2626" />
-      <Text style={styles.coords}>
-        {destinationLat.toFixed(4)}, {destinationLon.toFixed(4)}
-      </Text>
-      {address ? <Text style={styles.address} numberOfLines={1}>{address}</Text> : null}
-      <Text style={styles.tap}>اضغط لفتح الخرائط</Text>
+      {/* The place, in words — raw coordinates mean nothing to a courier. */}
+      <Text style={styles.address} numberOfLines={2}>{address || "مكان التوصيل"}</Text>
+      <Text style={styles.tap}>اكبس لتفتح الخريطة</Text>
     </TouchableOpacity>
   );
 }
@@ -34,7 +32,6 @@ const styles = StyleSheet.create({
     padding: 16,
     minHeight: 140,
   },
-  coords: { fontSize: 13, color: "#555", fontFamily: "monospace" },
-  address: { fontSize: 12, color: "#888", maxWidth: 240 },
+  address: { fontSize: 15, color: "#111827", fontWeight: "700", maxWidth: 260, textAlign: "center" },
   tap: { fontSize: 12, color: "#DC2626", fontWeight: "600" },
 });

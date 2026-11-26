@@ -488,17 +488,24 @@ export default function OrderTrackingScreen() {
                   <TouchableOpacity onPress={() => order.courierPhone && void callAboutOrder(order.id, order.courierPhone, !!order.phoneMasked)} activeOpacity={0.7}>
                     <Text style={[styles.courierPhone, { color: colors.primary }]}>{order.phoneMasked ? t("orderTracking.courier.viaLine") : order.courierPhone}</Text>
                   </TouchableOpacity>
-                  <View style={styles.courierRatingRow}>
-                    <MaterialIcons name="star" size={14} color="#FFB800" />
-                    <Text style={[styles.courierRatingText, { color: colors.foreground }]}>{order.courierRating}</Text>
-                    <Text style={[styles.courierRatingLabel, { color: colors.mutedForeground }]}>{t("orders.courier")}</Text>
-                  </View>
+                  {/* A courier with no ratings yet is «مندوب جديد», never «⭐ 0». */}
+                  {order.courierRating > 0 ? (
+                    <View style={styles.courierRatingRow}>
+                      <Text style={{ color: colors.warning, fontSize: 13 }}>★</Text>
+                      <Text style={[styles.courierRatingText, { color: colors.foreground }]}>{order.courierRating.toFixed(1)}</Text>
+                      <Text style={[styles.courierRatingLabel, { color: colors.mutedForeground }]}>{t("orders.courier")}</Text>
+                    </View>
+                  ) : (
+                    <View style={[styles.newCourierChip, { backgroundColor: colors.secondary }]}>
+                      <Text style={[styles.newCourierText, { color: colors.secondaryForeground }]}>{t("orderTracking.courier.newCourier")}</Text>
+                    </View>
+                  )}
                 </View>
               </View>
 
               <View style={styles.chatBtnRow}>
                 <TouchableOpacity
-                  style={[styles.chatBtn, { backgroundColor: "#2563eb", flex: 1 }]}
+                  style={[styles.chatBtn, { backgroundColor: colors.primary, flex: 1 }]}
                   onPress={() => {
                     if (order.courierPhone) void callAboutOrder(order.id, order.courierPhone, !!order.phoneMasked);
                   }}
@@ -741,7 +748,9 @@ const styles = StyleSheet.create({
   courierPhone: { fontSize: 13 },
   courierRatingRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
   courierRatingText: { fontSize: 13, fontWeight: "700" },
-  courierRatingLabel: { fontSize: 11 },
+  courierRatingLabel: { fontSize: 13 },
+  newCourierChip: { alignSelf: "flex-start", marginTop: 4, height: 24, paddingHorizontal: 10, borderRadius: 12, justifyContent: "center" },
+  newCourierText: { fontSize: 12, fontWeight: "700" },
   chatBtnRow: {
     flexDirection: "row",
     gap: 10,
