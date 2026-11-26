@@ -7,6 +7,7 @@ import BackupStatusCard from "@/components/BackupStatusCard";
 import TodayPulse from "@/components/TodayPulse";
 import PrepAlerts from "@/components/PrepAlerts";
 import AppVersionCard from "@/components/AppVersionCard";
+import OtaUpdatesCard from "@/components/OtaUpdatesCard";
 import {
   Card,
   CardContent,
@@ -263,6 +264,7 @@ export default function Dashboard() {
 
       <PrepAlerts />
       <AppVersionCard />
+      <OtaUpdatesCard />
       <SlaAlertsWidget alerts={slaAlerts.filter((a) => !a.prepStartedAt)} isLoading={slaLoading} />
 
       {totalActive > 0 && (

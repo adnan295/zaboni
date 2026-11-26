@@ -23,14 +23,16 @@ function fixture(t) {
   return { root, configPath, config, envPath, run };
 }
 
-test('store release pins app identity and prevents old OTA bundles overriding the fix', t => {
+test('store release pins app identity and takes updates only from our own server', t => {
   const f = fixture(t);
   assert.equal(f.run('configure').status, 0);
   const e = JSON.parse(fs.readFileSync(f.configPath)).expo;
   assert.equal(e.version, '1.0.17');
   assert.equal(e.android.versionCode, 109);
   assert.equal(e.ios.appleTeamId, 'H5V2BKC8WA');
-  assert.equal(e.updates.enabled, false);
+  assert.equal(e.updates.enabled, true);
+  assert.equal(e.updates.url, 'https://zaboni.site/api/ota/manifest');
+  assert.equal(e.runtimeVersion, '1.0.17');
   assert.equal(e.extra.eas.projectId, 'existing-project');
 });
 

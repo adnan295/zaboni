@@ -37,10 +37,17 @@ if (action === 'configure') {
   e.android.versionCode = Number(build);
   e.ios.buildNumber = build;
   e.ios.appleTeamId = 'H5V2BKC8WA';
-  // Store builds must not load an older update from the former EAS account.
+  // Over-the-air updates come from our own server (api-server routes/ota.ts), never
+  // the former EAS account. The runtime version is the store version: an update is
+  // published for one store version and only phones running that version take it.
   // Keep the existing project ID for Expo push tokens on installed clients.
   e.runtimeVersion = version;
-  e.updates = { ...e.updates, enabled: false };
+  e.updates = {
+    url: `https://${process.env.EXPO_PUBLIC_API_HOST || 'zaboni.site'}/api/ota/manifest`,
+    enabled: true,
+    checkAutomatically: 'ON_LOAD',
+    fallbackToCacheTimeout: 0,
+  };
   fs.writeFileSync(file, JSON.stringify(config, null, 2) + '\n');
   console.log(`Prepared Zaboni ${version} (${build})`);
 } else if (action === 'android-signing') {

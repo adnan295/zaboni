@@ -1110,6 +1110,9 @@ export const api = {
     apiFetch<SlaAlert[]>(`/admin/sla-alerts?minAge=${minAge}`),
   markOrderedFromRestaurant: (orderId: string) =>
     apiFetch<{ ok: boolean; orderedAt: string }>(`/admin/orders/${encodeURIComponent(orderId)}/ordered-from-restaurant`, { method: "POST" }),
+  getOtaUpdates: () => apiFetch<{ targets: OtaTarget[] }>("/admin/ota"),
+  rollbackOta: (runtime: string, platform: string) =>
+    apiFetch<{ id: string | null }>("/admin/ota/rollback", { method: "POST", body: JSON.stringify({ runtime, platform }) }),
   getAppVersion: () => apiFetch<AppVersionSettings>("/admin/app-version"),
   saveAppVersion: (body: AppVersionSettings) =>
     apiFetch<AppVersionSettings>("/admin/app-version", { method: "PUT", body: JSON.stringify(body) }),
@@ -1230,6 +1233,13 @@ export type SlaAlert = {
   orderType?: string | null;
   total?: number | null;
   restaurantPhone?: string | null;
+};
+
+export type OtaTarget = {
+  runtime: string;
+  platform: "ios" | "android";
+  currentId: string | null;
+  history: { id: string; createdAt: string; message: string }[];
 };
 
 export type AppVersionSettings = {

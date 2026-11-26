@@ -69,6 +69,9 @@ services:
       # Street routes for the tracking map (the osrm service below). If it is not
       # running the app simply draws straight lines.
       OSRM_URL: ${OSRM_URL:-http://osrm:5000}
+      # Over-the-air app updates (routes/ota.ts): the same secret as the GitHub
+      # repository secret OTA_PUBLISH_TOKEN. Empty = publishing is off.
+      OTA_PUBLISH_TOKEN: ${OTA_PUBLISH_TOKEN:-}
     volumes:
       - storage-public:/data/storage/public
       - storage-private:/data/storage/private
