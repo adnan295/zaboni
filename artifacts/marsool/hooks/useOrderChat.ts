@@ -1,5 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Platform } from "react-native";
+import * as Notifications from "expo-notifications";
 import { customFetch } from "@workspace/api-client-react";
+import { pushData } from "@/utils/pushData";
 
 export interface ChatMessage {
   id: string;
@@ -63,4 +66,22 @@ export function chatErrorText(code: string | undefined): string {
     case "message_too_long": return "الرسالة طويلة، اختصرها شوي";
     default: return "ما انبعتت الرسالة، جرّب مرة تانية";
   }
+}
+
+/**
+ * Clears this order's chat alerts from the phone's notification tray: once the
+ * chat is open they are read, and once the order is finished they are stale.
+ */
+export async function dismissChatNotifications(orderId: string): Promise<void> {
+  if (Platform.OS === "web") return;
+  try {
+    const shown = await Notifications.getPresentedNotificationsAsync();
+    await Promise.all(shown.map((n) => {
+      const req = n.request;
+      const data = pushData(req);
+      return data?.type === "order_chat" && data?.orderId === orderId
+        ? Notifications.dismissNotificationAsync(req.identifier)
+        : Promise.resolve();
+    }));
+  } catch {}
 }

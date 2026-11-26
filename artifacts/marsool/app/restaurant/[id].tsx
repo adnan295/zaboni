@@ -419,32 +419,40 @@ export default function RestaurantScreen() {
             </View>
           </View>
           {/* What a customer decides on, as chips: rating, time, delivery fee, distance */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow} style={styles.chipsScroll}>
-            <View style={[styles.infoChip, { backgroundColor: colors.muted }]}>
-              <Text style={{ color: colors.warning, fontSize: 13 }}>★</Text>
-              <Text style={[styles.infoChipText, { color: colors.foreground }]}>{formatRating(restaurant.rating)}</Text>
-              {restaurant.reviewCount > 0 && (
-                <Text style={[styles.infoChipSub, { color: colors.mutedForeground }]}>({restaurant.reviewCount})</Text>
-              )}
-            </View>
-            <View style={[styles.infoChip, { backgroundColor: colors.muted }]}>
-              <Text style={[styles.infoChipText, { color: colors.foreground }]}>
-                {minutesRangeText(restaurant.deliveryTime)} {t("restaurant.minutesLong", "دقيقة")}
-              </Text>
-            </View>
-            {restaurant.deliveryFee > 0 && (
+          {/* One fixed line from the right edge (a sideways-scrolling row drifted in Arabic).
+              The row is one chip tall: a chip that does not fit wraps out of sight, so the
+              least important one (distance, last) is the one that drops on narrow phones. */}
+          <View style={styles.chipsWrap}>
+            <View style={styles.chipsRow}>
               <View style={[styles.infoChip, { backgroundColor: colors.muted }]}>
+                <Text style={{ color: colors.warning, fontSize: 13 }}>★</Text>
+                <Text style={[styles.infoChipText, { color: colors.foreground }]}>{formatRating(restaurant.rating)}</Text>
+                {restaurant.reviewCount > 0 && (
+                  <Text style={[styles.infoChipSub, { color: colors.mutedForeground }]}>({restaurant.reviewCount})</Text>
+                )}
+              </View>
+              <View style={[styles.infoChip, { backgroundColor: colors.muted }]}>
+                <MaterialIcons name="schedule" size={14} color={colors.mutedForeground} />
                 <Text style={[styles.infoChipText, { color: colors.foreground }]}>
-                  {t("restaurant.deliveryShort", "توصيل")} {restaurant.deliveryFee} {t("restaurant.currency")}
+                  {minutesRangeText(restaurant.deliveryTime)} {t("restaurant.minutesLong", "دقيقة")}
                 </Text>
               </View>
-            )}
-            {!!distanceKm && (
-              <View style={[styles.infoChip, { backgroundColor: colors.muted }]}>
-                <Text style={[styles.infoChipText, { color: colors.foreground }]}>{distanceKm}</Text>
-              </View>
-            )}
-          </ScrollView>
+              {restaurant.deliveryFee > 0 && (
+                <View style={[styles.infoChip, { backgroundColor: colors.muted }]} accessibilityLabel={`${t("restaurant.deliveryShort", "توصيل")} ${restaurant.deliveryFee} ${t("restaurant.currency")}`}>
+                  <MaterialIcons name="delivery-dining" size={16} color={colors.mutedForeground} />
+                  <Text style={[styles.infoChipText, { color: colors.foreground }]}>
+                    {restaurant.deliveryFee} {t("restaurant.currency")}
+                  </Text>
+                </View>
+              )}
+              {!!distanceKm && (
+                <View style={[styles.infoChip, { backgroundColor: colors.muted }]}>
+                  <MaterialIcons name="place" size={14} color={colors.mutedForeground} />
+                  <Text style={[styles.infoChipText, { color: colors.foreground }]}>{distanceKm}</Text>
+                </View>
+              )}
+            </View>
+          </View>
           {/* «اطلب واربح»: one slim line — the stamps so far and the reward; taps through to «أختامي». */}
           {stampCard && (
             <TouchableOpacity
@@ -972,9 +980,9 @@ const styles = StyleSheet.create({
   cartCount: { width: 34, height: 34, borderRadius: 17, backgroundColor: "rgba(255,255,255,0.22)", alignItems: "center", justifyContent: "center" },
   cartCountText: { color: "#fff", fontSize: 15, fontWeight: "800" },
   orderBtnText: { fontSize: 16, fontWeight: "700" },
-  chipsRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16 },
-  chipsScroll: { marginHorizontal: -16, marginTop: 10, flexGrow: 0 },
-  infoChip: { flexDirection: "row", alignItems: "center", gap: 4, height: 32, paddingHorizontal: 12, borderRadius: 16 },
+  chipsWrap: { paddingHorizontal: 16, paddingBottom: 14, marginTop: -4 },
+  chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, height: 32, overflow: "hidden" },
+  infoChip: { flexDirection: "row", alignItems: "center", gap: 4, height: 32, paddingHorizontal: 10, borderRadius: 16 },
   infoChipText: { fontSize: 13, fontWeight: "700" },
   infoChipSub: { fontSize: 13 },
   stampStrip: { flexDirection: "row", alignItems: "center", gap: 10, height: 40, borderRadius: 12, paddingHorizontal: 12, marginTop: 12 },

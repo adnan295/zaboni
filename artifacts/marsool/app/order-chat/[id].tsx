@@ -15,7 +15,7 @@ import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
 import { cardShadow } from "@/constants/colors";
 import { callAboutOrder } from "@/utils/companyCall";
-import { chatErrorText, markChatRead, useOrderChat, useSendChat, type ChatMessage } from "@/hooks/useOrderChat";
+import { chatErrorText, dismissChatNotifications, markChatRead, useOrderChat, useSendChat, type ChatMessage } from "@/hooks/useOrderChat";
 
 const QUICK_REPLIES = ["وصلت 👋", "أنا تحت البناية", "دقيقتين وبكون عندك"];
 const ASK_LOCATION = "فيك تبعتلي موقعك الدقيق من زر «ابعت موقعي»؟";
@@ -61,6 +61,7 @@ export default function OrderChatScreen() {
 
   useEffect(() => {
     if (unread > 0) void markChatRead(orderId).then(() => refetch());
+    void dismissChatNotifications(orderId);
   }, [unread, orderId]);
 
   useEffect(() => {

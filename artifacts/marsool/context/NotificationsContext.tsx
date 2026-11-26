@@ -245,7 +245,9 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       // Fallback: read from AsyncStorage cache when the server has nothing
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
       if (cancelled || !raw) return;
-      setNotifications(JSON.parse(raw) as AppNotification[]);
+      // Chat messages belong in the order chat; drop any saved here by older builds.
+      const CHAT_TITLES = new Set(["رسالة من الزبون", "رسالة من مندوبك"]);
+      setNotifications((JSON.parse(raw) as AppNotification[]).filter((n) => !CHAT_TITLES.has(n.title)));
     })().catch(() => {});
 
     return () => {

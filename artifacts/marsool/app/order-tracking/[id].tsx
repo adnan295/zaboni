@@ -27,7 +27,7 @@ import ScheduledOrderView from "@/components/ScheduledOrderView";
 import { Coords } from "@/utils/geo";
 import { fallbackEtaMinutes } from "@/utils/trackingEta";
 import { useTripRoute } from "@/hooks/useTripRoute";
-import { useOrderChat } from "@/hooks/useOrderChat";
+import { dismissChatNotifications, useOrderChat } from "@/hooks/useOrderChat";
 import { cardShadow } from "@/constants/colors";
 
 const USE_NATIVE_DRIVER = Platform.OS !== "web";
@@ -82,6 +82,10 @@ export default function OrderTrackingScreen() {
   const hasCourier = ["accepted", "picked_up", "on_way", "delivered"].includes(liveStatus);
   const route = useTripRoute(liveStatus, courierCoords, restaurantCoords, destinationCoords);
   const { data: chat } = useOrderChat(id, { enabled: hasCourier && !!order?.courierName });
+  // The chat closes with the order: its alerts no longer mean anything.
+  useEffect(() => {
+    if (id && (liveStatus === "delivered" || liveStatus === "cancelled")) void dismissChatNotifications(id);
+  }, [id, liveStatus]);
 
   useEffect(() => {
     const interval = setInterval(() => forceUpdate((n) => n + 1), 2000);

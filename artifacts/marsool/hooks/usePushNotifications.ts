@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 import { registerForPush } from "@/lib/pushRegistration";
 import { useRouter } from "expo-router";
+import { pushData } from "@/utils/pushData";
 import { useAuth } from "@/context/AuthContext";
 
 Notifications.setNotificationHandler({
@@ -30,9 +31,7 @@ type NotificationData = Record<string, unknown> | null | undefined;
 function getNotificationData(
   notification: Notifications.Notification | Notifications.NotificationResponse,
 ): NotificationData {
-  return "notification" in notification
-    ? notification.notification.request.content.data
-    : notification.request.content.data;
+  return pushData("notification" in notification ? notification.notification.request : notification.request);
 }
 
 function getNotificationContent(
