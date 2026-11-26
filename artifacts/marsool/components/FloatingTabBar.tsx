@@ -1,6 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { default as Text } from "@/components/AppText";
 import { useColors } from "@/hooks/useColors";
@@ -35,6 +36,14 @@ export default function FloatingTabBar({ state, navigation, tabs }: Props) {
   const current = state.routes[state.index]?.name;
 
   return (
+    <>
+    {/* A soft fade so the list ends gently behind the bar instead of cutting under it. */}
+    <LinearGradient
+      pointerEvents="none"
+      colors={["rgba(246,246,247,0)", "rgba(246,246,247,0.92)", colors.background]}
+      locations={[0, 0.55, 1]}
+      style={[styles.fade, { height: bottom + TAB_BAR_HEIGHT + 28 }]}
+    />
     <View pointerEvents="box-none" style={[styles.wrap, { bottom }]}>
       <View
         accessibilityRole="tablist"
@@ -96,11 +105,13 @@ export default function FloatingTabBar({ state, navigation, tabs }: Props) {
         })}
       </View>
     </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: { position: "absolute", left: 16, right: 16 },
+  fade: { position: "absolute", left: 0, right: 0, bottom: 0 },
   bar: {
     height: TAB_BAR_HEIGHT,
     borderRadius: 999,

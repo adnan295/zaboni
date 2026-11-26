@@ -766,6 +766,8 @@ export default function HomeScreen() {
         windowSize={10}
         initialNumToRender={5}
       />
+      {/* Keeps the clock area white: the list never shows through under it. */}
+      <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, height: insets.top, backgroundColor: colors.card }} />
     </View>
   );
 }

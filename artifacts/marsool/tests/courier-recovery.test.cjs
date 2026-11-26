@@ -39,6 +39,12 @@ function harness() {
     "expo-location": {},
     "socket.io-client": {},
     "@/lib/pushRegistration": {},
+    "@/lib/courierLocationTask": {
+      sendCourierLocation: async () => {},
+      backgroundTrackingAvailable: async () => false,
+      startDeliveryTracking: async () => false,
+      stopDeliveryTracking: async () => {},
+    },
     "@/lib/apiConfig": {},
     "@/context/AuthContext": {
       useAuth: () => ({

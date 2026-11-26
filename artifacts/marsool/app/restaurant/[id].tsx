@@ -357,6 +357,8 @@ export default function RestaurantScreen() {
         stickyHeaderIndices: child at index 2 becomes sticky.
         Order: 0=hero, 1=infoCard, 2=catTabs(STICKY), 3+=sections
       */}
+      {/* The status bar keeps a white strip: the hero and the sticky section tabs stop under it. */}
+      <View style={{ height: topPadding, backgroundColor: colors.card }} />
       <ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
@@ -367,8 +369,14 @@ export default function RestaurantScreen() {
       >
         {/* [0] Hero */}
         <View style={styles.heroContainer}>
-          <Image source={{ uri: buildImageUrl(restaurant.image) }} style={styles.heroImage} contentFit="cover" />
-          <View style={[styles.heroOverlay, { paddingTop: topPadding + 8 }]}>
+          {/* Most restaurants' picture is their logo: show it whole (never cropped) over a blurred,
+              faded copy of itself, so photos and logos both look right. */}
+          <Image source={{ uri: buildImageUrl(restaurant.image) }} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={28} />
+          <View style={styles.heroFade} />
+          <View style={styles.heroFrontWrap}>
+            <Image source={{ uri: buildImageUrl(restaurant.image) }} style={{ width: "100%", height: "100%" }} contentFit="contain" transition={200} />
+          </View>
+          <View style={[styles.heroOverlay, { paddingTop: 12 }]}>
             <TouchableOpacity
               style={[styles.backBtn, { backgroundColor: "rgba(255,255,255,0.9)" }]}
               onPress={() => router.back()}
@@ -403,13 +411,15 @@ export default function RestaurantScreen() {
           <View style={styles.infoTop}>
             <View style={styles.infoMain}>
               <Text style={[styles.restaurantName, { color: colors.foreground }]}>{restaurant.nameAr}</Text>
-              <Text style={[styles.tags, { color: colors.mutedForeground }]}>
-                {(restaurant.tags as string[]).join(" · ")}
-              </Text>
+              {(restaurant.tags as string[]).length > 0 && (
+                <Text style={[styles.tags, { color: colors.mutedForeground }]}>
+                  {(restaurant.tags as string[]).join(" · ")}
+                </Text>
+              )}
             </View>
           </View>
           {/* What a customer decides on, as chips: rating, time, delivery fee, distance */}
-          <View style={styles.chipsRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow} style={styles.chipsScroll}>
             <View style={[styles.infoChip, { backgroundColor: colors.muted }]}>
               <Text style={{ color: colors.warning, fontSize: 13 }}>★</Text>
               <Text style={[styles.infoChipText, { color: colors.foreground }]}>{formatRating(restaurant.rating)}</Text>
@@ -434,7 +444,7 @@ export default function RestaurantScreen() {
                 <Text style={[styles.infoChipText, { color: colors.foreground }]}>{distanceKm}</Text>
               </View>
             )}
-          </View>
+          </ScrollView>
           {/* «اطلب واربح»: one slim line — the stamps so far and the reward; taps through to «أختامي». */}
           {stampCard && (
             <TouchableOpacity
@@ -509,7 +519,7 @@ export default function RestaurantScreen() {
             contentContainerStyle={styles.catScroll}
           >
             {allTabs.map((cat) => {
-              const isActive = activeCategory === cat;
+              const isActive = (activeCategory ?? allTabs[0]) === cat;
               const label = cat === DEALS_KEY ? "العروض 🔥" : cat === POPULAR_KEY ? "🔥 الأكثر طلباً" : cat;
               return (
                 <TouchableOpacity
@@ -524,8 +534,8 @@ export default function RestaurantScreen() {
                     style={[
                       styles.catTabText,
                       {
-                        color: isActive ? colors.primary : colors.mutedForeground,
-                        fontWeight: isActive ? "700" : "500",
+                        color: isActive ? colors.foreground : colors.mutedForeground,
+                        fontWeight: isActive ? "800" : "500",
                       },
                     ]}
                   >
@@ -782,8 +792,10 @@ export default function RestaurantScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  heroContainer: { position: "relative" },
-  heroImage: { width: "100%", height: 220 },
+  heroContainer: { position: "relative", height: 200, overflow: "hidden", backgroundColor: "#FFFFFF" },
+  heroImage: { width: "100%", height: 200 },
+  heroFade: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(255,255,255,0.55)" },
+  heroFrontWrap: { ...StyleSheet.absoluteFillObject, paddingHorizontal: 72, paddingVertical: 18 },
   heroOverlay: {
     ...StyleSheet.absoluteFillObject,
     flexDirection: "row",
@@ -854,14 +866,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     justifyContent: "center",
   },
-  catScroll: { paddingHorizontal: 12, alignItems: "center", gap: 0 },
+  catScroll: { paddingHorizontal: 16, alignItems: "center", gap: 22 },
   catTab: {
-    paddingHorizontal: 16,
     height: CAT_TAB_HEIGHT,
     justifyContent: "center",
-    borderBottomWidth: 2.5,
+    borderBottomWidth: 3,
   },
-  catTabText: { fontSize: 13 },
+  catTabText: { fontSize: 15 },
   sectionWrap: {
     paddingHorizontal: 16,
     paddingTop: 20,
@@ -961,7 +972,8 @@ const styles = StyleSheet.create({
   cartCount: { width: 34, height: 34, borderRadius: 17, backgroundColor: "rgba(255,255,255,0.22)", alignItems: "center", justifyContent: "center" },
   cartCountText: { color: "#fff", fontSize: 15, fontWeight: "800" },
   orderBtnText: { fontSize: 16, fontWeight: "700" },
-  chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 },
+  chipsRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16 },
+  chipsScroll: { marginHorizontal: -16, marginTop: 10, flexGrow: 0 },
   infoChip: { flexDirection: "row", alignItems: "center", gap: 4, height: 32, paddingHorizontal: 12, borderRadius: 16 },
   infoChipText: { fontSize: 13, fontWeight: "700" },
   infoChipSub: { fontSize: 13 },
