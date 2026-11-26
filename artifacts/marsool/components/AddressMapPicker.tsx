@@ -14,6 +14,7 @@ import { useColors } from "@/hooks/useColors";
 import { Coords, HOMS_CENTER, isWithinCoverage } from "@/utils/geo";
 import { useCoverageAreas } from "@/hooks/useCoverageAreas";
 import { MapContainer, TileLayer, Marker, Polygon, useMap, useMapEvents } from "react-leaflet";
+import { TILE_URL } from "@/utils/mapTiles";
 import L, { LatLng } from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -169,7 +170,7 @@ export function AddressMapPicker({ visible, onClose, onSelect, initialAddress }:
             zoomControl
             attributionControl={false}
           >
-            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <TileLayer url={TILE_URL} />
             {coverageAreas
               .filter((a) => a.points.length >= 3)
               .map((a) => (

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { View } from "react-native";
+import { TILE_URL } from "@/utils/mapTiles";
 import WebView, { WebViewMessageEvent } from "react-native-webview";
 import type { Coords } from "@/utils/geo";
 
@@ -43,7 +44,7 @@ html, body, #map { width: 100%; height: 100%; }
 </head><body><div id="map"></div>
 <script>
 var map = L.map('map', { zoomControl: false }).setView([34.7324, 36.7137], 14);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+L.tileLayer('${TILE_URL}', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
 var cluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 45 });
 map.addLayer(cluster);
 var home = null;

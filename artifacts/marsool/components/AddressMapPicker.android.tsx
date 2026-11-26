@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { Coords, HOMS_CENTER, isWithinCoverage } from "@/utils/geo";
 import { useCoverageAreas } from "@/hooks/useCoverageAreas";
+import { TILE_URL } from "@/utils/mapTiles";
 import WebView, { WebViewMessageEvent } from "react-native-webview";
 
 const MAP_HTML = `<!DOCTYPE html>
@@ -35,7 +36,7 @@ var lat = ${HOMS_CENTER.latitude};
 var lng = ${HOMS_CENTER.longitude};
 
 var map = L.map('map', { zoomControl: true }).setView([lat, lng], 14);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+L.tileLayer('${TILE_URL}', { maxZoom: 19 }).addTo(map);
 
 var pinIcon = L.divIcon({
   className: '',

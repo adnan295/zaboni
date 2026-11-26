@@ -1,6 +1,7 @@
 import React from "react";
 import { View } from "react-native";
 import { MapContainer, TileLayer, Marker, CircleMarker } from "react-leaflet";
+import { TILE_URL } from "@/utils/mapTiles";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Coords } from "@/utils/geo";
@@ -39,7 +40,7 @@ export default function DirectoryMap({ places, home, onSelect }: Props) {
   return (
     <View style={{ flex: 1 }}>
       <MapContainer center={[center.latitude, center.longitude]} zoom={14} style={{ width: "100%", height: "100%" }} zoomControl={false}>
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <TileLayer url={TILE_URL} />
         {home && <CircleMarker center={[home.latitude, home.longitude]} radius={8} pathOptions={{ color: "#fff", weight: 3, fillColor: "#2563eb", fillOpacity: 1 }} />}
         {places.map((p) => (
           <Marker key={p.id} position={[p.lat, p.lon]} icon={pin(p.nameAr, p.logo)} eventHandlers={{ click: () => onSelect(p.id) }} />

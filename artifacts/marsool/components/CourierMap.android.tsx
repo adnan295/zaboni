@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { View, StyleSheet } from "react-native";
+import { TILE_URL } from "@/utils/mapTiles";
 import WebView, { WebViewMessageEvent } from "react-native-webview";
 
 export interface CourierMapProps {
@@ -29,7 +30,7 @@ html, body, #map { width: 100%; height: 100%; }
 <div id="map"></div>
 <script>
 var map = L.map('map').setView([${destLat}, ${destLon}], 15);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+L.tileLayer('${TILE_URL}', { maxZoom: 19 }).addTo(map);
 
 var destIcon = L.divIcon({
   className: '',

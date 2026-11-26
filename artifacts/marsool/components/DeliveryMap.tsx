@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { View } from "react-native";
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from "react-leaflet";
+import { TILE_URL } from "@/utils/mapTiles";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Coords, HOMS_CENTER } from "@/utils/geo";
@@ -90,7 +91,7 @@ export function DeliveryMap({ destinationCoords, restaurantCoords, courierCoords
         zoomControl={false}
         attributionControl={false}
       >
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <TileLayer url={TILE_URL} />
         <MapFramer points={points} frameKey={mapFrameKey(destinationCoords, restaurantCoords ?? null, courier)} bottomInset={bottomInset} />
         {([["left", route?.left, ROUTE_LIGHT], ["done", route?.done, ROUTE_DARK]] as const).map(([k, pts, color]) =>
           pts && pts.length >= 2 ? (
