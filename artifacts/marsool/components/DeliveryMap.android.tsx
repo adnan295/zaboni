@@ -1,10 +1,8 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
-import { View, StyleSheet } from "react-native";
-import { default as Text } from "@/components/AppText";
-import { MaterialIcons } from "@expo/vector-icons";
+import { View } from "react-native";
 import WebView, { WebViewMessageEvent } from "react-native-webview";
 import { Coords } from "@/utils/geo";
-import { mapFrameKey } from "@/components/deliveryMapShared";
+import { MAP_GROUND, mapFrameKey, PIN_HTML, ROUTE_DARK, ROUTE_LIGHT, TILE_FILTER, type TripLine } from "@/components/deliveryMapShared";
 
 interface DeliveryMapProps {
   /** The delivery address the customer picked (not where their phone is right now). */
@@ -13,8 +11,11 @@ interface DeliveryMapProps {
   restaurantCoords?: Coords | null;
   courierCoords: Coords | null;
   isSearching?: boolean;
-  etaMinutes?: number | null;
+  /** The red line along the streets. */
+  route?: TripLine | null;
   height?: number;
+  /** Space the bottom sheet covers, so framing keeps every pin visible above it. */
+  bottomInset?: number;
 }
 
 const MAP_HTML = `<!DOCTYPE html>
@@ -29,6 +30,8 @@ const MAP_HTML = `<!DOCTYPE html>
 html, body, #map { width: 100%; height: 100%; }
 .leaflet-control-zoom { display: none !important; }
 .leaflet-control-attribution { font-size: 9px; opacity: 0.7; }
+.leaflet-container { background: ${MAP_GROUND}; }
+.leaflet-tile-pane { filter: ${TILE_FILTER}; }
 </style>
 </head>
 <body>
@@ -42,23 +45,13 @@ var restaurantMarker = null;
 var courierMarker = null;
 var lastFrame = '';
 
-function pinIcon(bg, glyph, size) {
-  return L.divIcon({
-    className: '',
-    html: '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + bg + ';border:3px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:' + Math.round(size / 2) + 'px;box-sizing:border-box;">' + glyph + '<\\/div>',
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2]
-  });
+function htmlIcon(html, w, h, ax, ay) {
+  return L.divIcon({ className: '', html: html, iconSize: [w, h], iconAnchor: [ax, ay] });
 }
-var homeIcon = pinIcon('#2563eb', '\\uD83C\\uDFE0', 38);
-var restaurantIcon = pinIcon('#ea580c', '\\uD83C\\uDF7D', 34);
-
-var courierIcon = L.divIcon({
-  className: '',
-  html: '<div style="width:44px;height:44px;border-radius:50%;background:#DC2626;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 2px 6px rgba(220,38,38,0.4);">\\uD83D\\uDEF5<\\/div>',
-  iconSize: [44, 44],
-  iconAnchor: [22, 22]
-});
+var homeIcon = htmlIcon(${JSON.stringify(PIN_HTML.home)}, 34, 41, 17, 41);
+var restaurantIcon = htmlIcon(${JSON.stringify(PIN_HTML.restaurant)}, 32, 32, 16, 16);
+var courierIcon = htmlIcon(${JSON.stringify(PIN_HTML.courier)}, 52, 52, 26, 26);
+var routeLayers = [];
 
 function place(marker, lat, lng, icon) {
   if (lat == null || lng == null) {
@@ -70,7 +63,19 @@ function place(marker, lat, lng, icon) {
   return marker;
 }
 
+function drawRoute(done, left) {
+  routeLayers.forEach(function (l) { map.removeLayer(l); });
+  routeLayers = [];
+  [[left, '${ROUTE_LIGHT}'], [done, '${ROUTE_DARK}']].forEach(function (pair) {
+    var pts = pair[0];
+    if (!pts || pts.length < 2) return;
+    routeLayers.push(L.polyline(pts, { color: '#fff', weight: 9, lineCap: 'round', lineJoin: 'round' }).addTo(map));
+    routeLayers.push(L.polyline(pts, { color: pair[1], weight: 5, lineCap: 'round', lineJoin: 'round' }).addTo(map));
+  });
+}
+
 window.updateMarkers = function(data) {
+  drawRoute(data.done, data.left);
   homeMarker = place(homeMarker, data.destLat, data.destLng, homeIcon);
   restaurantMarker = place(restaurantMarker, data.restLat, data.restLng, restaurantIcon);
   var showCourier = !data.isSearching;
@@ -84,7 +89,7 @@ window.updateMarkers = function(data) {
     if (data.destLat != null) pts.push([data.destLat, data.destLng]);
     if (data.restLat != null) pts.push([data.restLat, data.restLng]);
     if (showCourier && data.courierLat != null) pts.push([data.courierLat, data.courierLng]);
-    if (pts.length >= 2) map.fitBounds(pts, { padding: [45, 45], maxZoom: 16, animate: true });
+    if (pts.length >= 2) map.fitBounds(pts, { paddingTopLeft: [50, 120], paddingBottomRight: [50, 50 + (data.bottomInset || 0)], maxZoom: 16, animate: true });
     else if (pts.length === 1) map.setView(pts[0], 15, { animate: true });
   }
 };
@@ -94,7 +99,7 @@ window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ready' }));
 </body>
 </html>`;
 
-export function DeliveryMap({ destinationCoords, restaurantCoords, courierCoords, isSearching, etaMinutes, height = 220 }: DeliveryMapProps) {
+export function DeliveryMap({ destinationCoords, restaurantCoords, courierCoords, isSearching, route, height = 220, bottomInset = 0 }: DeliveryMapProps) {
   const webViewRef = useRef<WebView<unknown>>(null);
   const [mapReady, setMapReady] = useState(false);
   // Android kills the WebView renderer process under memory pressure or on
@@ -105,13 +110,16 @@ export function DeliveryMap({ destinationCoords, restaurantCoords, courierCoords
   const injectMarkers = useCallback((ready: boolean) => {
     if (!ready) return;
     const n = (v: number | undefined) => (typeof v === "number" && Number.isFinite(v) ? String(v) : "null");
+    const line = (pts: Coords[] | undefined) =>
+      JSON.stringify((pts ?? []).map((p) => [Number(p.latitude.toFixed(6)), Number(p.longitude.toFixed(6))]));
     const courier = courierCoords && !isSearching ? courierCoords : null;
     const payload = `{destLat:${n(destinationCoords?.latitude)},destLng:${n(destinationCoords?.longitude)},` +
       `restLat:${n(restaurantCoords?.latitude)},restLng:${n(restaurantCoords?.longitude)},` +
       `courierLat:${n(courierCoords?.latitude)},courierLng:${n(courierCoords?.longitude)},` +
-      `isSearching:${isSearching ? "true" : "false"},frameKey:${JSON.stringify(mapFrameKey(destinationCoords, restaurantCoords ?? null, courier))}}`;
+      `isSearching:${isSearching ? "true" : "false"},frameKey:${JSON.stringify(mapFrameKey(destinationCoords, restaurantCoords ?? null, courier))},` +
+      `done:${line(route?.done)},left:${line(route?.left)},bottomInset:${Math.round(bottomInset)}}`;
     webViewRef.current?.injectJavaScript(`window.updateMarkers && window.updateMarkers(${payload}); true;`);
-  }, [destinationCoords, restaurantCoords, courierCoords, isSearching]);
+  }, [destinationCoords, restaurantCoords, courierCoords, isSearching, route, bottomInset]);
 
   const handleMessage = useCallback((event: WebViewMessageEvent) => {
     try {
@@ -151,33 +159,6 @@ export function DeliveryMap({ destinationCoords, restaurantCoords, courierCoords
           setMapReady(false);
         }}
       />
-      {etaMinutes != null && !isSearching && (
-        <View style={styles.etaOverlay}>
-          <MaterialIcons name="access-time" size={14} color="#DC2626" />
-          <Text style={styles.etaOverlayText}>{etaMinutes} د</Text>
-        </View>
-      )}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  etaOverlay: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "#fff",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  etaOverlayText: { fontSize: 13, fontWeight: "700", color: "#DC2626" },
-});

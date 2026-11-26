@@ -1,12 +1,10 @@
 import React, { useEffect, useRef } from "react";
-import { View, StyleSheet } from "react-native";
-import { default as Text } from "@/components/AppText";
-import { MaterialIcons } from "@expo/vector-icons";
-import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
+import { View } from "react-native";
+import { MapContainer, TileLayer, Marker, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Coords, HOMS_CENTER } from "@/utils/geo";
-import { mapFrameKey } from "@/components/deliveryMapShared";
+import { MAP_GROUND, mapFrameKey, PIN_HTML, ROUTE_DARK, ROUTE_LIGHT, TILE_FILTER, type TripLine } from "@/components/deliveryMapShared";
 
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
@@ -21,38 +19,37 @@ interface DeliveryMapProps {
   restaurantCoords?: Coords | null;
   courierCoords: Coords | null;
   isSearching?: boolean;
-  etaMinutes?: number | null;
+  /** The red line along the streets. */
+  route?: TripLine | null;
   height?: number;
+  /** Space the bottom sheet covers, so framing keeps every pin visible above it. */
+  bottomInset?: number;
 }
 
-function pinIcon(bg: string, glyph: string, size: number) {
-  return L.divIcon({
-    className: "",
-    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${bg};border:3px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:${Math.round(size / 2)}px;box-sizing:border-box;">${glyph}</div>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-  });
+const htmlIcon = (html: string, w: number, h: number, ax: number, ay: number) =>
+  L.divIcon({ className: "", html, iconSize: [w, h], iconAnchor: [ax, ay] });
+
+const homeIcon = htmlIcon(PIN_HTML.home, 34, 41, 17, 41);
+const restaurantIcon = htmlIcon(PIN_HTML.restaurant, 32, 32, 16, 16);
+const courierIcon = htmlIcon(PIN_HTML.courier, 52, 52, 26, 26);
+
+// The washed-out look of the street tiles (see deliveryMapShared).
+if (typeof document !== "undefined" && !document.getElementById("zaboni-map-style")) {
+  const el = document.createElement("style");
+  el.id = "zaboni-map-style";
+  el.textContent = `.zaboni-map{background:${MAP_GROUND}}.zaboni-map .leaflet-tile-pane{filter:${TILE_FILTER}}`;
+  document.head.appendChild(el);
 }
-
-const homeIcon = pinIcon("#2563eb", "🏠", 38);
-const restaurantIcon = pinIcon("#ea580c", "🍽", 34);
-
-const courierIcon = L.divIcon({
-  className: "",
-  html: `<div style="width:44px;height:44px;border-radius:50%;background:#DC2626;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(220,38,38,0.45);font-size:22px;transition:all 0.5s ease;">🛵</div>`,
-  iconSize: [44, 44],
-  iconAnchor: [22, 22],
-});
 
 /** Frames the trip when a point first appears, never on a plain courier ping. */
-function MapFramer({ points, frameKey }: { points: Coords[]; frameKey: string }) {
+function MapFramer({ points, frameKey, bottomInset }: { points: Coords[]; frameKey: string; bottomInset: number }) {
   const map = useMap();
   const prev = useRef("");
   useEffect(() => {
     if (frameKey === prev.current) return;
     prev.current = frameKey;
     if (points.length >= 2) {
-      map.fitBounds(points.map((p) => [p.latitude, p.longitude] as [number, number]), { padding: [45, 45], maxZoom: 16 });
+      map.fitBounds(points.map((p) => [p.latitude, p.longitude] as [number, number]), { paddingTopLeft: [50, 120], paddingBottomRight: [50, 50 + bottomInset], maxZoom: 16 });
     } else if (points.length === 1) {
       map.setView([points[0].latitude, points[0].longitude], 15);
     }
@@ -78,7 +75,7 @@ function LiveCourierMarker({ coords }: { coords: Coords }) {
   );
 }
 
-export function DeliveryMap({ destinationCoords, restaurantCoords, courierCoords, isSearching, etaMinutes, height = 220 }: DeliveryMapProps) {
+export function DeliveryMap({ destinationCoords, restaurantCoords, courierCoords, isSearching, route, height = 220, bottomInset = 0 }: DeliveryMapProps) {
   const center = destinationCoords ?? restaurantCoords ?? HOMS_CENTER;
   const courier = courierCoords && !isSearching ? courierCoords : null;
   const points = [destinationCoords, restaurantCoords ?? null, courier].filter((p): p is Coords => !!p);
@@ -89,11 +86,19 @@ export function DeliveryMap({ destinationCoords, restaurantCoords, courierCoords
         center={[center.latitude, center.longitude]}
         zoom={14}
         style={{ width: "100%", height: "100%" }}
+        className="zaboni-map"
         zoomControl={false}
         attributionControl={false}
       >
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        <MapFramer points={points} frameKey={mapFrameKey(destinationCoords, restaurantCoords ?? null, courier)} />
+        <MapFramer points={points} frameKey={mapFrameKey(destinationCoords, restaurantCoords ?? null, courier)} bottomInset={bottomInset} />
+        {([["left", route?.left, ROUTE_LIGHT], ["done", route?.done, ROUTE_DARK]] as const).map(([k, pts, color]) =>
+          pts && pts.length >= 2 ? (
+            <React.Fragment key={k}>
+              <Polyline positions={pts.map((p) => [p.latitude, p.longitude] as [number, number])} pathOptions={{ color: "#fff", weight: 9, lineCap: "round", lineJoin: "round" }} />
+              <Polyline positions={pts.map((p) => [p.latitude, p.longitude] as [number, number])} pathOptions={{ color, weight: 5, lineCap: "round", lineJoin: "round" }} />
+            </React.Fragment>
+          ) : null)}
 
         {restaurantCoords && (
           <Marker position={[restaurantCoords.latitude, restaurantCoords.longitude]} icon={restaurantIcon} />
@@ -106,29 +111,6 @@ export function DeliveryMap({ destinationCoords, restaurantCoords, courierCoords
         {courier && <LiveCourierMarker coords={courier} />}
       </MapContainer>
 
-      {etaMinutes != null && !isSearching && (
-        <View style={styles.etaBadge} pointerEvents="none">
-          <MaterialIcons name="access-time" size={12} color="#fff" />
-          <Text style={styles.etaText}>{etaMinutes} د</Text>
-        </View>
-      )}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  etaBadge: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "#DC2626",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    zIndex: 1000,
-  },
-  etaText: { color: "#fff", fontSize: 12, fontWeight: "700" },
-});

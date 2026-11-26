@@ -66,6 +66,9 @@ services:
       # Read-only GitHub token so the direct-download APK keeps mirroring once the
       # repository is private (fine-grained, this repo only, Contents: read).
       APK_GITHUB_TOKEN: ${APK_GITHUB_TOKEN:-}
+      # Street routes for the tracking map (the osrm service below). If it is not
+      # running the app simply draws straight lines.
+      OSRM_URL: ${OSRM_URL:-http://osrm:5000}
     volumes:
       - storage-public:/data/storage/public
       - storage-private:/data/storage/private
@@ -115,6 +118,50 @@ services:
       - "127.0.0.1:8090:80"
 
 
+  # Street routing for the tracking map, from OpenStreetMap's Syria extract.
+  # Free and self-hosted. Start once with: docker compose up -d osrm
+  # The first start downloads the map (~30 MB) and prepares it (a few minutes);
+  # later starts reuse it. Refresh the roads: docker compose run --rm -e OSRM_REFRESH=1 osrm-fetch
+  osrm-fetch:
+    logging: *default-logging
+    image: alpine:3.20
+    restart: "no"
+    environment:
+      OSRM_REFRESH: ${OSRM_REFRESH:-}
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        if [ -s /data/syria.osm.pbf ] && [ -z "$$OSRM_REFRESH" ]; then echo "map already downloaded"; exit 0; fi
+        rm -f /data/syria.osrm*
+        wget -q -O /data/syria.osm.pbf.part https://download.geofabrik.de/asia/syria-latest.osm.pbf
+        mv /data/syria.osm.pbf.part /data/syria.osm.pbf
+        echo "map downloaded"
+    volumes:
+      - osrm-data:/data
+
+  osrm:
+    logging: *default-logging
+    image: ghcr.io/project-osrm/osrm-backend:v5.27.1
+    restart: unless-stopped
+    depends_on:
+      osrm-fetch:
+        condition: service_completed_successfully
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        if [ ! -s /data/syria.osrm.mldgr ]; then
+          osrm-extract -p /opt/car.lua /data/syria.osm.pbf
+          osrm-partition /data/syria.osrm
+          osrm-customize /data/syria.osrm
+        fi
+        exec osrm-routed --algorithm mld --max-viaroute-size 10 /data/syria.osrm
+    volumes:
+      - osrm-data:/data
+
   # Nightly encrypted backups (database + uploaded files) to Cloudflare R2.
   # Disabled until R2 is configured: `docker compose --profile backup up -d`.
   backup:
@@ -147,3 +194,4 @@ volumes:
   storage-private:
   whatsapp-session:
   warp-data:
+  osrm-data:

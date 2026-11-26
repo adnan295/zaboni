@@ -163,6 +163,7 @@ function RootLayoutNav() {
           <Stack.Screen name="restaurant/[id]" options={{ headerShown: false, presentation: "card" }} />
           <Stack.Screen name="order-request" options={{ headerShown: false }} />
           <Stack.Screen name="order-tracking/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="order-chat/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="orders" options={{ headerShown: false }} />
           <Stack.Screen name="favorites" options={{ headerShown: false }} />
           <Stack.Screen name="addresses" options={{ headerShown: false }} />

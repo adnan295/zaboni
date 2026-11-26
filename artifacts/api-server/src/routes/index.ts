@@ -22,6 +22,7 @@ import kitchenRouter from "./kitchen";
 import directoryRouter from "./directory";
 import callBridgeRouter from "./callBridge";
 import stampsRouter from "./stamps";
+import orderChatRouter from "./orderChat";
 import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
@@ -47,6 +48,7 @@ router.use(stampsRouter);
 
 router.use(requireAuth);
 router.use(ordersRouter);
+router.use(orderChatRouter);
 router.use(addressesRouter);
 router.use(courierRouter);
 router.use(favoritesRouter);

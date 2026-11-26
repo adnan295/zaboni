@@ -228,6 +228,16 @@ export async function sendPushToUsers(
   return totals;
 }
 
+/** Like sendPushToUsers, but not kept in the in-app notifications list (chat messages). */
+export async function sendTransientPushToUsers(
+  userIds: string[],
+  title: string,
+  body: string,
+  data?: Record<string, string>,
+): Promise<PushTotals> {
+  return sendToTokens(await loadTokensForUserIds(userIds), title, body, data);
+}
+
 /**
  * Send a push notification to all users matching an optional role filter.
  */

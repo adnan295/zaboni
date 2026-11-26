@@ -7,7 +7,7 @@ import {
   Platform,
   Animated,
   Alert,
-  Linking,
+  useWindowDimensions,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -26,6 +26,9 @@ import CancelReasonSheet, { type CancelReason } from "@/components/CancelReasonS
 import ScheduledOrderView from "@/components/ScheduledOrderView";
 import { Coords } from "@/utils/geo";
 import { fallbackEtaMinutes } from "@/utils/trackingEta";
+import { useTripRoute } from "@/hooks/useTripRoute";
+import { useOrderChat } from "@/hooks/useOrderChat";
+import { cardShadow } from "@/constants/colors";
 
 const USE_NATIVE_DRIVER = Platform.OS !== "web";
 // The courier pings every ~8 s while delivering; poll a little faster than that
@@ -44,8 +47,6 @@ export default function OrderTrackingScreen() {
   const { getOrder, refreshOrder } = useOrders();
   const { hasRated, ratingsLoaded } = useRatings();
   const [, forceUpdate] = useState(0);
-
-  const formatWaPhone = (phone: string) => phone.replace(/[^0-9]/g, "");
 
   const order = getOrder(id ?? "");
   const initialOrder = order;
@@ -75,6 +76,12 @@ export default function OrderTrackingScreen() {
   // keeps the age text moving between polls.
   const [courierSeenAt, setCourierSeenAt] = useState<number | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { height: windowHeight } = useWindowDimensions();
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const liveStatus = order?.status ?? "";
+  const hasCourier = ["accepted", "picked_up", "on_way", "delivered"].includes(liveStatus);
+  const route = useTripRoute(liveStatus, courierCoords, restaurantCoords, destinationCoords);
+  const { data: chat } = useOrderChat(id, { enabled: hasCourier && !!order?.courierName });
 
   useEffect(() => {
     const interval = setInterval(() => forceUpdate((n) => n + 1), 2000);
@@ -350,6 +357,175 @@ export default function OrderTrackingScreen() {
     { key: "delivered", label: t("orderTracking.statusSteps.delivered"), icon: "home" },
   ];
 
+  const openChat = () =>
+    router.push({
+      pathname: "/order-chat/[id]",
+      params: {
+        id: order.id,
+        name: order.courierName || "مندوبك",
+        sub: `مندوبك · طلب ${order.restaurantName}`,
+        phone: order.courierPhone ?? "",
+        masked: order.phoneMasked ? "1" : "0",
+      },
+    } as never);
+  const unread = chat?.unread ?? 0;
+
+  if (showMap) {
+    // The sheet needs about 430 pt; the map gets the rest, never less than half the screen.
+    const mapHeight = Math.round(Math.max(windowHeight * 0.5, windowHeight - 430));
+    const stepIdx = order.status === "accepted" ? 0 : order.status === "picked_up" ? 1 : 2;
+    const STEPS = ["قبِل الطلب", "استلم الطلب", "بالطريق", "وصل"];
+    const title = order.status === "accepted" ? "المندوب رايح عالمطعم"
+      : order.status === "picked_up" ? "المندوب استلم طلبك" : "المندوب بالطريق لعندك";
+    const itemCount = (order.items ?? []).reduce((n, it) => n + (it.qty ?? 0), 0);
+    const foodNet = order.totalPrice ?? (order.items ?? []).reduce((n, it) => n + (it.lineTotal ?? 0), 0) - (order.flashDealDiscount ?? 0);
+    const grandTotal = Math.max(0, foodNet) + (order.deliveryFee ?? 0);
+    const liveNote = isPollingActive && !courierCoords
+      ? { icon: "location-searching" as const, text: t("orderTracking.waitingLocation"), color: colors.warning }
+      : courierCoords && locationStale
+        ? { icon: "gps-off" as const, text: t("orderTracking.staleLocation", { ago: seenAgoText }), color: colors.primaryDark }
+        : null;
+
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <DeliveryMap
+          destinationCoords={destinationCoords}
+          restaurantCoords={restaurantCoords}
+          courierCoords={courierCoords}
+          isSearching={false}
+          route={route}
+          height={mapHeight}
+          bottomInset={24}
+        />
+        <View style={[styles.floatBar, { top: topPadding + 8 }]} pointerEvents="box-none">
+          <TouchableOpacity style={[styles.floatRound, cardShadow]} onPress={() => router.replace("/(tabs)")} accessibilityLabel="رجوع">
+            <MaterialIcons name={backIcon} size={22} color={colors.foreground} />
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.floatPill, cardShadow]} onPress={() => router.push("/support" as never)}>
+            <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground }}>مساعدة</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView
+          style={[styles.sheet, { backgroundColor: colors.background }]}
+          contentContainerStyle={{ padding: 16, paddingTop: 10, gap: 12, paddingBottom: bottomPadding + 24 }}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[styles.grip, { backgroundColor: colors.border }]} />
+          <View style={styles.titleRow}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[styles.sheetTitle, { color: colors.foreground }]}>{title}</Text>
+              <Text style={{ fontSize: 14, color: colors.mutedForeground, textAlign: "left" }} numberOfLines={1}>
+                طلبك من {order.restaurantName}
+              </Text>
+            </View>
+            {!!etaMinutes && (
+              <View style={[styles.etaBox, { backgroundColor: colors.secondary }]}>
+                <Text style={[styles.etaNum, { color: colors.primaryDark }]}>{etaMinutes}</Text>
+                <Text style={[styles.etaUnit, { color: colors.primaryDark }]}>دقيقة</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={{ gap: 6 }}>
+            <View style={styles.stepBars}>
+              {STEPS.map((label, i) => (
+                <View key={label} style={[styles.stepBar, { backgroundColor: i <= stepIdx ? colors.primary : colors.border }]} />
+              ))}
+            </View>
+            <View style={styles.stepBars}>
+              {STEPS.map((label, i) => (
+                <Text
+                  key={label}
+                  style={[styles.stepText, {
+                    color: i === stepIdx ? colors.primaryDark : i < stepIdx ? colors.foreground : colors.mutedForeground,
+                    fontWeight: i === stepIdx ? "800" : "500",
+                  }]}
+                >
+                  {label}
+                </Text>
+              ))}
+            </View>
+          </View>
+
+          {liveNote && (
+            <View style={styles.liveNote}>
+              <MaterialIcons name={liveNote.icon} size={16} color={liveNote.color} />
+              <Text style={{ fontSize: 13, color: liveNote.color, fontWeight: "700", flex: 1, textAlign: "left" }}>{liveNote.text}</Text>
+            </View>
+          )}
+
+          <View style={[styles.personCard, { backgroundColor: colors.card }, cardShadow]}>
+            <View style={[styles.personAvatar, { backgroundColor: colors.accent }]}>
+              <MaterialIcons name="delivery-dining" size={26} color={colors.primaryDark} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+              <Text style={{ fontSize: 16, fontWeight: "800", color: colors.foreground, textAlign: "left" }} numberOfLines={1}>{order.courierName}</Text>
+              <Text style={{ fontSize: 13, color: colors.mutedForeground, textAlign: "left" }}>
+                {order.courierRating > 0 ? `★ ${order.courierRating.toFixed(1)} · مندوبك` : t("orderTracking.courier.newCourier")}
+              </Text>
+            </View>
+            <TouchableOpacity style={[styles.roundBtn, { borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card }]} onPress={openChat} accessibilityLabel="محادثة">
+              <MaterialIcons name="chat-bubble-outline" size={20} color={colors.foreground} />
+              {unread > 0 && (
+                <View style={[styles.badge, { backgroundColor: colors.primary, borderColor: colors.card }]}>
+                  <Text style={styles.badgeText}>{unread > 9 ? "9+" : unread}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.roundBtn, { backgroundColor: colors.primary }]}
+              onPress={() => { if (order.courierPhone) void callAboutOrder(order.id, order.courierPhone, !!order.phoneMasked); }}
+              accessibilityLabel="اتصال"
+            >
+              <MaterialIcons name="phone" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity activeOpacity={0.85} onPress={() => setDetailsOpen((v) => !v)} style={[styles.orderCard, { backgroundColor: colors.card }, cardShadow]}>
+            <View style={styles.orderRow}>
+              <View style={styles.orderIcon}>
+                <MaterialIcons name="restaurant" size={18} color="#fff" />
+              </View>
+              <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                <Text style={{ fontSize: 15, fontWeight: "800", color: colors.foreground, textAlign: "left" }} numberOfLines={1}>
+                  {order.restaurantName}{itemCount > 0 ? ` · ${itemCount === 1 ? "صنف واحد" : itemCount === 2 ? "صنفين" : `${itemCount} أصناف`}` : ""}
+                </Text>
+                <Text style={{ fontSize: 13, color: colors.mutedForeground, textAlign: "left" }} numberOfLines={1}>{order.address}</Text>
+              </View>
+              {grandTotal > 0 && <Text style={{ fontSize: 15, fontWeight: "800", color: colors.foreground }}>{grandTotal.toLocaleString()} ل.س</Text>}
+              <MaterialIcons name={detailsOpen ? "expand-less" : "expand-more"} size={22} color={colors.mutedForeground} />
+            </View>
+            {detailsOpen && (
+              <View style={{ gap: 6, marginTop: 10 }}>
+                <View style={[styles.divider, { backgroundColor: colors.border, marginVertical: 0 }]} />
+                {(order.items ?? []).length > 0 ? (order.items ?? []).map((it, idx) => (
+                  <View key={idx} style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                    <Text style={[styles.orderText, { color: colors.foreground, flex: 1 }]}>{it.qty} × {it.nameAr}</Text>
+                    <Text style={[styles.orderText, { color: colors.foreground, fontWeight: "700" }]}>{it.lineTotal.toLocaleString()} ل.س</Text>
+                  </View>
+                )) : (
+                  <Text style={[styles.orderText, { color: colors.foreground }]}>{order.orderText}</Text>
+                )}
+                {(order.deliveryFee ?? 0) > 0 && (
+                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                    <Text style={[styles.orderText, { color: colors.mutedForeground }]}>رسوم التوصيل</Text>
+                    <Text style={[styles.orderText, { color: colors.foreground }]}>{(order.deliveryFee ?? 0).toLocaleString()} ل.س</Text>
+                  </View>
+                )}
+                <Text style={{ fontSize: 13, color: colors.mutedForeground, textAlign: "left" }}>{t("payment.cashOnDelivery")}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <Text style={{ fontSize: 12, color: colors.mutedForeground, textAlign: "center" }}>
+            {t("orderTracking.cancelOrder.cannotCancelNote")}
+          </Text>
+        </ScrollView>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.primary }]}>
@@ -359,52 +535,6 @@ export default function OrderTrackingScreen() {
         <Text style={styles.headerTitle}>{getStatusTitle()}</Text>
         <View style={{ width: 40 }} />
       </View>
-
-      {showMap && (
-        <View style={styles.mapSection}>
-          <DeliveryMap
-            destinationCoords={destinationCoords}
-            restaurantCoords={restaurantCoords}
-            courierCoords={courierCoords}
-            isSearching={isSearching}
-            etaMinutes={etaMinutes}
-            height={220}
-          />
-          {isPollingActive && !courierCoords && !isDelivered && (
-            <View style={[styles.etaBar, { backgroundColor: "#fffbeb", borderTopColor: "#fcd34d" }]}>
-              <MaterialIcons name="location-searching" size={16} color="#d97706" />
-              <Text style={[styles.etaBarText, { color: "#92400e" }]}>
-                {t("orderTracking.waitingLocation")}
-              </Text>
-            </View>
-          )}
-          {courierCoords && locationStale && !isDelivered && (
-            <View style={[styles.etaBar, { backgroundColor: "#fef2f2", borderTopColor: "#fecaca" }]}>
-              <MaterialIcons name="gps-off" size={16} color="#b91c1c" />
-              <Text style={[styles.etaBarText, { color: "#991b1b" }]}>
-                {t("orderTracking.staleLocation", { ago: seenAgoText })}
-              </Text>
-            </View>
-          )}
-          {etaMinutes && !isDelivered && (
-            <View style={[styles.etaBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
-              <MaterialIcons name="access-time" size={16} color={colors.primary} />
-              <Text style={[styles.etaBarText, { color: colors.foreground }]}>
-                {t("orderTracking.eta", { minutes: etaMinutes })}
-              </Text>
-              <View style={[styles.etaBadge, { backgroundColor: locationStale ? colors.muted : colors.secondary }]}>
-                <Text style={[styles.etaBadgeText, { color: locationStale ? colors.mutedForeground : colors.primary }]}>
-                  {locationStale
-                    ? seenAgoText
-                    : seenAgoSeconds !== null
-                      ? t("orderTracking.liveLabel")
-                      : isOnWay ? t("orderTracking.onWayLabel") : t("orderTracking.comingLabel")}
-                </Text>
-              </View>
-            </View>
-          )}
-        </View>
-      )}
 
       <ScrollView contentContainerStyle={{ paddingBottom: bottomPadding + 24 }}>
 
@@ -486,7 +616,7 @@ export default function OrderTrackingScreen() {
                 <View style={styles.courierInfo}>
                   <Text style={[styles.courierName, { color: colors.foreground }]}>{order.courierName}</Text>
                   <TouchableOpacity onPress={() => order.courierPhone && void callAboutOrder(order.id, order.courierPhone, !!order.phoneMasked)} activeOpacity={0.7}>
-                    <Text style={[styles.courierPhone, { color: colors.primary }]}>{order.phoneMasked ? t("orderTracking.courier.viaLine") : order.courierPhone}</Text>
+                    <Text style={[styles.courierPhone, { color: colors.primary }]}>{t("orderTracking.courier.viaLine")}</Text>
                   </TouchableOpacity>
                   {/* A courier with no ratings yet is «مندوب جديد», never «⭐ 0». */}
                   {order.courierRating > 0 ? (
@@ -513,18 +643,13 @@ export default function OrderTrackingScreen() {
                   <MaterialIcons name="phone" size={20} color="#fff" />
                   <Text style={styles.chatBtnText}>{t("orderTracking.courier.call")}</Text>
                 </TouchableOpacity>
-                {!order.phoneMasked && (
-                  <TouchableOpacity
-                    style={[styles.chatBtn, { backgroundColor: "#25D366", flex: 1 }]}
-                    onPress={() => {
-                      const phone = formatWaPhone(order.courierPhone ?? "");
-                      if (phone) Linking.openURL(`https://wa.me/${phone}`);
-                    }}
-                  >
-                    <MaterialCommunityIcons name="whatsapp" size={20} color="#fff" />
-                    <Text style={styles.chatBtnText}>{t("orderTracking.courier.whatsapp")}</Text>
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity
+                  style={[styles.chatBtn, { backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.primary, flex: 1 }]}
+                  onPress={openChat}
+                >
+                  <MaterialIcons name="chat-bubble-outline" size={20} color={colors.primaryDark} />
+                  <Text style={[styles.chatBtnText, { color: colors.primaryDark }]}>محادثة</Text>
+                </TouchableOpacity>
               </View>
             </Animated.View>
 
@@ -698,6 +823,28 @@ const styles = StyleSheet.create({
   backBtn: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   headerTitle: { flex: 1, textAlign: "center", fontSize: 17, fontWeight: "700", color: "#fff" },
   mapSection: { overflow: "hidden" },
+  floatBar: { position: "absolute", left: 16, right: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  floatRound: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" },
+  floatPill: { height: 40, paddingHorizontal: 14, borderRadius: 20, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" },
+  sheet: { flex: 1, marginTop: -24, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  grip: { width: 40, height: 5, borderRadius: 999, alignSelf: "center" },
+  titleRow: { flexDirection: "row", alignItems: "flex-end", gap: 12 },
+  sheetTitle: { fontSize: 22, fontWeight: "800", textAlign: "left" },
+  etaBox: { borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6, alignItems: "center" },
+  etaNum: { fontSize: 22, fontWeight: "800", lineHeight: 26 },
+  etaUnit: { fontSize: 11, fontWeight: "700" },
+  stepBars: { flexDirection: "row", gap: 5 },
+  stepBar: { flex: 1, height: 5, borderRadius: 999 },
+  stepText: { flex: 1, fontSize: 12, textAlign: "left" },
+  liveNote: { flexDirection: "row", alignItems: "center", gap: 6 },
+  personCard: { borderRadius: 18, padding: 12, flexDirection: "row", alignItems: "center", gap: 12 },
+  personAvatar: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
+  roundBtn: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center" },
+  badge: { position: "absolute", top: -4, left: -4, minWidth: 18, height: 18, borderRadius: 9, borderWidth: 2, alignItems: "center", justifyContent: "center", paddingHorizontal: 3 },
+  badgeText: { color: "#fff", fontSize: 10, fontWeight: "800" },
+  orderCard: { borderRadius: 18, paddingVertical: 12, paddingHorizontal: 14 },
+  orderRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  orderIcon: { width: 42, height: 42, borderRadius: 12, backgroundColor: "#111827", alignItems: "center", justifyContent: "center" },
   etaBar: {
     flexDirection: "row",
     alignItems: "center",

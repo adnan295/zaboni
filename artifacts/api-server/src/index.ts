@@ -15,6 +15,7 @@ import { ensureKitchenSchema, startKitchenJob } from "./lib/kitchen";
 import { ensureDirectorySchema } from "./lib/directory";
 import { ensureCallBridgeSchema, startBridgeStateRefresh } from "./lib/callBridge";
 import { ensureStampsSchema } from "./lib/stamps";
+import { ensureOrderChatSchema } from "./lib/orderChat";
 import { whatsappManager } from "./lib/whatsapp";
 import { startPushReceiptJob } from "./lib/push";
 import { startDealExpiryJob } from "./lib/dealExpiry";
@@ -82,6 +83,7 @@ await ensureKitchenSchema();
 await ensureDirectorySchema();
 await ensureCallBridgeSchema();
 await ensureStampsSchema();
+await ensureOrderChatSchema();
 startBridgeStateRefresh();
 
 httpServer.listen(port, (err?: Error) => {

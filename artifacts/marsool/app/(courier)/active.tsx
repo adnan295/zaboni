@@ -26,6 +26,7 @@ import {
   CourierDeliveryStatus,
 } from "@/context/CourierContext";
 import { callAboutOrder } from "@/utils/companyCall";
+import { useOrderChat } from "@/hooks/useOrderChat";
 import { customFetch } from "@workspace/api-client-react";
 import { CourierMap } from "@/components/CourierMap";
 
@@ -108,6 +109,8 @@ export default function ActiveOrderScreen() {
     (a, b) => (STATUS_RANK[a.status] ?? 3) - (STATUS_RANK[b.status] ?? 3),
   );
   const order = sortedActive[0] ?? null;
+  const { data: customerChat } = useOrderChat(order?.id, { enabled: !!order });
+  const customerUnread = customerChat?.unread ?? 0;
   const queuedOrders = sortedActive.slice(1);
 
   useEffect(() => {
@@ -232,10 +235,18 @@ export default function ActiveOrderScreen() {
 
   const formatWaPhone = (phone: string) => phone.replace(/[^0-9]/g, "");
 
-  const openWhatsApp = () => {
+  const openChat = () => {
     if (!order) return;
-    const phone = formatWaPhone(order.customerPhone ?? "");
-    if (phone) Linking.openURL(`https://wa.me/${phone}`);
+    router.push({
+      pathname: "/order-chat/[id]",
+      params: {
+        id: order.id,
+        name: "الزبون",
+        sub: `طلب ${order.restaurantName || "حر"} · #${order.id.slice(-6)}`,
+        phone: order.customerPhone ?? "",
+        masked: order.phoneMasked ? "1" : "0",
+      },
+    } as never);
   };
 
   const callCustomer = () => {
@@ -983,22 +994,20 @@ export default function ActiveOrderScreen() {
               </TouchableOpacity>
             ) : null}
 
-            {/* With the office line on, the customer's number stays private: calls only. */}
-            {order.customerPhone && !order.phoneMasked ? (
-              <TouchableOpacity
-                style={[
-                  styles.chatBtn,
-                  { backgroundColor: "#25D366", borderColor: "#25D366" },
-                ]}
-                onPress={openWhatsApp}
-                activeOpacity={0.8}
-              >
-                <MaterialCommunityIcons name="whatsapp" size={20} color="#fff" />
-                <Text style={[styles.chatBtnText, { color: "#fff" }]}>
-                  {t("courier.active.whatsapp")}
-                </Text>
-              </TouchableOpacity>
-            ) : null}
+            {/* The customer's number is never shown: talk in the order chat, call through the line. */}
+            <TouchableOpacity
+              style={[styles.chatBtn, { backgroundColor: colors.card, borderColor: colors.primary }]}
+              onPress={openChat}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons name="chat-bubble-outline" size={20} color={colors.primary} />
+              <Text style={[styles.chatBtnText, { color: colors.primary }]}>محادثة الزبون</Text>
+              {customerUnread > 0 && (
+                <View style={{ minWidth: 20, height: 20, borderRadius: 10, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 }}>
+                  <Text style={{ color: "#fff", fontSize: 11, fontWeight: "800" }}>{customerUnread > 9 ? "9+" : customerUnread}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
           </View>
 
           {/* Relinquishing an assignment is allowed only before pickup. */}

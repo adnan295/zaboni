@@ -66,6 +66,10 @@ function getNotificationTargetRoute(
     return "/(courier)/available";
   }
 
+  if (type === "order_chat" && orderId) {
+    return `/order-chat/${orderId}`;
+  }
+
   if (type === "order_update") {
     if (userRole === "courier") {
       return "/(courier)/active";
@@ -172,6 +176,8 @@ export function usePushNotifications(
       if (handledReceivedIds.has(inboxId)) return;
       handledReceivedIds.add(inboxId);
       const data = getNotificationData(notification);
+      // Chat messages live in the chat, not in the notifications list.
+      if ((data?.type as string | undefined) === "order_chat") return;
       const { title, body } = getNotificationContent(notification);
       if (!title && !body) return;
       addNotificationRef.current?.({
