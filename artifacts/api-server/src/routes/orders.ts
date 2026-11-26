@@ -1,4 +1,5 @@
 import { maskCourierPhone } from "../lib/callBridge";
+import { customerMayCancel, hideCourierUntilPickup } from "../lib/orderPrep";
 import { creationIdentity, previousOrderCreation, createOrderOnce, OrderCreationError } from "../lib/orderCreation";
 import { getDamascusNow, computeIsOpenFromHours, getHoursForRestaurants } from "../lib/restaurantHours";
 import { dispatchOrderNow } from "../lib/orderDispatch";
@@ -420,13 +421,13 @@ router.get("/orders", async (req, res) => {
     }
   }
 
-  const orders = allRows.map((o) => maskCourierPhone({
+  const orders = allRows.map((o) => hideCourierUntilPickup(maskCourierPhone({
     ...o,
     courierRating: courierRatingMap[o.courierId] ?? o.courierRating,
     pointsEarned: pointsMap[o.id]?.pointsEarned ?? 0,
     pointsRedeemed: pointsMap[o.id]?.pointsRedeemed ?? 0,
     items: itemsMap[o.id] ?? [],
-  }));
+  })));
 
   res.json({ orders, total, hasMore, page, limit });
 });
@@ -1177,10 +1178,10 @@ router.get("/orders/:id", async (req, res) => {
       .orderBy(desc(orderStatusHistoryTable.createdAt))
       .limit(1);
     const note = history[0]?.note ?? null;
-    res.json(maskCourierPhone({ ...order, courierRating, cancelNote: note, pointsEarned, pointsRedeemed, items }));
+    res.json(hideCourierUntilPickup(maskCourierPhone({ ...order, courierRating, cancelNote: note, pointsEarned, pointsRedeemed, items })));
     return;
   }
-  res.json(maskCourierPhone({ ...order, courierRating, pointsEarned, pointsRedeemed, items }));
+  res.json(hideCourierUntilPickup(maskCourierPhone({ ...order, courierRating, pointsEarned, pointsRedeemed, items })));
 });
 
 router.get("/orders/:id/courier-location", async (req, res) => {
@@ -1203,7 +1204,8 @@ router.get("/orders/:id/courier-location", async (req, res) => {
   }
 
   const order = orders[0]!;
-  if (!["accepted", "picked_up", "on_way"].includes(order.status)) {
+  // The courier appears on the customer's map once they have the food (lib/orderPrep).
+  if (!["picked_up", "on_way"].includes(order.status)) {
     res.status(404).json({ error: "Courier location is only available during an active delivery" });
     return;
   }
@@ -1308,10 +1310,15 @@ router.delete("/orders/:id", async (req, res) => {
     res.status(409).json({ error: "Order can only be cancelled while searching for a courier" });
     return;
   }
+  // After the first minute the restaurant is preparing it (lib/orderPrep).
+  if (!customerMayCancel(order)) {
+    res.status(409).json({ error: "preparing", message: "المطعم بلّش يجهّز طلبك، فما فيك تلغيه هلق" });
+    return;
+  }
   const updated = await db.transaction(async (tx) => {
     const changed = await tx.update(ordersTable)
       .set({ status: "cancelled", cancelReason, updatedAt: new Date() })
-      .where(and(eq(ordersTable.id, id), eq(ordersTable.userId, userId), eq(ordersTable.status, "searching")))
+      .where(and(eq(ordersTable.id, id), eq(ordersTable.userId, userId), eq(ordersTable.status, "searching"), isNull(ordersTable.prepStartedAt)))
       .returning();
     if (!changed.length) return changed;
     await refundRedeemedPointsInTx(tx, userId, id);

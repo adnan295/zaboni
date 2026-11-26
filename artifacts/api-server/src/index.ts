@@ -16,6 +16,8 @@ import { ensureDirectorySchema } from "./lib/directory";
 import { ensureCallBridgeSchema, startBridgeStateRefresh } from "./lib/callBridge";
 import { ensureStampsSchema } from "./lib/stamps";
 import { ensureOrderChatSchema } from "./lib/orderChat";
+import { ensureOrderPrepSchema } from "./lib/orderPrep";
+import { startOrderPrepJob } from "./lib/orderPrepJob";
 import { whatsappManager } from "./lib/whatsapp";
 import { startPushReceiptJob } from "./lib/push";
 import { startDealExpiryJob } from "./lib/dealExpiry";
@@ -73,6 +75,8 @@ const io = new SocketServer(httpServer, {
 });
 setupOrdersNamespace(io);
 
+// First: the orders schema in lib/db already selects these columns.
+await ensureOrderPrepSchema();
 await ensureDispatchSchema();
 await ensureOrderCreationSchema();
 await ensureCrashSchema();
@@ -98,6 +102,8 @@ httpServer.listen(port, (err?: Error) => {
   startApkMirrorJob();
   startBackupWatchJob();
   startCourierActivityJob();
+  // «عم يتحضّر» after a minute without a courier, and the admin alerts.
+  startOrderPrepJob();
   // Hands pre-ordered meals to couriers shortly before their delivery window and
   // tells each kitchen what to cook once ordering closes.
   startKitchenJob(

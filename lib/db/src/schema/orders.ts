@@ -64,6 +64,11 @@ export const ordersTable = pgTable("orders", {
   directoryPlaceId: text("directory_place_id"),
   pickupLat: doublePrecision("pickup_lat"),
   pickupLon: doublePrecision("pickup_lon"),
+  // «طلبك عم يتحضّر» (api-server lib/orderPrep): when the customer was told their
+  // order is being prepared — a courier took it, or a minute passed without one —
+  // and when the admin ordered it from the restaurant themselves.
+  prepStartedAt: timestamp("prep_started_at", { withTimezone: true }),
+  adminOrderedAt: timestamp("admin_ordered_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

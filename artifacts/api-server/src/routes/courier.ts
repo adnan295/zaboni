@@ -317,6 +317,7 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
       updatedAt: ordersTable.updatedAt,
       orderType: ordersTable.orderType,
       placeName: ordersTable.placeName,
+      adminOrderedAt: ordersTable.adminOrderedAt,
       // Directory free orders have no restaurant row: use the place's own pin.
       restaurantLat: sql<number | null>`COALESCE(${restaurantsTable.lat}, ${ordersTable.pickupLat})`,
       restaurantLon: sql<number | null>`COALESCE(${restaurantsTable.lon}, ${ordersTable.pickupLon})`,
@@ -345,6 +346,9 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
         !o.restaurantId || distanceKm === null || distanceKm <= MAX_VISIBLE_RADIUS_KM,
     )
     .sort((a, b) => {
+      // Orders the admin already placed with the restaurant come first: the food is on its way to ready.
+      const ao = a.o.adminOrderedAt ? 0 : 1, bo = b.o.adminOrderedAt ? 0 : 1;
+      if (ao !== bo) return ao - bo;
       if (a.distanceKm === null && b.distanceKm === null) return 0;
       if (a.distanceKm === null) return 1;
       if (b.distanceKm === null) return -1;
@@ -363,6 +367,7 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
       updatedAt: o.updatedAt,
       orderType: o.orderType,
       placeName: o.placeName,
+      adminOrdered: !!o.adminOrderedAt,
       distanceKm: distanceKm === null ? null : Math.round(distanceKm * 10) / 10,
     }));
 
@@ -440,6 +445,8 @@ router.get("/courier/orders/active", requireCourier, async (req, res) => {
       // With the office line on, the courier calls the company number and is put through.
       customerPhone: contactRevealed ? (publicLineNumber(o.id) ?? o.customerPhone) : null,
       phoneMasked: contactRevealed && publicLineNumber(o.id) != null,
+      // The admin ordered it from the restaurant: the app hides the restaurant's call buttons.
+      adminOrdered: !!o.adminOrderedAt,
       items: itemsByOrderId.get(o.id) ?? [],
     };
   });
@@ -537,7 +544,8 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
 
     const updated = await tx
       .update(ordersTable)
-      .set({ courierId, courierName, courierPhone, courierRating, status: "accepted", updatedAt: new Date() })
+      // From now the customer sees «عم يتحضّر» (lib/orderPrep), if a minute had not already done it.
+      .set({ courierId, courierName, courierPhone, courierRating, status: "accepted", prepStartedAt: order.prepStartedAt ?? new Date(), updatedAt: new Date() })
       .where(and(eq(ordersTable.id, orderId), eq(ordersTable.courierId, ""), eq(ordersTable.status, "searching")))
       .returning();
 
@@ -552,12 +560,13 @@ router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) 
       status: "accepted",
     });
 
-    return updated[0];
+    return { ...updated[0], firstPrep: order.prepStartedAt == null };
   });
   if (!accepted) return;
+  // The customer sees «عم يتحضّر», not the courier, until pickup (lib/orderPrep).
   notifyOrderUpdate(accepted.userId, accepted);
   notifyCouriersOrderTaken(orderId);
-  await sendOrderPush(accepted.userId, `${accepted.courierName} قبل طلبك وهو في الطريق لاستلامه!`, orderId);
+  if (accepted.firstPrep) await sendOrderPush(accepted.userId, "👨‍🍳 طلبك عم يتحضّر بالمطعم", orderId);
   // Map link to the restaurant on the courier's WhatsApp. Not awaited: never delays the accept.
   void sendCourierDirections(orderId, "to_restaurant");
   // Write down the arrival time we are promising, to measure on-time delivery.
@@ -571,7 +580,7 @@ const courierStatusSchema = z.object({
 });
 
 const STATUS_PUSH_MESSAGES: Record<string, string> = {
-  picked_up: "المندوب استلم طلبك من المطعم 📦",
+  picked_up: "🛵 طلبك طلع من المطعم والمندوب بالطريق لعندك",
   on_way: "المندوب في الطريق إليك الآن 🛵",
   delivered: "تم التوصيل بنجاح 🎉 بالعافية!",
 };

@@ -548,7 +548,7 @@
       "confirmBody": "Are you sure you want to cancel this order?",
       "confirm": "Yes, Cancel Order",
       "cancelledNote": "Your order has been cancelled. You can place a new order at any time.",
-      "cancelledNoteExpired": "No courier was found within 30 minutes. Please try again.",
+      "cancelledNoteExpired": "We couldn't get your order to the restaurant just now, so we cancelled it and you won't pay anything. Please try again shortly.",
       "cancelledNoteAdmin": "Your order was cancelled by the administration.",
       "cannotCancelNote": "You can't cancel once a courier accepts — call them if you need to change something",
       "alreadyAcceptedTitle": "Cannot Cancel Order",

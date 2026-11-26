@@ -947,6 +947,17 @@ export default function ActiveOrderScreen() {
             ) : null}
           </View>
 
+          {order.adminOrdered && order.status === "accepted" ? (
+            <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-start", backgroundColor: "#F0FDF4", borderWidth: 1, borderColor: "#BBF7D0", borderRadius: 12, padding: 12, marginBottom: 10 }}>
+              <MaterialIcons name="check-circle" size={20} color="#15803D" />
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={{ fontSize: 14, fontWeight: "800", color: "#14532D", textAlign: "left" }}>الإدارة طلبت هالطلب من المطعم</Text>
+                <Text style={{ fontSize: 13, color: "#166534", textAlign: "left" }}>
+                  ما في داعي تتصل فيهن. روح استلم وقلّن: «طلب زبوني #{order.id.slice(-6)}»
+                </Text>
+              </View>
+            </View>
+          ) : null}
           <View style={styles.actionRow}>
             {order.customerPhone ? (
               <TouchableOpacity
@@ -961,7 +972,7 @@ export default function ActiveOrderScreen() {
               </TouchableOpacity>
             ) : null}
 
-            {sanitizedRestaurantPhone ? (
+            {sanitizedRestaurantPhone && !order.adminOrdered ? (
               <TouchableOpacity
                 style={[styles.callBtn, { backgroundColor: "#ea580c" }]}
                 onPress={callRestaurant}
@@ -974,7 +985,7 @@ export default function ActiveOrderScreen() {
               </TouchableOpacity>
             ) : null}
 
-            {sanitizedRestaurantPhone ? (
+            {sanitizedRestaurantPhone && !order.adminOrdered ? (
               <TouchableOpacity
                 style={[
                   styles.chatBtn,
@@ -994,7 +1005,9 @@ export default function ActiveOrderScreen() {
               </TouchableOpacity>
             ) : null}
 
-            {/* The customer's number is never shown: talk in the order chat, call through the line. */}
+            {/* The customer's number is never shown: talk in the order chat, call through the line.
+                The chat opens once the food is collected — before that the customer does not see the courier. */}
+            {order.status !== "accepted" && (
             <TouchableOpacity
               style={[styles.chatBtn, { backgroundColor: colors.card, borderColor: colors.primary }]}
               onPress={openChat}
@@ -1008,6 +1021,7 @@ export default function ActiveOrderScreen() {
                 </View>
               )}
             </TouchableOpacity>
+            )}
           </View>
 
           {/* Relinquishing an assignment is allowed only before pickup. */}

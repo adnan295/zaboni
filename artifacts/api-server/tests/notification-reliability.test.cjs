@@ -616,6 +616,7 @@ test("all zone submissions failing immediately broadens to other eligible courie
     "drizzle-orm": { and: noop, eq: noop, ne: noop, notInArray: noop },
     "../lib/logger": { logger },
     "../lib/callBridge": { publicLineNumber: () => null, maskCourierPhone: (o) => o },
+    "../lib/orderPrep": { hideCourierUntilPickup: (o) => o },
     "../lib/push": {
       sendCourierPush: async (devices) => {
         calls.push(devices.map((d) => d.id));

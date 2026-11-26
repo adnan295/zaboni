@@ -943,10 +943,17 @@ router.get("/admin/sla-alerts", async (req, res) => {
       o.created_at AS "createdAt",
       EXTRACT(EPOCH FROM (NOW() - o.created_at)) / 60.0 AS "ageMinutes",
       u.name AS "customerName",
-      u.phone AS "customerPhone"
+      u.phone AS "customerPhone",
+      -- «عم يتحضّر» (lib/orderPrep): when it started, and whether the admin already ordered it.
+      o.prep_started_at AS "prepStartedAt",
+      o.admin_ordered_at AS "adminOrderedAt",
+      o.order_type AS "orderType",
+      o.total_price + o.delivery_fee AS "total",
+      COALESCE(NULLIF(o.restaurant_phone, ''), r.phone) AS "restaurantPhone"
     FROM orders o
     LEFT JOIN users u ON u.id = o.user_id
     LEFT JOIN order_dispatch d ON d.order_id = o.id
+    LEFT JOIN restaurants r ON r.id = o.restaurant_id
     WHERE o.status = 'searching'
       AND o.created_at < ${cutoff}
     ORDER BY o.created_at ASC

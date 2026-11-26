@@ -1108,6 +1108,15 @@ export const api = {
     }),
   getSlaAlerts: (minAge = 2) =>
     apiFetch<SlaAlert[]>(`/admin/sla-alerts?minAge=${minAge}`),
+  markOrderedFromRestaurant: (orderId: string) =>
+    apiFetch<{ ok: boolean; orderedAt: string }>(`/admin/orders/${encodeURIComponent(orderId)}/ordered-from-restaurant`, { method: "POST" }),
+  getAutoPrep: () => apiFetch<AutoPrepSettings>("/admin/order-prep/settings"),
+  saveAutoPrep: (body: { enabled: boolean; from: string; to: string }) =>
+    apiFetch<AutoPrepSettings>("/admin/order-prep/settings", { method: "PUT", body: JSON.stringify(body) }),
+  getCourierOptions: (orderId: string) =>
+    apiFetch<{ options: CourierOption[] }>(`/admin/orders/${encodeURIComponent(orderId)}/courier-options`),
+  assignOrder: (orderId: string, courierId: string) =>
+    apiFetch<{ ok: boolean }>(`/admin/orders/${encodeURIComponent(orderId)}/assign`, { method: "POST", body: JSON.stringify({ courierId }) }),
   getCancellationStats: (days: number) =>
     apiFetch<CancellationStats>(`/admin/cancellation-stats?days=${days}`),
   getOrderAudit: (days: 7 | 30 | 90 | 0, lateFrom: number, lateTo: number) =>
@@ -1211,6 +1220,29 @@ export type SlaAlert = {
   ageMinutes: number;
   customerName: string | null;
   customerPhone: string | null;
+  /** «عم يتحضّر» started (a minute without a courier). */
+  prepStartedAt?: string | null;
+  /** The admin pressed «طلبناه من المطعم». */
+  adminOrderedAt?: string | null;
+  orderType?: string | null;
+  total?: number | null;
+  restaurantPhone?: string | null;
+};
+
+export type AutoPrepSettings = {
+  enabled: boolean;
+  /** Homs time "HH:MM"; from === to means all day. */
+  from: string;
+  to: string;
+  activeNow: boolean;
+};
+
+export type CourierOption = {
+  id: string;
+  name: string;
+  distanceKm: number | null;
+  activeOrders: number;
+  canTake: boolean;
 };
 
 export type ChurnUser = {

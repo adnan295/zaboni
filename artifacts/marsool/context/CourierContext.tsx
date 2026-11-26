@@ -45,6 +45,12 @@ export interface CourierOrder {
   totalPrice?: number | null;
   orderType?: string;
   placeName?: string | null;
+  /**
+   * The admin already ordered it from the restaurant («طلبناه من المطعم»): the
+   * courier goes straight to collect it and the app hides the restaurant's call
+   * buttons, so the order is never placed twice.
+   */
+  adminOrdered?: boolean;
 }
 
 export type CourierDeliveryStatus = "picked_up" | "on_way" | "delivered";

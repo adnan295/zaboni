@@ -23,7 +23,7 @@ import RestaurantCard, { RestaurantCardSkeleton } from "@/components/RestaurantC
 import HorizontalRestaurantCard, { HorizontalRestaurantCardSkeleton } from "@/components/HorizontalRestaurantCard";
 import { useAddresses } from "@/context/AddressContext";
 import { useNotifications } from "@/context/NotificationsContext";
-import { useOrders } from "@/context/OrderContext";
+import { customerStage, useOrders } from "@/context/OrderContext";
 import { useAuth } from "@/context/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { getApiBaseUrl, buildImageUrl } from "@/lib/apiConfig";
@@ -404,8 +404,11 @@ export default function HomeScreen() {
 
   const getOrderStatusText = () => {
     if (!activeOrder) return "";
-    if (activeOrder.status === "searching") return t("home.order.searching");
-    if (activeOrder.status === "accepted") return `${activeOrder.courierName} ${t("home.order.accepted")}`;
+    // Stages like the big apps: no courier name before they have the food (server lib/orderPrep).
+    const stage = activeOrder.stage ?? customerStage(activeOrder.status);
+    if (stage === "sending") return "جاري إرسال طلبك للمطعم";
+    if (stage === "received") return "استلمنا طلبك";
+    if (stage === "preparing") return "طلبك عم يتحضّر 🔥";
     if (activeOrder.status === "picked_up") return t("home.order.pickedUp");
     if (activeOrder.status === "on_way") return t("home.order.onWay");
     if (activeOrder.status === "delivered") return t("home.order.delivered");

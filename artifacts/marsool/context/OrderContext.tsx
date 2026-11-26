@@ -75,6 +75,27 @@ export interface Order {
   /** Where the order is delivered — the pin the customer chose, not where their phone is now. */
   destinationLat?: number | null;
   destinationLon?: number | null;
+  /**
+   * What the tracking screen says (server lib/orderPrep): «استلمنا طلبك» for the first
+   * minute, «عم يتحضّر» until the courier has the food, then «بالطريق».
+   */
+  stage?: CustomerStage;
+}
+
+export type CustomerStage = "sending" | "received" | "preparing" | "on_way" | "delivered" | "cancelled" | "scheduled";
+
+/** Same rule as the server, for servers that do not send `stage` yet. */
+export function customerStage(status: string, prepStartedAt?: string | Date | null): CustomerStage {
+  switch (status) {
+    case "searching": return prepStartedAt ? "preparing" : "received";
+    case "accepted": return "preparing";
+    case "picked_up":
+    case "on_way": return "on_way";
+    case "delivered": return "delivered";
+    case "cancelled": return "cancelled";
+    case "scheduled": return "scheduled";
+    default: return "received";
+  }
 }
 
 interface OrderContextValue {
@@ -118,6 +139,8 @@ function apiOrderToLocal(apiOrder: {
   mealSubscriptionId?: string | null;
   destinationLat?: number | null;
   destinationLon?: number | null;
+  stage?: string | null;
+  prepStartedAt?: string | Date | null;
 }): Order {
   return {
     id: apiOrder.id,
@@ -149,6 +172,7 @@ function apiOrderToLocal(apiOrder: {
     mealSubscriptionId: apiOrder.mealSubscriptionId ?? null,
     destinationLat: typeof apiOrder.destinationLat === "number" ? apiOrder.destinationLat : null,
     destinationLon: typeof apiOrder.destinationLon === "number" ? apiOrder.destinationLon : null,
+    stage: (apiOrder.stage as CustomerStage | null) ?? customerStage(apiOrder.status, apiOrder.prepStartedAt),
   };
 }
 

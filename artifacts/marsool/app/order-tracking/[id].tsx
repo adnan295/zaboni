@@ -17,7 +17,7 @@ import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { useBackIcon } from "@/hooks/useTypography";
-import { useOrders, OrderStatus } from "@/context/OrderContext";
+import { useOrders, OrderStatus, customerStage } from "@/context/OrderContext";
 import { callAboutOrder } from "@/utils/companyCall";
 import { customFetch, ApiError } from "@workspace/api-client-react";
 import { useRatings } from "@/context/RatingsContext";
@@ -79,9 +79,17 @@ export default function OrderTrackingScreen() {
   const { height: windowHeight } = useWindowDimensions();
   const [detailsOpen, setDetailsOpen] = useState(false);
   const liveStatus = order?.status ?? "";
-  const hasCourier = ["accepted", "picked_up", "on_way", "delivered"].includes(liveStatus);
-  const route = useTripRoute(liveStatus, courierCoords, restaurantCoords, destinationCoords);
-  const { data: chat } = useOrderChat(id, { enabled: hasCourier && !!order?.courierName });
+  // «استلمنا طلبك» → «عم يتحضّر» → «بالطريق» → «وصل» (server lib/orderPrep). The courier
+  // is not shown, on the map or anywhere, until they have the food.
+  const stage = order?.stage ?? customerStage(liveStatus);
+  const courierShown = stage === "on_way" || stage === "delivered";
+  const route = useTripRoute(
+    stage === "on_way" ? liveStatus : "accepted",
+    stage === "on_way" ? courierCoords : null,
+    restaurantCoords,
+    destinationCoords,
+  );
+  const { data: chat } = useOrderChat(id, { enabled: courierShown && !!order?.courierName });
   // The chat closes with the order: its alerts no longer mean anything.
   useEffect(() => {
     if (id && (liveStatus === "delivered" || liveStatus === "cancelled")) void dismissChatNotifications(id);
@@ -145,7 +153,7 @@ export default function OrderTrackingScreen() {
     const currentOrder = getOrder(id ?? "");
     if (!currentOrder || currentOrder.status === "searching" || currentOrder.status === "delivered" || currentOrder.status === "cancelled") return;
 
-    const ACTIVE_STATUSES = ["accepted", "picked_up", "on_way"];
+    const ACTIVE_STATUSES = ["picked_up", "on_way"];
     if (!ACTIVE_STATUSES.includes(currentOrder.status)) return;
 
     if (pollingRef.current) return;
@@ -256,10 +264,7 @@ export default function OrderTrackingScreen() {
     } catch (err: unknown) {
       setCancelSheetOpen(false);
       if (err instanceof ApiError && err.status === 409) {
-        Alert.alert(
-          t("orderTracking.cancelOrder.alreadyAcceptedTitle"),
-          t("orderTracking.cancelOrder.alreadyAcceptedBody")
-        );
+        Alert.alert("المطعم بلّش يجهّز طلبك", "ما فيك تلغيه هلق. إذا في مشكلة اكتبلنا من صفحة المساعدة.");
         await refreshOrder(id ?? "");
       } else {
         Alert.alert(t("common.error"), t("common.retry"));
@@ -335,7 +340,7 @@ export default function OrderTrackingScreen() {
   const isAccepted = order.status === "accepted";
   const isSearching = order.status === "searching";
   const rated = hasRated(order.id);
-  const showMap = !isSearching && !isDelivered && !isCancelled;
+  const showMap = !isDelivered && !isCancelled;
   const seenAgoSeconds = courierSeenAt !== null ? Math.max(0, Math.round((Date.now() - courierSeenAt) / 1000)) : null;
   const locationStale = seenAgoSeconds !== null && seenAgoSeconds > STALE_AFTER_SECONDS;
   const seenAgoText = seenAgoSeconds === null
@@ -377,10 +382,19 @@ export default function OrderTrackingScreen() {
   if (showMap) {
     // The sheet needs about 430 pt; the map gets the rest, never less than half the screen.
     const mapHeight = Math.round(Math.max(windowHeight * 0.5, windowHeight - 430));
-    const stepIdx = order.status === "accepted" ? 0 : order.status === "picked_up" ? 1 : 2;
-    const STEPS = ["قبِل الطلب", "استلم الطلب", "بالطريق", "وصل"];
-    const title = order.status === "accepted" ? "المندوب رايح عالمطعم"
+    const stepIdx = stage === "received" || stage === "sending" ? 0 : stage === "preparing" ? 1 : 2;
+    const STEPS = ["استلمنا طلبك", "عم يتحضّر", "بالطريق", "وصل"];
+    const isErrand = order.orderType === "errand" || !order.restaurantId;
+    const place = order.restaurantName || order.placeName || "";
+    const title = stage === "sending" ? (isErrand ? "جاري إرسال طلبك" : "جاري إرسال طلبك للمطعم")
+      : stage === "received" ? "استلمنا طلبك"
+      : stage === "preparing" ? (isErrand ? "طلبك عم يتجهّز" : "طلبك عم يتحضّر")
       : order.status === "picked_up" ? "المندوب استلم طلبك" : "المندوب بالطريق لعندك";
+    const subtitle = stage === "sending" ? (place ? `لـ${place}` : "عم نأمّنلك مندوب")
+      : stage === "received" ? (place ? `عم نبعتو لـ${place}` : "عم نبعتو للمندوبين")
+      : stage === "preparing" ? (isErrand ? (place ? `عم نجيب طلبك من ${place}` : "عم نجيب طلبك") : `${place} عم يجهّز طلبك`)
+      : `طلبك من ${place}`;
+    const etaShown = stage === "on_way" ? etaMinutes : (order.estimatedMinutes || null);
     const itemCount = (order.items ?? []).reduce((n, it) => n + (it.qty ?? 0), 0);
     const foodNet = order.totalPrice ?? (order.items ?? []).reduce((n, it) => n + (it.lineTotal ?? 0), 0) - (order.flashDealDiscount ?? 0);
     const grandTotal = Math.max(0, foodNet) + (order.deliveryFee ?? 0);
@@ -395,7 +409,7 @@ export default function OrderTrackingScreen() {
         <DeliveryMap
           destinationCoords={destinationCoords}
           restaurantCoords={restaurantCoords}
-          courierCoords={courierCoords}
+          courierCoords={stage === "on_way" ? courierCoords : null}
           isSearching={false}
           route={route}
           height={mapHeight}
@@ -420,12 +434,12 @@ export default function OrderTrackingScreen() {
             <View style={{ flex: 1, gap: 2 }}>
               <Text style={[styles.sheetTitle, { color: colors.foreground }]}>{title}</Text>
               <Text style={{ fontSize: 14, color: colors.mutedForeground, textAlign: "left" }} numberOfLines={1}>
-                طلبك من {order.restaurantName}
+                {subtitle}
               </Text>
             </View>
-            {!!etaMinutes && (
+            {!!etaShown && (
               <View style={[styles.etaBox, { backgroundColor: colors.secondary }]}>
-                <Text style={[styles.etaNum, { color: colors.primaryDark }]}>{etaMinutes}</Text>
+                <Text style={[styles.etaNum, { color: colors.primaryDark }]}>{etaShown}</Text>
                 <Text style={[styles.etaUnit, { color: colors.primaryDark }]}>دقيقة</Text>
               </View>
             )}
@@ -452,13 +466,30 @@ export default function OrderTrackingScreen() {
             </View>
           </View>
 
-          {liveNote && (
+          {stage === "on_way" && liveNote && (
             <View style={styles.liveNote}>
               <MaterialIcons name={liveNote.icon} size={16} color={liveNote.color} />
               <Text style={{ fontSize: 13, color: liveNote.color, fontWeight: "700", flex: 1, textAlign: "left" }}>{liveNote.text}</Text>
             </View>
           )}
 
+          {stage !== "on_way" ? (
+            <View style={[styles.personCard, { backgroundColor: colors.card }, cardShadow]}>
+              <View style={[styles.personAvatar, { backgroundColor: colors.accent }]}>
+                <MaterialIcons name={stage === "sending" ? "send" : stage === "received" ? "receipt-long" : "soup-kitchen"} size={24} color={colors.primaryDark} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                <Text style={{ fontSize: 16, fontWeight: "800", color: colors.foreground, textAlign: "left" }}>
+                  {stage === "sending" ? "عم نوصّل طلبك" : stage === "received" ? (isErrand ? "طلبك وصلنا" : "طلبك وصل للمطعم") : isErrand ? "عم نجهّز طلبك 🛍" : "عم ينطبخ هلق 🔥"}
+                </Text>
+                <Text style={{ fontSize: 13, color: colors.mutedForeground, textAlign: "left" }}>
+                  {stage === "sending"
+                    ? "إذا ما تأكّد خلال 5 دقايق منلغيه تلقائياً ومنخبّرك، وما بتدفع شي"
+                    : stage === "received" ? "بس يبلّش يجهّزو منخبّرك" : "بس يطلع طلبك بيبين اسم المندوب وبتتبّعو عالخريطة"}
+                </Text>
+              </View>
+            </View>
+          ) : (
           <View style={[styles.personCard, { backgroundColor: colors.card }, cardShadow]}>
             <View style={[styles.personAvatar, { backgroundColor: colors.accent }]}>
               <MaterialIcons name="delivery-dining" size={26} color={colors.primaryDark} />
@@ -485,6 +516,7 @@ export default function OrderTrackingScreen() {
               <MaterialIcons name="phone" size={20} color="#fff" />
             </TouchableOpacity>
           </View>
+          )}
 
           <TouchableOpacity activeOpacity={0.85} onPress={() => setDetailsOpen((v) => !v)} style={[styles.orderCard, { backgroundColor: colors.card }, cardShadow]}>
             <View style={styles.orderRow}>
@@ -522,10 +554,36 @@ export default function OrderTrackingScreen() {
             )}
           </TouchableOpacity>
 
-          <Text style={{ fontSize: 12, color: colors.mutedForeground, textAlign: "center" }}>
-            {t("orderTracking.cancelOrder.cannotCancelNote")}
-          </Text>
+          {stage === "received" || stage === "sending" ? (
+            <View style={{ alignItems: "center", gap: 6 }}>
+              <Text style={{ fontSize: 12, color: colors.mutedForeground, textAlign: "center" }}>
+                {stage === "sending" ? "فيك تلغي هلق إذا بدك" : "فيك تلغي خلال أول دقيقة بس"}
+              </Text>
+              <TouchableOpacity onPress={handleCancelOrder} disabled={cancelling} accessibilityRole="button">
+                <Text style={{ fontSize: 14, fontWeight: "800", color: colors.primaryDark }}>
+                  {cancelling ? t("common.loading") : t("orderTracking.cancelOrder.btn")}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : stage === "preparing" ? (
+            <TouchableOpacity onPress={() => router.push("/support" as never)} accessibilityRole="button">
+              <Text style={{ fontSize: 12, color: colors.mutedForeground, textAlign: "center" }}>
+                {isErrand ? "طلبك بلّش يتجهّز" : "المطعم بلّش يجهّز"}، فما فيك تلغي هلق · بدك شي؟{" "}
+                <Text style={{ color: colors.primaryDark, fontWeight: "800" }}>اكتبلنا</Text>
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <Text style={{ fontSize: 12, color: colors.mutedForeground, textAlign: "center" }}>
+              {t("orderTracking.cancelOrder.cannotCancelNote")}
+            </Text>
+          )}
         </ScrollView>
+        <CancelReasonSheet
+          visible={cancelSheetOpen}
+          busy={cancelling}
+          onClose={() => setCancelSheetOpen(false)}
+          onSelect={cancelWithReason}
+        />
       </View>
     );
   }

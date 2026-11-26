@@ -105,7 +105,7 @@ function OrderCard({ order }: { order: Order }) {
         <View style={[styles.statusBadge, { backgroundColor: STATUS_COLOR[order.status] + "22" }]}>
           <MaterialIcons name={STATUS_ICON[order.status]} size={14} color={STATUS_COLOR[order.status]} />
           <Text style={[styles.statusText, { color: STATUS_COLOR[order.status] }]}>
-            {STATUS_LABEL[order.status]}
+            {stageLabel(order, STATUS_LABEL)}
           </Text>
         </View>
       </View>
@@ -280,6 +280,14 @@ function toLocalOrder(o: PaginatedOrdersResponse["orders"][number]): Order {
     pointsEarned: o.pointsEarned ?? 0,
     pointsRedeemed: o.pointsRedeemed ?? 0,
   };
+}
+
+/** «استلمنا طلبك» / «عم يتحضّر» before the courier has the food (server lib/orderPrep). */
+function stageLabel(order: { status: OrderStatus; stage?: string }, labels: Record<OrderStatus, string>): string {
+  if (order.stage === "sending") return "جاري إرسال طلبك";
+  if (order.stage === "received") return "استلمنا طلبك";
+  if (order.stage === "preparing") return "عم يتحضّر";
+  return labels[order.status];
 }
 
 export default function OrdersScreen() {

@@ -5,6 +5,7 @@ import { api, type Order, type SlaAlert } from "@/lib/api";
 import WhatsAppStatusCard from "@/components/WhatsAppStatusCard";
 import BackupStatusCard from "@/components/BackupStatusCard";
 import TodayPulse from "@/components/TodayPulse";
+import PrepAlerts from "@/components/PrepAlerts";
 import {
   Card,
   CardContent,
@@ -259,7 +260,8 @@ export default function Dashboard() {
         <span>منذ البداية</span>
       </div>
 
-      <SlaAlertsWidget alerts={slaAlerts} isLoading={slaLoading} />
+      <PrepAlerts />
+      <SlaAlertsWidget alerts={slaAlerts.filter((a) => !a.prepStartedAt)} isLoading={slaLoading} />
 
       {totalActive > 0 && (
         <Card className="shadow-sm border-orange-200 dark:border-orange-900/40 bg-orange-50/50 dark:bg-orange-950/20">

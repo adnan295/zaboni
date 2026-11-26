@@ -34,10 +34,14 @@ export class ChatError extends Error {
   }
 }
 
-/** Order states where the chat accepts new messages. */
-const OPEN_STATUSES = new Set(["accepted", "picked_up", "on_way"]);
+/**
+ * Order states where the chat accepts new messages: from the moment the courier
+ * has the food. Before that the customer does not see who the courier is
+ * (lib/orderPrep), so there is no one to talk to yet.
+ */
+const OPEN_STATUSES = new Set(["picked_up", "on_way"]);
 /** Order states where a chat exists at all (it is kept read-only afterwards). */
-const READABLE_STATUSES = new Set(["accepted", "picked_up", "on_way", "delivered", "cancelled"]);
+const READABLE_STATUSES = new Set(["picked_up", "on_way", "delivered", "cancelled"]);
 
 export const MAX_TEXT_LENGTH = 500;
 /** Messages one side may send per order in a minute, to keep the chat from being flooded. */

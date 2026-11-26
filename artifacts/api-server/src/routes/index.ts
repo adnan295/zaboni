@@ -24,6 +24,7 @@ import callBridgeRouter from "./callBridge";
 import stampsRouter from "./stamps";
 import orderChatRouter from "./orderChat";
 import tilesRouter from "./tiles";
+import orderPrepAdminRouter from "./orderPrepAdmin";
 import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
@@ -34,6 +35,7 @@ router.use(authRouter);
 router.use(configRouter);
 router.use(restaurantsRouter);
 router.use(adminRouter);
+router.use(orderPrepAdminRouter);
 router.use(notificationsRouter);
 router.use(storageRouter);
 router.use(restaurantPortalRouter);

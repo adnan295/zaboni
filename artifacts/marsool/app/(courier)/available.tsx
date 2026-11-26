@@ -71,10 +71,19 @@ function OrderCard({
         styles.card,
         {
           backgroundColor: colors.card,
-          borderColor: isErrand ? "#fed7aa" : isOld ? "#fca5a5" : colors.border,
+          borderColor: order.adminOrdered ? "#86EFAC" : isErrand ? "#fed7aa" : isOld ? "#fca5a5" : colors.border,
         },
       ]}
     >
+      {order.adminOrdered ? (
+        <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-start", backgroundColor: "#F0FDF4", borderBottomWidth: 1, borderBottomColor: "#BBF7D0", marginHorizontal: -16, marginTop: -16, paddingHorizontal: 16, paddingVertical: 10, borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
+          <MaterialIcons name="check-circle" size={18} color="#15803D" />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 14, fontWeight: "800", color: "#14532D", textAlign: "left" }}>الإدارة طلبت الطلب من المطعم</Text>
+            <Text style={{ fontSize: 13, color: "#166534", textAlign: "left" }}>لا تتصل بالمطعم · روح استلم مباشرة، الطلب عم يتحضّر</Text>
+          </View>
+        </View>
+      ) : null}
       <View style={styles.cardHeader}>
         <View style={styles.row}>
           {isErrand ? (
@@ -181,7 +190,9 @@ function OrderCard({
                 ? "استلم طلبك الحالي من المطعم أولاً"
                 : accepting
                   ? t("courier.available.accepting")
-                  : t("courier.available.accept")}
+                  : order.adminOrdered
+                    ? "اقبل وروح استلم"
+                    : t("courier.available.accept")}
         </Text>
       </TouchableOpacity>
     </View>
