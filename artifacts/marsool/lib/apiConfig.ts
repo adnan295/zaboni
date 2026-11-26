@@ -1,5 +1,9 @@
 import { Platform } from "react-native";
-import { setBaseUrl } from "@workspace/api-client-react";
+import Constants from "expo-constants";
+import { setBaseUrl, setDefaultHeaders } from "@workspace/api-client-react";
+
+/** This app's version ("1.0.23"), from the store build. */
+export const APP_VERSION: string = Constants.expoConfig?.version ?? "0.0.0";
 
 const PROD_HOST = process.env.EXPO_PUBLIC_API_HOST ?? "zaboni.site";
 const PROD = `https://${PROD_HOST}`;
@@ -7,6 +11,9 @@ const DEV_HOST = process.env.EXPO_PUBLIC_DOMAIN;
 const DEV_BASE = DEV_HOST ? `https://${DEV_HOST}` : "http://localhost:8080";
 
 export function initApiClient() {
+  // Tells the server which app this is: newer apps get the newer order stages,
+  // older ones are served as before (api-server lib/appVersion).
+  setDefaultHeaders({ "X-Zaboni-App": `${APP_VERSION} ${Platform.OS}` });
   if (Platform.OS === "web") {
     setBaseUrl(null);
   } else {

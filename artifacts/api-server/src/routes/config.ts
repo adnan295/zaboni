@@ -1,3 +1,4 @@
+import { getMinApp } from "../lib/appVersion";
 import { Router, type IRouter } from "express";
 import { db, systemSettingsTable } from "@workspace/db";
 import { inArray } from "drizzle-orm";
@@ -40,9 +41,15 @@ router.get("/config/app", async (_req, res) => {
       .where(inArray(systemSettingsTable.key, ["show_all_tab"]));
     const map: Record<string, string> = {};
     for (const r of rows) map[r.key] = r.value;
-    res.json({ showAllTab: (map["show_all_tab"] ?? "1") !== "0" });
+    // Forced update (lib/appVersion): apps below this version show a full-screen update page.
+    const minApp = await getMinApp().catch(() => null);
+    res.json({
+      showAllTab: (map["show_all_tab"] ?? "1") !== "0",
+      minAppVersion: minApp?.enabled ? minApp.version : null,
+      latestAppVersion: minApp?.latest ?? null,
+    });
   } catch {
-    res.json({ showAllTab: true });
+    res.json({ showAllTab: true, minAppVersion: null, latestAppVersion: null });
   }
 });
 

@@ -31,6 +31,7 @@ test('courier test push reaches only the caller, needs a token, and is rate limi
   const schema = new Proxy({ db: drizzle(pg), usersTable }, { get: (o, k) => k in o ? o[k] : {} });
   load('routes/courier.ts', {
     express: { Router: () => router }, '@workspace/db': schema, 'drizzle-orm': orm,
+    '../lib/appVersion': { requireCurrentApp: () => (_q, _s, next) => next(), UPDATE_MESSAGE: '', COURIER_UPDATE_MESSAGE: '', APP_VERSION_HEADER: 'x-zaboni-app', versionFromHeader: () => null },
     '../lib/push': { sendCourierPush: async (devices, title, body, data) => { sent.push({ devices, data }); return { accepted: 1, failed: 0 }; } },
   });
   const call = async userId => { const res = response(); await routes.get('post /courier/test-push')({ auth: { userId }, body: {} }, res); return res; };

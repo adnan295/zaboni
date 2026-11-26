@@ -1,5 +1,7 @@
+import { requireCurrentApp, UPDATE_MESSAGE } from "../lib/appVersion";
 import { maskCourierPhone } from "../lib/callBridge";
-import { customerMayCancel, hideCourierUntilPickup } from "../lib/orderPrep";
+import { customerMayCancel, withStage } from "../lib/orderPrep";
+import { APP_VERSION_HEADER, versionFromHeader } from "../lib/appVersion";
 import { creationIdentity, previousOrderCreation, createOrderOnce, OrderCreationError } from "../lib/orderCreation";
 import { getDamascusNow, computeIsOpenFromHours, getHoursForRestaurants } from "../lib/restaurantHours";
 import { dispatchOrderNow } from "../lib/orderDispatch";
@@ -421,7 +423,7 @@ router.get("/orders", async (req, res) => {
     }
   }
 
-  const orders = allRows.map((o) => hideCourierUntilPickup(maskCourierPhone({
+  const orders = allRows.map((o) => withStage(maskCourierPhone({
     ...o,
     courierRating: courierRatingMap[o.courierId] ?? o.courierRating,
     pointsEarned: pointsMap[o.id]?.pointsEarned ?? 0,
@@ -500,7 +502,7 @@ async function orderFloodCheck(userId: string): Promise<{ error: string; message
   return null;
 }
 
-router.post("/orders", async (req, res) => {
+router.post("/orders", requireCurrentApp(UPDATE_MESSAGE), async (req, res) => {
  try {
   const body = createOrderSchema.safeParse(req.body);
   if (!body.success) {
@@ -1178,10 +1180,10 @@ router.get("/orders/:id", async (req, res) => {
       .orderBy(desc(orderStatusHistoryTable.createdAt))
       .limit(1);
     const note = history[0]?.note ?? null;
-    res.json(hideCourierUntilPickup(maskCourierPhone({ ...order, courierRating, cancelNote: note, pointsEarned, pointsRedeemed, items })));
+    res.json(withStage(maskCourierPhone({ ...order, courierRating, cancelNote: note, pointsEarned, pointsRedeemed, items })));
     return;
   }
-  res.json(hideCourierUntilPickup(maskCourierPhone({ ...order, courierRating, pointsEarned, pointsRedeemed, items })));
+  res.json(withStage(maskCourierPhone({ ...order, courierRating, pointsEarned, pointsRedeemed, items })));
 });
 
 router.get("/orders/:id/courier-location", async (req, res) => {
@@ -1204,8 +1206,8 @@ router.get("/orders/:id/courier-location", async (req, res) => {
   }
 
   const order = orders[0]!;
-  // The courier appears on the customer's map once they have the food (lib/orderPrep).
-  if (!["picked_up", "on_way"].includes(order.status)) {
+  // New apps ask only once the courier has the food (lib/orderPrep); older apps from acceptance.
+  if (!["accepted", "picked_up", "on_way"].includes(order.status)) {
     res.status(404).json({ error: "Courier location is only available during an active delivery" });
     return;
   }
@@ -1310,15 +1312,17 @@ router.delete("/orders/:id", async (req, res) => {
     res.status(409).json({ error: "Order can only be cancelled while searching for a courier" });
     return;
   }
-  // After the first minute the restaurant is preparing it (lib/orderPrep).
-  if (!customerMayCancel(order)) {
+  // After the first minute the restaurant is preparing it (lib/orderPrep). Apps from
+  // before these stages keep the old rule, unless the admin already ordered it.
+  const legacyApp = versionFromHeader(req.headers[APP_VERSION_HEADER]) == null;
+  if (!customerMayCancel(order, legacyApp)) {
     res.status(409).json({ error: "preparing", message: "المطعم بلّش يجهّز طلبك، فما فيك تلغيه هلق" });
     return;
   }
   const updated = await db.transaction(async (tx) => {
     const changed = await tx.update(ordersTable)
       .set({ status: "cancelled", cancelReason, updatedAt: new Date() })
-      .where(and(eq(ordersTable.id, id), eq(ordersTable.userId, userId), eq(ordersTable.status, "searching"), isNull(ordersTable.prepStartedAt)))
+      .where(and(eq(ordersTable.id, id), eq(ordersTable.userId, userId), eq(ordersTable.status, "searching"), isNull(ordersTable.adminOrderedAt), ...(legacyApp ? [] : [isNull(ordersTable.prepStartedAt)])))
       .returning();
     if (!changed.length) return changed;
     await refundRedeemedPointsInTx(tx, userId, id);

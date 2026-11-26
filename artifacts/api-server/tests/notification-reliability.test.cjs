@@ -616,7 +616,8 @@ test("all zone submissions failing immediately broadens to other eligible courie
     "drizzle-orm": { and: noop, eq: noop, ne: noop, notInArray: noop },
     "../lib/logger": { logger },
     "../lib/callBridge": { publicLineNumber: () => null, maskCourierPhone: (o) => o },
-    "../lib/orderPrep": { hideCourierUntilPickup: (o) => o },
+    "../lib/orderPrep": { withStage: (o) => o },
+    "../lib/appVersion": { requireCurrentApp: () => (_req, _res, next) => next(), UPDATE_MESSAGE: "", COURIER_UPDATE_MESSAGE: "", APP_VERSION_HEADER: "x-zaboni-app", versionFromHeader: () => null },
     "../lib/push": {
       sendCourierPush: async (devices) => {
         calls.push(devices.map((d) => d.id));

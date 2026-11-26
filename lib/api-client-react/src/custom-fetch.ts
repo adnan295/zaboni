@@ -45,6 +45,16 @@ export function setAuthTokenGetter(getter: AuthTokenGetter | null): void {
   _authTokenGetter = getter;
 }
 
+let _defaultHeaders: Record<string, string> = {};
+
+/**
+ * Headers sent with every request unless the call sets them itself — e.g. the
+ * app's version, so the server can ask outdated apps to update.
+ */
+export function setDefaultHeaders(headers: Record<string, string>): void {
+  _defaultHeaders = { ...headers };
+}
+
 /**
  * Register a callback that is invoked whenever any API call returns HTTP 401.
  * Use this to trigger automatic sign-out and redirect to the auth screen.
@@ -346,6 +356,9 @@ export async function customFetch<T = unknown>(
   }
 
   const headers = mergeHeaders(isRequest(input) ? input.headers : undefined, headersInit);
+  for (const [key, value] of Object.entries(_defaultHeaders)) {
+    if (!headers.has(key)) headers.set(key, value);
+  }
 
   if (
     typeof init.body === "string" &&

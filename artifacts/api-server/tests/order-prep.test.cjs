@@ -41,18 +41,18 @@ async function setup() {
   return { pg, lib, order };
 }
 
-test("stages: received for a minute, then preparing; the courier shows only after pickup", () => {
-  const { customerStage, hideCourierUntilPickup, customerMayCancel } = load({ "@workspace/db": { pool: {} } });
+test("stages: received for a minute, then preparing; the app gets the stage, the courier details are kept for old apps", () => {
+  const { customerStage, withStage, customerMayCancel } = load({ "@workspace/db": { pool: {} } });
   assert.equal(customerStage({ status: "searching" }), "received");
   assert.equal(customerStage({ status: "searching", prepStartedAt: T0 }), "preparing");
   assert.equal(customerStage({ status: "accepted" }), "preparing");
   assert.equal(customerStage({ status: "picked_up" }), "on_way");
   assert.equal(customerMayCancel({ status: "searching" }), true);
   assert.equal(customerMayCancel({ status: "searching", prepStartedAt: T0 }), false);
-  const hidden = hideCourierUntilPickup({ status: "accepted", courierName: "هاشم", courierPhone: "0994", courierRating: 4.8 });
-  assert.deepEqual([hidden.courierName, hidden.courierPhone, hidden.courierRating, hidden.stage], ["", "", 0, "preparing"]);
-  const shown = hideCourierUntilPickup({ status: "on_way", courierName: "هاشم", courierPhone: "0994", courierRating: 4.8 });
-  assert.equal(shown.courierName, "هاشم");
+  assert.equal(customerMayCancel({ status: "searching", prepStartedAt: T0 }, true), true, "old apps keep the old rule");
+  assert.equal(customerMayCancel({ status: "searching", adminOrderedAt: T0 }, true), false, "…unless the admin ordered it");
+  const o = withStage({ status: "accepted", courierName: "هاشم", courierPhone: "0994" });
+  assert.deepEqual([o.stage, o.courierName], ["preparing", "هاشم"], "the new app hides the courier from the stage");
 });
 
 test("after one minute with no courier the order starts preparing, once; errands keep waiting", async () => {

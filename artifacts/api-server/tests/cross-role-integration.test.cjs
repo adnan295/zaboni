@@ -48,6 +48,7 @@ async function setup() {
   const schema = new Proxy({ db: database, usersTable, ordersTable, orderStatusHistoryTable, courierSubscriptionsTable, courierSubscriptionRequestsTable }, { get: (o,k) => k in o ? o[k] : {} });
   const router = new Proxy({}, { get: (_, verb) => (url, ...handlers) => routes.set(`${verb} ${url}`, handlers.at(-1)) });
   const deps = {
+    '../lib/appVersion': { requireCurrentApp: () => (_q, _s, next) => next(), UPDATE_MESSAGE: '', COURIER_UPDATE_MESSAGE: '', APP_VERSION_HEADER: 'x-zaboni-app', versionFromHeader: () => null },
     express: { Router: () => router }, '@workspace/db': schema, 'drizzle-orm': orm,
     '../lib/adminOrderTransitions': load('lib/adminOrderTransitions.ts', {}),
     '../lib/orderCompletion': { completeOrderInTx: async (_, order) => { if (failCompletion) throw Error('ledger unavailable'); completed.push(order.id); return null; }, notifyReferralReward() {} },

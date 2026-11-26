@@ -4,6 +4,7 @@ export {
   setBaseUrl,
   setAuthTokenGetter,
   setUnauthorizedHandler,
+  setDefaultHeaders,
   customFetch,
   ApiError,
 } from "./custom-fetch";

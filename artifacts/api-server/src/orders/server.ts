@@ -1,5 +1,5 @@
 import { maskCourierPhone } from "../lib/callBridge";
-import { hideCourierUntilPickup } from "../lib/orderPrep";
+import { withStage } from "../lib/orderPrep";
 import { canReceiveNewOrder, isWithinOrderRadius } from "../lib/courierDispatchPolicy";
 import { Server as SocketServer, Namespace, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
@@ -36,10 +36,10 @@ export function notifyOrderUpdate(customerId: string, order: unknown): void {
   if (!_ordersNs) return;
   // The customer gets the company line in place of the courier's own number.
   let safe = order && typeof order === "object" ? maskCourierPhone(order as { id?: string; courierPhone?: string }) : order;
-  // The customer does not see the courier until the food is collected (lib/orderPrep).
+  // The app shows «عم يتحضّر» and hides the courier until pickup from `stage` (lib/orderPrep).
   const o = safe as { userId?: string; status?: string } | null;
   if (o && typeof o === "object" && o.userId === customerId && typeof o.status === "string") {
-    safe = hideCourierUntilPickup(o as { status: string } & Record<string, unknown>);
+    safe = withStage(o as { status: string } & Record<string, unknown>);
   }
   _ordersNs.to(`user:${customerId}`).emit("order_status_update", safe);
   logger.debug({ customerId }, "Emitted order_status_update to customer");

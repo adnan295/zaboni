@@ -10,7 +10,7 @@ import { logger } from "./logger";
 import { whatsappManager } from "./whatsapp";
 import { getCrashAlertPhone } from "./crashReports";
 import { maskCourierPhone } from "./callBridge";
-import { autoPrepActive, dueSecondAlerts, expireUnsent, getAutoPrep, hideCourierUntilPickup, prepAlertText, setAutoPrepNow, startDuePrep, type PrepOrder } from "./orderPrep";
+import { autoPrepActive, dueSecondAlerts, expireUnsent, getAutoPrep, prepAlertText, withStage, setAutoPrepNow, startDuePrep, type PrepOrder } from "./orderPrep";
 import { notifyCouriersOrderTaken, notifyOrderUpdate, sendOrderPush } from "../orders/server";
 
 const TICK_MS = 15_000;
@@ -35,7 +35,7 @@ export async function runOrderPrepTick(now = new Date()): Promise<void> {
   }
   for (const o of active ? await startDuePrep(now) : []) {
     const [row] = await db.select().from(ordersTable).where(eq(ordersTable.id, o.id)).limit(1);
-    if (row) notifyOrderUpdate(o.userId, hideCourierUntilPickup(maskCourierPhone(row)));
+    if (row) notifyOrderUpdate(o.userId, withStage(maskCourierPhone(row)));
     void sendOrderPush(o.userId, "👨‍🍳 طلبك عم يتحضّر بالمطعم", o.id);
     void alertAdmin(o, false);
   }

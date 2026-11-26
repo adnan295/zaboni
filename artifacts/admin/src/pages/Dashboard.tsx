@@ -6,6 +6,7 @@ import WhatsAppStatusCard from "@/components/WhatsAppStatusCard";
 import BackupStatusCard from "@/components/BackupStatusCard";
 import TodayPulse from "@/components/TodayPulse";
 import PrepAlerts from "@/components/PrepAlerts";
+import AppVersionCard from "@/components/AppVersionCard";
 import {
   Card,
   CardContent,
@@ -261,6 +262,7 @@ export default function Dashboard() {
       </div>
 
       <PrepAlerts />
+      <AppVersionCard />
       <SlaAlertsWidget alerts={slaAlerts.filter((a) => !a.prepStartedAt)} isLoading={slaLoading} />
 
       {totalActive > 0 && (

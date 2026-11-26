@@ -1,3 +1,9 @@
+import { APP_VERSION_HEADER, COURIER_UPDATE_MESSAGE, requireCurrentApp, versionFromHeader } from "../lib/appVersion";
+
+// Courier apps from before 1.0.23 do not know «طلبناه من المطعم»: they get it written
+// into the order text, and no restaurant number to call (lib/orderPrep).
+const ADMIN_ORDERED_NOTE = "✅ الإدارة طلبت هالطلب من المطعم · لا تتصل بالمطعم، روح استلم مباشرة\n";
+const isLegacyApp = (req: Request) => versionFromHeader(req.headers[APP_VERSION_HEADER]) == null;
 import { stampDeliveredOrder } from "./stamps";
 import { publicLineNumber } from "../lib/callBridge";
 import { completeOrderInTx, notifyReferralReward, type ReferralReward } from "../lib/orderCompletion";
@@ -328,6 +334,7 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
     .orderBy(ordersTable.createdAt);
 
   const canMeasure = courierLat !== null && courierLon !== null;
+  const legacy = isLegacyApp(req);
 
   // Proximity dispatch (zones removed): every online courier sees every searching
   // order, sorted nearest-restaurant-first, with a soft radius cap. An order or
@@ -368,6 +375,7 @@ router.get("/courier/orders/available", requireCourier, async (req, res) => {
       orderType: o.orderType,
       placeName: o.placeName,
       adminOrdered: !!o.adminOrderedAt,
+      ...(legacy && o.adminOrderedAt ? { orderText: ADMIN_ORDERED_NOTE + o.orderText } : {}),
       distanceKm: distanceKm === null ? null : Math.round(distanceKm * 10) / 10,
     }));
 
@@ -437,6 +445,7 @@ router.get("/courier/orders/active", requireCourier, async (req, res) => {
     }
   }
 
+  const legacyApp = isLegacyApp(req);
   const masked = active.map((o) => {
     const contactRevealed = CUSTOMER_CONTACT_STATUSES.includes(o.status);
     return {
@@ -447,6 +456,9 @@ router.get("/courier/orders/active", requireCourier, async (req, res) => {
       phoneMasked: contactRevealed && publicLineNumber(o.id) != null,
       // The admin ordered it from the restaurant: the app hides the restaurant's call buttons.
       adminOrdered: !!o.adminOrderedAt,
+      ...(legacyApp && o.adminOrderedAt && o.status === "accepted"
+        ? { orderText: ADMIN_ORDERED_NOTE + o.orderText, restaurantPhone: "" }
+        : {}),
       items: itemsByOrderId.get(o.id) ?? [],
     };
   });
@@ -454,7 +466,7 @@ router.get("/courier/orders/active", requireCourier, async (req, res) => {
   res.json(masked);
 });
 
-router.post("/courier/orders/:orderId/accept", requireCourier, async (req, res) => {
+router.post("/courier/orders/:orderId/accept", requireCourier, requireCurrentApp(COURIER_UPDATE_MESSAGE), async (req, res) => {
   const courierId = resolveUserId(req);
   const orderId = String(req.params["orderId"]);
 

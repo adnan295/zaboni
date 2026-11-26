@@ -8,6 +8,8 @@
 //   admin is alerted to order it from the restaurant and find a courier.
 // • The courier stays hidden from the customer (no name, number, rating or dot on
 //   the map) until they collect the order. Only then does "on the way" show them.
+//   The app does the hiding from `stage`; the server keeps sending the courier's
+//   details, so apps from before these stages keep working exactly as they did.
 //
 // When the admin presses «طلبناه من المطعم», couriers see that the restaurant
 // already has it and the app stops them calling the restaurant, so the order is
@@ -119,23 +121,22 @@ export function customerStage(o: StageInput, autoPrep = autoPrepNowCached()): Cu
   }
 }
 
-/** The customer may cancel only before the order is being prepared. */
-export function customerMayCancel(o: StageInput): boolean {
+/**
+ * The customer may cancel only before the order is being prepared — never once
+ * the admin ordered it from the restaurant. Apps from before these stages
+ * (`legacyApp`) keep their old rule: while no courier has it, unless the admin
+ * already ordered it.
+ */
+export function customerMayCancel(o: StageInput & { adminOrderedAt?: Date | string | null }, legacyApp = false): boolean {
+  if (o.adminOrderedAt) return false;
+  if (legacyApp) return o.status === "searching";
   const stage = customerStage(o);
   return stage === "received" || stage === "sending";
 }
 
-/**
- * The order as the customer sees it: no courier until they have the food.
- * Everything else is unchanged.
- */
-export function hideCourierUntilPickup<T extends StageInput & Record<string, unknown>>(o: T): T & { stage: CustomerStage } {
-  const stage = customerStage(o);
-  const out = { ...o, stage } as T & { stage: CustomerStage };
-  if (stage === "sending" || stage === "received" || stage === "preparing") {
-    Object.assign(out, { courierName: "", courierPhone: "", courierRating: 0, phoneMasked: false });
-  }
-  return out;
+/** The order as the customer's app gets it: everything as before, plus `stage`. */
+export function withStage<T extends StageInput>(o: T): T & { stage: CustomerStage } {
+  return { ...o, stage: customerStage(o) };
 }
 
 export interface PrepOrder {

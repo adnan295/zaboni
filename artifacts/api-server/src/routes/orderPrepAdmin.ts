@@ -1,3 +1,4 @@
+import { getMinApp, saveMinApp, validVersion } from "../lib/appVersion";
 // Admin side of «عم يتحضّر» (lib/orderPrep.ts):
 //   POST /admin/orders/:id/ordered-from-restaurant   «طلبناه من المطعم»
 //   GET  /admin/orders/:id/courier-options          nearest couriers to the restaurant
@@ -16,6 +17,21 @@ import { recordPromisedEta } from "../lib/deliveryEstimates";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
+
+// Forced app update (lib/appVersion).
+router.get("/admin/app-version", requireAdmin, async (_req, res) => {
+  res.json(await getMinApp());
+});
+
+router.put("/admin/app-version", requireAdmin, async (req, res) => {
+  const body = z.object({ enabled: z.boolean(), version: z.string(), latest: z.string().optional() }).safeParse(req.body);
+  if (!body.success || !validVersion(body.data.version) || (body.data.latest && !validVersion(body.data.latest))) {
+    res.status(400).json({ error: "bad_request" });
+    return;
+  }
+  await saveMinApp(body.data);
+  res.json(body.data);
+});
 
 // On/off and the admin's hours for «عم يتحضّر» after a minute.
 router.get("/admin/order-prep/settings", requireAdmin, async (_req, res) => {

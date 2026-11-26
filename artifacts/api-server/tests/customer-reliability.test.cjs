@@ -61,7 +61,8 @@ function load(file, dbState = database(), overrides = {}, expose = '', globals =
     '../lib/courierActivity': { recordAvailability: async () => {}, touchOnlineSession: async () => {}, recordOffers: async () => {} },
     '../lib/courierDirections': { sendCourierDirections: async () => false },
     '../lib/callBridge': { publicLineNumber: () => null, maskCourierPhone: (o) => o },
-    '../lib/orderPrep': { hideCourierUntilPickup: (o) => o, customerMayCancel: (o) => !o.prepStartedAt, markPrepOnAccept: asyncNoop },
+    '../lib/appVersion': { requireCurrentApp: () => (_req, _res, next) => next(), UPDATE_MESSAGE: '', COURIER_UPDATE_MESSAGE: '', APP_VERSION_HEADER: 'x-zaboni-app', versionFromHeader: () => null, getMinApp: async () => ({ enabled: false, version: '1.0.0' }) },
+    '../lib/orderPrep': { withStage: (o) => o, customerMayCancel: (o) => !o.prepStartedAt && !o.adminOrderedAt, markPrepOnAccept: asyncNoop },
     '../lib/stamps': { claimCoupon: async () => ({ discount: 0, note: '' }), releaseCoupon: async () => {}, StampError: class extends Error {} },
     './stamps': { stampDeliveredOrder: () => {} },
     '../lib/directory': { getPlace: async () => null },
@@ -107,7 +108,7 @@ test('a deleted account cannot reuse its signed session; blocked and active acco
   }
 });
 
-test('courier location is available only once the courier has the food', async () => {
+test('courier location is available only for active deliveries', async () => {
   for (const status of ['searching','cancelled','delivered','accepted','picked_up','on_way']) {
     let locationReads=0;
     const m=load('artifacts/api-server/src/routes/orders.ts',database({
@@ -116,8 +117,7 @@ test('courier location is available only once the courier has the food', async (
     }));
     const res=response();
     await m.routes.get('get /orders/:id/courier-location')(request({params:{id:'o1'}}),res);
-    // Before pickup the customer does not see the courier at all (lib/orderPrep).
-    const active=['picked_up','on_way'].includes(status);
+    const active=['accepted','picked_up','on_way'].includes(status);
     assert.equal(res.statusCode,active?200:404,status);
     assert.equal(locationReads,active?1:0,status);
     assert.equal('lat' in res.body,active,status);

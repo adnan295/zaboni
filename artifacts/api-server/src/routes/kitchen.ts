@@ -1,3 +1,4 @@
+import { requireCurrentApp, UPDATE_MESSAGE } from "../lib/appVersion";
 // Customer API for the "بيتي وصحّي" pre-order section (see lib/kitchen).
 import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
@@ -109,7 +110,7 @@ const placeSchema = z.object({
   items: z.array(z.object({ mealId: z.string().min(1), qty: z.number().int().min(1).max(10) })).min(1).max(10),
 });
 
-router.post("/kitchen/orders", async (req, res) => {
+router.post("/kitchen/orders", requireCurrentApp(UPDATE_MESSAGE), async (req, res) => {
   try {
     const body = placeSchema.safeParse(req.body);
     if (!body.success) throw new KitchenError("bad_request", "بيانات الطلب ناقصة.", 400);

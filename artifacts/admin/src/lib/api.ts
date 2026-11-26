@@ -1110,6 +1110,9 @@ export const api = {
     apiFetch<SlaAlert[]>(`/admin/sla-alerts?minAge=${minAge}`),
   markOrderedFromRestaurant: (orderId: string) =>
     apiFetch<{ ok: boolean; orderedAt: string }>(`/admin/orders/${encodeURIComponent(orderId)}/ordered-from-restaurant`, { method: "POST" }),
+  getAppVersion: () => apiFetch<AppVersionSettings>("/admin/app-version"),
+  saveAppVersion: (body: AppVersionSettings) =>
+    apiFetch<AppVersionSettings>("/admin/app-version", { method: "PUT", body: JSON.stringify(body) }),
   getAutoPrep: () => apiFetch<AutoPrepSettings>("/admin/order-prep/settings"),
   saveAutoPrep: (body: { enabled: boolean; from: string; to: string }) =>
     apiFetch<AutoPrepSettings>("/admin/order-prep/settings", { method: "PUT", body: JSON.stringify(body) }),
@@ -1227,6 +1230,14 @@ export type SlaAlert = {
   orderType?: string | null;
   total?: number | null;
   restaurantPhone?: string | null;
+};
+
+export type AppVersionSettings = {
+  /** Emergency only: apps below `version` must update. */
+  enabled: boolean;
+  version: string;
+  /** The version in the stores: older apps are invited once to update. */
+  latest?: string;
 };
 
 export type AutoPrepSettings = {

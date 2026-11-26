@@ -20,6 +20,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useNavigationContainerRef, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import AppUpdatePrompt from "@/components/AppUpdatePrompt";
 import React, { useEffect, useState } from "react";
 import { ONBOARDING_SEEN_KEY } from "./onboarding";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
@@ -176,6 +177,7 @@ function RootLayoutNav() {
         </Stack>
       </AuthGate>
       <ToastBanner />
+      <AppUpdatePrompt />
     </View>
   );
 }
