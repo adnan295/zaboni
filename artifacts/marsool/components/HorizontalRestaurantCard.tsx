@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { buildImageUrl } from "@/lib/apiConfig";
 import SkeletonBox from "@/components/SkeletonBox";
+import { cardShadow } from "@/constants/colors";
 
 interface HRestaurant {
   id: string;
@@ -67,7 +68,7 @@ function FlashDealBadge({ endsAt }: { endsAt: string }) {
   return (
     <View style={styles.flashBadgeWrap}>
       <View style={styles.flashBadge}>
-        <Text style={styles.flashBadgeText}>⚡ عرض محدود</Text>
+        <Text style={styles.flashBadgeText}>عرض محدود</Text>
       </View>
       <View style={styles.countdownWrap}>
         <MaterialIcons name="timer" size={9} color="#fff" />
@@ -81,13 +82,31 @@ export function HorizontalRestaurantCardSkeleton() {
   const colors = useColors();
   return (
     <View style={[styles.card, { backgroundColor: colors.card }]}>
-      <SkeletonBox width={160} height={110} borderRadius={0} />
+      <SkeletonBox width={220} height={120} borderRadius={0} />
       <View style={[styles.info, { gap: 8 }]}>
         <SkeletonBox width={110} height={12} borderRadius={6} />
         <SkeletonBox width={80} height={10} borderRadius={6} />
       </View>
     </View>
   );
+}
+
+/** "30-45", "30-45 د" or "30-45 دقيقة" → "30-45": the word is added once, by the screen. */
+export function minutesRange(deliveryTime: string | null | undefined): string {
+  return String(deliveryTime ?? "").replace(/\s*(دقيقة|دقائق|د\.?|min\.?|mins)\s*$/i, "").trim();
+}
+
+/**
+ * The range for display, kept left-to-right inside Arabic text so "30-45" never
+ * shows up as "45-30" (Unicode isolate marks around it).
+ */
+export function minutesRangeText(deliveryTime: string | null | undefined): string {
+  return `\u2066${minutesRange(deliveryTime)}\u2069`;
+}
+
+/** Ratings always with one decimal: 4 → "4.0", none yet → "جديد". */
+export function formatRating(r: number | null | undefined): string {
+  return r && r > 0 ? r.toFixed(1) : "جديد";
 }
 
 export default function HorizontalRestaurantCard({ restaurant, onPress, variant = "default", badge }: Props) {
@@ -100,12 +119,10 @@ export default function HorizontalRestaurantCard({ restaurant, onPress, variant 
 
   return (
     <TouchableOpacity
-      style={[
-        styles.card,
-        { backgroundColor: isDeal ? colors.primary : colors.card },
-      ]}
+      style={[styles.card, { backgroundColor: colors.card }]}
       onPress={onPress}
       activeOpacity={0.88}
+      accessibilityRole="button"
     >
       <View
         style={[
@@ -117,6 +134,7 @@ export default function HorizontalRestaurantCard({ restaurant, onPress, variant 
           source={{ uri: buildImageUrl(restaurant.image) }}
           style={restaurant.isLogo ? styles.logoImage : styles.image}
           contentFit={restaurant.isLogo ? "contain" : "cover"}
+          transition={200}
         />
         {!restaurant.isOpen && (
           <View style={styles.closedOverlay}>
@@ -128,13 +146,13 @@ export default function HorizontalRestaurantCard({ restaurant, onPress, variant 
         ) : hasFlashDeal ? (
           <View style={styles.flashBadgeStandalone}>
             <View style={styles.flashBadge}>
-              <Text style={styles.flashBadgeText}>⚡ عرض محدود</Text>
+              <Text style={styles.flashBadgeText}>عرض محدود</Text>
             </View>
           </View>
         ) : null}
         {!!restaurant.discount && !hasFlashDeal && (
-          <View style={[styles.badge, { backgroundColor: isDeal ? "#fff" : colors.primary }]}>
-            <Text style={[styles.badgeText, { color: isDeal ? colors.primary : "#fff" }]}>
+          <View style={[styles.badge, { backgroundColor: colors.offer }]}>
+            <Text style={[styles.badgeText, { color: colors.offerForeground }]}>
               {restaurant.discount}
             </Text>
           </View>
@@ -148,23 +166,14 @@ export default function HorizontalRestaurantCard({ restaurant, onPress, variant 
       </View>
 
       <View style={styles.info}>
-        <Text
-          style={[styles.name, { color: isDeal ? "#fff" : colors.foreground }]}
-          numberOfLines={1}
-        >
+        <Text style={[styles.name, { color: colors.foreground }]} numberOfLines={1}>
           {isAr ? restaurant.nameAr : restaurant.name}
         </Text>
-        <View style={styles.meta}>
-          <MaterialIcons name="star" size={12} color={isDeal ? "#FFE066" : "#FFB800"} />
-          <Text style={[styles.metaText, { color: isDeal ? "rgba(255,255,255,0.9)" : colors.mutedForeground }]}>
-            {restaurant.rating}
-          </Text>
-          <View style={[styles.sep, { backgroundColor: isDeal ? "rgba(255,255,255,0.4)" : "#ccc" }]} />
-          <MaterialIcons name="access-time" size={12} color={isDeal ? "rgba(255,255,255,0.7)" : colors.mutedForeground} />
-          <Text style={[styles.metaText, { color: isDeal ? "rgba(255,255,255,0.9)" : colors.mutedForeground }]}>
-            {restaurant.deliveryTime} {t("restaurant.minutes")}
-          </Text>
-        </View>
+        {/* One line, same order everywhere: rating · time (the fee is on the big card and the page) */}
+        <Text style={[styles.metaText, { color: colors.mutedForeground }]} numberOfLines={1}>
+          <Text style={{ color: colors.warning }}>★</Text> {formatRating(restaurant.rating)}
+          {"  ·  "}{minutesRangeText(restaurant.deliveryTime)} {t("restaurant.minutesLong", "دقيقة")}
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -172,17 +181,13 @@ export default function HorizontalRestaurantCard({ restaurant, onPress, variant 
 
 const styles = StyleSheet.create({
   card: {
-    width: 160,
-    borderRadius: 14,
+    width: 220,
+    borderRadius: 16,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 6,
-    elevation: 3,
+    ...cardShadow,
   },
-  imageWrap: { position: "relative", height: 110 },
-  image: { width: "100%", height: 110 },
+  imageWrap: { position: "relative", height: 120 },
+  image: { width: "100%", height: 120 },
   logoImage: { width: "80%", height: "100%" },
   closedOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -203,7 +208,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 8,
     right: 8,
-    backgroundColor: "#059669",
+    backgroundColor: "#15803D",
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
@@ -211,7 +216,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 6,
   },
-  badgeText: { fontSize: 10, fontWeight: "700", color: "#fff" },
+  badgeText: { fontSize: 11, fontWeight: "700", color: "#fff" },
   flashBadgeWrap: {
     position: "absolute",
     top: 8,
@@ -224,12 +229,12 @@ const styles = StyleSheet.create({
     left: 8,
   },
   flashBadge: {
-    backgroundColor: "#f97316",
+    backgroundColor: "#FEF3C7",
     paddingHorizontal: 7,
     paddingVertical: 3,
     borderRadius: 6,
   },
-  flashBadgeText: { fontSize: 10, fontWeight: "700", color: "#fff" },
+  flashBadgeText: { fontSize: 11, fontWeight: "700", color: "#92400E" },
   countdownWrap: {
     backgroundColor: "rgba(0,0,0,0.55)",
     flexDirection: "row",
@@ -240,9 +245,9 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   countdownText: { fontSize: 9, fontWeight: "700", color: "#fff" },
-  info: { padding: 10, gap: 5 },
-  name: { fontSize: 13, fontWeight: "700" },
+  info: { paddingHorizontal: 12, paddingVertical: 10, gap: 4 },
+  name: { fontSize: 16, fontWeight: "700", textAlign: "left" },
   meta: { flexDirection: "row", alignItems: "center", gap: 3 },
-  metaText: { fontSize: 11 },
+  metaText: { fontSize: 13, textAlign: "left" },
   sep: { width: 3, height: 3, borderRadius: 1.5, marginHorizontal: 2 },
 });

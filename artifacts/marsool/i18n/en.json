@@ -43,7 +43,7 @@
   },
   "home": {
     "addAddress": "Add an address",
-    "greeting": "Hello, {{name}} 👋",
+    "greeting": "What are you craving today?",
     "discoverTitle": "Discover",
     "discoverSub": "what your heart desires",
     "searchPlaceholder": "Search for a restaurant or food...",
@@ -87,7 +87,8 @@
       "title": "Order from Anywhere",
       "subtitle": "Send a courier to any shop or supermarket"
     },
-    "loadFailed": "Could not load restaurants. Check your connection and try again."
+    "loadFailed": "Could not load restaurants. Check your connection and try again.",
+    "deliverTo": "Deliver to"
   },
   "errand": {
     "title": "Order from Anywhere",
@@ -435,13 +436,15 @@
     "all": "All",
     "menu": "Menu",
     "orderNow": "Order Now",
-    "reviewOrder": "Review & Send Order",
+    "reviewOrder": "Review order",
     "itemsSelected": "{{count}} item(s) selected",
     "closed": "Closed",
     "freeDelivery": "Free Delivery",
     "currency": "SYP",
     "popular": "Most Ordered",
-    "selectItems": "Select items"
+    "selectItems": "Select items",
+    "minutesLong": "min",
+    "deliveryShort": "Delivery"
   },
   "orderRequest": {
     "title": "Write Your Order",
@@ -489,7 +492,11 @@
     "itemSavings": "You saved {{amount}} SYP on this order 🎉",
     "feeUnavailable": "Could not calculate delivery. Retry before placing your order.",
     "feeNeedsAddress": "Choose an address on the map to calculate delivery.",
-    "waitingForFee": "Waiting for delivery fee"
+    "waitingForFee": "Waiting for delivery fee",
+    "reviewTitle": "Review your order",
+    "fromRestaurant": "From {{name}}",
+    "etaTitle": "Arrives in {{range}} min",
+    "etaSub": "Based on this restaurant and couriers right now"
   },
   "payment": {
     "cashOnDelivery": "Cash on Delivery 💵",

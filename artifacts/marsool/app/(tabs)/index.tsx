@@ -1,3 +1,4 @@
+import { useTabBarSpace } from "@/hooks/useTabBarSpace";
 import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import {
   View,
@@ -206,6 +207,7 @@ async function fetchHomeFilters(): Promise<HomeFilter[]> {
 }
 
 export default function HomeScreen() {
+  const tabBarSpace = useTabBarSpace();
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -340,6 +342,7 @@ export default function HomeScreen() {
   }, [navigation]);
 
   const bannerScrollRef = useRef<ScrollView>(null);
+  const [bannerIndex, setBannerIndex] = useState(0);
   const bannerTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const startBannerTimer = useCallback(() => {
@@ -348,6 +351,7 @@ export default function HomeScreen() {
     bannerTimerRef.current = setInterval(() => {
       const next = (activeBannerRef.current - 1 + apiBanners.length) % apiBanners.length;
       activeBannerRef.current = next;
+      setBannerIndex(next);
       bannerScrollRef.current?.scrollTo({ x: next * SCREEN_WIDTH, animated: true });
     }, 4000);
   }, [apiBanners.length]);
@@ -360,6 +364,7 @@ export default function HomeScreen() {
   const handleBannerScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
     activeBannerRef.current = Math.max(0, Math.min(idx, apiBanners.length - 1));
+    setBannerIndex(activeBannerRef.current);
     startBannerTimer();
   };
 
@@ -423,21 +428,27 @@ export default function HomeScreen() {
   const listHeader = (
     <>
       {/* ===== Colored Header ===== */}
-      <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.primary }]}>
+      <View style={[styles.header, { paddingTop: topPadding + 8, backgroundColor: colors.card }]}>
         <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.locationRow} onPress={() => router.push("/addresses")}>
-            <MaterialIcons name="location-on" size={16} color="rgba(255,255,255,0.9)" />
-            <Text style={styles.locationText} numberOfLines={1}>
+          <TouchableOpacity style={styles.locationRow} onPress={() => router.push("/addresses")} accessibilityRole="button">
+            <MaterialIcons name="location-on" size={18} color={colors.primary} />
+            <Text style={[styles.locationHint, { color: colors.mutedForeground }]}>{t("home.deliverTo")}</Text>
+            <Text style={[styles.locationText, { color: colors.foreground }]} numberOfLines={1}>
               {defaultAddress ? defaultAddress.label : t("home.addAddress")}
             </Text>
-            <MaterialIcons name="keyboard-arrow-down" size={16} color="rgba(255,255,255,0.9)" />
+            <MaterialIcons name="keyboard-arrow-down" size={18} color={colors.foreground} />
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => router.push("/notifications")} style={styles.notifWrap}>
-            <MaterialIcons name="notifications-none" size={24} color="#fff" />
+          <TouchableOpacity
+            onPress={() => router.push("/notifications")}
+            style={[styles.notifWrap, { backgroundColor: colors.muted }]}
+            accessibilityRole="button"
+            accessibilityLabel={t("notifications.title", "الإشعارات")}
+          >
+            <MaterialIcons name="notifications-none" size={22} color={colors.foreground} />
             {unreadCount > 0 && (
-              <View style={[styles.notifBadge, { backgroundColor: "#fff" }]}>
-                <Text style={[styles.notifBadgeText, { color: colors.primary }]}>
+              <View style={[styles.notifBadge, { backgroundColor: colors.primary, borderColor: colors.muted }]}>
+                <Text style={[styles.notifBadgeText, { color: "#fff" }]}>
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </Text>
               </View>
@@ -445,19 +456,43 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* White search bar */}
+        <Text style={[styles.greeting, { color: colors.foreground }]}>{t("home.greeting")}</Text>
+
         <TouchableOpacity
-          style={[styles.searchBar, { backgroundColor: "#fff" }]}
+          style={[styles.searchBar, { backgroundColor: colors.muted }]}
           onPress={() => router.navigate("/search" as any)}
-          activeOpacity={0.9}
+          activeOpacity={0.85}
+          accessibilityRole="search"
         >
-          <MaterialIcons name="search" size={20} color={colors.mutedForeground} />
+          <MaterialIcons name="search" size={21} color={colors.mutedForeground} />
           <Text style={[styles.searchPlaceholder, { color: colors.mutedForeground }]}>
             {t("home.searchPlaceholder")}
           </Text>
-          <MaterialIcons name="tune" size={17} color={colors.primary} />
+          <MaterialIcons name="tune" size={18} color={colors.mutedForeground} />
         </TouchableOpacity>
       </View>
+
+      {/* ===== Active Order — right under the search, the first thing a waiting customer looks for ===== */}
+      {activeOrder && (
+        <TouchableOpacity
+          style={[styles.orderBanner, { backgroundColor: colors.secondary }]}
+          onPress={() =>
+            router.push({ pathname: "/order-tracking/[id]", params: { id: activeOrder.id } })
+          }
+          accessibilityRole="button"
+        >
+          <View style={[styles.orderDot, { backgroundColor: colors.primary }]} />
+          <View style={styles.orderInfo}>
+            <Text style={[styles.orderStatus, { color: colors.primaryDark }]}>{getOrderStatusText()}</Text>
+            {!!activeOrder.restaurantName && (
+              <Text style={[styles.orderRestaurant, { color: colors.mutedForeground }]} numberOfLines={1}>
+                {activeOrder.restaurantName}
+              </Text>
+            )}
+          </View>
+          <MaterialIcons name="chevron-left" size={22} color={colors.primaryDark} />
+        </TouchableOpacity>
+      )}
 
       {/* ===== Full-width Banner Carousel ===== */}
       {apiBanners.length > 0 && (
@@ -478,12 +513,14 @@ export default function HomeScreen() {
                 if (banner.restaurantId) router.push(`/restaurant/${banner.restaurantId}` as any);
               }}
               style={styles.bannerSlide}
+              accessibilityRole={banner.restaurantId ? "button" : undefined}
             >
               {banner.image ? (
                 <Image
                   source={{ uri: buildImageUrl(banner.image) }}
                   style={styles.bannerImage}
                   contentFit="cover"
+                  transition={200}
                 />
               ) : (
                 <View
@@ -509,6 +546,16 @@ export default function HomeScreen() {
             </TouchableOpacity>
           ))}
         </ScrollView>
+      )}
+      {apiBanners.length > 1 && (
+        <View style={styles.bannerDots} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          {apiBanners.map((b, i) => (
+            <View
+              key={b.id}
+              style={[styles.bannerDot, i === bannerIndex ? { width: 18, backgroundColor: colors.primary } : { backgroundColor: colors.border }]}
+            />
+          ))}
+        </View>
       )}
 
       {/* ===== Visual Category Tiles ===== */}
@@ -542,7 +589,7 @@ export default function HomeScreen() {
               <Text
                 style={[
                   styles.categoryTileLabel,
-                  { color: isSelected ? colors.primary : colors.mutedForeground, fontWeight: isSelected ? "700" : "600" },
+                  { color: isSelected ? colors.primaryDark : colors.foreground, fontWeight: isSelected ? "800" : "500" },
                 ]}
                 numberOfLines={1}
               >
@@ -559,25 +606,6 @@ export default function HomeScreen() {
       {/* ===== Door to the "بيتي وصحّي" pre-order section (hidden until the admin enables it) ===== */}
       <KitchenDoorCard />
 
-      {/* ===== Active Order Banner ===== */}
-      {activeOrder && (
-        <TouchableOpacity
-          style={[styles.orderBanner, { backgroundColor: colors.secondary }]}
-          onPress={() =>
-            router.push({ pathname: "/order-tracking/[id]", params: { id: activeOrder.id } })
-          }
-        >
-          <View style={[styles.orderDot, { backgroundColor: colors.primary }]} />
-          <View style={styles.orderInfo}>
-            <Text style={[styles.orderStatus, { color: colors.primary }]}>{getOrderStatusText()}</Text>
-            <Text style={[styles.orderRestaurant, { color: colors.mutedForeground }]} numberOfLines={1}>
-              {activeOrder.restaurantName}
-            </Text>
-          </View>
-          <MaterialIcons name="chevron-right" size={20} color={colors.primary} />
-        </TouchableOpacity>
-      )}
-
       {/* ===== Popular Section ===== */}
       {!isCategoryFiltered && (isPopularLoading || popularRestaurants.length > 0) && (
         <View
@@ -586,7 +614,6 @@ export default function HomeScreen() {
         >
           <View style={styles.sectionHeaderRow}>
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("home.popular")}</Text>
-            <MaterialIcons name="star" size={16} color="#FFB800" />
           </View>
           <ScrollView
             horizontal
@@ -614,7 +641,6 @@ export default function HomeScreen() {
         >
           <View style={styles.sectionHeaderRow}>
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("home.exclusiveDeals")}</Text>
-            <MaterialIcons name="local-offer" size={16} color={colors.primary} />
           </View>
           <ScrollView
             horizontal
@@ -687,9 +713,6 @@ export default function HomeScreen() {
               {" "}({filteredRestaurants.length})
             </Text>
           </Text>
-          <TouchableOpacity onPress={() => router.navigate("/search" as any)}>
-            <MaterialIcons name="search" size={22} color={colors.primary} />
-          </TouchableOpacity>
         </View>
       </View>
     </>
@@ -729,7 +752,7 @@ export default function HomeScreen() {
           )
         }
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120 }}
+        contentContainerStyle={{ paddingBottom: tabBarSpace }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -753,24 +776,27 @@ const styles = StyleSheet.create({
   // Header
   header: {
     paddingHorizontal: 16,
-    paddingBottom: 20,
+    paddingBottom: 16,
+    gap: 12,
   },
+  greeting: { fontSize: 26, fontWeight: "800", textAlign: "left" },
+  locationHint: { fontSize: 14 },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 14,
   },
   locationRow: { flexDirection: "row", alignItems: "center", gap: 4, flex: 1, marginRight: 12 },
-  locationText: { color: "#fff", fontSize: 14, fontWeight: "600", flexShrink: 1 },
-  notifWrap: { position: "relative" },
+  locationText: { fontSize: 14, fontWeight: "700", flexShrink: 1 },
+  notifWrap: { position: "relative", width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
   notifBadge: {
     position: "absolute",
-    top: -3,
-    right: -3,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
+    top: 4,
+    right: 4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 3,
@@ -779,26 +805,27 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 16,
+    borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 13,
+    height: 48,
     gap: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 4,
   },
-  searchPlaceholder: { flex: 1, fontSize: 14 },
+  searchPlaceholder: { flex: 1, fontSize: 15, textAlign: "left" },
 
   // Banner
-  bannerSlide: { width: SCREEN_WIDTH, height: 180 },
-  bannerImage: { width: SCREEN_WIDTH, height: 180 },
+  // Each page is the full width (paging stays simple); the banner itself is an
+  // inset rounded card.
+  bannerSlide: { width: SCREEN_WIDTH, height: 172, paddingHorizontal: 16, marginTop: 14 },
+  bannerImage: { width: SCREEN_WIDTH - 32, height: 172, borderRadius: 16, overflow: "hidden" },
+  bannerDots: { flexDirection: "row", justifyContent: "center", gap: 6, marginTop: 10 },
+  bannerDot: { width: 6, height: 6, borderRadius: 3 },
   bannerOverlay: {
     position: "absolute",
     bottom: 0,
-    left: 0,
-    right: 0,
+    left: 16,
+    right: 16,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: "rgba(0,0,0,0.38)",
@@ -820,7 +847,7 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  categoryTileLabel: { fontSize: 11, fontWeight: "600", textAlign: "center" },
+  categoryTileLabel: { fontSize: 13, fontWeight: "500", textAlign: "center" },
 
   // Active order banner
   orderBanner: {
@@ -828,15 +855,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginHorizontal: 16,
     marginTop: 14,
-    marginBottom: 4,
     borderRadius: 14,
-    padding: 12,
+    paddingHorizontal: 14,
+    minHeight: 54,
     gap: 10,
   },
   orderDot: { width: 10, height: 10, borderRadius: 5 },
   orderInfo: { flex: 1 },
-  orderStatus: { fontSize: 14, fontWeight: "700" },
-  orderRestaurant: { fontSize: 12, marginTop: 2 },
+  orderStatus: { fontSize: 15, fontWeight: "700", textAlign: "left" },
+  orderRestaurant: { fontSize: 13, marginTop: 2, textAlign: "left" },
 
   // Section
   sectionWrap: { marginTop: 22, marginBottom: 4 },
@@ -847,7 +874,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 12,
   },
-  sectionTitle: { fontSize: 17, fontWeight: "800" },
+  sectionTitle: { fontSize: 18, fontWeight: "700" },
   count: { fontSize: 14, fontWeight: "400" },
   hListContent: { paddingHorizontal: 16, gap: 12 },
 

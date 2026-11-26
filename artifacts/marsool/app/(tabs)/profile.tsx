@@ -1,3 +1,4 @@
+import { useTabBarSpace } from "@/hooks/useTabBarSpace";
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
@@ -119,7 +120,7 @@ export default function ProfileScreen() {
         ).toFixed(1)
       : "—";
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
-  const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
+  const bottomPadding = useTabBarSpace() - 20;
 
   const displayPhone = user?.phone ?? "";
 

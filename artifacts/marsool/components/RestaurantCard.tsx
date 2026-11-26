@@ -16,6 +16,8 @@ import { buildImageUrl } from "@/lib/apiConfig";
 import { useFavorites } from "@/context/FavoritesContext";
 import type { Restaurant as ApiRestaurant } from "@workspace/api-client-react";
 import SkeletonBox from "@/components/SkeletonBox";
+import { cardShadow } from "@/constants/colors";
+import { formatRating, minutesRangeText } from "@/components/HorizontalRestaurantCard";
 
 interface Props {
   restaurant: ApiRestaurant;
@@ -72,6 +74,7 @@ export default function RestaurantCard({ restaurant, onPress }: Props) {
           source={{ uri: buildImageUrl(restaurant.image) }}
           style={(restaurant as any).isLogo ? [styles.image, styles.logoImage] : styles.image}
           contentFit={(restaurant as any).isLogo ? "contain" : "cover"}
+          transition={200}
         />
         {!restaurant.isOpen && (
           <View style={styles.closedOverlay}>
@@ -81,30 +84,32 @@ export default function RestaurantCard({ restaurant, onPress }: Props) {
         {hasFlashDeal && (
           <View style={styles.flashBadge}>
             {maxDealPercent != null && maxDealPercent > 0 ? (
-              <Text style={styles.flashBadgeText}>⚡ خصم حتى {maxDealPercent}%</Text>
+              <Text style={styles.flashBadgeText}>خصم حتى {maxDealPercent}%</Text>
             ) : (
-              <Text style={styles.flashBadgeText}>⚡ عرض محدود</Text>
+              <Text style={styles.flashBadgeText}>عرض محدود</Text>
             )}
           </View>
         )}
         {!hasFlashDeal && maxDealPercent != null && maxDealPercent > 0 && (
-          <View style={[styles.discountBadge, { backgroundColor: "#f97316" }]}>
-            <Text style={[styles.discountText, { color: "#fff" }]}>
+          <View style={[styles.discountBadge, { backgroundColor: colors.offer }]}>
+            <Text style={[styles.discountText, { color: colors.offerForeground }]}>
               خصم حتى {maxDealPercent}%
             </Text>
           </View>
         )}
         {restaurant.discount && !hasFlashDeal && !(maxDealPercent != null && maxDealPercent > 0) && (
-          <View style={[styles.discountBadge, { backgroundColor: colors.primary }]}>
-            <Text style={[styles.discountText, { color: colors.primaryForeground }]}>
+          <View style={[styles.discountBadge, { backgroundColor: colors.offer }]}>
+            <Text style={[styles.discountText, { color: colors.offerForeground }]}>
               {restaurant.discount}
             </Text>
           </View>
         )}
 
         <TouchableOpacity
-          style={[styles.favBtn, { backgroundColor: "rgba(255,255,255,0.92)" }]}
+          style={[styles.favBtn, { backgroundColor: "rgba(255,255,255,0.95)" }]}
           onPress={handleFav}
+          accessibilityRole="button"
+          accessibilityLabel={fav ? "شيل من المفضلة" : "أضف للمفضلة"}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           activeOpacity={0.8}
         >
@@ -112,7 +117,7 @@ export default function RestaurantCard({ restaurant, onPress }: Props) {
             <MaterialIcons
               name={fav ? "favorite" : "favorite-border"}
               size={20}
-              color={fav ? "#ef4444" : "#888"}
+              color={fav ? colors.primary : colors.mutedForeground}
             />
           </Animated.View>
         </TouchableOpacity>
@@ -123,35 +128,28 @@ export default function RestaurantCard({ restaurant, onPress }: Props) {
           <Text style={[styles.name, { color: colors.foreground }]} numberOfLines={1}>
             {restaurant.nameAr}
           </Text>
-          <View style={styles.ratingRow}>
-            <MaterialIcons name="star" size={14} color="#FFB800" />
+          <View style={[styles.ratingRow, { backgroundColor: colors.muted }]}>
+            <Text style={{ color: colors.warning, fontSize: 13 }}>★</Text>
             <Text style={[styles.rating, { color: colors.foreground }]}>
-              {restaurant.rating}
+              {formatRating(restaurant.rating)}
             </Text>
           </View>
         </View>
 
-        <Text style={[styles.category, { color: colors.mutedForeground }]}>
-          {restaurant.tags.join(" · ")}
+        {restaurant.tags.length > 0 && (
+          <Text style={[styles.category, { color: colors.mutedForeground }]} numberOfLines={1}>
+            {restaurant.tags.join(" · ")}
+          </Text>
+        )}
+
+        {/* Same order as the small cards: time · delivery fee */}
+        <Text style={[styles.metaText, { color: colors.mutedForeground }]} numberOfLines={1}>
+          {minutesRangeText(restaurant.deliveryTime)} {t("restaurant.minutesLong", "دقيقة")}
+          {"  ·  "}
+          {restaurant.deliveryFee === 0
+            ? t("restaurant.freeDelivery")
+            : `${t("restaurant.deliveryShort", "توصيل")} ${restaurant.deliveryFee} ${t("restaurant.currency")}`}
         </Text>
-
-        <View style={styles.meta}>
-          <View style={styles.metaItem}>
-            <MaterialIcons name="access-time" size={13} color={colors.mutedForeground} />
-            <Text style={[styles.metaText, { color: colors.mutedForeground }]}>
-              {restaurant.deliveryTime} {t("restaurant.minutes")}
-            </Text>
-          </View>
-          <View style={styles.dot} />
-          <View style={styles.metaItem}>
-            <MaterialIcons name="delivery-dining" size={13} color={colors.mutedForeground} />
-            <Text style={[styles.metaText, { color: colors.mutedForeground }]}>
-              {restaurant.deliveryFee === 0
-                ? t("restaurant.freeDelivery")
-                : `${restaurant.deliveryFee} ${t("restaurant.currency")}`}
-            </Text>
-          </View>
-        </View>
       </View>
     </TouchableOpacity>
   );
@@ -162,11 +160,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 16,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    ...cardShadow,
   },
   imageContainer: { position: "relative" },
   logoContainer: { backgroundColor: "#ffffff", height: 160, justifyContent: "center", alignItems: "center" },
@@ -183,12 +177,12 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 12,
     left: 12,
-    backgroundColor: "#DC2626",
+    backgroundColor: "#FEF3C7",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
   },
-  flashBadgeText: { fontSize: 11, fontWeight: "700", color: "#fff" },
+  flashBadgeText: { fontSize: 12, fontWeight: "700", color: "#92400E" },
   discountBadge: {
     position: "absolute",
     top: 12,
@@ -197,7 +191,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
   },
-  discountText: { fontSize: 11, fontWeight: "700" },
+  discountText: { fontSize: 12, fontWeight: "700" },
   favBtn: {
     position: "absolute",
     top: 10,
@@ -213,14 +207,14 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  content: { padding: 14, gap: 5 },
+  content: { paddingHorizontal: 14, paddingVertical: 12, gap: 4 },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   name: { fontSize: 16, fontWeight: "700", flex: 1, textAlign: "left" },
-  ratingRow: { flexDirection: "row", alignItems: "center", gap: 2 },
-  rating: { fontSize: 13, fontWeight: "600" },
+  ratingRow: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 8, height: 26, borderRadius: 13 },
+  rating: { fontSize: 13, fontWeight: "700" },
   category: { fontSize: 13, textAlign: "left" },
   meta: { flexDirection: "row", alignItems: "center", marginTop: 2, gap: 6 },
   metaItem: { flexDirection: "row", alignItems: "center", gap: 3 },
-  metaText: { fontSize: 12 },
+  metaText: { fontSize: 13, textAlign: "left" },
   dot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: "#ccc" },
 });

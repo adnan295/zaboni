@@ -43,7 +43,7 @@
   },
   "home": {
     "addAddress": "أضف عنواناً",
-    "greeting": "أهلاً، {{name}} 👋",
+    "greeting": "شو بدك تاكل اليوم؟",
     "discoverTitle": "اكتشف",
     "discoverSub": "ما يشتهيه قلبك",
     "searchPlaceholder": "ابحث عن مطعم أو طعام...",
@@ -87,7 +87,8 @@
       "title": "اطلب من أي مكان",
       "subtitle": "أرسل مندوباً لأي محل أو سوبرماركت"
     },
-    "loadFailed": "تعذّر تحميل المطاعم. تأكد من اتصالك وأعد المحاولة."
+    "loadFailed": "تعذّر تحميل المطاعم. تأكد من اتصالك وأعد المحاولة.",
+    "deliverTo": "التوصيل لـ"
   },
   "errand": {
     "title": "اطلب من أي مكان",
@@ -435,13 +436,15 @@
     "all": "الكل",
     "menu": "المنيو",
     "orderNow": "اطلب الآن",
-    "reviewOrder": "راجع الطلب وأرسله",
+    "reviewOrder": "راجع طلبك",
     "itemsSelected": "{{count}} صنف مختار",
     "closed": "مغلق",
     "freeDelivery": "توصيل مجاني",
     "currency": "ل.س",
     "popular": "الأكثر طلباً",
-    "selectItems": "اختر الأصناف"
+    "selectItems": "اختر الأصناف",
+    "minutesLong": "دقيقة",
+    "deliveryShort": "توصيل"
   },
   "orderRequest": {
     "title": "اكتب طلبك",
@@ -489,7 +492,11 @@
     "itemSavings": "وفّرت {{amount}} ل.س على هذا الطلب 🎉",
     "feeUnavailable": "تعذّر حساب أجرة التوصيل. أعد المحاولة قبل إرسال الطلب.",
     "feeNeedsAddress": "اختر عنواناً محدداً على الخريطة لحساب أجرة التوصيل.",
-    "waitingForFee": "بانتظار حساب التوصيل"
+    "waitingForFee": "بانتظار حساب التوصيل",
+    "reviewTitle": "راجع طلبك",
+    "fromRestaurant": "من {{name}}",
+    "etaTitle": "بيوصلك خلال {{range}} دقيقة",
+    "etaSub": "حسب سرعة هالمطعم والمناديب هلق"
   },
   "payment": {
     "cashOnDelivery": "الدفع عند الاستلام 💵",

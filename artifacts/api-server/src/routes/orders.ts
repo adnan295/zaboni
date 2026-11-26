@@ -326,8 +326,20 @@ router.get("/delivery-fee-preview", async (req, res) => {
   const coverage = await checkCoverage(latRaw, lonRaw);
   const outOfArea = coverage.hasCoverage ? !coverage.inside : feeResult.outOfRange;
 
+  // The learned arrival time for this restaurant, this distance and this hour, so
+  // checkout can say «بيوصلك خلال …» before the order is sent. Never blocks the fee.
+  let etaMinutes: number | null = null;
+  if (restaurantId) {
+    try {
+      etaMinutes = estimateOrderMinutes(distanceKm, restaurantId, await getLearnedTimes());
+    } catch {
+      etaMinutes = null;
+    }
+  }
+
   res.json({
     fee,
+    etaMinutes,
     outOfRange: outOfArea,
     distanceKm: Number(distanceKm.toFixed(2)),
     zoneLabel: zone?.label ?? null,

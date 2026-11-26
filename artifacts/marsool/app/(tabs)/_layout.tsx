@@ -1,20 +1,12 @@
-import { BlurView } from "expo-blur";
 import { Tabs, useRouter } from "expo-router";
-import { SymbolView } from "expo-symbols";
-import { Feather, MaterialIcons } from "@expo/vector-icons";
+import { MaterialIcons } from "@expo/vector-icons";
 import React, { useMemo } from "react";
-import { I18nManager, Platform, StyleSheet, TouchableOpacity, View, useColorScheme } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-import { useColors } from "@/hooks/useColors";
-import { useTypography } from "@/hooks/useTypography";
 import { useOrders } from "@/context/OrderContext";
 import { getApiBaseUrl } from "@/lib/apiConfig";
-
-const BADGE_RED = "#DC2626";
+import FloatingTabBar, { type FloatingTab } from "@/components/FloatingTabBar";
 
 type TabType = "home" | "favorites" | "orders" | "profile" | "offers" | "search" | "errand";
 
@@ -53,11 +45,11 @@ type TabDef = {
 const TAB_DEF: Record<TabType, TabDef> = {
   home:      { sfDefault: "house",           sfSelected: "house.fill",      feather: "home",         materialDefault: "home",              materialFocused: "home"              },
   favorites: { sfDefault: "heart",           sfSelected: "heart.fill",      feather: "heart",        materialDefault: "favorite-border",   materialFocused: "favorite"          },
-  orders:    { sfDefault: "bag",             sfSelected: "bag.fill",        feather: "package",      materialDefault: "shopping-bag",      materialFocused: "shopping-bag"      },
+  orders:    { sfDefault: "bag",             sfSelected: "bag.fill",        feather: "package",      materialDefault: "receipt-long",      materialFocused: "receipt-long"      },
   profile:   { sfDefault: "person",          sfSelected: "person.fill",     feather: "user",         materialDefault: "person-outline",    materialFocused: "person"            },
   offers:    { sfDefault: "tag",             sfSelected: "tag.fill",        feather: "tag",          materialDefault: "local-offer",       materialFocused: "local-offer"       },
   search:    { sfDefault: "magnifyingglass", sfSelected: "magnifyingglass", feather: "search",       materialDefault: "search",            materialFocused: "search"            },
-  errand:    { sfDefault: "bag.badge.plus",  sfSelected: "bag.badge.plus",  feather: "shopping-bag", materialDefault: "add-shopping-cart", materialFocused: "add-shopping-cart" },
+  errand:    { sfDefault: "bag.badge.plus",  sfSelected: "bag.badge.plus",  feather: "shopping-bag", materialDefault: "storefront",        materialFocused: "storefront"        },
 };
 
 const ALL_TAB_TYPES: TabType[] = ["home", "favorites", "orders", "profile", "offers", "search", "errand"];
@@ -75,21 +67,11 @@ async function fetchTabBarConfig(): Promise<TabBarItem[]> {
 }
 
 function ClassicTabLayout({ config }: { config: TabBarItem[] }) {
-  const colors = useColors();
-  const colorScheme = useColorScheme();
   const { t } = useTranslation();
-  const { fontMedium } = useTypography();
-  const { activeOrder } = useOrders();
+  const { orders } = useOrders();
   const router = useRouter();
-  const isDark = colorScheme === "dark";
-  const isIOS = Platform.OS === "ios";
-  const isWeb = Platform.OS === "web";
-  const insets = useSafeAreaInsets();
 
-  const activeTypes = useMemo(
-    () => new Set(config.map((x) => x.type)),
-    [config]
-  );
+  const activeTypes = useMemo(() => new Set(config.map((x) => x.type)), [config]);
 
   const labelFor = (item: TabBarItem) => {
     if (item.labelAr && item.labelAr.trim()) return item.labelAr;
@@ -97,120 +79,36 @@ function ClassicTabLayout({ config }: { config: TabBarItem[] }) {
     return translated && !translated.startsWith("tabs.") ? translated : item.type;
   };
 
+  // Orders still on their way, shown as a number on «طلباتي».
+  const inProgress = orders.filter((o) => !["delivered", "cancelled", "scheduled"].includes(o.status)).length;
+
+  const floatingTabs: FloatingTab[] = config.map((item) => {
+    const def = TAB_DEF[item.type];
+    return {
+      name: TAB_SCREEN_NAME[item.type],
+      label: labelFor(item),
+      icon: def.materialDefault,
+      iconFocused: def.materialFocused,
+      badge: item.type === "orders" && inProgress > 0 ? inProgress : undefined,
+      // «اطلب» opens دليل حمص (which falls back to the typed free order while it is empty).
+      onPress: item.type === "errand" ? () => router.push("/directory" as any) : undefined,
+    };
+  });
+
   const hiddenTypes = ALL_TAB_TYPES.filter((tp) => !activeTypes.has(tp));
 
   return (
     <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.mutedForeground,
-        headerShown: false,
-        tabBarStyle: {
-          position: "absolute",
-          backgroundColor: isIOS ? "transparent" : colors.background,
-          borderTopWidth: isWeb ? 1 : 0,
-          borderTopColor: colors.border,
-          elevation: 0,
-          flexDirection: I18nManager.isRTL ? "row-reverse" : "row",
-          ...(Platform.OS === "android" ? {
-            height: 56 + insets.bottom,
-            paddingBottom: insets.bottom,
-          } : {}),
-          ...(isWeb ? { height: 84 } : {}),
-        },
-        tabBarBackground: () =>
-          isIOS ? (
-            <BlurView
-              intensity={100}
-              tint={isDark ? "dark" : "light"}
-              style={StyleSheet.absoluteFill}
-            />
-          ) : isWeb ? (
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: colors.background },
-              ]}
-            />
-          ) : null,
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: "600",
-          fontFamily: fontMedium,
-        },
-      }}
+      screenOptions={{ headerShown: false }}
+      tabBar={(props: any) => <FloatingTabBar state={props.state} navigation={props.navigation} tabs={floatingTabs} />}
     >
-      {/* Active tabs in config order */}
-      {config.map((item) => {
-        const def = TAB_DEF[item.type];
-        const name = TAB_SCREEN_NAME[item.type];
-        const isErrand = item.type === "errand";
-        return (
-          <Tabs.Screen
-            key={item.type}
-            name={name}
-            options={{
-              title: labelFor(item),
-              tabBarBadge: item.type === "orders" && activeOrder ? "!" : undefined,
-              tabBarBadgeStyle:
-                item.type === "orders"
-                  ? { backgroundColor: BADGE_RED, fontSize: 10, minWidth: 16, height: 16 }
-                  : undefined,
-              tabBarIcon: ({ color, focused }) =>
-                isIOS ? (
-                  isErrand ? (
-                    <Feather name="shopping-bag" size={22} color="#ea580c" />
-                  ) : (
-                    <SymbolView
-                      name={(focused ? def.sfSelected : def.sfDefault) as any}
-                      tintColor={color}
-                      size={24}
-                    />
-                  )
-                ) : isWeb ? (
-                  <Feather
-                    name={isErrand ? "shopping-bag" : (def.feather as any)}
-                    size={22}
-                    color={isErrand ? "#ea580c" : color}
-                  />
-                ) : (
-                  /* Android — MaterialIcons fixes garbled Feather font on Android */
-                  isErrand ? (
-                    <MaterialIcons name="add-shopping-cart" size={22} color="#ea580c" />
-                  ) : (
-                    <MaterialIcons name={focused ? def.materialFocused : def.materialDefault} size={22} color={color} />
-                  )
-                ),
-              tabBarActiveTintColor: isErrand ? "#ea580c" : undefined,
-              ...(isErrand
-                ? {
-                    tabBarButton: ({ style, children }: any) => (
-                      <TouchableOpacity
-                        style={style}
-                        onPress={() => router.push("/errand-request" as any)}
-                        activeOpacity={0.7}
-                      >
-                        {children}
-                      </TouchableOpacity>
-                    ),
-                  }
-                : {}),
-            }}
-          />
-        );
-      })}
+      {config.map((item) => (
+        <Tabs.Screen key={item.type} name={TAB_SCREEN_NAME[item.type]} options={{ title: labelFor(item) }} />
+      ))}
 
-      {/* Hidden screens — navigable but completely removed from tab bar */}
+      {/* Hidden screens — navigable but not in the bar */}
       {hiddenTypes.map((tp) => (
-        <Tabs.Screen
-          key={`hidden-${tp}`}
-          name={TAB_SCREEN_NAME[tp]}
-          options={{
-            href: null,
-            tabBarItemStyle: { display: "none", width: 0, overflow: "hidden" },
-            title: "",
-          }}
-        />
+        <Tabs.Screen key={`hidden-${tp}`} name={TAB_SCREEN_NAME[tp]} options={{ href: null, title: "" }} />
       ))}
     </Tabs>
   );

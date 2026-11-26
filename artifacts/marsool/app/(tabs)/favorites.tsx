@@ -1,3 +1,4 @@
+import { useTabBarSpace } from "@/hooks/useTabBarSpace";
 import React from "react";
 import {
   View,
@@ -23,7 +24,8 @@ export default function FavoritesTab() {
   const { favorites } = useFavorites();
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
-  const bottomPadding = Platform.OS === "web" ? 84 : insets.bottom + 80;
+  const tabBarSpace = useTabBarSpace();
+  const bottomPadding = tabBarSpace;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

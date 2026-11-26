@@ -1,3 +1,4 @@
+import { useTabBarSpace } from "@/hooks/useTabBarSpace";
 import React, { useState, useCallback } from "react";
 import {
   View,
@@ -326,7 +327,8 @@ export default function OrdersTab() {
   const { orders: contextOrders, activeOrder } = useOrders();
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
-  const bottomPadding = Platform.OS === "web" ? 84 : insets.bottom + 80;
+  const tabBarSpace = useTabBarSpace();
+  const bottomPadding = tabBarSpace;
 
   const [page, setPage] = useState(1);
   const [serverOrders, setServerOrders] = useState<Order[]>([]);

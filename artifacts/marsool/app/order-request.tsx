@@ -63,6 +63,8 @@ interface PromoResult {
 
 interface FeePreview {
   fee: number;
+  /** Learned arrival time for this restaurant, distance and hour (newer servers only). */
+  etaMinutes?: number | null;
   distanceKm: number;
   zoneLabel: string | null;
 }
@@ -156,6 +158,13 @@ export default function OrderRequestScreen() {
   const feePreview = hasCoordinates && !feeQuery.isError ? feeQuery.data : undefined;
   const deliveryFee = !feeLoading && typeof feePreview?.fee === "number" && Number.isFinite(feePreview.fee) && feePreview.fee >= 0 ? feePreview.fee : undefined;
   const canSubmit = hasItems && !!defaultAddress && deliveryFee != null;
+  // «35-45» from the learned estimate, rounded to fives; nothing when the server has none.
+  const etaRange = (() => {
+    const m = feePreview?.etaMinutes;
+    if (!hasItems || typeof m !== "number" || !Number.isFinite(m) || m <= 0) return null;
+    const low = Math.max(10, Math.round((m - 5) / 5) * 5);
+    return `\u2066${low}-${low + 10}\u2069`;
+  })();
 
   const applyFlashDiscount = (base: number): number => {
     if (!flashDeal || base <= 0) return base;
@@ -316,7 +325,16 @@ export default function OrderRequestScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <MaterialIcons name={backIcon} size={22} color={colors.foreground} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.foreground }]}>{t("orderRequest.title")}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.headerTitle, { color: colors.foreground }]}>
+            {hasItems ? t("orderRequest.reviewTitle") : t("orderRequest.title")}
+          </Text>
+          {!!restaurantName && (
+            <Text style={[styles.headerSub, { color: colors.mutedForeground }]} numberOfLines={1}>
+              {t("orderRequest.fromRestaurant", { name: restaurantName })}
+            </Text>
+          )}
+        </View>
         <View style={{ width: 40 }} />
       </View>
 
@@ -325,6 +343,19 @@ export default function OrderRequestScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {/* When will it arrive — the first thing people want to know before sending */}
+        {etaRange && (
+          <View style={[styles.etaCard, { backgroundColor: colors.secondary }]} accessibilityRole="summary">
+            <MaterialIcons name="schedule" size={28} color={colors.primary} />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[styles.etaTitle, { color: colors.secondaryForeground }]}>
+                {t("orderRequest.etaTitle", { range: etaRange })}
+              </Text>
+              <Text style={[styles.etaSub, { color: colors.secondaryForeground }]}>{t("orderRequest.etaSub")}</Text>
+            </View>
+          </View>
+        )}
+
         {flashDeal && (
           <View style={styles.flashDealBanner}>
             <View style={styles.flashDealLeft}>
@@ -674,9 +705,6 @@ export default function OrderRequestScreen() {
                 {effectiveDeliveryFee == null ? t("orderRequest.waitingForFee") : `${(effectiveSubtotal + effectiveDeliveryFee).toLocaleString()} ل.س`}
               </Text>
             </View>
-            <Text style={[styles.totalNote, { color: colors.mutedForeground }]}>
-              {t("orderRequest.serverPricedNote")}
-            </Text>
           </View>
         ) : null}
       </ScrollView>
@@ -688,10 +716,14 @@ export default function OrderRequestScreen() {
           disabled={!canSubmit || isSubmitting}
           activeOpacity={0.85}
         >
-          <MaterialIcons name="send" size={20} color={canSubmit ? "#fff" : colors.mutedForeground} />
           <Text style={[styles.submitText, { color: canSubmit ? "#fff" : colors.mutedForeground }]}>
             {isSubmitting ? t("orderRequest.sending") : t("orderRequest.sendOrder")}
           </Text>
+          {!isSubmitting && canSubmit && effectiveDeliveryFee != null && (
+            <Text style={[styles.submitText, { color: "#fff" }]}>
+              {(effectiveSubtotal + effectiveDeliveryFee).toLocaleString("en-US")} ل.س
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -738,7 +770,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   backBtn: { padding: 4, width: 40 },
-  headerTitle: { flex: 1, textAlign: "center", fontSize: 18, fontWeight: "800" },
+  headerTitle: { textAlign: "center", fontSize: 20, fontWeight: "800" },
+  headerSub: { textAlign: "center", fontSize: 13, marginTop: 2 },
+  etaCard: { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14 },
+  etaTitle: { fontSize: 17, fontWeight: "800", textAlign: "left" },
+  etaSub: { fontSize: 13, textAlign: "left" },
   content: { padding: 16, gap: 16 },
   restaurantBadge: {
     flexDirection: "row",
@@ -909,10 +945,10 @@ const styles = StyleSheet.create({
   submitBtn: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
+    justifyContent: "space-between",
+    paddingHorizontal: 24,
     height: 56,
-    borderRadius: 16,
+    borderRadius: 999,
   },
   submitText: { fontSize: 17, fontWeight: "700" },
 });

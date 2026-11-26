@@ -1,3 +1,4 @@
+import { formatRating, minutesRangeText } from "@/components/HorizontalRestaurantCard";
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   View,
@@ -386,7 +387,7 @@ export default function RestaurantScreen() {
                   <MaterialIcons
                     name={fav ? "favorite" : "favorite-border"}
                     size={22}
-                    color={fav ? "#ef4444" : "#888"}
+                    color={fav ? colors.primary : colors.mutedForeground}
                   />
                 </Animated.View>
               </TouchableOpacity>
@@ -403,32 +404,33 @@ export default function RestaurantScreen() {
                 {(restaurant.tags as string[]).join(" · ")}
               </Text>
             </View>
-            <View style={[styles.ratingChip, { backgroundColor: colors.secondary }]}>
-              <MaterialIcons name="star" size={14} color="#FFB800" />
-              <Text style={[styles.ratingNum, { color: colors.foreground }]}>{restaurant.rating}</Text>
-              <Text style={[styles.ratingCount, { color: colors.mutedForeground }]}>
-                ({restaurant.reviewCount.toLocaleString()})
+          </View>
+          {/* What a customer decides on, as chips: rating, time, delivery fee, distance */}
+          <View style={styles.chipsRow}>
+            <View style={[styles.infoChip, { backgroundColor: colors.muted }]}>
+              <Text style={{ color: colors.warning, fontSize: 13 }}>★</Text>
+              <Text style={[styles.infoChipText, { color: colors.foreground }]}>{formatRating(restaurant.rating)}</Text>
+              {restaurant.reviewCount > 0 && (
+                <Text style={[styles.infoChipSub, { color: colors.mutedForeground }]}>({restaurant.reviewCount})</Text>
+              )}
+            </View>
+            <View style={[styles.infoChip, { backgroundColor: colors.muted }]}>
+              <Text style={[styles.infoChipText, { color: colors.foreground }]}>
+                {minutesRangeText(restaurant.deliveryTime)} {t("restaurant.minutesLong", "دقيقة")}
               </Text>
             </View>
-          </View>
-          <View style={[styles.statsRow, { borderTopColor: colors.border }]}>
-            <View style={styles.statItem}>
-              <MaterialIcons name="access-time" size={16} color={colors.primary} />
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{t("restaurant.deliveryTime")}</Text>
-              <Text style={[styles.statValue, { color: colors.foreground }]}>{restaurant.deliveryTime} {t("restaurant.minutes")}</Text>
-            </View>
-            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-            <View style={styles.statItem}>
-              <MaterialIcons name="location-on" size={16} color={colors.primary} />
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{t("restaurant.distance")}</Text>
-              <Text style={[styles.statValue, { color: colors.foreground }]}>{distanceKm ?? t("restaurant.nearby")}</Text>
-            </View>
-            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-            <View style={styles.statItem}>
-              <MaterialIcons name="star" size={16} color={colors.primary} />
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{t("restaurant.rating")}</Text>
-              <Text style={[styles.statValue, { color: colors.foreground }]}>{restaurant.rating}</Text>
-            </View>
+            {restaurant.deliveryFee > 0 && (
+              <View style={[styles.infoChip, { backgroundColor: colors.muted }]}>
+                <Text style={[styles.infoChipText, { color: colors.foreground }]}>
+                  {t("restaurant.deliveryShort", "توصيل")} {restaurant.deliveryFee} {t("restaurant.currency")}
+                </Text>
+              </View>
+            )}
+            {!!distanceKm && (
+              <View style={[styles.infoChip, { backgroundColor: colors.muted }]}>
+                <Text style={[styles.infoChipText, { color: colors.foreground }]}>{distanceKm}</Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -694,7 +696,8 @@ export default function RestaurantScreen() {
         onAdd={handleModalAdd}
       />
 
-      {/* Order footer */}
+      {/* Order footer — only when there is something to say (closed) or to send (a cart) */}
+      {(!isOpen || hasCart) && (
       <View
         style={[
           styles.orderFooter,
@@ -709,41 +712,28 @@ export default function RestaurantScreen() {
             </Text>
           </View>
         )}
+        {/* One button: how many items, «شوف السلة», and the total. Nothing until something is picked. */}
         {hasCart && isOpen && (
-          <View style={[styles.cartSummary, { backgroundColor: colors.secondary }]}>
-            <View style={styles.cartSummaryLeft}>
-              <View style={[styles.cartBadge, { backgroundColor: colors.primary }]}>
-                <Text style={styles.cartBadgeText}>{totalItems}</Text>
+          <TouchableOpacity
+            style={[styles.orderBtn, { backgroundColor: colors.primary }]}
+            onPress={handleOrder}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={`${t("restaurant.reviewOrder")}، ${totalItems}`}
+          >
+            <View style={styles.orderBtnStart}>
+              <View style={styles.cartCount}>
+                <Text style={styles.cartCountText}>{totalItems}</Text>
               </View>
-              <Text style={[styles.cartSummaryLabel, { color: colors.foreground }]}>
-                {t("restaurant.itemsSelected", { count: totalItems })}
-              </Text>
+              <Text style={[styles.orderBtnText, { color: "#fff" }]}>{t("restaurant.reviewOrder")}</Text>
             </View>
-            <Text style={[styles.cartTotal, { color: colors.primary }]}>
-              ~{flashUnit(estimatedTotal).toLocaleString()} ل.س
+            <Text style={[styles.orderBtnText, { color: "#fff" }]}>
+              {flashUnit(estimatedTotal).toLocaleString("en-US")} {t("restaurant.currency")}
             </Text>
-          </View>
+          </TouchableOpacity>
         )}
-        <TouchableOpacity
-          style={[styles.orderBtn, { backgroundColor: isOpen && hasCart ? colors.primary : colors.muted }]}
-          onPress={handleOrder}
-          activeOpacity={isOpen && hasCart ? 0.85 : 1}
-          disabled={!isOpen || !hasCart}
-        >
-          <MaterialIcons
-            name={hasCart ? "shopping-bag" : "restaurant-menu"}
-            size={22}
-            color={isOpen && hasCart ? "#fff" : colors.mutedForeground}
-          />
-          <Text style={[styles.orderBtnText, { color: isOpen && hasCart ? "#fff" : colors.mutedForeground }]}>
-            {!isOpen
-              ? t("restaurant.closed")
-              : hasCart
-              ? t("restaurant.reviewOrder")
-              : t("restaurant.selectItems")}
-          </Text>
-        </TouchableOpacity>
       </View>
+      )}
     </View>
   );
 }
@@ -913,18 +903,26 @@ const styles = StyleSheet.create({
   cartTotal: { fontSize: 15, fontWeight: "800" },
   orderBtn: {
     height: 56,
-    borderRadius: 16,
+    borderRadius: 999,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
+    justifyContent: "space-between",
+    paddingStart: 10,
+    paddingEnd: 22,
     shadowColor: "#DC2626",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.25,
     shadowRadius: 10,
     elevation: 6,
   },
-  orderBtnText: { fontSize: 17, fontWeight: "700" },
+  orderBtnStart: { flexDirection: "row", alignItems: "center", gap: 10 },
+  cartCount: { width: 34, height: 34, borderRadius: 17, backgroundColor: "rgba(255,255,255,0.22)", alignItems: "center", justifyContent: "center" },
+  cartCountText: { color: "#fff", fontSize: 15, fontWeight: "800" },
+  orderBtnText: { fontSize: 16, fontWeight: "700" },
+  chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 },
+  infoChip: { flexDirection: "row", alignItems: "center", gap: 4, height: 32, paddingHorizontal: 12, borderRadius: 16 },
+  infoChipText: { fontSize: 13, fontWeight: "700" },
+  infoChipSub: { fontSize: 13 },
   closedBanner: {
     flexDirection: "row",
     alignItems: "center",
