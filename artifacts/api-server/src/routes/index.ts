@@ -23,11 +23,13 @@ import directoryRouter from "./directory";
 import callBridgeRouter from "./callBridge";
 import stampsRouter from "./stamps";
 import orderChatRouter from "./orderChat";
+import tilesRouter from "./tiles";
 import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(tilesRouter);
 router.use(authRouter);
 router.use(configRouter);
 router.use(restaurantsRouter);

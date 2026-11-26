@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import { MaterialIcons } from "@expo/vector-icons";
+import { getApiBaseUrl } from "@/lib/apiConfig";
 
 const TILE = 256;
 
@@ -41,7 +42,8 @@ export default function AddressPreviewMap({ latitude, longitude, height = 112, z
       for (let ty = Math.floor(top / TILE); ty <= Math.floor((top + height) / TILE); ty++) {
         tiles.push({
           key: `${tx}-${ty}`,
-          uri: `https://tile.openstreetmap.org/${zoom}/${tx}/${ty}.png`,
+          // Through our server: OpenStreetMap blocks apps that fetch its tiles directly.
+          uri: `${getApiBaseUrl()}/api/tiles/${zoom}/${tx}/${ty}.png`,
           dx: tx * TILE - left,
           dy: ty * TILE - top,
         });
