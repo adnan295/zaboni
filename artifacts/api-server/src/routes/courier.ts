@@ -1,3 +1,4 @@
+import { stampDeliveredOrder } from "./stamps";
 import { publicLineNumber } from "../lib/callBridge";
 import { completeOrderInTx, notifyReferralReward, type ReferralReward } from "../lib/orderCompletion";
 import { updateVerifiedProfile, ProfileUpdateError } from "../lib/profileUpdate";
@@ -648,6 +649,7 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
   }
 
   notifyReferralReward(referralReward);
+  if (body.data.status === "delivered") stampDeliveredOrder(orderId);
   notifyOrderUpdate(currentOrder.userId, updated[0]);
 
   const pushMsg = STATUS_PUSH_MESSAGES[body.data.status] ?? "تم تحديث طلبك";

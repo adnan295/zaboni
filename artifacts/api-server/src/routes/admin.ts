@@ -1,3 +1,4 @@
+import { stampDeliveredOrder } from "./stamps";
 import { completeOrderInTx, notifyReferralReward, type ReferralReward } from "../lib/orderCompletion";
 import { adminOrderTransitionError } from "../lib/adminOrderTransitions";
 import { dispatchOrderNow } from "../lib/orderDispatch";
@@ -1462,7 +1463,7 @@ router.patch("/admin/orders/:id/status", async (req, res) => {
   if (!changedStatus) { res.json(row); return; }
   notifyReferralReward(referralReward);
   if (parsed.data.status === "searching") void dispatchOrderNow(id);
-  if (parsed.data.status === "delivered") void checkAndAwardAchievements(row.userId);
+  if (parsed.data.status === "delivered") stampDeliveredOrder(id);
   notifyOrderUpdate(row.userId, cancelNote ? { ...row, cancelNote } : row);
 
   const pushMsg = STATUS_PUSH_MESSAGES[parsed.data.status];

@@ -34,6 +34,8 @@ export interface PlaceOrderInput {
   restaurantId?: string;
   usePoints?: boolean;
   flashDealId?: string;
+  /** A ready «اطلب واربح» coupon for this restaurant. */
+  stampCouponId?: string;
   orderType?: "restaurant" | "errand";
   placeName?: string;
   /** A free order picked from the Homs directory. */
@@ -223,7 +225,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
 
   const placeOrder = useCallback(
     async (input: PlaceOrderInput): Promise<Order> => {
-      const { items, orderText, restaurantName, address, promoCode, lat, lon, restaurantId, usePoints, flashDealId, orderType, placeName, directoryPlaceId, restaurantNote } = input;
+      const { items, orderText, restaurantName, address, promoCode, lat, lon, restaurantId, usePoints, flashDealId, orderType, placeName, directoryPlaceId, restaurantNote, stampCouponId } = input;
       const result = await checkoutSender.current!(user?.id ?? "", JSON.stringify({
           ...(items && items.length > 0 ? { items } : {}),
           ...(orderText ? { orderText } : {}),
@@ -235,6 +237,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
           ...(restaurantId ? { restaurantId } : {}),
           ...(usePoints ? { usePoints: true } : {}),
           ...(flashDealId ? { flashDealId } : {}),
+          ...(stampCouponId ? { stampCouponId } : {}),
           ...(orderType ? { orderType } : {}),
           ...(placeName ? { placeName } : {}),
           ...(directoryPlaceId ? { directoryPlaceId } : {}),

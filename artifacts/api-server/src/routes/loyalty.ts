@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable, loyaltyTransactionsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
-import { getLoyaltySettings, calculateRedeemDiscount } from "../lib/loyalty";
+import { getLoyaltySettings, calculateRedeemDiscount, CUSTOMER_POINTS_ENABLED } from "../lib/loyalty";
 
 const router: IRouter = Router();
 
@@ -28,7 +28,10 @@ router.get("/users/me/loyalty", async (req, res) => {
     return;
   }
 
-  const balance = user[0].loyaltyPoints;
+  // Points are switched off: report nothing to spend, so app versions that still
+  // show a «use points» toggle hide it instead of promising a discount that will
+  // not be applied. The stored balance is left untouched.
+  const balance = CUSTOMER_POINTS_ENABLED ? user[0].loyaltyPoints : 0;
   const redeemDiscount = calculateRedeemDiscount(balance, settings.pointValue);
 
   res.json({

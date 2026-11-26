@@ -1,3 +1,4 @@
+import { useRestaurantStamps } from "@/hooks/useStamps";
 import { formatRating, minutesRangeText } from "@/components/HorizontalRestaurantCard";
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
@@ -64,6 +65,7 @@ interface CartEntry {
 export default function RestaurantScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
+  const stampQuery = useRestaurantStamps(typeof id === "string" ? id : undefined);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
@@ -347,6 +349,7 @@ export default function RestaurantScreen() {
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
   const isOpen = restaurant.isOpen;
+  const stampCard = stampQuery.data ?? null;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -432,6 +435,45 @@ export default function RestaurantScreen() {
               </View>
             )}
           </View>
+          {/* «اطلب واربح»: one slim line — the stamps so far and the reward; taps through to «أختامي». */}
+          {stampCard && (
+            <TouchableOpacity
+              style={[styles.stampStrip, { backgroundColor: colors.secondary }]}
+              onPress={() => router.push("/stamps" as any)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={stampCard.coupon
+                ? `كوبونك جاهز: ${stampCard.coupon.label}`
+                : `أختامك ${stampCard.stamps} من ${stampCard.goal}، الجايزة ${stampCard.reward}`}
+            >
+              <MaterialIcons name="card-giftcard" size={16} color={colors.primaryDark} />
+              {stampCard.coupon ? (
+                <Text style={[styles.stampText, { color: colors.success }]} numberOfLines={1}>
+                  <Text style={{ fontWeight: "800" }}>كوبونك جاهز</Text> · {stampCard.coupon.label}
+                </Text>
+              ) : (
+                <>
+                  <View style={styles.stampDots}>
+                    {Array.from({ length: stampCard.goal }).map((_, i) => (
+                      <View
+                        key={i}
+                        style={[
+                          styles.stampDot,
+                          i < stampCard.stamps
+                            ? { backgroundColor: colors.primary, borderColor: colors.primary }
+                            : { backgroundColor: colors.card, borderColor: "#FCA5A5" },
+                        ]}
+                      />
+                    ))}
+                  </View>
+                  <Text style={[styles.stampText, { color: "#7F1D1D" }]} numberOfLines={1}>
+                    <Text style={{ fontWeight: "800" }}>{stampCard.stamps} من {stampCard.goal}</Text> · الجايزة {stampCard.reward.replace(/ ببلاش$/, "")}
+                  </Text>
+                </>
+              )}
+              <MaterialIcons name="chevron-left" size={18} color={colors.primaryDark} />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* [2] Flash deal banner (conditional) */}
@@ -923,6 +965,10 @@ const styles = StyleSheet.create({
   infoChip: { flexDirection: "row", alignItems: "center", gap: 4, height: 32, paddingHorizontal: 12, borderRadius: 16 },
   infoChipText: { fontSize: 13, fontWeight: "700" },
   infoChipSub: { fontSize: 13 },
+  stampStrip: { flexDirection: "row", alignItems: "center", gap: 10, height: 40, borderRadius: 12, paddingHorizontal: 12, marginTop: 12 },
+  stampDots: { flexDirection: "row", gap: 5 },
+  stampDot: { width: 10, height: 10, borderRadius: 5, borderWidth: 1.5 },
+  stampText: { flex: 1, fontSize: 13, textAlign: "left" },
   closedBanner: {
     flexDirection: "row",
     alignItems: "center",

@@ -11,6 +11,8 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { buildImageUrl } from "@/lib/apiConfig";
 import SkeletonBox from "@/components/SkeletonBox";
+import StampBadge from "@/components/StampBadge";
+import { useStampRestaurants } from "@/hooks/useStamps";
 import { cardShadow } from "@/constants/colors";
 
 interface HRestaurant {
@@ -114,6 +116,7 @@ export default function HorizontalRestaurantCard({ restaurant, onPress, variant 
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === "ar";
   const isDeal = variant === "deal";
+  const stampIds = useStampRestaurants();
   const hasFlashDeal = restaurant.hasFlashDeal ?? !!(restaurant as unknown as Record<string, unknown>)["hasFlashDeal"];
   const flashDealEndsAt = restaurant.flashDealEndsAt ?? (restaurant as unknown as Record<string, unknown>)["flashDealEndsAt"] as string | null | undefined;
 
@@ -157,6 +160,7 @@ export default function HorizontalRestaurantCard({ restaurant, onPress, variant 
             </Text>
           </View>
         )}
+        {stampIds.has(restaurant.id) && <StampBadge style={{ bottom: 8, left: 8 }} />}
         {!!badge && (
           <View style={styles.reorderBadge}>
             <MaterialIcons name="replay" size={9} color="#fff" />

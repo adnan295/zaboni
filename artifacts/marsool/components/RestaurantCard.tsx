@@ -16,6 +16,8 @@ import { buildImageUrl } from "@/lib/apiConfig";
 import { useFavorites } from "@/context/FavoritesContext";
 import type { Restaurant as ApiRestaurant } from "@workspace/api-client-react";
 import SkeletonBox from "@/components/SkeletonBox";
+import StampBadge from "@/components/StampBadge";
+import { useStampRestaurants } from "@/hooks/useStamps";
 import { cardShadow } from "@/constants/colors";
 import { formatRating, minutesRangeText } from "@/components/HorizontalRestaurantCard";
 
@@ -49,6 +51,7 @@ export default function RestaurantCard({ restaurant, onPress }: Props) {
   const { t } = useTranslation();
   const { isFavorite, toggleFavorite } = useFavorites();
   const fav = isFavorite(restaurant.id);
+  const stampIds = useStampRestaurants();
   const scale = React.useRef(new Animated.Value(1)).current;
   const hasFlashDeal = !!(restaurant as unknown as Record<string, unknown>)["hasFlashDeal"];
   const maxDealPercent = (restaurant as unknown as Record<string, unknown>)["maxDealPercent"] as number | null | undefined;
@@ -105,6 +108,7 @@ export default function RestaurantCard({ restaurant, onPress }: Props) {
           </View>
         )}
 
+        {stampIds.has(restaurant.id) && <StampBadge style={{ bottom: 8, left: 8 }} />}
         <TouchableOpacity
           style={[styles.favBtn, { backgroundColor: "rgba(255,255,255,0.95)" }]}
           onPress={handleFav}

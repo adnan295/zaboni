@@ -142,8 +142,8 @@ export const navigationGroups = [
         "label": "عروض فلاش"
       },
       {
-        "href": "/loyalty",
-        "label": "نقاط الولاء"
+        "href": "/stamps",
+        "label": "اطلب واربح"
       },
       {
         "href": "/referrals",

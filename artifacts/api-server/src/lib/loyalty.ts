@@ -1,6 +1,14 @@
 import { db, usersTable, loyaltyTransactionsTable, systemSettingsTable } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
 
+/**
+ * Customer loyalty points (and referral points) are switched off: no new points
+ * are earned and none can be spent. Balances stay in the database untouched.
+ * They discounted the delivery fee, i.e. the courier's money; restaurant-funded
+ * «اطلب واربح» stamps replace them.
+ */
+export const CUSTOMER_POINTS_ENABLED = false;
+
 const DEFAULT_EARN_RATE = 10;
 const DEFAULT_POINT_VALUE = 1;
 // Points awarded to the referrer when a referred friend completes their first

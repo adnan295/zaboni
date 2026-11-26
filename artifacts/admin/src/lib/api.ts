@@ -621,6 +621,15 @@ export type CourierApplicationItem = {
   zoneId: string | null;
 };
 
+export interface StampProgram {
+  restaurantId: string; enabled: boolean; goal: number; minOrder: number; rewardType: "amount" | "item";
+  rewardAmount: number; rewardItemId: string | null; rewardItemName: string | null; couponDays: number; monthlyCap: number | null;
+}
+export type StampProgramInput = Omit<StampProgram, "restaurantId" | "rewardItemName">;
+export interface StampRestaurantRow {
+  restaurantId: string; restaurantName: string; program: StampProgram | null;
+  stats: { collecting: number; couponsIssued: number; couponsUsed: number; discountGiven: number; couponsThisMonth: number; stampedOrders: number };
+}
 export interface CallLine { id: string; label: string; phone: string; enabled: boolean; lastSeenAt: string | null; online: boolean }
 export interface CallLogRow {
   id: string; lineId: string; orderId: string | null; callerRole: string | null; callerName: string | null;
@@ -1118,6 +1127,11 @@ export const api = {
     apiFetch<{ events: CrashEvent[] }>(`/admin/crashes/${encodeURIComponent(fingerprint)}`),
   updateCrashGroup: (fingerprint: string, body: { muted?: boolean; resolved?: boolean }) =>
     apiFetch<{ ok: boolean }>(`/admin/crashes/${encodeURIComponent(fingerprint)}`, { method: "PATCH", body: JSON.stringify(body) }),
+  getStamps: () => apiFetch<{ restaurants: StampRestaurantRow[] }>("/admin/stamps"),
+  getStampMenu: (restaurantId: string) =>
+    apiFetch<{ items: { id: string; nameAr: string; price: number }[] }>(`/admin/stamps/${restaurantId}/menu`),
+  saveStampProgram: (restaurantId: string, body: StampProgramInput) =>
+    apiFetch<{ program: StampProgram }>(`/admin/stamps/${restaurantId}`, { method: "PUT", body: JSON.stringify(body) }),
   getCallBridge: () => apiFetch<CallBridgeState>("/admin/call-bridge"),
   setCallBridgeEnabled: (enabled: boolean) =>
     apiFetch<{ ok: boolean; masking: boolean }>("/admin/call-bridge/enabled", { method: "PUT", body: JSON.stringify({ enabled }) }),

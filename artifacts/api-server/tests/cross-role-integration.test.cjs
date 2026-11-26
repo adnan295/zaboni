@@ -57,6 +57,8 @@ async function setup() {
     '../lib/courierActivity': { recordAvailability: async () => {}, touchOnlineSession: async () => {}, recordOffers: async () => {} },
     '../lib/courierDirections': { sendCourierDirections: async () => false },
     '../lib/callBridge': { publicLineNumber: () => null, maskCourierPhone: (o) => o },
+    '../lib/stamps': { claimCoupon: async () => ({ discount: 0, note: '' }), releaseCoupon: async () => {}, StampError: class extends Error {} },
+    './stamps': { stampDeliveredOrder: () => {} },
     '../lib/directory': { getPlace: async () => null },
     './directory': { quoteFromPlace: async () => ({ fee: 0, km: 0, outOfArea: false }) },
     '../lib/kitchen': new Proxy({ KitchenError: class extends Error {}, isDay: () => false }, { get: (o, k) => k in o ? o[k] : async () => null }),
@@ -136,21 +138,20 @@ test('admin and courier integration uses persistent data and guarded transitions
   } finally { await s.pg.close(); }
 });
 
-test('shared completion calculates customer/courier/referral rewards and defers push until called after commit', async () => {
+test('shared completion pays the courier back for discounts; customer and referral points are off', async () => {
   const calls = [];
   const tx = { select: () => ({ from: () => ({ where: () => ({ limit: () => ({ for: async () => [{ id: 'ref1', referrerId: 'friend' }] }) }) }) }) };
   const helper = load('lib/orderCompletion.ts', {
     '@workspace/db': { referralsTable: { referredUserId: 'referred', status: 'status' } }, 'drizzle-orm': { and: () => {}, eq: () => {} },
-    './loyalty': { getLoyaltySettings: async () => ({ earnRate: 10 }), awardPointsInTx: async (...args) => calls.push(['customer', ...args.slice(1)]) },
+    './loyalty': { CUSTOMER_POINTS_ENABLED: false, getLoyaltySettings: async () => ({ earnRate: 10 }), awardPointsInTx: async (...args) => calls.push(['customer', ...args.slice(1)]) },
     './courierPoints': { getCourierPointValue: async () => 2, awardCourierPointsInTx: async (...args) => calls.push(['courier', ...args.slice(1)]) },
     './referral': { awardReferralPointsInTx: async (...args) => { calls.push(['referral', ...args.slice(1)]); return 500; } },
     './push': { sendPushToUsers: async (...args) => calls.push(['push', ...args]) },
   });
   const reward = await helper.completeOrderInTx(tx, { id: 'o1', userId: 'u1', courierId: 'c1', totalPrice: 25000, deliveryFee: 5000, courierFeeDiscount: 1000, orderType: 'restaurant' });
-  assert.equal(calls[0][0], 'customer'); assert.equal(calls[0][1], 'u1'); assert.equal(calls[0][3], 25000);
-  assert.deepEqual(calls[1], ['courier', 'c1', 'o1', 1000, 2]);
-  assert.equal(reward.userId, 'friend'); assert.equal(reward.points, 500);
-  assert.equal(calls.some(c => c[0] === 'push'), false);
+  // Customer and referral points are switched off; the courier is still made whole.
+  assert.deepEqual(calls, [['courier', 'c1', 'o1', 1000, 2]]);
+  assert.equal(reward, null);
   helper.notifyReferralReward(reward);
-  assert.equal(calls.at(-1)[0], 'push');
+  assert.equal(calls.some(c => c[0] === 'push'), false);
 });

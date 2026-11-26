@@ -1,3 +1,4 @@
+import { useCheckoutCoupon } from "@/hooks/useStamps";
 import { useQuery } from "@tanstack/react-query";
 import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import {
@@ -113,14 +114,10 @@ export default function OrderRequestScreen() {
 
   const [flashDeal, setFlashDeal] = useState<FlashDealInfo | null>(null);
   const [flashCountdown, setFlashCountdown] = useState<string>("");
-  const [loyaltyInfo, setLoyaltyInfo] = useState<LoyaltyInfo | null>(null);
-  const [usePoints, setUsePoints] = useState(false);
-
-  useEffect(() => {
-    customFetch("/api/users/me/loyalty")
-      .then((data) => setLoyaltyInfo(data as LoyaltyInfo))
-      .catch(() => setLoyaltyInfo(null));
-  }, []);
+  // «اطلب واربح»: a ready coupon from this restaurant is applied unless the customer turns it off.
+  const couponQuery = useCheckoutCoupon(restaurantId ?? undefined);
+  const stampCoupon = couponQuery.data ?? null;
+  const [useCoupon, setUseCoupon] = useState(true);
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -179,6 +176,19 @@ export default function OrderRequestScreen() {
   const effectiveDeliveryFee = deliveryFee;
   const flashItemDiscount = flashDeal && subtotal > 0 ? subtotal - applyFlashDiscount(subtotal) : 0;
   const effectiveSubtotal = subtotal - flashItemDiscount;
+  // An amount coupon comes off the food (never more than it); a free-dish coupon
+  // pays for one of that dish, so the dish must be in the cart.
+  const couponDiscount = (() => {
+    if (!stampCoupon) return 0;
+    if (stampCoupon.rewardType === "item") {
+      const line = cart.entries.find((e) => e.menuItemId === stampCoupon.rewardItemId);
+      return line ? Math.min(line.price, effectiveSubtotal) : 0;
+    }
+    return Math.min(stampCoupon.rewardAmount, effectiveSubtotal);
+  })();
+  const couponUsable = couponDiscount > 0;
+  const couponApplies = !!stampCoupon && useCoupon && couponUsable;
+  const payableItems = effectiveSubtotal - (couponApplies ? couponDiscount : 0);
 
   const checkPromo = useCallback(async (code: string) => {
     if (!code.trim()) {
@@ -294,8 +304,8 @@ export default function OrderRequestScreen() {
         lat,
         lon,
         restaurantId,
-        usePoints,
         flashDealId: flashDeal?.id ?? undefined,
+        stampCouponId: couponApplies ? stampCoupon!.id : undefined,
         restaurantNote: restaurantNote.trim() || undefined,
       });
       cart.clear();
@@ -578,53 +588,30 @@ export default function OrderRequestScreen() {
           </View>
         ) : null}
 
-        {loyaltyInfo !== null && loyaltyInfo.balance > 0 && (
-          <>
-            <TouchableOpacity
-              style={[styles.loyaltyToggleCard, {
-                backgroundColor: usePoints ? "#fdf4ff" : colors.card,
-                borderColor: usePoints ? "#a855f7" : colors.border,
-              }]}
-              onPress={() => setUsePoints((v) => !v)}
-              activeOpacity={0.8}
-            >
-              <MaterialIcons name="stars" size={20} color={usePoints ? "#a855f7" : colors.primary} />
-              <View style={styles.addrInfo}>
-                <Text style={[styles.addrLabel, { color: colors.mutedForeground }]}>{t("loyalty.usePoints")}</Text>
-                <Text style={[styles.addrText, { color: usePoints ? "#7e22ce" : colors.foreground, fontWeight: "700" }]}>
-                  {t("loyalty.usePointsDesc", {
-                    points: loyaltyInfo.balance.toLocaleString(),
-                    discount: loyaltyInfo.redeemDiscount.toLocaleString(),
-                  })}
-                </Text>
-              </View>
-              <View style={[styles.toggleDot, { backgroundColor: usePoints ? "#a855f7" : colors.border }]}>
-                <View style={[styles.toggleInner, { backgroundColor: usePoints ? "#fff" : colors.mutedForeground }]} />
-              </View>
-            </TouchableOpacity>
-
-            {usePoints && feePreview != null && (
-              <View style={[styles.pointsSummaryCard, { backgroundColor: "#f5f3ff", borderColor: "#a855f7" }]}>
-                <MaterialIcons name="receipt-long" size={18} color="#7e22ce" />
-                <View style={styles.addrInfo}>
-                  <View style={styles.summaryRow}>
-                    <Text style={[styles.summaryLabel, { color: "#6b21a8" }]}>{t("orderRequest.deliveryFee")}</Text>
-                    <Text style={[styles.summaryValue, { color: "#6b21a8" }]}>{feePreview.fee.toLocaleString()} ل.س</Text>
-                  </View>
-                  <View style={styles.summaryRow}>
-                    <Text style={[styles.summaryLabel, { color: "#a855f7" }]}>{t("loyalty.appliedDiscount", { amount: Math.min(loyaltyInfo.redeemDiscount, feePreview.fee).toLocaleString() })}</Text>
-                    <Text style={[styles.summaryValue, { color: "#a855f7" }]}>- {Math.min(loyaltyInfo.redeemDiscount, feePreview.fee).toLocaleString()} ل.س</Text>
-                  </View>
-                  <View style={[styles.summaryRow, { marginTop: 4 }]}>
-                    <Text style={[styles.summaryLabel, { color: "#581c87", fontWeight: "800", fontSize: 14 }]}>{t("orderRequest.totalAfterDiscount")}</Text>
-                    <Text style={[styles.summaryValue, { color: "#581c87", fontWeight: "900", fontSize: 15 }]}>
-                      {Math.max(0, feePreview.fee - loyaltyInfo.redeemDiscount).toLocaleString()} ل.س
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            )}
-          </>
+        {/* «اطلب واربح» coupon from this restaurant: on by default, food only. */}
+        {hasItems && stampCoupon && (
+          <TouchableOpacity
+            style={[styles.couponCard, { backgroundColor: colors.card, borderColor: couponApplies ? colors.primary : colors.border }]}
+            onPress={() => couponUsable && setUseCoupon((v) => !v)}
+            activeOpacity={couponUsable ? 0.85 : 1}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: couponApplies, disabled: !couponUsable }}
+          >
+            <View style={[styles.couponIcon, { backgroundColor: colors.secondary }]}>
+              <MaterialIcons name="card-giftcard" size={22} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[styles.couponTitle, { color: colors.foreground }]}>استعمل كوبونك: {stampCoupon.label}</Text>
+              <Text style={[styles.couponSub, { color: couponUsable ? colors.mutedForeground : colors.primaryDark }]}>
+                {couponUsable ? "من أختامك عند هالمطعم" : `زيد «${stampCoupon.label.replace(/ ببلاش$/, "")}» للسلة لتاخده ببلاش`}
+              </Text>
+            </View>
+            <MaterialIcons
+              name={couponApplies ? "check-box" : "check-box-outline-blank"}
+              size={26}
+              color={couponApplies ? colors.primary : colors.mutedForeground}
+            />
+          </TouchableOpacity>
         )}
 
         <View style={[styles.promoCard, {
@@ -674,6 +661,12 @@ export default function OrderRequestScreen() {
                 <Text style={[styles.totalValue, { color: colors.foreground }]}>{subtotal.toLocaleString()} ل.س</Text>
               )}
             </View>
+            {couponApplies && (
+              <View style={styles.totalRow}>
+                <Text style={[styles.totalLabel, { color: colors.success, fontWeight: "700" }]}>الكوبون</Text>
+                <Text style={[styles.totalValue, { color: colors.success, fontWeight: "700" }]}>− {couponDiscount.toLocaleString("en-US")} ل.س</Text>
+              </View>
+            )}
             {hasItems && itemSavings > 0 && (
               <View style={[styles.savingsRow, { backgroundColor: "#f0fdf4", borderColor: "#86efac" }]}>
                 <MaterialIcons name="savings" size={16} color="#16a34a" />
@@ -703,7 +696,7 @@ export default function OrderRequestScreen() {
             <View style={styles.grandRow}>
               <Text style={[styles.grandLabel, { color: colors.foreground }]}>{t("orderRequest.total")}</Text>
               <Text style={[styles.grandValue, { color: colors.primary }]}>
-                {effectiveDeliveryFee == null ? t("orderRequest.waitingForFee") : `${(effectiveSubtotal + effectiveDeliveryFee).toLocaleString()} ل.س`}
+                {effectiveDeliveryFee == null ? t("orderRequest.waitingForFee") : `${(payableItems + effectiveDeliveryFee).toLocaleString()} ل.س`}
               </Text>
             </View>
           </View>
@@ -722,7 +715,7 @@ export default function OrderRequestScreen() {
           </Text>
           {!isSubmitting && canSubmit && effectiveDeliveryFee != null && (
             <Text style={[styles.submitText, { color: "#fff" }]}>
-              {(effectiveSubtotal + effectiveDeliveryFee).toLocaleString("en-US")} ل.س
+              {(payableItems + effectiveDeliveryFee).toLocaleString("en-US")} ل.س
             </Text>
           )}
         </TouchableOpacity>
@@ -849,6 +842,10 @@ const styles = StyleSheet.create({
   addrLabel: { fontSize: 11, fontWeight: "600", marginBottom: 2 },
   addrText: { fontSize: 14, fontWeight: "600" },
   changeAddr: { fontSize: 13, fontWeight: "700" },
+  couponCard: { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 16, borderWidth: 2, padding: 14 },
+  couponIcon: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  couponTitle: { fontSize: 15, fontWeight: "700", textAlign: "left" },
+  couponSub: { fontSize: 13, textAlign: "left" },
   loyaltyToggleCard: {
     flexDirection: "row",
     alignItems: "center",

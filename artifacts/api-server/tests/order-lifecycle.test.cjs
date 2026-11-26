@@ -40,6 +40,8 @@ async function setup(){
   '../lib/directory': { getPlace: async () => null },
   './directory': { quoteFromPlace: async () => ({ fee: 0, km: 0, outOfArea: false }) },
   '../lib/kitchen':new Proxy({KitchenError:class extends Error{},isDay:()=>false},{get:(o,k)=>k in o?o[k]:async()=>null}),
+  '../lib/stamps':{claimCoupon:async()=>({discount:0,note:''}),releaseCoupon:async()=>{},StampError:class extends Error{}},
+  './stamps':{stampDeliveredOrder:id=>events.push({name:'stamp',args:[id]})},
   '../lib/courierDirections':{sendCourierDirections:async(id,stage)=>{events.push({name:'directions',args:[id,stage]});return true;}},
   '../lib/objectStorage':{ObjectStorageService:class{}},'../lib/webPush':{},'../lib/promoBannerComposer':{},'../lib/whatsapp':{},'../lib/sms':{},
  };
@@ -86,7 +88,9 @@ test('complete restaurant order: checkout → restaurant/admin → courier → d
    assert.equal((await s.call('get /courier/orders/active','courier')).body.some(o=>o.id===id),false);
    assert.equal((await s.call('get /orders/:id/courier-location','customer',{}, {id})).statusCode,404);
    assert.equal((await s.call('patch /courier/orders/:orderId/status','courier',{status:'delivered'},{orderId:id})).statusCode,409);
-   const rewards=await s.db.select().from(schema.loyaltyTransactionsTable);assert.equal(rewards.filter(r=>r.orderId===id&&r.type==='earn').length,1);
+   // Customer points are off; delivery hands the order to «اطلب واربح» instead.
+   const rewards=await s.db.select().from(schema.loyaltyTransactionsTable);assert.equal(rewards.filter(r=>r.orderId===id&&r.type==='earn').length,0);
+   assert.equal(s.events.filter(e=>e.name==='stamp'&&e.args[0]===id).length,1);
    const history=await s.pg.query('SELECT status FROM order_status_history WHERE order_id=$1 ORDER BY created_at',[id]);assert.deepEqual(history.rows.map(r=>r.status),['searching','accepted','picked_up','on_way','delivered']);
    // The courier gets the restaurant's map link on accept and the customer's on pickup, once each, in that order.
    assert.deepEqual(s.events.filter(e=>e.name==='directions'&&e.args[0]===id).map(e=>e.args[1]),['to_restaurant','to_customer']);
@@ -98,11 +102,11 @@ test('complete restaurant order: checkout → restaurant/admin → courier → d
    const ratings=await s.db.select().from(schema.orderRatingsTable);assert.equal(ratings[0].restaurantId,'restaurant');assert.equal(ratings[0].courierId,'courier');
   });
 
-  await t.test('searching cancellation persists, refunds points once and disappears from available orders',async()=>{
+  await t.test('searching cancellation persists, leaves points untouched and disappears from available orders',async()=>{
    await s.pg.exec("UPDATE users SET loyalty_points=50 WHERE id='customer'");
    const order=await s.call('post /orders','customer',{restaurantId:'restaurant',lat:33.514,lon:36.277,usePoints:true,items:[{menuItemId:'meal',qty:1}]});
    assert.equal(order.statusCode,201);const cancelId=order.body.id;
-   assert.equal(order.body.pointsRedeemed,50);
+   assert.equal(order.body.pointsRedeemed,0,'points can no longer be spent');
    assert.equal((await s.call('delete /orders/:id','customer',{}, {id:cancelId})).statusCode,200);
    assert.equal((await s.call('delete /orders/:id','customer',{}, {id:cancelId})).statusCode,409);
    assert.equal((await s.call('get /orders/:id','customer',{}, {id:cancelId})).body.status,'cancelled');
@@ -140,7 +144,7 @@ test('complete restaurant order: checkout → restaurant/admin → courier → d
    // Earlier steps' orders are finished from here on, so the checkout tests below start clean.
    await s.pg.exec("UPDATE orders SET status='delivered' WHERE user_id='customer'");
   });
-  await t.test('concurrent keyed checkouts create one order, one ledger debit and one dispatch',async()=>{
+  await t.test('concurrent keyed checkouts create one order, no points debit and one dispatch',async()=>{
    await s.pg.exec("UPDATE users SET loyalty_points=40 WHERE id='customer'");
    const body={restaurantId:'restaurant',lat:33.514,lon:36.277,usePoints:true,items:[{menuItemId:'meal',qty:1}]};
    const headers={'idempotency-key':'concurrent-checkout-001'};
@@ -149,7 +153,7 @@ test('complete restaurant order: checkout → restaurant/admin → courier → d
    assert.deepEqual(results.map(r=>r.statusCode),[201,201]);assert.equal(results[0].body.id,results[1].body.id);
    const id=results[0].body.id;
    assert.equal((await s.pg.query('SELECT count(*)::int n FROM orders')).rows[0].n,countBefore+1);
-   assert.equal((await s.pg.query("SELECT count(*)::int n FROM loyalty_transactions WHERE order_id=$1 AND type='redeem'",[id])).rows[0].n,1);
+   assert.equal((await s.pg.query("SELECT count(*)::int n FROM loyalty_transactions WHERE order_id=$1 AND type='redeem'",[id])).rows[0].n,0);
    assert.equal(s.events.filter(e=>e.name==='dispatch'&&e.args[0]===id).length,1);
    // A price/availability change after commit must not invalidate recovery of that order.
    await s.pg.exec("UPDATE menu_items SET is_available=false WHERE id='meal'");

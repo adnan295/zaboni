@@ -1,6 +1,6 @@
 import { db, ordersTable, referralsTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
-import { getLoyaltySettings, awardPointsInTx } from "./loyalty";
+import { getLoyaltySettings, awardPointsInTx, CUSTOMER_POINTS_ENABLED } from "./loyalty";
 import { awardCourierPointsInTx, getCourierPointValue } from "./courierPoints";
 import { awardReferralPointsInTx } from "./referral";
 import { sendPushToUsers } from "./push";
@@ -10,13 +10,19 @@ export type ReferralReward = { userId: string; points: number } | null;
 // The caller must atomically transition the order to delivered first. Both admin
 // and courier completion use this ledger path; a retry must not award twice.
 export async function completeOrderInTx(tx: Tx, order: typeof ordersTable.$inferSelect): Promise<ReferralReward> {
-  const total = order.totalPrice ?? order.deliveryFee;
-  if (total > 0) {
-    await awardPointsInTx(tx, order.userId, order.id, total, await getLoyaltySettings(), order.orderType);
+  // Customer points and referral points stopped (تشرين التاني 2026): «اطلب واربح»
+  // stamps, funded by each restaurant, replace them (routes/stamps.ts, after commit).
+  if (CUSTOMER_POINTS_ENABLED) {
+    const total = order.totalPrice ?? order.deliveryFee;
+    if (total > 0) {
+      await awardPointsInTx(tx, order.userId, order.id, total, await getLoyaltySettings(), order.orderType);
+    }
   }
+  // Couriers are still compensated in points when a customer discount came off their fee.
   if (order.courierId && order.courierFeeDiscount > 0) {
     await awardCourierPointsInTx(tx, order.courierId, order.id, order.courierFeeDiscount, await getCourierPointValue());
   }
+  if (!CUSTOMER_POINTS_ENABLED) return null;
   const [referral] = await tx.select({ id: referralsTable.id, referrerId: referralsTable.referrerId })
     .from(referralsTable).where(and(eq(referralsTable.referredUserId, order.userId), eq(referralsTable.status, "pending"))).limit(1).for("update");
   if (referral && referral.referrerId !== order.userId) {

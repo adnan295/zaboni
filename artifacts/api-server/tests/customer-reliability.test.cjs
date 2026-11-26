@@ -61,6 +61,8 @@ function load(file, dbState = database(), overrides = {}, expose = '', globals =
     '../lib/courierActivity': { recordAvailability: async () => {}, touchOnlineSession: async () => {}, recordOffers: async () => {} },
     '../lib/courierDirections': { sendCourierDirections: async () => false },
     '../lib/callBridge': { publicLineNumber: () => null, maskCourierPhone: (o) => o },
+    '../lib/stamps': { claimCoupon: async () => ({ discount: 0, note: '' }), releaseCoupon: async () => {}, StampError: class extends Error {} },
+    './stamps': { stampDeliveredOrder: () => {} },
     '../lib/directory': { getPlace: async () => null },
     './directory': { quoteFromPlace: async () => ({ fee: 0, km: 0, outOfArea: false }) },
     '../lib/kitchen': new Proxy({ KitchenError: class extends Error {}, isDay: () => false }, { get: (o, k) => k in o ? o[k] : async () => null }),
@@ -200,12 +202,13 @@ test('closed/missing restaurants and carts below the minimum cannot create an or
   }
 });
 
-test('failed points redemption rejects checkout and rolls back every provisional write', async () => {
+test('points are switched off: asking to spend them never touches the points ledger', async () => {
   const state=database({usersTable:[{id:'u1',loyaltyPoints:100}]});
   state.db.transaction=async fn=>{const n=state.writes.length;try{return await fn(state.db);}catch(e){state.writes.splice(n);throw e;}};
-  const m=load('artifacts/api-server/src/routes/orders.ts',state,{},'',{Error});
+  let redeemed=false;
+  const m=load('artifacts/api-server/src/routes/orders.ts',state,{'../lib/loyalty':{CUSTOMER_POINTS_ENABLED:false,getLoyaltySettings:async()=>({pointValue:1}),calculateRedeemDiscount:(p,v)=>p*v,redeemPointsInTx:async()=>{redeemed=true;}}},'',{Error});
   const res=response();await m.routes.get('post /orders')(request({body:{orderText:'Food',lat:33.5,lon:36.3,usePoints:true}}),res);
-  assert.equal(res.statusCode,409);assert.equal(res.body.error,'loyalty_balance_changed');assert.equal(state.writes.length,0);
+  assert.notEqual(res.body?.error,'loyalty_balance_changed');assert.equal(redeemed,false);
 });
 
 test('food coupon preview uses the cart amount and restaurant',async()=>{

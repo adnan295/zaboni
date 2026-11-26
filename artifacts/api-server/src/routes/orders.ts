@@ -9,7 +9,8 @@ import { z } from "zod";
 import { notifyOrderUpdate, notifyRestaurantNewOrder } from "../orders/server";
 import { haversineKm, getFeeForDistance, DEFAULT_DELIVERY_FEE_SYP, DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON } from "../lib/deliveryZones";
 import { checkCoverage, getActiveCoverageAreas, areaIdsContaining, pointInAllowedArea } from "../lib/coverage";
-import { getLoyaltySettings, calculateRedeemDiscount, redeemPointsInTx, refundRedeemedPointsInTx } from "../lib/loyalty";
+import { getLoyaltySettings, calculateRedeemDiscount, redeemPointsInTx, refundRedeemedPointsInTx, CUSTOMER_POINTS_ENABLED } from "../lib/loyalty";
+import { claimCoupon, releaseCoupon, StampError } from "../lib/stamps";
 import { checkAndAwardAchievements } from "../lib/achievements";
 import { maybeIssueApologyPromo } from "../lib/searchWatch";
 import { isUserSubscribed, getSubscriptionSettings } from "../lib/customerSubscription";
@@ -37,6 +38,8 @@ const createOrderSchema = z
     lon: z.number().min(-180).max(180).optional(),
     restaurantId: z.string().optional(),
     usePoints: z.boolean().optional(),
+    /** A ready «اطلب واربح» coupon for this restaurant. */
+    stampCouponId: z.string().max(40).optional(),
     items: z.array(orderItemInputSchema).max(100).optional(),
     flashDealId: z.string().optional(),
     orderType: z.enum(["restaurant", "errand"]).default("restaurant"),
@@ -910,7 +913,7 @@ router.post("/orders", async (req, res) => {
 
   let loyaltyRedeemData: { points: number; discountAmount: number } | null = null;
   let loyaltyPointValue = 0;
-  if (body.data.usePoints) {
+  if (body.data.usePoints && CUSTOMER_POINTS_ENABLED) {
     const [loyaltySettings, userRow] = await Promise.all([
       getLoyaltySettings(),
       db.select({ loyaltyPoints: usersTable.loyaltyPoints }).from(usersTable).where(eq(usersTable.id, userId)).limit(1),
@@ -930,6 +933,29 @@ router.post("/orders", async (req, res) => {
         );
         loyaltyRedeemData = { points: pointsToRedeem, discountAmount: cappedDiscountAmount };
       }
+    }
+  }
+
+  // «اطلب واربح»: reserve the coupon for this order and work out its discount
+  // (food only). It goes back to the customer if the order is not created.
+  let stampCoupon: { id: string; discount: number; note: string } | null = null;
+  if (body.data.stampCouponId) {
+    try {
+      const claimed = await claimCoupon({
+        userId,
+        couponId: body.data.stampCouponId,
+        restaurantId: effectiveRestaurantId ?? null,
+        orderId: id,
+        items: computedOrderItems.map((ci) => ({ menuItemId: ci.menuItemId ?? null, unitPrice: ci.unitPrice })),
+        itemsTotal: itemsTotal ?? 0,
+      });
+      stampCoupon = { id: body.data.stampCouponId, ...claimed };
+    } catch (e) {
+      if (e instanceof StampError) {
+        res.status(e.status).json({ error: e.code, message: e.message });
+        return;
+      }
+      throw e;
     }
   }
 
@@ -1008,6 +1034,15 @@ router.post("/orders", async (req, res) => {
       }
     }
 
+    // The coupon comes off the food. The restaurant and the courier see it on the
+    // order, so the bill is printed discounted and the courier pays that amount.
+    if (stampCoupon) {
+      const applied = newOrder.totalPrice != null ? Math.min(stampCoupon.discount, newOrder.totalPrice) : 0;
+      if (newOrder.totalPrice != null) newOrder.totalPrice = Math.max(0, newOrder.totalPrice - applied);
+      stampCoupon.discount = applied;
+      newOrder.restaurantNote = [stampCoupon.note, newOrder.restaurantNote].filter(Boolean).join("\n");
+    }
+
     const inserted = await tx.insert(ordersTable).values(newOrder).returning();
     if (computedOrderItems.length > 0) {
       await tx.insert(orderItemsTable).values(computedOrderItems);
@@ -1054,11 +1089,13 @@ router.post("/orders", async (req, res) => {
       })),
       appliedPromo: promoUseData ? true : false,
       appliedFlashDeal: appliedFlashDeal ? true : false,
+      stampDiscount: stampCoupon?.discount ?? 0,
       pointsDiscount: loyaltyRedeemData?.discountAmount ?? 0,
       pointsRedeemed: loyaltyRedeemData?.points ?? 0,
       subscriberDiscount: subscribed,
     };
-  }).catch((error: unknown) => {
+  }).catch(async (error: unknown) => {
+    if (stampCoupon) await releaseCoupon(stampCoupon.id, id).catch(() => {});
     if (error instanceof Error && error.message === "Insufficient loyalty points") return null;
     throw error;
   });

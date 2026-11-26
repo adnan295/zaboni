@@ -31,6 +31,7 @@ import WhatsApp from "@/pages/WhatsApp";
 import Crashes from "@/pages/Crashes";
 import BusinessReports from "@/pages/BusinessReports";
 import CallLine from "@/pages/CallLine";
+import Stamps from "@/pages/Stamps";
 import Kitchen from "@/pages/Kitchen";
 import HomeSections from "@/pages/HomeSections";
 import RestaurantAccounts from "@/pages/RestaurantAccounts";
@@ -82,6 +83,7 @@ function Router({ onLogout }: { onLogout: () => void }) {
         <Route path="/whatsapp" component={WhatsApp} />
         <Route path="/crashes" component={Crashes} />
         <Route path="/call-line" component={CallLine} />
+        <Route path="/stamps" component={Stamps} />
         <Route path="/reports" component={BusinessReports} />
         <Route path="/kitchen" component={Kitchen} />
         <Route path="/home-sections" component={HomeSections} />

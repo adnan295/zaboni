@@ -1,3 +1,4 @@
+import { useMyStamps } from "@/hooks/useStamps";
 import { useTabBarSpace } from "@/hooks/useTabBarSpace";
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
@@ -81,6 +82,7 @@ interface AchievementsData {
 
 export default function ProfileScreen() {
   const colors = useColors();
+  const myStamps = useMyStamps();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
@@ -227,12 +229,9 @@ export default function ProfileScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchApplication();
-      fetchCustomerStats();
-      fetchLoyalty();
-      fetchAchievements();
+      // Points, referrals, achievements and order counts left this page (تشرين التاني 2026).
       fetchSubscriptionStatus();
       void fetchSupportUnread();
-      void fetchReferral();
     }, [fetchApplication, fetchCustomerStats, fetchLoyalty, fetchAchievements, fetchSubscriptionStatus, fetchSupportUnread, fetchReferral])
   );
 
@@ -311,11 +310,13 @@ export default function ProfileScreen() {
     });
   };
 
+  const readyCoupons = myStamps.data?.coupons.length ?? 0;
   const menuItems: MenuItemDef[] = [
     { icon: "receipt-long", label: t("profile.menu.orders"), onPress: () => router.navigate("/(tabs)/orders" as any), badge: orders.length > 0 ? orders.length : undefined },
     { icon: "favorite", label: t("profile.menu.favorites"), onPress: () => router.push("/favorites"), badge: favorites.length > 0 ? favorites.length : undefined },
     { icon: "location-on", label: t("profile.menu.addresses"), onPress: () => router.push("/addresses") },
-    { icon: "stars", label: t("loyalty.viewHistory"), onPress: () => router.push("/loyalty-history") },
+    // «اطلب واربح»: a plain row to «أختامي», with the number of coupons ready to use.
+    ...(!isCourier ? [{ icon: "card-giftcard" as const, label: "أختامي", onPress: () => router.push("/stamps" as any), badge: readyCoupons > 0 ? readyCoupons : undefined }] : []),
     { icon: "local-shipping", label: t("subscription.menuLabel"), onPress: () => router.push("/subscription") },
     { icon: "notifications", label: t("profile.menu.notifications"), onPress: () => router.push("/notifications"), badge: unreadCount > 0 ? unreadCount : undefined },
     { icon: "payment", label: t("profile.menu.payments"), onPress: () => router.push("/payment-info") },
@@ -373,186 +374,6 @@ export default function ProfileScreen() {
           </View>
         )}
       </View>
-
-        {/* Stats — hidden while everything would read 0 */}
-        {(statsLoading || (customerStats?.totalOrders ?? orders.length) > 0 || favorites.length > 0) && (
-        <View style={[styles.statsRow, { backgroundColor: colors.card }]}>
-          <View style={styles.stat}>
-            <Text style={[styles.statNum, { color: colors.primary }]}>
-              {statsLoading ? "..." : (customerStats?.totalOrders ?? orders.length)}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{t("profile.stats.orders")}</Text>
-          </View>
-          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          <View style={styles.stat}>
-            <Text style={[styles.statNum, { color: colors.primary }]}>
-              {statsLoading ? "..." : (customerStats?.completedOrders ?? 0)}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{t("profile.stats.completed")}</Text>
-          </View>
-          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          <View style={styles.stat}>
-            <Text style={[styles.statNum, { color: colors.primary }]}>{favorites.length}</Text>
-            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{t("profile.stats.favorites")}</Text>
-          </View>
-        </View>
-        )}
-
-
-        {/* Loyalty card */}
-        {!isCourier && loyaltyData !== null && (
-          <TouchableOpacity
-            style={[styles.loyaltyCard, { backgroundColor: colors.secondary }]}
-            onPress={() => router.push("/loyalty-history")}
-            activeOpacity={0.85}
-          >
-            <View style={styles.loyaltyLeft}>
-              <MaterialIcons name="stars" size={28} color={colors.primary} />
-              <View>
-                <Text style={styles.loyaltyLabel}>{t("loyalty.balance")}</Text>
-                <Text style={styles.loyaltyPoints}>
-                  {loyaltyData.balance.toLocaleString()} {t("loyalty.points")}
-                </Text>
-                {loyaltyData.redeemDiscount > 0 && (
-                  <Text style={styles.loyaltyValue}>
-                    {t("loyalty.redeemValue", { amount: loyaltyData.redeemDiscount.toLocaleString() })}
-                  </Text>
-                )}
-                {loyaltyData.balance === 0 && (
-                  <Text style={styles.loyaltyValue}>{t("loyalty.noPointsHint")}</Text>
-                )}
-              </View>
-            </View>
-            <MaterialIcons name="chevron-left" size={22} color={colors.primaryDark} />
-          </TouchableOpacity>
-        )}
-
-        {/* Referral card */}
-        {!isCourier && referralCode !== null && (
-          <View style={[styles.achievementsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.referralHeader}>
-              <MaterialIcons name="card-giftcard" size={22} color={colors.primary} />
-              <Text style={[styles.achievementsSectionTitle, { color: colors.foreground, marginBottom: 0, flex: 1, marginLeft: 8 }]}>
-                {t("referral.title")}
-              </Text>
-            </View>
-
-            <Text style={[styles.infoLabel, { color: colors.mutedForeground, marginTop: 12, marginBottom: 6 }]}>
-              {t("referral.codeLabel")}
-            </Text>
-            <View style={styles.referralCodeRow}>
-              <Text style={[styles.referralCode, { color: colors.primary, borderColor: colors.primary + "40", backgroundColor: colors.primary + "10" }]}>
-                {referralCode}
-              </Text>
-              <TouchableOpacity
-                style={[styles.referralBtn, { backgroundColor: colors.secondary }]}
-                onPress={async () => {
-                  await Clipboard.setStringAsync(referralCode);
-                  setCodeCopied(true);
-                  setTimeout(() => setCodeCopied(false), 2000);
-                }}
-              >
-                <MaterialIcons name={codeCopied ? "check" : "content-copy"} size={18} color={colors.primary} />
-                <Text style={[styles.referralBtnText, { color: colors.primary }]}>
-                  {codeCopied ? t("referral.copied") : t("referral.copy")}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.referralBtn, { backgroundColor: colors.secondary }]}
-                onPress={() => {
-                  Share.share({ message: `${t("referral.codeLabel")}: ${referralCode}` });
-                }}
-              >
-                <MaterialIcons name="share" size={18} color={colors.primary} />
-                <Text style={[styles.referralBtnText, { color: colors.primary }]}>{t("referral.share")}</Text>
-              </TouchableOpacity>
-            </View>
-
-            {referralStats !== null && (
-              <View style={styles.referralStatsRow}>
-                <View style={styles.referralStatItem}>
-                  <Text style={[styles.referralStatValue, { color: colors.foreground }]}>
-                    {referralStats.totalReferrals}
-                  </Text>
-                  <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>{t("referral.totalReferrals")}</Text>
-                </View>
-                <View style={[styles.referralStatDivider, { backgroundColor: colors.border }]} />
-                <View style={styles.referralStatItem}>
-                  <Text style={[styles.referralStatValue, { color: "#16a34a" }]}>
-                    {referralStats.totalEarned.toLocaleString()} {t("loyalty.points")}
-                  </Text>
-                  <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>{t("referral.totalEarned")}</Text>
-                </View>
-              </View>
-            )}
-
-            <View style={[styles.referralSteps, { backgroundColor: colors.secondary, borderRadius: 12, padding: 12, marginTop: 12 }]}>
-              <Text style={[styles.achievementsSectionTitle, { color: colors.foreground, marginBottom: 8, fontSize: 13 }]}>
-                {t("referral.howItWorksTitle")}
-              </Text>
-              {[t("referral.step1"), t("referral.step2"), t("referral.step3")].map((step, i) => (
-                <View key={i} style={styles.referralStep}>
-                  <View style={[styles.referralStepNum, { backgroundColor: colors.primary }]}>
-                    <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>{i + 1}</Text>
-                  </View>
-                  <Text style={[{ color: colors.foreground, fontSize: 13, flex: 1 }]}>{step}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Achievements */}
-        {!isCourier && achievementsData !== null && (
-          <View style={[styles.achievementsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.achievementsSectionTitle, { color: colors.foreground }]}>
-              {t("achievements.sectionTitle")}
-            </Text>
-            <View style={styles.achievementsGrid}>
-              {achievementsData.achievements.map((ach) => (
-                <View
-                  key={ach.key}
-                  style={[
-                    styles.achievementItem,
-                    ach.earned
-                      ? { backgroundColor: colors.primary + "15", borderColor: colors.primary + "40" }
-                      : { backgroundColor: colors.secondary, borderColor: colors.border },
-                  ]}
-                >
-                  <Text style={[styles.achievementIcon, { opacity: ach.earned ? 1 : 0.35 }]}>
-                    {ach.icon}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.achievementTitle,
-                      { color: ach.earned ? colors.foreground : colors.mutedForeground },
-                    ]}
-                    numberOfLines={2}
-                  >
-                    {ach.titleAr}
-                  </Text>
-                  {ach.earned ? (
-                    <View style={[styles.earnedBadge, { backgroundColor: colors.primary }]}>
-                      <MaterialIcons name="check" size={10} color="#fff" />
-                    </View>
-                  ) : (
-                    <View style={styles.progressBarBg}>
-                      <View
-                        style={[
-                          styles.progressBarFill,
-                          {
-                            backgroundColor: colors.primary,
-                            width: `${Math.round((ach.progress / ach.threshold) * 100)}%` as unknown as number,
-                          },
-                        ]}
-                      />
-                    </View>
-                  )}
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
 
         {/* Courier section */}
         {appLoading ? (
