@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { View } from "react-native";
-import { TILE_URL } from "@/utils/mapTiles";
+import { MAP_HEAD, baseLayerJs } from "@/utils/mapTiles";
 import WebView, { WebViewMessageEvent } from "react-native-webview";
 import type { Coords } from "@/utils/geo";
 
@@ -25,10 +25,9 @@ const MAP_HTML = `<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+${MAP_HEAD}
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"><\/script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -44,7 +43,7 @@ html, body, #map { width: 100%; height: 100%; }
 </head><body><div id="map"></div>
 <script>
 var map = L.map('map', { zoomControl: false }).setView([34.7324, 36.7137], 14);
-L.tileLayer('${TILE_URL}', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+${baseLayerJs("map")}
 var cluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 45 });
 map.addLayer(cluster);
 var home = null;

@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { View, StyleSheet } from "react-native";
-import { TILE_URL } from "@/utils/mapTiles";
+import { MAP_HEAD, baseLayerJs } from "@/utils/mapTiles";
 import WebView, { WebViewMessageEvent } from "react-native-webview";
 
 export interface CourierMapProps {
@@ -18,8 +18,7 @@ function makeMapHtml(destLat: number, destLon: number): string {
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+${MAP_HEAD}
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body, #map { width: 100%; height: 100%; }
@@ -30,7 +29,7 @@ html, body, #map { width: 100%; height: 100%; }
 <div id="map"></div>
 <script>
 var map = L.map('map').setView([${destLat}, ${destLon}], 15);
-L.tileLayer('${TILE_URL}', { maxZoom: 19 }).addTo(map);
+${baseLayerJs("map")}
 
 var destIcon = L.divIcon({
   className: '',

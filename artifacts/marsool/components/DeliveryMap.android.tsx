@@ -1,9 +1,9 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { View } from "react-native";
-import { TILE_URL } from "@/utils/mapTiles";
+import { MAP_HEAD, baseLayerJs } from "@/utils/mapTiles";
 import WebView, { WebViewMessageEvent } from "react-native-webview";
 import { Coords } from "@/utils/geo";
-import { MAP_GROUND, mapFrameKey, PIN_HTML, ROUTE_DARK, ROUTE_LIGHT, TILE_FILTER, type TripLine } from "@/components/deliveryMapShared";
+import { MAP_GROUND, mapFrameKey, PIN_HTML, ROUTE_DARK, ROUTE_LIGHT, type TripLine } from "@/components/deliveryMapShared";
 
 interface DeliveryMapProps {
   /** The delivery address the customer picked (not where their phone is right now). */
@@ -24,22 +24,20 @@ const MAP_HTML = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+${MAP_HEAD}
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body, #map { width: 100%; height: 100%; }
 .leaflet-control-zoom { display: none !important; }
 .leaflet-control-attribution { font-size: 9px; opacity: 0.7; }
 .leaflet-container { background: ${MAP_GROUND}; }
-.leaflet-tile-pane { filter: ${TILE_FILTER}; }
 </style>
 </head>
 <body>
 <div id="map"></div>
 <script>
 var map = L.map('map', { zoomControl: false }).setView([34.7324, 36.7137], 14);
-L.tileLayer('${TILE_URL}', { maxZoom: 19 }).addTo(map);
+${baseLayerJs("map")}
 
 var homeMarker = null;
 var restaurantMarker = null;

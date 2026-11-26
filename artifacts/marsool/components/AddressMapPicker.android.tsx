@@ -13,7 +13,7 @@ import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 import { Coords, HOMS_CENTER, isWithinCoverage } from "@/utils/geo";
 import { useCoverageAreas } from "@/hooks/useCoverageAreas";
-import { TILE_URL } from "@/utils/mapTiles";
+import { MAP_HEAD, baseLayerJs } from "@/utils/mapTiles";
 import WebView, { WebViewMessageEvent } from "react-native-webview";
 
 const MAP_HTML = `<!DOCTYPE html>
@@ -21,8 +21,7 @@ const MAP_HTML = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+${MAP_HEAD}
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body, #map { width: 100%; height: 100%; overflow: hidden; }
@@ -36,7 +35,7 @@ var lat = ${HOMS_CENTER.latitude};
 var lng = ${HOMS_CENTER.longitude};
 
 var map = L.map('map', { zoomControl: true }).setView([lat, lng], 14);
-L.tileLayer('${TILE_URL}', { maxZoom: 19 }).addTo(map);
+${baseLayerJs("map")}
 
 var pinIcon = L.divIcon({
   className: '',
