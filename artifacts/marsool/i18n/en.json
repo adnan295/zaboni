@@ -455,7 +455,7 @@
     "hint": "Example: I want a cola and chicken shawarma from Al-Shater Hassan",
     "placeholder": "Write what you want to order in detail...",
     "deliveryAddress": "Delivery Address",
-    "currentLocation": "Current Location",
+    "currentLocation": "My current location",
     "changeAddress": "Change",
     "howItWorks": "How does it work?",
     "steps": [
@@ -498,7 +498,16 @@
     "reviewTitle": "Review your order",
     "fromRestaurant": "From {{name}}",
     "etaTitle": "Arrives in {{range}} min",
-    "etaSub": "Based on this restaurant and couriers right now"
+    "etaSub": "Based on this restaurant and couriers right now",
+    "deliverTo": "Delivering to",
+    "currentLocationHint": "Where your phone is now",
+    "currentLocationAddress": "My current location (from the phone)",
+    "farTitle": "You're {{distance}} away from “{{place}}”",
+    "farQuestion": "Where should we deliver?",
+    "farHere": "To where I am now",
+    "farKeep": "To “{{place}}” as set",
+    "farKeepHint": "e.g. for someone else",
+    "farWhy": "We ask because people often order while away and the courier goes to the wrong place"
   },
   "payment": {
     "cashOnDelivery": "Cash on Delivery 💵",

@@ -1,3 +1,6 @@
+import * as Location from "expo-location";
+import AddressPreviewMap from "@/components/AddressPreviewMap";
+import { farFromAddress, distanceLabel } from "@/utils/addressGuard";
 import { useCheckoutCoupon } from "@/hooks/useStamps";
 import { useQuery } from "@tanstack/react-query";
 import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
@@ -11,6 +14,8 @@ import {
   KeyboardAvoidingView,
   Alert,
   ActivityIndicator,
+  Modal,
+  Pressable,
 } from "react-native";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -109,8 +114,13 @@ export default function OrderRequestScreen() {
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : insets.bottom;
 
-  const addrLat = defaultAddress?.latitude;
-  const addrLon = defaultAddress?.longitude;
+  // «لموقعي الحالي» from the far-from-address check replaces the saved address
+  // for this order only.
+  const [deliverHere, setDeliverHere] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [farAsk, setFarAsk] = useState<{ meters: number; phone: { latitude: number; longitude: number }; fee: number | null } | null>(null);
+  const [askedFar, setAskedFar] = useState(false);
+  const addrLat = deliverHere?.latitude ?? defaultAddress?.latitude;
+  const addrLon = deliverHere?.longitude ?? defaultAddress?.longitude;
 
   const [flashDeal, setFlashDeal] = useState<FlashDealInfo | null>(null);
   const [flashCountdown, setFlashCountdown] = useState<string>("");
@@ -281,14 +291,59 @@ export default function OrderRequestScreen() {
       );
       return;
     }
+    // Ordering away from the saved address? Ask once before the courier drives to the wrong place.
+    if (!deliverHere && !askedFar) {
+      setIsSubmitting(true);
+      const far = await checkFarFromAddress({ latitude: defaultAddress.latitude, longitude: defaultAddress.longitude });
+      setIsSubmitting(false);
+      if (far) {
+        setFarAsk(far);
+        return;
+      }
+    }
+    await sendOrder(deliverHere);
+  };
+
+  /** Where the phone is, when the customer already allowed location; never prompts. */
+  const checkFarFromAddress = async (address: { latitude: number; longitude: number }) => {
+    try {
+      const perm = await Location.getForegroundPermissionsAsync();
+      if (!perm.granted) return null;
+      const fix = (await Location.getLastKnownPositionAsync({ maxAge: 2 * 60_000 }))
+        ?? (await Promise.race([
+          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+          new Promise<null>((r) => setTimeout(() => r(null), 4000)),
+        ]));
+      if (!fix) return null;
+      const phone = { latitude: fix.coords.latitude, longitude: fix.coords.longitude };
+      const meters = farFromAddress({ ...phone, accuracy: fix.coords.accuracy }, address);
+      if (meters == null) return null;
+      let fee: number | null = null;
+      try {
+        const params = new URLSearchParams({ lat: String(phone.latitude), lon: String(phone.longitude) });
+        if (restaurantId) params.set("restaurantId", restaurantId);
+        const preview = await customFetch(`/api/delivery-fee-preview?${params}`) as FeePreview;
+        fee = typeof preview?.fee === "number" ? preview.fee : null;
+      } catch {
+        fee = null;
+      }
+      return { meters, phone, fee };
+    } catch {
+      return null; // no GPS answer: never block an order on it
+    }
+  };
+
+  const sendOrder = async (here: { latitude: number; longitude: number } | null) => {
+    if (!defaultAddress) return;
     setIsSubmitting(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const address = defaultAddress.address?.trim()
+    const savedAddress = defaultAddress.address?.trim()
       ? `${defaultAddress.label} — ${defaultAddress.address.trim()}`
       : defaultAddress.label;
+    const address = here ? t("orderRequest.currentLocationAddress") : savedAddress;
     const appliedPromo = promoStatus === "valid" && promoCode.trim() ? promoCode.trim() : undefined;
-    const lat = defaultAddress.latitude ?? undefined;
-    const lon = defaultAddress.longitude ?? undefined;
+    const lat = here?.latitude ?? defaultAddress.latitude ?? undefined;
+    const lon = here?.longitude ?? defaultAddress.longitude ?? undefined;
     const items = cartEntries.map((e) => ({
       menuItemId: e.menuItemId,
       qty: e.qty,
@@ -515,25 +570,47 @@ export default function OrderRequestScreen() {
           </View>
         )}
 
-        <TouchableOpacity
-          style={[styles.addressRow, {
-            backgroundColor: colors.card,
-            borderColor: defaultAddress ? colors.border : "#ef4444",
-          }]}
-          onPress={() => router.push("/addresses")}
-          activeOpacity={0.8}
-        >
-          <MaterialIcons name="location-on" size={20} color={defaultAddress ? colors.primary : "#ef4444"} />
-          <View style={styles.addrInfo}>
-            <Text style={[styles.addrLabel, { color: colors.mutedForeground }]}>{t("orderRequest.deliveryAddress")}</Text>
-            <Text style={[styles.addrText, { color: defaultAddress ? colors.foreground : "#ef4444" }]}>
-              {defaultAddress?.label ?? t("orderRequest.noAddressTitle")}
-            </Text>
+        {/* Where it goes, impossible to miss: a small map with the pin, then the address. */}
+        {defaultAddress && addrLat != null && addrLon != null ? (
+          <View style={[styles.addressCard, { backgroundColor: colors.card }]}>
+            <AddressPreviewMap latitude={addrLat} longitude={addrLon} pinColor={colors.primary} />
+            <View style={styles.addressCardBody}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={[styles.addrLabel, { color: colors.mutedForeground }]}>{t("orderRequest.deliverTo")}</Text>
+                <Text style={[styles.addressTitle, { color: colors.foreground }]} numberOfLines={1}>
+                  {deliverHere ? t("orderRequest.currentLocation") : defaultAddress.label}
+                </Text>
+                <Text style={[styles.addressDetail, { color: colors.mutedForeground }]} numberOfLines={2}>
+                  {deliverHere ? t("orderRequest.currentLocationHint") : (defaultAddress.address?.trim() || defaultAddress.label)}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.changeBtn, { borderColor: colors.primary }]}
+                onPress={() => { setDeliverHere(null); setAskedFar(false); router.push("/addresses"); }}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.changeBtnText, { color: colors.primaryDark }]}>{t("orderRequest.changeAddress")}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          <Text style={[styles.changeAddr, { color: colors.primary }]}>
-            {defaultAddress ? t("orderRequest.changeAddress") : t("orderRequest.addAddress")}
-          </Text>
-        </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.addressRow, { backgroundColor: colors.card, borderColor: "#ef4444" }]}
+            onPress={() => router.push("/addresses")}
+            activeOpacity={0.8}
+          >
+            <MaterialIcons name="location-on" size={20} color="#ef4444" />
+            <View style={styles.addrInfo}>
+              <Text style={[styles.addrLabel, { color: colors.mutedForeground }]}>{t("orderRequest.deliveryAddress")}</Text>
+              <Text style={[styles.addrText, { color: "#ef4444" }]}>
+                {defaultAddress?.label ?? t("orderRequest.noAddressTitle")}
+              </Text>
+            </View>
+            <Text style={[styles.changeAddr, { color: colors.primary }]}>
+              {defaultAddress ? t("orderRequest.setLocation") : t("orderRequest.addAddress")}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         <View style={[styles.addressRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <MaterialIcons name="payments" size={20} color={colors.primary} />
@@ -721,6 +798,61 @@ export default function OrderRequestScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* «إنت بعيد عن العنوان»: asked once per order, only when the phone is clearly elsewhere. */}
+      <Modal visible={farAsk != null} transparent animationType="slide" onRequestClose={() => setFarAsk(null)}>
+        <Pressable style={styles.sheetBackdrop} onPress={() => setFarAsk(null)} accessibilityLabel={t("common.cancel")} />
+        {farAsk && defaultAddress && (
+          <View style={[styles.sheet, { backgroundColor: colors.card, paddingBottom: bottomPadding + 20 }]} accessibilityViewIsModal>
+            <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
+            <View style={[styles.sheetIcon, { backgroundColor: colors.offer }]}>
+              <MaterialIcons name="wrong-location" size={28} color={colors.warning} />
+            </View>
+            <Text style={[styles.sheetTitle, { color: colors.foreground }]}>
+              {t("orderRequest.farTitle", { place: defaultAddress.label, distance: distanceLabel(farAsk.meters) })}
+            </Text>
+            <Text style={[styles.sheetSub, { color: colors.mutedForeground }]}>{t("orderRequest.farQuestion")}</Text>
+
+            <TouchableOpacity
+              style={[styles.sheetOption, { borderColor: colors.primary, backgroundColor: colors.secondary, borderWidth: 2 }]}
+              onPress={() => { const here = farAsk.phone; setDeliverHere(here); setFarAsk(null); void sendOrder(here); }}
+              accessibilityRole="button"
+            >
+              <View style={[styles.sheetOptionIcon, { backgroundColor: colors.card }]}>
+                <MaterialIcons name="my-location" size={22} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={[styles.sheetOptionTitle, { color: colors.foreground }]}>{t("orderRequest.farHere")}</Text>
+                <Text style={[styles.sheetOptionSub, { color: colors.mutedForeground }]}>{t("orderRequest.currentLocationHint")}</Text>
+              </View>
+              {farAsk.fee != null && (
+                <Text style={[styles.sheetFee, { color: colors.primaryDark }]}>{farAsk.fee.toLocaleString("en-US")} ل.س</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.sheetOption, { borderColor: colors.border, borderWidth: 1.5 }]}
+              onPress={() => { setAskedFar(true); setFarAsk(null); void sendOrder(null); }}
+              accessibilityRole="button"
+            >
+              <View style={[styles.sheetOptionIcon, { backgroundColor: colors.muted }]}>
+                <MaterialIcons name="home" size={22} color={colors.foreground} />
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={[styles.sheetOptionTitle, { color: colors.foreground }]}>{t("orderRequest.farKeep", { place: defaultAddress.label })}</Text>
+                <Text style={[styles.sheetOptionSub, { color: colors.mutedForeground }]} numberOfLines={1}>
+                  {defaultAddress.address?.trim() || defaultAddress.label} · {t("orderRequest.farKeepHint")}
+                </Text>
+              </View>
+              {deliveryFee != null && (
+                <Text style={[styles.sheetFee, { color: colors.foreground }]}>{deliveryFee.toLocaleString("en-US")} ل.س</Text>
+              )}
+            </TouchableOpacity>
+
+            <Text style={[styles.sheetNote, { color: colors.mutedForeground }]}>{t("orderRequest.farWhy")}</Text>
+          </View>
+        )}
+      </Modal>
+
       <ItemNoteModal
         visible={editNoteItem != null}
         item={editNoteItem}
@@ -790,6 +922,24 @@ const styles = StyleSheet.create({
   },
   textArea: { fontSize: 15, lineHeight: 24, minHeight: 120 },
   charCount: { textAlign: "left", fontSize: 12 },
+  addressCard: { borderRadius: 16, overflow: "hidden", shadowColor: "#111827", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 2 },
+  addressCardBody: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
+  addressTitle: { fontSize: 18, fontWeight: "800", textAlign: "left" },
+  addressDetail: { fontSize: 14, textAlign: "left" },
+  changeBtn: { height: 40, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
+  changeBtnText: { fontSize: 14, fontWeight: "800" },
+  sheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(17,24,39,0.45)" },
+  sheet: { position: "absolute", left: 0, right: 0, bottom: 0, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 16, paddingTop: 10, gap: 12 },
+  sheetHandle: { alignSelf: "center", width: 40, height: 5, borderRadius: 3 },
+  sheetIcon: { alignSelf: "center", width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center" },
+  sheetTitle: { fontSize: 20, fontWeight: "800", textAlign: "center" },
+  sheetSub: { fontSize: 15, textAlign: "center", marginTop: -6 },
+  sheetOption: { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12 },
+  sheetOptionIcon: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
+  sheetOptionTitle: { fontSize: 16, fontWeight: "800", textAlign: "left" },
+  sheetOptionSub: { fontSize: 13, textAlign: "left" },
+  sheetFee: { fontSize: 14, fontWeight: "800" },
+  sheetNote: { fontSize: 12, textAlign: "center" },
   addressRow: {
     flexDirection: "row",
     alignItems: "center",

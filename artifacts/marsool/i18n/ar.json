@@ -455,7 +455,7 @@
     "hint": "مثال: بدي كولا وشاورما دجاج من عند الشاطر حسن",
     "placeholder": "اكتب ما تريد طلبه بالتفصيل...",
     "deliveryAddress": "عنوان التوصيل",
-    "currentLocation": "الموقع الحالي",
+    "currentLocation": "موقعي الحالي",
     "changeAddress": "تغيير",
     "howItWorks": "كيف يعمل؟",
     "steps": [
@@ -498,7 +498,16 @@
     "reviewTitle": "راجع طلبك",
     "fromRestaurant": "من {{name}}",
     "etaTitle": "بيوصلك خلال {{range}} دقيقة",
-    "etaSub": "حسب سرعة هالمطعم والمناديب هلق"
+    "etaSub": "حسب سرعة هالمطعم والمناديب هلق",
+    "deliverTo": "رح نوصّل لـ",
+    "currentLocationHint": "حسب موقع تلفونك هلق",
+    "currentLocationAddress": "موقعي الحالي (حسب موقع التلفون)",
+    "farTitle": "إنت هلق بعيد عن «{{place}}» {{distance}}",
+    "farQuestion": "وين بدك نوصّل الطلب؟",
+    "farHere": "لموقعي الحالي",
+    "farKeep": "لـ«{{place}}» متل ما هو",
+    "farKeepHint": "مثلاً لحدا تاني",
+    "farWhy": "منسألك لأن ناس كتير بتطلب وهي برّا البيت، والمندوب بيوصل عالمكان الغلط"
   },
   "payment": {
     "cashOnDelivery": "الدفع عند الاستلام 💵",
