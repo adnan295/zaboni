@@ -1,0 +1,68 @@
+name: Zaboni OTA update
+
+# Sends a JavaScript-only update to phones already running a store version,
+# from our own server (api-server routes/ota.ts). Native changes (new libraries,
+# permissions, icons) still need a store build.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Store version the phones run (x.y.z) — the update goes only to that version'
+        required: true
+      platforms:
+        type: choice
+        options: [ios-and-android, ios, android]
+        default: ios-and-android
+      message:
+        description: 'What changed (shown in the admin dashboard)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+concurrency:
+  group: zaboni-ota-update
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: '1'
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_BUILD: '1'
+      EXPO_PUBLIC_API_HOST: zaboni.site
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install locked dependencies
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.26.1 --activate
+          pnpm install --frozen-lockfile
+      - name: Prepare the app config for this store version
+        run: node ci/mobile-release.mjs configure
+      - name: Export the JavaScript bundles
+        working-directory: artifacts/marsool
+        run: |
+          case "${{ inputs.platforms }}" in
+            ios) P="--platform ios" ;;
+            android) P="--platform android" ;;
+            *) P="--platform ios --platform android" ;;
+          esac
+          npx expo export $P --output-dir dist-ota
+          npx expo config --type public --json > dist-ota/expoConfig.json
+      - name: Publish to zaboni.site
+        env:
+          OTA_URL: https://zaboni.site
+          OTA_PUBLISH_TOKEN: ${{ secrets.OTA_PUBLISH_TOKEN }}
+          OTA_MESSAGE: ${{ inputs.message }}
+          OTA_PLATFORMS: ${{ inputs.platforms == 'ios' && 'ios' || inputs.platforms == 'android' && 'android' || 'ios,android' }}
+        run: node ci/ota-publish.mjs
