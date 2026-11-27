@@ -146,6 +146,10 @@ export const navigationGroups = [
         "label": "اطلب واربح"
       },
       {
+        "href": "/directory",
+        "label": "دليل حمص"
+      },
+      {
         "href": "/referrals",
         "label": "الإحالات والمحافظ"
       },

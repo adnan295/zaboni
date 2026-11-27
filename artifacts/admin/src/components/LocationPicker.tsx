@@ -29,6 +29,8 @@ interface Props {
   lat: number | null;
   lon: number | null;
   onChange: (lat: number, lon: number) => void;
+  /** Where the map opens when there is no pin yet (default: Damascus). */
+  center?: [number, number];
 }
 
 function ClickHandler({ onChange }: { onChange: (lat: number, lon: number) => void }) {
@@ -52,8 +54,8 @@ function FlyTo({ lat, lon }: { lat: number | null; lon: number | null }) {
   return null;
 }
 
-export default function LocationPicker({ lat, lon, onChange }: Props) {
-  const center: [number, number] = lat !== null && lon !== null ? [lat, lon] : DAMASCUS;
+export default function LocationPicker({ lat, lon, onChange, center: start = DAMASCUS }: Props) {
+  const center: [number, number] = lat !== null && lon !== null ? [lat, lon] : start;
   const hasPin = lat !== null && lon !== null;
 
   return (

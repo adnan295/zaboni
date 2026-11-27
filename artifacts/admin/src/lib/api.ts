@@ -1110,6 +1110,11 @@ export const api = {
     apiFetch<SlaAlert[]>(`/admin/sla-alerts?minAge=${minAge}`),
   markOrderedFromRestaurant: (orderId: string) =>
     apiFetch<{ ok: boolean; orderedAt: string }>(`/admin/orders/${encodeURIComponent(orderId)}/ordered-from-restaurant`, { method: "POST" }),
+  getDirectoryPlaces: () => apiFetch<DirectoryPlace[]>("/admin/directory/places"),
+  saveDirectoryPlaces: (places: DirectoryPlaceInput[]) =>
+    apiFetch<{ saved: number; rejected: { index: number; reason: string }[] }>("/admin/directory/places", { method: "POST", body: JSON.stringify(places) }),
+  deleteDirectoryPlace: (id: string) =>
+    apiFetch<{ deleted: boolean }>(`/admin/directory/places/${encodeURIComponent(id)}`, { method: "DELETE" }),
   getOtaUpdates: () => apiFetch<{ targets: OtaTarget[] }>("/admin/ota"),
   rollbackOta: (runtime: string, platform: string) =>
     apiFetch<{ id: string | null }>("/admin/ota/rollback", { method: "POST", body: JSON.stringify({ runtime, platform }) }),
@@ -1234,6 +1239,25 @@ export type SlaAlert = {
   total?: number | null;
   restaurantPhone?: string | null;
 };
+
+export type DirectoryMenuSection = { title: string; items: string[] };
+
+/** A place in «دليل حمص» (api-server lib/directory). No menu = a free-text order page. */
+export type DirectoryPlace = {
+  id: string;
+  nameAr: string;
+  phone: string;
+  lat: number;
+  lon: number;
+  district: string;
+  category: string;
+  menu: DirectoryMenuSection[];
+  menuImages: string[];
+  logo: string | null;
+  isPublished: boolean;
+};
+
+export type DirectoryPlaceInput = Partial<Omit<DirectoryPlace, "nameAr" | "lat" | "lon">> & { nameAr: string; lat: number; lon: number };
 
 export type OtaTarget = {
   runtime: string;
