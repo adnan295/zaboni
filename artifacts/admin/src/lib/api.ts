@@ -1121,6 +1121,10 @@ export const api = {
   getAppVersion: () => apiFetch<AppVersionSettings>("/admin/app-version"),
   saveAppVersion: (body: AppVersionSettings) =>
     apiFetch<AppVersionSettings>("/admin/app-version", { method: "PUT", body: JSON.stringify(body) }),
+  getMetaAds: () => apiFetch<MetaAdsSettings>("/admin/meta-ads"),
+  saveMetaAds: (body: MetaAdsSave) =>
+    apiFetch<MetaAdsSettings>("/admin/meta-ads", { method: "PUT", body: JSON.stringify(body) }),
+  checkMetaAds: () => apiFetch<{ ok: boolean; name?: string; error?: string }>("/admin/meta-ads/check", { method: "POST" }),
   getAutoPrep: () => apiFetch<AutoPrepSettings>("/admin/order-prep/settings"),
   saveAutoPrep: (body: { enabled: boolean; from: string; to: string }) =>
     apiFetch<AutoPrepSettings>("/admin/order-prep/settings", { method: "PUT", body: JSON.stringify(body) }),
@@ -1265,6 +1269,18 @@ export type OtaTarget = {
   currentId: string | null;
   history: { id: string; createdAt: string; message: string }[];
 };
+
+export type MetaAdsSettings = {
+  pixelId: string;
+  hasToken: boolean;
+  tokenEnd: string;
+  testCode: string;
+  sypPerUsd: number;
+  pixelFromFile: boolean;
+  tokenFromFile: boolean;
+  active: boolean;
+};
+export type MetaAdsSave = { pixelId?: string; token?: string; clearToken?: boolean; testCode?: string; sypPerUsd?: number };
 
 export type AppVersionSettings = {
   /** Emergency only: apps below `version` must update. */

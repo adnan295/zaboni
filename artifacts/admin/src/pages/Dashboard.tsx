@@ -8,6 +8,7 @@ import TodayPulse from "@/components/TodayPulse";
 import PrepAlerts from "@/components/PrepAlerts";
 import AppVersionCard from "@/components/AppVersionCard";
 import OtaUpdatesCard from "@/components/OtaUpdatesCard";
+import MetaAdsCard from "@/components/MetaAdsCard";
 import {
   Card,
   CardContent,
@@ -265,6 +266,7 @@ export default function Dashboard() {
       <PrepAlerts />
       <AppVersionCard />
       <OtaUpdatesCard />
+      <MetaAdsCard />
       <SlaAlertsWidget alerts={slaAlerts.filter((a) => !a.prepStartedAt)} isLoading={slaLoading} />
 
       {totalActive > 0 && (

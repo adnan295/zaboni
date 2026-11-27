@@ -15,17 +15,54 @@ export type MetaConfig = {
   sypPerUsd: number;
 };
 
-export function metaConfig(env: NodeJS.ProcessEnv = process.env): MetaConfig | null {
-  const pixelId = (env.META_PIXEL_ID ?? "").trim();
-  const token = (env.META_CAPI_TOKEN ?? "").trim();
-  if (!/^\d{5,20}$/.test(pixelId) || token.length < 20) return null;
+/** What the admin dashboard saves (system_settings "meta_capi"). */
+export type StoredMeta = { pixelId?: string; token?: string; testCode?: string; sypPerUsd?: number };
+
+export function parseStoredMeta(raw: unknown): StoredMeta {
+  let v: unknown = raw;
+  if (typeof v === "string") {
+    try { v = JSON.parse(v); } catch { return {}; }
+  }
+  if (!v || typeof v !== "object") return {};
+  const o = v as Record<string, unknown>;
+  const str = (x: unknown) => (typeof x === "string" ? x.trim() : "");
+  const rate = Number(o.sypPerUsd);
+  return {
+    pixelId: str(o.pixelId) || undefined,
+    token: str(o.token) || undefined,
+    testCode: str(o.testCode) || undefined,
+    sypPerUsd: Number.isFinite(rate) && rate > 0 ? rate : undefined,
+  };
+}
+
+export const validPixelId = (s: string) => /^\d{5,20}$/.test(s);
+export const validToken = (s: string) => /^[A-Za-z0-9_\-]{20,600}$/.test(s);
+
+/** Server settings (.env) win; the dashboard fills whatever .env leaves empty. Null = off. */
+export function metaConfig(env: NodeJS.ProcessEnv = process.env, stored: StoredMeta = {}): MetaConfig | null {
+  const pixelId = (env.META_PIXEL_ID ?? "").trim() || stored.pixelId || "";
+  const token = (env.META_CAPI_TOKEN ?? "").trim() || stored.token || "";
+  if (!validPixelId(pixelId) || token.length < 20) return null;
   const rate = Number(env.META_SYP_PER_USD);
   return {
     pixelId,
     token,
-    testCode: (env.META_TEST_EVENT_CODE ?? "").trim() || undefined,
-    sypPerUsd: Number.isFinite(rate) && rate > 0 ? rate : 120,
+    testCode: (env.META_TEST_EVENT_CODE ?? "").trim() || stored.testCode || undefined,
+    sypPerUsd: stored.sypPerUsd ?? (Number.isFinite(rate) && rate > 0 ? rate : 120),
   };
+}
+
+/** Checks the token can reach the dataset, without sending any event. Returns its name. */
+export async function checkMetaAccess(cfg: MetaConfig, fetchImpl: FetchLike = fetch as unknown as FetchLike): Promise<string> {
+  const url = `https://graph.facebook.com/v21.0/${cfg.pixelId}?fields=id,name&access_token=${encodeURIComponent(cfg.token)}`;
+  const res = await fetchImpl(url, { method: "GET", headers: {}, body: undefined as unknown as string });
+  const text = await res.text();
+  if (!res.ok) {
+    let msg = text.slice(0, 300);
+    try { msg = JSON.parse(text)?.error?.message ?? msg; } catch { /* keep raw */ }
+    throw new Error(msg);
+  }
+  try { return String(JSON.parse(text)?.name ?? cfg.pixelId); } catch { return cfg.pixelId; }
 }
 
 const sha256 = (s: string) => crypto.createHash("sha256").update(s).digest("hex");

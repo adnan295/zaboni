@@ -56,3 +56,24 @@ test("posts to the pixel, with the test code when set, and reports a refusal", a
     /meta_capi_400/,
   );
 });
+
+test("the dashboard fills what .env leaves empty; .env wins when both are set", () => {
+  const { parseStoredMeta } = m.exports;
+  const stored = parseStoredMeta(JSON.stringify({ pixelId: "1170322125473647", token: "t".repeat(40), sypPerUsd: 115 }));
+  assert.equal(metaConfig({ META_PIXEL_ID: "1170322125473647" }, {}), null);
+  const c = metaConfig({ META_PIXEL_ID: "1170322125473647", META_CAPI_TOKEN: "" }, { token: "t".repeat(40) });
+  assert.equal(c.token, "t".repeat(40));
+  assert.equal(metaConfig({}, stored).sypPerUsd, 115);
+  assert.equal(metaConfig({ META_CAPI_TOKEN: "e".repeat(40) }, stored).token, "e".repeat(40));
+  assert.deepEqual(parseStoredMeta("not json"), {});
+  assert.deepEqual(parseStoredMeta(null), {});
+});
+
+test("checking access reads the dataset name and passes on Facebook's reason", async () => {
+  const { checkMetaAccess } = m.exports;
+  assert.equal(await checkMetaAccess(cfg, async () => ({ ok: true, status: 200, text: async () => '{"id":"1","name":"Zaboni"}' })), "Zaboni");
+  await assert.rejects(
+    checkMetaAccess(cfg, async () => ({ ok: false, status: 400, text: async () => '{"error":{"message":"Invalid OAuth access token"}}' })),
+    /Invalid OAuth access token/,
+  );
+});

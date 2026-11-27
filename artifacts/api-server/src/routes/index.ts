@@ -26,6 +26,7 @@ import orderChatRouter from "./orderChat";
 import tilesRouter from "./tiles";
 import otaRouter from "./ota";
 import orderPrepAdminRouter from "./orderPrepAdmin";
+import metaAdminRouter from "./metaAdmin";
 import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
@@ -38,6 +39,7 @@ router.use(configRouter);
 router.use(restaurantsRouter);
 router.use(adminRouter);
 router.use(orderPrepAdminRouter);
+router.use(metaAdminRouter);
 router.use(notificationsRouter);
 router.use(storageRouter);
 router.use(restaurantPortalRouter);
