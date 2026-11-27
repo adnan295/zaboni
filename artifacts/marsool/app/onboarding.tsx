@@ -41,10 +41,12 @@ export default function OnboardingScreen() {
   const topPadding = Platform.OS === "web" ? 60 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 40 : insets.bottom;
 
-  const slides = t("onboarding.slides", { returnObjects: true }) as Array<{
+  // One welcome screen only: the other two slides are gone (they showed up empty
+  // in Arabic and added nothing before the phone number).
+  const slides = (t("onboarding.slides", { returnObjects: true }) as Array<{
     title: string;
     body: string;
-  }>;
+  }>).slice(0, 1);
 
   const isLast = activeIndex === slides.length - 1;
 
@@ -114,7 +116,7 @@ export default function OnboardingScreen() {
       </View>
 
       <View style={[styles.footer, { paddingBottom: bottomPadding + 16 }]}>
-        <View style={styles.dotsRow}>
+        <View style={[styles.dotsRow, slides.length < 2 && { display: "none" }]}>
           {slides.map((_, i) => (
             <View
               key={i}
