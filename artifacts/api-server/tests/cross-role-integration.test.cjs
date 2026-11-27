@@ -64,6 +64,7 @@ async function setup() {
     './directory': { quoteFromPlace: async () => ({ fee: 0, km: 0, outOfArea: false }) },
     '../lib/kitchen': new Proxy({ KitchenError: class extends Error {}, isDay: () => false }, { get: (o, k) => k in o ? o[k] : async () => null }),
     '../lib/clientIp': { clientIp: () => '198.51.100.1', clientIpFrom: () => '198.51.100.1', trustProxy: () => false },
+    '../lib/metaTrack': { trackDeliveredOrder: () => {}, trackRegistration: () => {} },
     '../lib/achievements': { checkAndAwardAchievements: async () => {} },
     '../lib/orderTimings': { getOrderTimings: async () => ({}), getSpeedReport: async () => ({}) },
     '../orders/server': { notifyOrderUpdate: (id, order) => events.push(['update', id, order]), sendOrderPush: async () => {} },

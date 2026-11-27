@@ -5,6 +5,7 @@ import { APP_VERSION_HEADER, COURIER_UPDATE_MESSAGE, requireCurrentApp, versionF
 const ADMIN_ORDERED_NOTE = "✅ الإدارة طلبت هالطلب من المطعم · لا تتصل بالمطعم، روح استلم مباشرة\n";
 const isLegacyApp = (req: Request) => versionFromHeader(req.headers[APP_VERSION_HEADER]) == null;
 import { stampDeliveredOrder } from "./stamps";
+import { trackDeliveredOrder } from "../lib/metaTrack";
 import { publicLineNumber } from "../lib/callBridge";
 import { completeOrderInTx, notifyReferralReward, type ReferralReward } from "../lib/orderCompletion";
 import { updateVerifiedProfile, ProfileUpdateError } from "../lib/profileUpdate";
@@ -670,7 +671,10 @@ router.patch("/courier/orders/:orderId/status", requireCourier, async (req, res)
   }
 
   notifyReferralReward(referralReward);
-  if (body.data.status === "delivered") stampDeliveredOrder(orderId);
+  if (body.data.status === "delivered") {
+    stampDeliveredOrder(orderId);
+    trackDeliveredOrder(orderId);
+  }
   notifyOrderUpdate(currentOrder.userId, updated[0]);
 
   const pushMsg = STATUS_PUSH_MESSAGES[body.data.status] ?? "تم تحديث طلبك";

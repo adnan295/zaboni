@@ -50,6 +50,7 @@ test('admin password guessing is throttled per IP and never blocks a verified to
     '@workspace/db': { db: { select: () => ({ from: () => ({ where: () => ({ limit: async () => [{ value: hash }] }) }) }) }, systemSettingsTable: { key: 'key', value: 'value' } },
     'drizzle-orm': { eq: () => ({}) },
     '../lib/clientIp': ipLib,
+    '../lib/metaTrack': { trackDeliveredOrder: () => {}, trackRegistration: () => {} },
   });
   admin.resetAdminThrottle();
   assert.equal(await admin.verifyAdminToken('correct-horse', '85.0.0.1'), true);

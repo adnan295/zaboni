@@ -102,6 +102,7 @@ test('download page offers the APK when mirrored and degrades when not', async (
     '../lib/brandIcon': { ZABONI_ICON_DATA_URI: 'data:x' },
     '../lib/logger': { logger: { info: noop } },
     '../lib/clientIp': { clientIp: () => '198.51.100.1', clientIpFrom: () => '198.51.100.1', trustProxy: () => false },
+    '../lib/metaTrack': { trackDeliveredOrder: () => {}, trackRegistration: () => {} },
     '@workspace/db': { db: {}, systemSettingsTable: {} },
     'drizzle-orm': { eq: () => ({}) },
     fetch: undefined,

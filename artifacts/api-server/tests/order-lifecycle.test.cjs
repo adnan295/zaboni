@@ -42,6 +42,7 @@ async function setup(){
   '../lib/kitchen':new Proxy({KitchenError:class extends Error{},isDay:()=>false},{get:(o,k)=>k in o?o[k]:async()=>null}),
   '../lib/stamps':{claimCoupon:async()=>({discount:0,note:''}),releaseCoupon:async()=>{},StampError:class extends Error{}},
   './stamps':{stampDeliveredOrder:id=>events.push({name:'stamp',args:[id]})},
+  '../lib/metaTrack': { trackDeliveredOrder: () => {}, trackRegistration: () => {} },
   '../lib/courierDirections':{sendCourierDirections:async(id,stage)=>{events.push({name:'directions',args:[id,stage]});return true;}},
   '../lib/objectStorage':{ObjectStorageService:class{}},'../lib/webPush':{},'../lib/promoBannerComposer':{},'../lib/whatsapp':{},'../lib/sms':{},
  };

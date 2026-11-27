@@ -10,6 +10,7 @@ import { sendSmsViaGateway } from "../lib/sms";
 import { whatsappManager } from "../lib/whatsapp";
 import { sendPushToUsers } from "../lib/push";
 import { clientIp } from "../lib/clientIp";
+import { trackRegistration } from "../lib/metaTrack";
 
 const router: IRouter = Router();
 
@@ -259,6 +260,7 @@ router.post("/auth/verify-otp", async (req, res) => {
   );
 
   const isNewUser = existingUser.length === 0;
+  if (isNewUser) trackRegistration(userId, phone);
 
   res.json({
     token,

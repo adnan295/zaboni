@@ -72,6 +72,12 @@ services:
       # Over-the-air app updates (routes/ota.ts): the same secret as the GitHub
       # repository secret OTA_PUBLISH_TOKEN. Empty = publishing is off.
       OTA_PUBLISH_TOKEN: ${OTA_PUBLISH_TOKEN:-}
+      # Meta (Facebook ads) Conversions API: sign-ups and delivered orders go to
+      # this dataset/pixel. Both empty = off. Set them in .env on the server.
+      META_PIXEL_ID: ${META_PIXEL_ID:-}
+      META_CAPI_TOKEN: ${META_CAPI_TOKEN:-}
+      META_TEST_EVENT_CODE: ${META_TEST_EVENT_CODE:-}
+      META_SYP_PER_USD: ${META_SYP_PER_USD:-120}
     volumes:
       - storage-public:/data/storage/public
       - storage-private:/data/storage/private
