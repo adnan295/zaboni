@@ -58,7 +58,7 @@ router.put("/admin/meta-ads", requireAdmin, async (req, res) => {
   res.json(await view());
 });
 
-/** Can the saved token reach the dataset? Sends no event. */
+/** Can the saved token send to the dataset? Sends one test-coded event Meta never counts. */
 router.post("/admin/meta-ads/check", requireAdmin, async (_req, res) => {
   const cfg = metaConfig(process.env, await getStoredMeta());
   if (!cfg) {
@@ -66,9 +66,10 @@ router.post("/admin/meta-ads/check", requireAdmin, async (_req, res) => {
     return;
   }
   try {
-    res.json({ ok: true, name: await checkMetaAccess(cfg) });
+    const received = await checkMetaAccess(cfg);
+    res.json(received > 0 ? { ok: true, name: "Zaboni" } : { ok: false, error: "Facebook did not accept the test event" });
   } catch (err) {
-    res.json({ ok: false, error: String((err as Error)?.message ?? err).slice(0, 300) });
+    res.json({ ok: false, error: String((err as Error)?.message ?? err).replace(/^meta_capi_\d+: /, "").slice(0, 300) });
   }
 });
 

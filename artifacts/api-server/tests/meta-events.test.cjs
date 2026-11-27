@@ -69,9 +69,12 @@ test("the dashboard fills what .env leaves empty; .env wins when both are set", 
   assert.deepEqual(parseStoredMeta(null), {});
 });
 
-test("checking access reads the dataset name and passes on Facebook's reason", async () => {
+test("the check sends one test-coded event and passes on Facebook's reason", async () => {
   const { checkMetaAccess } = m.exports;
-  assert.equal(await checkMetaAccess(cfg, async () => ({ ok: true, status: 200, text: async () => '{"id":"1","name":"Zaboni"}' })), "Zaboni");
+  let body;
+  const n = await checkMetaAccess(cfg, async (_u, init) => { body = JSON.parse(init.body); return { ok: true, status: 200, text: async () => '{"events_received":1}' }; });
+  assert.equal(n, 1);
+  assert.match(body.test_event_code, /^TEST/);
   await assert.rejects(
     checkMetaAccess(cfg, async () => ({ ok: false, status: 400, text: async () => '{"error":{"message":"Invalid OAuth access token"}}' })),
     /Invalid OAuth access token/,

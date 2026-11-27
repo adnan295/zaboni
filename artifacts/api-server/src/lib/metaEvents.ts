@@ -52,17 +52,20 @@ export function metaConfig(env: NodeJS.ProcessEnv = process.env, stored: StoredM
   };
 }
 
-/** Checks the token can reach the dataset, without sending any event. Returns its name. */
-export async function checkMetaAccess(cfg: MetaConfig, fetchImpl: FetchLike = fetch as unknown as FetchLike): Promise<string> {
-  const url = `https://graph.facebook.com/v21.0/${cfg.pixelId}?fields=id,name&access_token=${encodeURIComponent(cfg.token)}`;
-  const res = await fetchImpl(url, { method: "GET", headers: {}, body: undefined as unknown as string });
-  const text = await res.text();
-  if (!res.ok) {
-    let msg = text.slice(0, 300);
-    try { msg = JSON.parse(text)?.error?.message ?? msg; } catch { /* keep raw */ }
-    throw new Error(msg);
-  }
-  try { return String(JSON.parse(text)?.name ?? cfg.pixelId); } catch { return cfg.pixelId; }
+/**
+ * Checks the token can send to the dataset. A token made in Events Manager may send
+ * events without being allowed to read the dataset, so this sends one event marked with
+ * a test code: Meta shows it under «Test events» only and never counts it.
+ */
+export const CHECK_TEST_CODE = "TEST20261";
+
+export async function checkMetaAccess(cfg: MetaConfig, fetchImpl: FetchLike = fetch as unknown as FetchLike): Promise<number> {
+  const r = await sendMetaEvents(
+    [{ name: "CompleteRegistration", eventId: `check_${Date.now()}`, time: new Date(), userId: "zaboni_dashboard_check" }],
+    { ...cfg, testCode: cfg.testCode || CHECK_TEST_CODE },
+    fetchImpl,
+  );
+  return Number(r?.events_received ?? 0);
 }
 
 const sha256 = (s: string) => crypto.createHash("sha256").update(s).digest("hex");
@@ -125,11 +128,17 @@ export async function sendMetaEvents(
   events: MetaEventInput[],
   cfg: MetaConfig,
   fetchImpl: FetchLike = fetch as unknown as FetchLike,
-): Promise<void> {
-  if (!events.length) return;
+): Promise<{ events_received?: number } | null> {
+  if (!events.length) return null;
   const body: Record<string, unknown> = { data: events.map((e) => buildMetaEvent(e, cfg)) };
   if (cfg.testCode) body.test_event_code = cfg.testCode;
   const url = `https://graph.facebook.com/v21.0/${cfg.pixelId}/events?access_token=${encodeURIComponent(cfg.token)}`;
   const res = await fetchImpl(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  if (!res.ok) throw new Error(`meta_capi_${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const text = await res.text();
+  if (!res.ok) {
+    let msg = text.slice(0, 300);
+    try { msg = JSON.parse(text)?.error?.message ?? msg; } catch { /* keep raw */ }
+    throw new Error(`meta_capi_${res.status}: ${msg}`);
+  }
+  try { return JSON.parse(text); } catch { return null; }
 }
