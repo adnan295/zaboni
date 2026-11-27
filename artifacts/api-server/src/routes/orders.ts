@@ -11,6 +11,7 @@ import { and, avg, count, desc, eq, gt, inArray, isNull, lt, lte, or, sql } from
 import { z } from "zod";
 import { notifyOrderUpdate, notifyRestaurantNewOrder } from "../orders/server";
 import { haversineKm, getFeeForDistance, DEFAULT_DELIVERY_FEE_SYP, DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON } from "../lib/deliveryZones";
+import { roadKm } from "../lib/roadDistance";
 import { checkCoverage, getActiveCoverageAreas, areaIdsContaining, pointInAllowedArea } from "../lib/coverage";
 import { getLoyaltySettings, calculateRedeemDiscount, redeemPointsInTx, refundRedeemedPointsInTx, CUSTOMER_POINTS_ENABLED } from "../lib/loyalty";
 import { claimCoupon, releaseCoupon, StampError } from "../lib/stamps";
@@ -311,6 +312,7 @@ router.get("/delivery-fee-preview", async (req, res) => {
 
   let originLat = DAMASCUS_CENTER_LAT;
   let originLon = DAMASCUS_CENTER_LON;
+  let fromRestaurant = false;
 
   if (restaurantId) {
     const restaurant = await db
@@ -322,11 +324,14 @@ router.get("/delivery-fee-preview", async (req, res) => {
     if (r?.lat != null && r?.lon != null) {
       originLat = r.lat;
       originLon = r.lon;
+      fromRestaurant = true;
     }
   }
 
   const distanceKm = haversineKm(originLat, originLon, latRaw, lonRaw);
-  const feeResult = await getFeeForDistance(distanceKm);
+  // Priced on the real ride from a restaurant; the old estimate without one.
+  const road = fromRestaurant ? await roadKm({ lat: originLat, lon: originLon }, { lat: latRaw, lon: lonRaw }) : null;
+  const feeResult = await getFeeForDistance(distanceKm, road);
   const { fee, zone } = feeResult;
 
   const coverage = await checkCoverage(latRaw, lonRaw);
@@ -452,6 +457,7 @@ router.post("/orders/validate-promo", async (req, res) => {
   if (!feeForPromo && body.data.lat != null && body.data.lon != null) {
     let originLat = DAMASCUS_CENTER_LAT;
     let originLon = DAMASCUS_CENTER_LON;
+    let promoFromRestaurant = false;
     if (body.data.restaurantId) {
       const [r] = await db
         .select({ lat: restaurantsTable.lat, lon: restaurantsTable.lon })
@@ -461,10 +467,12 @@ router.post("/orders/validate-promo", async (req, res) => {
       if (r?.lat != null && r?.lon != null) {
         originLat = r.lat;
         originLon = r.lon;
+        promoFromRestaurant = true;
       }
     }
     const distKm = haversineKm(originLat, originLon, body.data.lat, body.data.lon);
-    const { fee } = await getFeeForDistance(distKm);
+    const promoRoad = promoFromRestaurant ? await roadKm({ lat: originLat, lon: originLon }, { lat: body.data.lat, lon: body.data.lon }) : null;
+    const { fee } = await getFeeForDistance(distKm, promoRoad);
     feeForPromo = fee;
   }
   const result = await validatePromoForUser(body.data.code, userId, feeForPromo, body.data.itemsTotal, body.data.restaurantId);
@@ -798,7 +806,9 @@ router.post("/orders", requireCurrentApp(UPDATE_MESSAGE), async (req, res) => {
   }
 
   const distanceKm = haversineKm(originLat, originLon, destLat, destLon);
-  const feeResult = await getFeeForDistance(distanceKm);
+  // Same road measure as the preview (cached), so the customer pays what they saw.
+  const orderRoadKm = restaurantHasCoords ? await roadKm({ lat: originLat, lon: originLon }, { lat: destLat, lon: destLon }) : null;
+  const feeResult = await getFeeForDistance(distanceKm, orderRoadKm);
   // Learned from real deliveries (wait + this restaurant's pickup + ride); falls
   // back to the distance-only formula until there is enough history.
   const estimatedMinutes = estimateOrderMinutes(distanceKm, effectiveRestaurantId, await getLearnedTimes());

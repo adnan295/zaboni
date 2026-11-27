@@ -76,6 +76,7 @@ function load(file, dbState = database(), overrides = {}, expose = '', globals =
     '../lib/customerSubscription': { isUserSubscribed: async () => false, getSubscriptionSettings: async () => ({}) },
     '../lib/coverage': { getActiveCoverageAreas: async () => [], checkCoverage: async () => ({ hasCoverage: false }) },
     '../lib/deliveryZones': { haversineKm: () => 1, getFeeForDistance: async () => ({ fee: 100, outOfRange: false }) },
+    '../lib/roadDistance': { roadKm: async () => null, roadKmManyTo: async (o) => o.map(() => null) },
     '../lib/loyalty': { getLoyaltySettings: async () => ({ pointValue: 1 }), calculateRedeemDiscount: (p, v) => p * v,
       redeemPointsInTx: async () => { throw new Error('Insufficient loyalty points'); } },
     '../lib/courierPoints': {},

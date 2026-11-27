@@ -5,6 +5,7 @@ import { db, restaurantsTable, menuItemsTable, restaurantHoursTable, promoBanner
 import { and, asc, desc, eq, gt, inArray, isNull, lt, lte, notInArray, or, sql } from "drizzle-orm";
 import { getActiveCoverageAreas, areaIdsContaining, pointInAllowedArea } from "../lib/coverage";
 import { makeFeeCalculator } from "../lib/deliveryZones";
+import { roadKmManyTo } from "../lib/roadDistance";
 import { getLearnedTimes, restaurantDeliveryRange } from "../lib/deliveryEstimates";
 
 const router: IRouter = Router();
@@ -171,6 +172,14 @@ router.get("/restaurants", async (req, res) => {
   // "list said 80, checkout said 150" surprise. Falls back to the stored fee when
   // we can't measure distance (no customer location / no restaurant coords).
   const feeForKm = hasLocation ? await makeFeeCalculator() : null;
+  // Road km from each restaurant to the customer: one OSRM call for the whole list,
+  // the same measure (and cache) the restaurant page and checkout use.
+  const roadById = new Map<string, number | null>();
+  if (hasLocation) {
+    const located = rows.filter((r) => r.lat != null && r.lon != null);
+    const kms = await roadKmManyTo(located.map((r) => ({ lat: r.lat!, lon: r.lon! })), { lat: lat!, lon: lon! });
+    located.forEach((r, i) => roadById.set(r.id, kms[i] ?? null));
+  }
 
   const result = rows.map((r) => {
     const byDay = hoursMap.get(r.id);
@@ -180,7 +189,7 @@ router.get("/restaurants", async (req, res) => {
         : null;
     return {
       ...r,
-      deliveryFee: distanceKm != null && feeForKm ? feeForKm(distanceKm) : r.deliveryFee,
+      deliveryFee: distanceKm != null && feeForKm ? feeForKm(distanceKm, roadById.get(r.id)) : r.deliveryFee,
       isOpen: computeIsOpenFromHours(byDay?.get(dayOfWeek), byDay?.get(prevDayOfWeek), nowMinutes, r.isOpen),
       distanceKm,
       categorySortOrder: hasCategoryId ? (categorySortMap.get(r.id) ?? null) : null,
@@ -450,6 +459,12 @@ router.get("/home-sections/:section", async (req, res) => {
 
   // Same distance-based pricing as the main list, so carousel cards match checkout.
   const feeForKm = hasLocation ? await makeFeeCalculator() : null;
+  const roadById = new Map<string, number | null>();
+  if (hasLocation) {
+    const located = restaurants.filter((r) => r.lat != null && r.lon != null);
+    const kms = await roadKmManyTo(located.map((r) => ({ lat: r.lat!, lon: r.lon! })), { lat: lat!, lon: lon! });
+    located.forEach((r, i) => roadById.set(r.id, kms[i] ?? null));
+  }
 
   const map = new Map(restaurants.map((r) => [r.id, r]));
   const ordered = restaurantIds
@@ -461,7 +476,7 @@ router.get("/home-sections/:section", async (req, res) => {
         hasLocation && r.lat != null && r.lon != null ? haversineKm(lat!, lon!, r.lat, r.lon) : null;
       return {
         ...r,
-        deliveryFee: distanceKm != null && feeForKm ? feeForKm(distanceKm) : r.deliveryFee,
+        deliveryFee: distanceKm != null && feeForKm ? feeForKm(distanceKm, roadById.get(r.id)) : r.deliveryFee,
         distanceKm,
         hasFlashDeal: flashRestaurantIds.has(id),
         flashDealEndsAt: endsAt ? endsAt.toISOString() : null,

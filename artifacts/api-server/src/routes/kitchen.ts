@@ -8,6 +8,7 @@ import {
   cancelSubscription, listSubscriptions, isDay, SUBSCRIPTION_GOALS, type DeliveryQuote,
 } from "../lib/kitchen";
 import { haversineKm, getFeeForDistance, DAMASCUS_CENTER_LAT, DAMASCUS_CENTER_LON } from "../lib/deliveryZones";
+import { roadKm } from "../lib/roadDistance";
 import { checkCoverage } from "../lib/coverage";
 import { isUserSubscribed, getSubscriptionSettings } from "../lib/customerSubscription";
 import { notifyRestaurantNewOrder } from "../orders/server";
@@ -30,7 +31,8 @@ function makeQuote(userId: string): DeliveryQuote {
   return async (kitchen, dest) => {
     const coverage = await checkCoverage(dest.lat, dest.lon);
     const km = haversineKm(kitchen.lat ?? DAMASCUS_CENTER_LAT, kitchen.lon ?? DAMASCUS_CENTER_LON, dest.lat, dest.lon);
-    const fee = await getFeeForDistance(km);
+    const road = kitchen.lat != null && kitchen.lon != null ? await roadKm({ lat: kitchen.lat, lon: kitchen.lon }, dest) : null;
+    const fee = await getFeeForDistance(km, road);
     if (coverage.hasCoverage ? !coverage.inside : fee.outOfRange) {
       throw new KitchenError("outside_delivery_area", "عذراً، موقعك خارج نطاق التوصيل المتاح حالياً.");
     }

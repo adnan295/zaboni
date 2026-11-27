@@ -8,6 +8,7 @@ import {
   type DirectoryPlace,
 } from "../lib/directory";
 import { haversineKm, getFeeForDistance } from "../lib/deliveryZones";
+import { roadKm } from "../lib/roadDistance";
 import { checkCoverage } from "../lib/coverage";
 import { isUserSubscribed, getSubscriptionSettings } from "../lib/customerSubscription";
 import { requireAdmin } from "../middleware/adminAuth";
@@ -31,7 +32,8 @@ export interface DirectoryQuote {
 /** Same pricing and coverage as a restaurant order, measured from the place itself. */
 export async function quoteFromPlace(place: { lat: number; lon: number }, dest: { lat: number; lon: number }, userId?: string | null): Promise<DirectoryQuote> {
   const km = haversineKm(place.lat, place.lon, dest.lat, dest.lon);
-  const [coverage, zone] = await Promise.all([checkCoverage(dest.lat, dest.lon), getFeeForDistance(km)]);
+  const road = await roadKm(place, dest);
+  const [coverage, zone] = await Promise.all([checkCoverage(dest.lat, dest.lon), getFeeForDistance(km, road)]);
   const outOfArea = coverage.hasCoverage ? !coverage.inside : zone.outOfRange;
   let fee = zone.fee;
   if (userId && (await isUserSubscribed(userId))) fee = (await getSubscriptionSettings()).subscriberDeliveryFee;
