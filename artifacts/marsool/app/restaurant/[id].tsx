@@ -10,6 +10,7 @@ import {
   Animated,
   ActivityIndicator,
   Alert,
+  useWindowDimensions,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
   type LayoutChangeEvent,
@@ -68,6 +69,11 @@ export default function RestaurantScreen() {
   const stampQuery = useRestaurantStamps(typeof id === "string" ? id : undefined);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width: screenW } = useWindowDimensions();
+  // The hero takes the picture's own shape: a wide banner fills the whole width, a square
+  // logo stops at HERO_MAX and keeps its sides on the blurred copy. Never cropped.
+  const [heroRatio, setHeroRatio] = useState<number | null>(null);
+  const heroH = heroRatio ? Math.min(HERO_MAX, Math.max(HERO_MIN, screenW / heroRatio)) : 200;
   const { t } = useTranslation();
   const backIcon = useBackIcon();
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -368,13 +374,20 @@ export default function RestaurantScreen() {
         stickyHeaderIndices={allTabs.length > 0 ? [flashDeal ? 4 : 3] : undefined}
       >
         {/* [0] Hero */}
-        <View style={styles.heroContainer}>
+        <View style={[styles.heroContainer, { height: heroH }]}>
           {/* Most restaurants' picture is their logo: show it whole (never cropped) over a blurred,
               faded copy of itself, so photos and logos both look right. */}
           <Image source={{ uri: buildImageUrl(restaurant.image) }} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={28} />
           <View style={styles.heroFade} />
           <View style={styles.heroFrontWrap}>
-            <Image source={{ uri: buildImageUrl(restaurant.image) }} style={{ width: "100%", height: "100%" }} contentFit="contain" transition={200} />
+            <Image source={{ uri: buildImageUrl(restaurant.image) }} style={{ width: "100%", height: "100%" }}
+              contentFit="contain"
+              transition={200}
+              onLoad={(e) => {
+                const { width: w, height: h } = e.source;
+                if (w > 0 && h > 0) setHeroRatio(w / h);
+              }}
+            />
           </View>
           <View style={[styles.heroOverlay, { paddingTop: 12 }]}>
             <TouchableOpacity
@@ -798,12 +811,15 @@ export default function RestaurantScreen() {
   );
 }
 
+const HERO_MIN = 120;
+const HERO_MAX = 260;
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
   heroContainer: { position: "relative", height: 200, overflow: "hidden", backgroundColor: "#FFFFFF" },
   heroImage: { width: "100%", height: 200 },
   heroFade: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(255,255,255,0.55)" },
-  heroFrontWrap: { ...StyleSheet.absoluteFillObject, paddingHorizontal: 72, paddingVertical: 18 },
+  heroFrontWrap: { ...StyleSheet.absoluteFillObject },
   heroOverlay: {
     ...StyleSheet.absoluteFillObject,
     flexDirection: "row",
