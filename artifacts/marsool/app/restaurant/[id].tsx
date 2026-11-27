@@ -16,6 +16,7 @@ import {
   type LayoutChangeEvent,
 } from "react-native";
 import { Image } from "expo-image";
+import { useQuery } from "@tanstack/react-query";
 import { default as Text } from "@/components/AppText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -91,6 +92,23 @@ export default function RestaurantScreen() {
     );
     return dist < 1 ? `${Math.round(dist * 1000)} م` : `${dist.toFixed(1)} كم`;
   })();
+
+  // The fee for THIS customer's address, from the same preview the order screen uses
+  // (shared cache key), so the page and the checkout always show the same number.
+  // The stored restaurant fee is only a fallback the server keeps; never show it here.
+  const addrLat = defaultAddress?.latitude ?? null;
+  const addrLon = defaultAddress?.longitude ?? null;
+  const feeQuery = useQuery<{ fee: number }>({
+    queryKey: ["checkout-delivery-fee", id, addrLat, addrLon],
+    enabled: !!id && addrLat != null && addrLon != null,
+    queryFn: async () => {
+      const params = new URLSearchParams({ lat: String(addrLat), lon: String(addrLon), restaurantId: String(id) });
+      return (await customFetch(`/api/delivery-fee-preview?${params.toString()}`)) as { fee: number };
+    },
+    staleTime: 60_000,
+    retry: 1,
+  });
+  const addressFee = typeof feeQuery.data?.fee === "number" && Number.isFinite(feeQuery.data.fee) ? feeQuery.data.fee : null;
 
   const { data: menuItemsData } = useGetRestaurantMenu(id ?? "");
   const menuItems = menuItemsData ?? [];
@@ -450,11 +468,11 @@ export default function RestaurantScreen() {
                   {minutesRangeText(restaurant.deliveryTime)} {t("restaurant.minutesLong", "دقيقة")}
                 </Text>
               </View>
-              {restaurant.deliveryFee > 0 && (
-                <View style={[styles.infoChip, { backgroundColor: colors.muted }]} accessibilityLabel={`${t("restaurant.deliveryShort", "توصيل")} ${restaurant.deliveryFee} ${t("restaurant.currency")}`}>
+              {addressFee != null && addressFee > 0 && (
+                <View style={[styles.infoChip, { backgroundColor: colors.muted }]} accessibilityLabel={`${t("restaurant.deliveryShort", "توصيل")} ${addressFee} ${t("restaurant.currency")}`}>
                   <MaterialIcons name="delivery-dining" size={16} color={colors.mutedForeground} />
                   <Text style={[styles.infoChipText, { color: colors.foreground }]}>
-                    {restaurant.deliveryFee} {t("restaurant.currency")}
+                    {addressFee} {t("restaurant.currency")}
                   </Text>
                 </View>
               )}
